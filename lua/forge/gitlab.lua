@@ -1,6 +1,6 @@
 local forge = require('forge')
 
----@type forge.Forge
+---@class forge.GitLab: forge.Forge
 local M = {
   name = 'gitlab',
   cli = 'glab',

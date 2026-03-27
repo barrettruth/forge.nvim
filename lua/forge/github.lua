@@ -1,6 +1,6 @@
 local forge = require('forge')
 
----@type forge.Forge
+---@class forge.GitHub: forge.Forge
 local M = {
   name = 'github',
   cli = 'gh',

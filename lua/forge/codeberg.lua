@@ -1,6 +1,6 @@
 local forge = require('forge')
 
----@type forge.Forge
+---@class forge.Codeberg: forge.Forge
 local M = {
   name = 'codeberg',
   cli = 'tea',
@@ -135,7 +135,7 @@ function M:pr_base_cmd(num)
   return { 'tea', 'pr', num, '--fields', 'base', '--output', 'simple' }
 end
 
----@param branch string
+---@param _branch string
 ---@return string[]
 function M:pr_for_branch_cmd(_branch)
   return {

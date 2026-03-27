@@ -2,10 +2,10 @@ local M = {}
 
 local hl_defaults = {
   ForgeComposeComment = 'Comment',
-  ForgeComposeBranch = 'Normal',
+  ForgeComposeBranch = 'Special',
   ForgeComposeForge = 'Type',
   ForgeComposeDraft = 'DiagnosticWarn',
-  ForgeComposeFile = 'Normal',
+  ForgeComposeFile = 'Directory',
   ForgeComposeAdded = 'Added',
   ForgeComposeRemoved = 'Removed',
 }
@@ -14,33 +14,7 @@ for group, link in pairs(hl_defaults) do
   vim.api.nvim_set_hl(0, group, { default = true, link = link })
 end
 
----@type table<integer, table<integer, {col: integer, end_col: integer, hl: string}[]>>
-local compose_marks = {}
-local compose_ns = vim.api.nvim_create_namespace('forge_pr_compose')
-
-vim.api.nvim_set_decoration_provider(compose_ns, {
-  on_win = function(_, _, bufnr)
-    return compose_marks[bufnr] ~= nil
-  end,
-  on_line = function(_, _, bufnr, row)
-    local by_line = compose_marks[bufnr]
-    if not by_line then
-      return
-    end
-    local row_marks = by_line[row]
-    if not row_marks then
-      return
-    end
-    for _, m in ipairs(row_marks) do
-      vim.api.nvim_buf_set_extmark(bufnr, compose_ns, row, m.col, {
-        end_col = m.end_col,
-        hl_group = m.hl,
-        ephemeral = true,
-        priority = 4097,
-      })
-    end
-  end,
-})
+local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 
 ---@param msg string
 ---@param level integer?
@@ -177,7 +151,6 @@ function M.detect()
     return nil
   end
   if forge_cache[root] then
-    M.log('forge cache hit (' .. forge_cache[root].name .. ')')
     return forge_cache[root]
   end
   local remote = vim.trim(vim.fn.system('git remote get-url origin'))
@@ -190,7 +163,6 @@ function M.detect()
   end
   local f = require('forge.' .. name)
   forge_cache[root] = f
-  M.log('detected ' .. name .. ' via origin remote')
   return f
 end
 
@@ -199,15 +171,12 @@ end
 function M.repo_info(f)
   local root = git_root()
   if root and repo_info_cache[root] then
-    M.log('repo_info cache hit')
     return repo_info_cache[root]
   end
-  M.log('fetching repo info...')
   local info = f:repo_info()
   if root then
     repo_info_cache[root] = info
   end
-  M.log('repo_info fetched (permission: ' .. info.permission .. ')')
   return info
 end
 
@@ -222,9 +191,6 @@ end
 ---@param key string
 ---@return table[]?
 function M.get_list(key)
-  if list_cache[key] then
-    M.log('list cache hit (' .. key .. ')')
-  end
   return list_cache[key]
 end
 
@@ -232,17 +198,14 @@ end
 ---@param data table[]
 function M.set_list(key, data)
   list_cache[key] = data
-  M.log('list cache set (' .. key .. ', ' .. #data .. ' items)')
 end
 
 ---@param key string?
 function M.clear_list(key)
   if key then
     list_cache[key] = nil
-    M.log('list cache cleared (' .. key .. ')')
   else
     list_cache = {}
-    M.log('list cache cleared (all)')
   end
 end
 
@@ -251,7 +214,6 @@ function M.clear_cache()
   repo_info_cache = {}
   root_cache = {}
   list_cache = {}
-  M.log('all caches cleared')
 end
 
 ---@return string
@@ -844,29 +806,19 @@ local function open_compose_buffer(f, branch, base, draft)
     end
   end
 
-  local by_line = {}
   for _, m in ipairs(marks) do
-    local row = m.line - 1
-    if not by_line[row] then
-      by_line[row] = {}
-    end
-    table.insert(by_line[row], { col = m.col, end_col = m.end_col, hl = m.hl })
-  end
-  compose_marks[buf] = by_line
-
-  local comment_ns = vim.api.nvim_create_namespace('forge_pr_comment')
-  for i = comment_start, #lines do
-    vim.api.nvim_buf_set_extmark(buf, comment_ns, i - 1, 0, {
-      line_hl_group = 'ForgeComposeComment',
+    vim.api.nvim_buf_set_extmark(buf, compose_ns, m.line - 1, m.col, {
+      end_col = m.end_col,
+      hl_group = m.hl,
+      priority = 200,
     })
   end
-
-  vim.api.nvim_create_autocmd('BufWipeout', {
-    buffer = buf,
-    callback = function()
-      compose_marks[buf] = nil
-    end,
-  })
+  for i = comment_start, #lines do
+    vim.api.nvim_buf_set_extmark(buf, compose_ns, i - 1, 0, {
+      line_hl_group = 'ForgeComposeComment',
+      priority = 200,
+    })
+  end
 
   ---@return boolean, string[], string
   local function parse_comment()
