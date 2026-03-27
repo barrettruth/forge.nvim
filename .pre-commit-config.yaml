@@ -14,4 +14,27 @@ repos:
     hooks:
       - id: prettier
         name: prettier
-        files: \.(md|toml|yaml|yml|sh)$
+        files: \.(md|toml|yaml|yml)$
+
+  - repo: local
+    hooks:
+      - id: selene
+        name: selene (Lua linter)
+        entry: selene --display-style quiet
+        language: system
+        files: \.lua$
+        pass_filenames: true
+
+      - id: vimdoc
+        name: vimdoc-language-server
+        entry: vimdoc-language-server check doc/
+        language: system
+        files: ^doc/.*\.txt$
+        pass_filenames: false
+
+      - id: nixfmt
+        name: nixfmt
+        entry: nixfmt --check
+        language: system
+        files: \.nix$
+        pass_filenames: true
