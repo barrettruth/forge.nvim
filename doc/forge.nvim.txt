@@ -73,14 +73,14 @@ Configuration is done via `vim.g.forge`: >lua
     }
 <
 
-                                                        *forge-config-ci-lines*
+                                                       *forge-config-ci-lines*
 ci.lines ~
     Number of log lines to fetch for CI runs. Default: `10000`.
 
 ==============================================================================
-FORGE PICKER                                                   *forge-picker*
+FORGE PICKER                                                    *forge-picker*
 
-                                                                        *<c-g>*
+                                                                       *<c-g>*
 Press `<c-g>` in normal or visual mode to open the main forge picker. The
 picker adapts based on the detected forge and current buffer state.
 
@@ -98,8 +98,8 @@ Available entries: ~
 ==============================================================================
 PULL REQUESTS                                                       *forge-pr*
 
-The PR picker lists open PRs by default. Toggle state with `<ctrl-o>` to
-cycle through open/closed/all.
+The PR picker lists open PRs by default. Toggle state with `<ctrl-o>` to cycle
+through open/closed/all.
 
 PR picker keybinds: ~
   `<enter>`     Checkout PR branch
@@ -187,15 +187,14 @@ Metadata fields (editable in the comment block): ~
   `Draft:`       Set to `yes` or `true` to create as draft
   `Reviewers:`   Comma-separated list of reviewer usernames
 
-Template discovery: ~
-forge.nvim searches for PR templates in the repository:
+Template discovery: ~ forge.nvim searches for PR templates in the repository:
 - `.github/pull_request_template.md`
 - `.github/PULL_REQUEST_TEMPLATE/` (single file auto-selected, multiple
   prompts for choice)
 - GitLab/Codeberg equivalents
 
-Fugitive keymaps: ~
-From a fugitive buffer, the following keymaps are available:
+Fugitive keymaps: ~ From a fugitive buffer, the following keymaps are
+available:
   `cpr`   Create PR
   `cpd`   Create draft PR
   `cpf`   Create PR instantly (skip compose buffer)
@@ -214,7 +213,8 @@ The compose buffer uses the following highlight groups:
   `ForgeComposeAdded`      Addition indicators (+)         Links to `Added`
   `ForgeComposeRemoved`    Deletion indicators (-)         Links to `Removed`
 
-All groups are defined with `default = true` so colorschemes can override them.
+All groups are defined with `default = true` so colorschemes can override
+them.
 
 ==============================================================================
 HEALTH CHECK                                                    *forge-health*
