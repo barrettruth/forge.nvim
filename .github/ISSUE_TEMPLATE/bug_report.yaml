@@ -58,3 +58,32 @@ body:
       label: 'Forge CLI version'
       description: 'Output of `gh --version`, `glab --version`, or `tea --version`'
       render: text
+
+  - type: textarea
+    attributes:
+      label: Minimal reproduction
+      description: |
+        Save the script below as `repro.lua`, edit if needed, and run:
+        ```
+        nvim -u repro.lua
+        ```
+        Confirm the bug reproduces with this config before submitting.
+      render: lua
+      value: |
+        vim.env.LAZY_STDPATH = '.repro'
+        load(vim.fn.system('curl -s https://raw.githubusercontent.com/folke/lazy.nvim/main/bootstrap.lua'))()
+        require('lazy.nvim').setup({
+          spec = {
+            { 'barrettruth/midnight.nvim', lazy = false, config = function() vim.cmd.colorscheme('midnight') end },
+            { 'tpope/vim-fugitive' },
+            { 'ibhagwan/fzf-lua' },
+            {
+              'barrettruth/forge.nvim',
+              keys = {
+                { '<c-g>', mode = { 'n', 'v' } },
+              },
+            },
+          },
+        })
+    validations:
+      required: true

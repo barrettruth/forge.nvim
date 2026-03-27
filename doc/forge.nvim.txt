@@ -1,0 +1,230 @@
+*forge.nvim.txt*               Forge-agnostic git workflow for Neovim
+
+Author:  Barrett Ruth <br.barrettruth@gmail.com> License: MIT
+
+==============================================================================
+INTRODUCTION                                                      *forge.nvim*
+
+forge.nvim provides PR, issue, and CI workflows across GitHub, GitLab, and
+Codeberg from inside Neovim. It detects the forge from your git remote and
+delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
+
+Features: ~
+- Forge detection from git remote URL
+- PR lifecycle (list, create, checkout, review, merge, approve, draft toggle)
+- Issue management (list, browse, close/reopen)
+- CI/CD run viewing, log streaming, status filtering
+- PR compose buffer with diff stat and template discovery
+- Code review via |diffs.nvim| with unified/split toggle
+- Commit and branch browsing with forge permalinks
+- Worktree creation from PRs
+- fzf-lua pickers with contextual keybinds
+
+==============================================================================
+CONTENTS                                                      *forge-contents*
+
+  1. Introduction ............................................... |forge.nvim|
+  2. Requirements ....................................... |forge-requirements|
+  3. Setup ..................................................... |forge-setup|
+  4. Configuration ............................................ |forge-config|
+  5. Forge Picker ............................................ |forge-picker|
+  6. Pull Requests ................................................. |forge-pr|
+  7. Issues .................................................. |forge-issues|
+  8. CI/CD ...................................................... |forge-ci|
+  9. Commits ............................................... |forge-commits|
+ 10. Branches .............................................. |forge-branches|
+ 11. Review ................................................ |forge-review|
+ 12. Compose Buffer ........................................ |forge-compose|
+ 13. Highlight Groups .................................... |forge-highlights|
+ 14. Health Check ............................................ |forge-health|
+
+==============================================================================
+REQUIREMENTS                                              *forge-requirements*
+
+- Neovim 0.10.0+
+- fzf-lua (required)
+- One or more forge CLIs:
+  - `gh` for GitHub
+  - `glab` for GitLab
+  - `tea` for Codeberg/Gitea/Forgejo
+- vim-fugitive (optional, for fugitive keymaps)
+- diffs.nvim (optional, for review mode)
+
+==============================================================================
+SETUP                                                            *forge-setup*
+
+Install with lazy.nvim: >lua
+    {
+      'barrettruth/forge.nvim',
+      keys = {
+        { '<c-g>', mode = { 'n', 'v' } },
+      },
+    }
+<
+
+Run `:checkhealth forge` to verify CLIs and dependencies.
+
+==============================================================================
+CONFIGURATION                                                   *forge-config*
+
+Configuration is done via `vim.g.forge`: >lua
+    vim.g.forge = {
+      ci = { lines = 10000 },
+    }
+<
+
+                                                        *forge-config-ci-lines*
+ci.lines ~
+    Number of log lines to fetch for CI runs. Default: `10000`.
+
+==============================================================================
+FORGE PICKER                                                   *forge-picker*
+
+                                                                        *<c-g>*
+Press `<c-g>` in normal or visual mode to open the main forge picker. The
+picker adapts based on the detected forge and current buffer state.
+
+Available entries: ~
+- Pull Requests / Merge Requests
+- Issues
+- CI / Pipelines
+- Browse Remote
+- Open File (current file on remote)
+- Yank Commit URL / Yank Branch URL
+- Commits
+- Branches
+- Worktrees
+
+==============================================================================
+PULL REQUESTS                                                       *forge-pr*
+
+The PR picker lists open PRs by default. Toggle state with `<ctrl-o>` to
+cycle through open/closed/all.
+
+PR picker keybinds: ~
+  `<enter>`     Checkout PR branch
+  `<ctrl-d>`    Review diff (requires diffs.nvim)
+  `<ctrl-w>`    Create worktree from PR
+  `<ctrl-t>`    View checks/CI status
+  `<ctrl-x>`    Open in browser
+  `<ctrl-e>`    Manage (merge, approve, close, draft toggle)
+  `<ctrl-a>`    Create new PR
+  `<ctrl-o>`    Toggle state filter (open/closed/all)
+  `<ctrl-r>`    Refresh list
+
+PR management actions: ~
+  Approve, Merge (per available method), Close/Reopen, Draft toggle.
+
+==============================================================================
+ISSUES                                                          *forge-issues*
+
+Issue picker keybinds: ~
+  `<enter>`     Open in browser
+  `<ctrl-s>`    Close/reopen issue
+  `<ctrl-o>`    Toggle state filter
+  `<ctrl-r>`    Refresh list
+
+==============================================================================
+CI/CD                                                               *forge-ci*
+
+CI picker shows workflow runs for the current branch.
+
+CI picker keybinds: ~
+  `<enter>`     View logs (tail for in-progress, full for completed)
+  `<ctrl-x>`    Open in browser
+  `<ctrl-r>`    Refresh
+
+Checks picker (from PR): ~
+  `<enter>`     View check logs
+  `<ctrl-x>`    Open in browser
+  `<ctrl-f>`    Filter to failed
+  `<ctrl-p>`    Filter to passed
+  `<ctrl-n>`    Filter to running
+  `<ctrl-a>`    Show all
+
+==============================================================================
+COMMITS                                                        *forge-commits*
+
+Commit picker keybinds: ~
+  `<enter>`     Checkout commit (detached HEAD)
+  `<ctrl-d>`    Review diff
+  `<ctrl-x>`    Open in browser (requires forge)
+  `<ctrl-y>`    Yank commit hash
+
+==============================================================================
+BRANCHES                                                      *forge-branches*
+
+Branch picker keybinds: ~
+  `<ctrl-d>`    Review diff against branch
+  `<ctrl-x>`    Open branch on remote (requires forge)
+
+==============================================================================
+REVIEW                                                          *forge-review*
+
+Review mode requires diffs.nvim. Enter review via `<ctrl-d>` on a PR or
+commit.
+
+Review keybinds: ~
+  `s`           Toggle unified/split view
+  `]q` / `[q`   Next/previous quickfix entry (file navigation)
+  `]l` / `[l`   Next/previous loclist entry
+
+Review mode ends automatically when the review buffer is wiped.
+
+==============================================================================
+COMPOSE BUFFER                                                 *forge-compose*
+
+Creating a PR opens a compose buffer (`forge://pr/new`) with:
+
+- Line 1: PR title (pre-filled from commit subject or branch name)
+- Line 3+: PR body (pre-filled from commit body or PR template)
+- HTML comment block: metadata (branch info, draft, reviewers, diff stat)
+
+The compose buffer is `filetype=markdown` with `buftype=acwrite`. Write the
+buffer (`:w`) to push and create the PR. An empty title or body aborts.
+
+Metadata fields (editable in the comment block): ~
+  `Draft:`       Set to `yes` or `true` to create as draft
+  `Reviewers:`   Comma-separated list of reviewer usernames
+
+Template discovery: ~
+forge.nvim searches for PR templates in the repository:
+- `.github/pull_request_template.md`
+- `.github/PULL_REQUEST_TEMPLATE/` (single file auto-selected, multiple
+  prompts for choice)
+- GitLab/Codeberg equivalents
+
+Fugitive keymaps: ~
+From a fugitive buffer, the following keymaps are available:
+  `cpr`   Create PR
+  `cpd`   Create draft PR
+  `cpf`   Create PR instantly (skip compose buffer)
+  `cpw`   Create PR via web browser
+
+==============================================================================
+HIGHLIGHT GROUPS                                            *forge-highlights*
+
+The compose buffer uses the following highlight groups:
+
+  `ForgeComposeComment`    Entire comment block            Links to `Comment`
+  `ForgeComposeBranch`     Branch names                    Links to `Special`
+  `ForgeComposeForge`      Forge name                      Links to `Type`
+  `ForgeComposeDraft`      Draft status value              Links to `DiagnosticWarn`
+  `ForgeComposeFile`       File paths in diff stat         Links to `Directory`
+  `ForgeComposeAdded`      Addition indicators (+)         Links to `Added`
+  `ForgeComposeRemoved`    Deletion indicators (-)         Links to `Removed`
+
+All groups are defined with `default = true` so colorschemes can override them.
+
+==============================================================================
+HEALTH CHECK                                                    *forge-health*
+
+Run `:checkhealth forge` to verify:
+- git is available
+- Forge CLIs (`gh`, `glab`, `tea`) and their status
+- fzf-lua is installed
+- diffs.nvim is available (for review mode)
+- vim-fugitive is available (for fugitive keymaps)
+
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:
