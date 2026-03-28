@@ -56,7 +56,8 @@ body:
   - type: textarea
     attributes:
       label: 'Forge CLI version'
-      description: 'Output of `gh --version`, `glab --version`, or `tea --version`'
+      description:
+        'Output of `gh --version`, `glab --version`, or `tea --version`'
       render: text
 
   - type: textarea
