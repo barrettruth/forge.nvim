@@ -442,7 +442,12 @@ local function dispatch(args)
 end
 
 local function complete(arglead, cmdline, _)
-  local parts = vim.split(vim.trim(cmdline), '%s+')
+  local words = {}
+  for word in cmdline:gmatch('%S+') do
+    table.insert(words, word)
+  end
+  local arg_idx = arglead == '' and #words or #words - 1
+
   local subcmds =
     { 'pr', 'issue', 'ci', 'commit', 'branch', 'worktree', 'browse', 'yank', 'review', 'cache' }
   local sub_actions = {
@@ -469,26 +474,26 @@ local function complete(arglead, cmdline, _)
   }
   local create_flags = { '--draft', '--fill', '--web' }
 
-  if #parts <= 2 then
-    return vim.tbl_filter(function(s)
-      return s:find(arglead, 1, true) == 1
-    end, subcmds)
-  end
-  local sub = parts[2]
-  if #parts == 3 or (#parts == 4 and sub == 'pr' and parts[3] == 'create') then
-    local candidates = sub_actions[sub] or {}
-    if sub == 'pr' and #parts >= 3 and parts[3] == 'create' then
-      candidates = create_flags
-    end
+  local function filter(candidates)
     return vim.tbl_filter(function(s)
       return s:find(arglead, 1, true) == 1
     end, candidates)
   end
-  if sub == 'pr' and parts[3] == 'create' then
-    return vim.tbl_filter(function(s)
-      return s:find(arglead, 1, true) == 1
-    end, create_flags)
+
+  if arg_idx == 1 then
+    return filter(subcmds)
   end
+
+  local sub = words[2]
+
+  if arg_idx == 2 then
+    return filter(sub_actions[sub] or {})
+  end
+
+  if sub == 'pr' and words[3] == 'create' then
+    return filter(create_flags)
+  end
+
   return {}
 end
 
