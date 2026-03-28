@@ -20,7 +20,7 @@ Requirements: ~
 - vim-fugitive (optional, for split review)
 - diffs.nvim (optional, for review mode)
 
-Run |:checkhealth| forge to verify CLIs and dependencies.
+Run `:checkhealth forge` to verify CLIs and dependencies.
 
 ==============================================================================
 CONFIGURATION                                                   *forge-config*
