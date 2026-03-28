@@ -800,10 +800,9 @@ function M.issue(state, f)
       end
     end
 
-    local issue_actions, issue_header = build_actions('issue', {
+    local issue_actions = build_actions('issue', {
       {
         name = 'browse',
-        label = 'browse',
         fn = function(selected)
           with_issue_num(selected, function(num)
             f:view_web(cli_kind, num)
@@ -812,7 +811,6 @@ function M.issue(state, f)
       },
       {
         name = 'close',
-        label = 'close/reopen',
         fn = function(selected)
           with_issue_num(selected, function(num)
             issue_toggle_state(f, num, state_map[num] ~= false)
@@ -821,7 +819,6 @@ function M.issue(state, f)
       },
       {
         name = 'filter',
-        label = 'filter',
         fn = function()
           M.issue(next_state, f)
         end,
@@ -841,7 +838,6 @@ function M.issue(state, f)
       fzf_opts = {
         ['--ansi'] = '',
         ['--no-multi'] = '',
-        ['--header'] = issue_header,
       },
       actions = issue_actions,
     })
