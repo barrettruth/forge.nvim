@@ -24,22 +24,21 @@
       devShells = forEachSystem (
         pkgs:
         let
-          vimdoc-ls = vimdoc-language-server.packages.${pkgs.system}.default;
           commonPackages = [
             pkgs.prettier
             pkgs.stylua
             pkgs.selene
             pkgs.lua-language-server
-            vimdoc-ls
+            vimdoc-language-server.packages.${pkgs.system}.default
+            (pkgs.luajit.withPackages (ps: [
+              ps.busted
+              ps.nlua
+            ]))
           ];
         in
         {
-          default = pkgs.mkShell {
-            packages = commonPackages;
-          };
-          ci = pkgs.mkShell {
-            packages = commonPackages;
-          };
+          default = pkgs.mkShell { packages = commonPackages; };
+          ci = pkgs.mkShell { packages = commonPackages ++ [ pkgs.neovim ]; };
         }
       );
     };
