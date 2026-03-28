@@ -28,17 +28,6 @@ local function to_fzf_key(key)
   end)
 end
 
-local function make_header(bindings)
-  local utils = require('fzf-lua.utils')
-  local parts = {}
-  for _, b in ipairs(bindings) do
-    local key = utils.ansi_from_hl('FzfLuaHeaderBind', b[1])
-    local desc = utils.ansi_from_hl('FzfLuaHeaderText', b[2])
-    table.insert(parts, key .. ' to ' .. desc)
-  end
-  return ':: ' .. table.concat(parts, '|')
-end
-
 local function build_actions(picker_name, action_defs)
   local cfg = require('forge').config()
   local keys = cfg.keys
@@ -47,18 +36,13 @@ local function build_actions(picker_name, action_defs)
   end
   local bindings = keys[picker_name] or {}
   local actions = {}
-  local header_entries = {}
   for _, def in ipairs(action_defs) do
     local key = bindings[def.name]
     if key then
-      local fzf_key = to_fzf_key(key)
-      actions[fzf_key] = def.fn
-      if def.label then
-        table.insert(header_entries, { key, def.label })
-      end
+      actions[to_fzf_key(key)] = def.fn
     end
   end
-  return actions, make_header(header_entries)
+  return actions
 end
 
 ---@param kind string
@@ -319,10 +303,9 @@ function M.checks(f, num, filter, cached_checks)
       pending = 'running',
     }
 
-    local check_actions, check_header = build_actions('ci', {
+    local check_actions = build_actions('ci', {
       {
         name = 'log',
-        label = 'log',
         fn = function(selected)
           local c = get_check(selected)
           if not c then
@@ -354,7 +337,6 @@ function M.checks(f, num, filter, cached_checks)
       },
       {
         name = 'browse',
-        label = 'browse',
         fn = function(selected)
           local c = get_check(selected)
           if c and c.link then
@@ -364,28 +346,24 @@ function M.checks(f, num, filter, cached_checks)
       },
       {
         name = 'failed',
-        label = 'failed',
         fn = function()
           M.checks(f, num, 'fail', checks)
         end,
       },
       {
         name = 'passed',
-        label = 'passed',
         fn = function()
           M.checks(f, num, 'pass', checks)
         end,
       },
       {
         name = 'running',
-        label = 'running',
         fn = function()
           M.checks(f, num, 'pending', checks)
         end,
       },
       {
         name = 'all',
-        label = 'all',
         fn = function()
           M.checks(f, num, 'all', checks)
         end,
@@ -400,7 +378,6 @@ function M.checks(f, num, filter, cached_checks)
         ['--no-multi'] = '',
         ['--with-nth'] = '2..',
         ['--delimiter'] = '\t',
-        ['--header'] = check_header,
       },
       actions = check_actions,
     })
@@ -463,10 +440,9 @@ function M.ci(f, branch)
       return idx and normalized[idx] or nil
     end
 
-    local ci_actions, ci_header = build_actions('ci', {
+    local ci_actions = build_actions('ci', {
       {
         name = 'log',
-        label = 'log',
         fn = function(selected)
           local run = get_run(selected)
           if not run then
@@ -496,7 +472,6 @@ function M.ci(f, branch)
       },
       {
         name = 'browse',
-        label = 'browse',
         fn = function(selected)
           local run = get_run(selected)
           if run and run.url ~= '' then
@@ -506,7 +481,6 @@ function M.ci(f, branch)
       },
       {
         name = 'refresh',
-        label = 'refresh',
         fn = function()
           M.ci(f, branch)
         end,
@@ -521,7 +495,6 @@ function M.ci(f, branch)
         ['--no-multi'] = '',
         ['--with-nth'] = '2..',
         ['--delimiter'] = '\t',
-        ['--header'] = ci_header,
       },
       actions = ci_actions,
     })
@@ -566,7 +539,6 @@ function M.commits(f)
   local defs = {
     {
       name = 'checkout',
-      label = 'checkout',
       fn = function(selected)
         with_sha(selected, function(sha)
           forge_mod.log_now('checking out ' .. sha .. '...')
@@ -588,7 +560,6 @@ function M.commits(f)
     },
     {
       name = 'diff',
-      label = 'diff',
       fn = function(selected)
         with_sha(selected, function(sha)
           local range = sha .. '^..' .. sha
@@ -603,7 +574,6 @@ function M.commits(f)
     },
     {
       name = 'browse',
-      label = 'browse',
       fn = function(selected)
         with_sha(selected, function(sha)
           if f then
@@ -614,7 +584,6 @@ function M.commits(f)
     },
     {
       name = 'yank',
-      label = 'yank hash',
       fn = function(selected)
         with_sha(selected, function(sha)
           vim.fn.setreg('+', sha)
@@ -624,7 +593,7 @@ function M.commits(f)
     },
   }
 
-  local commit_actions, commit_header = build_actions('commits', defs)
+  local commit_actions = build_actions('commits', defs)
 
   require('fzf-lua').fzf_exec(log_cmd, {
     fzf_args = fzf_args,
@@ -633,7 +602,6 @@ function M.commits(f)
       ['--ansi'] = '',
       ['--no-multi'] = '',
       ['--preview'] = 'git show --color {1}',
-      ['--header'] = commit_header,
     },
     actions = commit_actions,
   })
@@ -703,10 +671,9 @@ function M.pr(state, f)
       end
     end
 
-    local list_actions, list_header = build_actions('pr', {
+    local list_actions = build_actions('pr', {
       {
         name = 'checkout',
-        label = 'checkout',
         fn = function(selected)
           with_pr_num(selected, function(num)
             pr_actions(f, num)._by_name.checkout()
@@ -715,7 +682,6 @@ function M.pr(state, f)
       },
       {
         name = 'diff',
-        label = 'diff',
         fn = function(selected)
           with_pr_num(selected, function(num)
             pr_actions(f, num)._by_name.diff()
@@ -724,7 +690,6 @@ function M.pr(state, f)
       },
       {
         name = 'worktree',
-        label = 'worktree',
         fn = function(selected)
           with_pr_num(selected, function(num)
             pr_actions(f, num)._by_name.worktree()
@@ -733,7 +698,6 @@ function M.pr(state, f)
       },
       {
         name = 'ci',
-        label = 'ci',
         fn = function(selected)
           with_pr_num(selected, function(num)
             pr_actions(f, num)._by_name.ci()
@@ -742,7 +706,6 @@ function M.pr(state, f)
       },
       {
         name = 'browse',
-        label = 'browse',
         fn = function(selected)
           with_pr_num(selected, function(num)
             f:view_web(cli_kind, num)
@@ -751,7 +714,6 @@ function M.pr(state, f)
       },
       {
         name = 'manage',
-        label = 'manage',
         fn = function(selected)
           with_pr_num(selected, function(num)
             pr_actions(f, num)._by_name.manage()
@@ -760,14 +722,12 @@ function M.pr(state, f)
       },
       {
         name = 'create',
-        label = 'new',
         fn = function()
           forge_mod.create_pr()
         end,
       },
       {
         name = 'filter',
-        label = 'filter',
         fn = function()
           M.pr(next_state, f)
         end,
@@ -787,7 +747,6 @@ function M.pr(state, f)
       fzf_opts = {
         ['--ansi'] = '',
         ['--no-multi'] = '',
-        ['--header'] = list_header,
       },
       actions = list_actions,
     })

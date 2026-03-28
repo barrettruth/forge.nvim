@@ -382,11 +382,14 @@ local function complete(arglead, cmdline, _)
 
   local flag, value_prefix = arglead:match('^(%-%-[^=]+)=(.*)$')
   if flag and flag_values[flag] then
-    return vim.tbl_map(function(v)
-      return flag .. '=' .. v
-    end, vim.tbl_filter(function(v)
-      return v:find(value_prefix, 1, true) == 1
-    end, flag_values[flag]))
+    return vim.tbl_map(
+      function(v)
+        return flag .. '=' .. v
+      end,
+      vim.tbl_filter(function(v)
+        return v:find(value_prefix, 1, true) == 1
+      end, flag_values[flag])
+    )
   end
 
   if arg_idx == 1 then
