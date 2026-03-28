@@ -19,11 +19,6 @@ end
 function M.stop()
   M.state.base = nil
   M.state.mode = 'unified'
-  local cfg = require('forge').config()
-  local lhs = cfg.keys ~= false and cfg.keys.review_toggle
-  if lhs then
-    pcall(vim.keymap.del, 'n', lhs)
-  end
   vim.api.nvim_clear_autocmds({ group = review_augroup })
 end
 
@@ -61,11 +56,6 @@ end
 function M.start(base, mode)
   M.state.base = base
   M.state.mode = mode or 'unified'
-  local cfg = require('forge').config()
-  local lhs = cfg.keys ~= false and cfg.keys.review_toggle
-  if lhs then
-    vim.keymap.set('n', lhs, M.toggle, { desc = 'toggle review split/unified' })
-  end
   vim.api.nvim_clear_autocmds({ group = review_augroup })
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = review_augroup,

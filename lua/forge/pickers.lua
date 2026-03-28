@@ -1,6 +1,6 @@
 local M = {}
 
----@param result vim.SystemCompleted
+---@param result { code: integer, stdout: string?, stderr: string? }
 ---@param fallback string
 ---@return string
 local function cmd_error(result, fallback)
@@ -186,12 +186,14 @@ local function pr_actions(f, num)
     },
   }
 
+  ---@type table<string, function>
   local name_to_fn = {}
   for _, def in ipairs(defs) do
     name_to_fn[def.name] = def.fn
   end
 
   local actions = build_actions('pr', defs)
+  ---@type table<string, function>
   actions._by_name = name_to_fn
   return actions
 end
@@ -522,7 +524,7 @@ function M.ci(f, branch)
   end
 end
 
----@param f forge.Forge
+---@param f forge.Forge?
 function M.commits(f)
   local forge_mod = require('forge')
   local review = require('forge.review')

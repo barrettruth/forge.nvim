@@ -36,7 +36,7 @@ Top-level keys: ~
   `ci.lines`        `integer`  (default `10000`)
     Maximum number of log lines fetched for CI/check log output.
 
-`sources`                                                *forge-config-sources*
+`sources`                                               *forge-config-sources*
   `table<string, { hosts: string[] }>`  (default `{}`)
     Per-source host overrides for forge detection. Keys are source names
     (e.g. `"github"`, `"gitlab"`, or a custom name). Each value has a
@@ -49,7 +49,7 @@ Top-level keys: ~
       }
 <
 
-`keys`                                                      *forge-config-keys*
+`keys`                                                     *forge-config-keys*
   `table|false`  (default shown below)
     Per-picker action bindings. Set to `false` to disable all picker-level
     actions. Use `"<cr>"` to bind to enter. Values use vim keymap notation
@@ -96,11 +96,11 @@ Top-level keys: ~
       }
 <
 
-`display`                                                *forge-config-display*
+`display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
   formatting.
 
-  `display.icons`                                    *forge-config-display-icons*
+  `display.icons`                                 *forge-config-display-icons*
     `table`  Status icons used in picker lines.
 
     Key         Default   Used for ~
@@ -113,7 +113,7 @@ Top-level keys: ~
     `skip`        `"-"`       Skipped/cancelled runs
     `unknown`     `"?"`       Unknown status
 
-  `display.widths`                                  *forge-config-display-widths*
+  `display.widths`                               *forge-config-display-widths*
     `table`  Column widths (characters) for picker formatting.
 
     Key         Default ~
@@ -122,7 +122,7 @@ Top-level keys: ~
     `name`        `35`
     `branch`      `25`
 
-  `display.limits`                                  *forge-config-display-limits*
+  `display.limits`                               *forge-config-display-limits*
     `table`  Maximum items fetched per list API call.
 
     Key         Default ~
@@ -131,7 +131,7 @@ Top-level keys: ~
     `runs`        `30`
 
 ==============================================================================
-COMMANDS                                                             *:Forge*
+COMMANDS                                                              *:Forge*
 
 `:Forge`                                                      *:Forge-no-args*
     Open the main forge picker (|forge-picker|).
@@ -203,13 +203,13 @@ COMMANDS                                                             *:Forge*
 `:Forge branch`                                                *:Forge-branch*
     Open the branch picker.
 
-`:Forge branch diff` {name}                              *:Forge-branch-diff*
+`:Forge branch diff` {name}                               *:Forge-branch-diff*
     Start a review diffing against `{name}`.
 
-`:Forge branch browse` {name}                          *:Forge-branch-browse*
+`:Forge branch browse` {name}                           *:Forge-branch-browse*
     Open branch `{name}` on the forge.
 
-`:Forge worktree`                                          *:Forge-worktree*
+`:Forge worktree`                                            *:Forge-worktree*
     Open fzf-lua's git worktree picker.
 
 `:Forge browse` [{flags}]                                      *:Forge-browse*
@@ -225,13 +225,13 @@ COMMANDS                                                             *:Forge*
     `--commit`         Yank a commit-pinned URL.
     (no flags)         Yank a branch-pinned URL.
 
-`:Forge review end`                                          *:Forge-review-end*
+`:Forge review end`                                        *:Forge-review-end*
     End the current review session.
 
-`:Forge review toggle`                                    *:Forge-review-toggle*
+`:Forge review toggle`                                  *:Forge-review-toggle*
     Toggle between unified and split view (|forge-review|).
 
-`:Forge clear`                                              *:Forge-clear*
+`:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
 All subcommands support tab completion.
@@ -239,17 +239,15 @@ All subcommands support tab completion.
 ==============================================================================
 PICKERS                                                        *forge-pickers*
 
-                                                            *forge-picker*
-FORGE PICKER ~
-The main entry point. Adapts based on the detected forge and current
-buffer. Lists: PRs/MRs, Issues, CI/CD, Browse Remote, Open File, Yank
-Commit URL, Yank Branch URL, Commits, Branches, Worktrees. Items that
-require a forge are hidden when no forge is detected. "Open File" and yank
-entries require a named buffer on a branch.
+                                                                *forge-picker*
+FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
+current buffer. Lists: PRs/MRs, Issues, CI/CD, Browse Remote, Open File, Yank
+Commit URL, Yank Branch URL, Commits, Branches, Worktrees. Items that require
+a forge are hidden when no forge is detected. "Open File" and yank entries
+require a named buffer on a branch.
 
-                                                            *forge-picker-pr*
-PR PICKER ~
-Lists PRs/MRs with number, title, author, and relative time.
+                                                             *forge-picker-pr*
+PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
   `checkout`    `<cr>`           Check out the PR branch
@@ -262,9 +260,8 @@ Lists PRs/MRs with number, title, author, and relative time.
   `filter`      `<c-o>`          Cycle state: open -> closed -> all
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
-                                                         *forge-picker-issue*
-ISSUE PICKER ~
-Lists issues with number, title, author, and relative time.
+                                                          *forge-picker-issue*
+ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
 
   Action      Default Key    Description ~
   `browse`      `<cr>`           Open issue in browser
@@ -272,10 +269,9 @@ Lists issues with number, title, author, and relative time.
   `filter`      `<c-o>`          Cycle state: all -> open -> closed
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
-                                                            *forge-picker-ci*
-CI PICKER ~
-Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide CI runs
-(`:Forge ci`). Both share the `keys.ci` bindings.
+                                                             *forge-picker-ci*
+CI PICKER ~ Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide
+CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
 
   Action      Default Key    Description ~
   `log`         `<cr>`           View log (tail for running, failed-only for
@@ -287,9 +283,8 @@ Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide CI runs
   `all`         `<c-a>`          Show all
   `refresh`     `<c-r>`          Re-fetch runs
 
-                                                       *forge-picker-commits*
-COMMITS PICKER ~
-Git log with colored output and commit preview.
+                                                        *forge-picker-commits*
+COMMITS PICKER ~ Git log with colored output and commit preview.
 
   Action      Default Key    Description ~
   `checkout`    `<cr>`           Checkout commit (detached HEAD)
@@ -297,19 +292,17 @@ Git log with colored output and commit preview.
   `browse`      `<c-x>`          Open commit on forge
   `yank`        `<c-y>`          Yank commit hash to `+` register
 
-                                                      *forge-picker-branches*
-BRANCHES PICKER ~
-Uses fzf-lua's `git_branches` with additional actions.
+                                                       *forge-picker-branches*
+BRANCHES PICKER ~ Uses fzf-lua's `git_branches` with additional actions.
 
   Action      Default Key    Description ~
   `diff`        `<c-d>`          Review diff against branch
   `browse`      `<c-x>`          Open branch on forge
 
-                                                        *forge-picker-manage*
-MANAGE PICKER ~
-Contextual actions for a specific PR, shown based on permissions and
-state: Approve, Merge (per available method: squash, rebase, merge),
-Close/Reopen, Mark as draft/Mark as ready.
+                                                         *forge-picker-manage*
+MANAGE PICKER ~ Contextual actions for a specific PR, shown based on
+permissions and state: Approve, Merge (per available method: squash, rebase,
+merge), Close/Reopen, Mark as draft/Mark as ready.
 
 ==============================================================================
 REVIEW                                                          *forge-review*
@@ -371,7 +364,15 @@ Template discovery: ~
   Codeberg: `.gitea/pull_request_template.md`,
             `.github/pull_request_template.md`
 
-Highlight groups: ~
+See |forge-highlights| for compose buffer highlight groups.
+
+==============================================================================
+HIGHLIGHTS                                                  *forge-highlights*
+
+All highlight groups are defined with `default = true`, so they can be
+overridden by colorschemes or user config.
+
+Compose buffer: ~
 
   Group                    Default Link      Description ~
   `ForgeComposeComment`      `Comment`          Comment block lines
@@ -382,7 +383,19 @@ Highlight groups: ~
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
 
-All groups are defined with `default = true`.
+Picker lines: ~
+
+  Group                    Default Link        Description ~
+  `ForgeNumber`              `Number`             PR/issue number (#123)
+  `ForgeOpen`                `DiagnosticInfo`     Open status icon
+  `ForgeMerged`              `Constant`           Merged status icon
+  `ForgeClosed`              `Comment`            Closed status icon
+  `ForgePass`                `DiagnosticOk`       Passed CI status icon
+  `ForgeFail`                `DiagnosticError`    Failed CI status icon
+  `ForgePending`             `DiagnosticWarn`     In-progress CI status icon
+  `ForgeSkip`                `Comment`            Skipped/cancelled CI icon
+  `ForgeBranch`              `Special`            Branch name in CI runs
+  `ForgeDim`                 `Comment`            Author, age, elapsed time
 
 ==============================================================================
 SOURCES                                                        *forge-sources*
@@ -394,12 +407,12 @@ Built-in sources: ~
   `gitlab`        `glab`      `gitlab`
   `codeberg`      `tea`       `codeberg`, `gitea`, `forgejo`
 
-Sources are lazy-loaded the first time a matching remote is detected.
-Built-in host patterns are checked after user-configured `sources` hosts,
-so user overrides take priority.
+Sources are lazy-loaded the first time a matching remote is detected. Built-in
+host patterns are checked after user-configured `sources` hosts, so user
+overrides take priority.
 
 HOST OVERRIDES ~
-                                                       *forge-sources-hosts*
+                                                         *forge-sources-hosts*
 To route a self-hosted instance to a built-in source: >lua
     vim.g.forge = {
       sources = {
@@ -409,19 +422,18 @@ To route a self-hosted instance to a built-in source: >lua
 <
 
 CUSTOM SOURCE REGISTRATION ~
-                                                    *forge-sources-register*
+                                                      *forge-sources-register*
 Register a custom source with `require('forge').register()`: >lua
     local my_source = { ... }
     require('forge').register('myforgejo', my_source)
-<
-The name must match the key used in `sources` host config. The source
-module is also discoverable as `forge.<name>` (e.g. `require('forge.myforgejo')`
-if placed at `lua/forge/myforgejo.lua`).
+< The name must match the key used in `sources` host config. The source module
+is also discoverable as `forge.<name>` (e.g. `require('forge.myforgejo')` if
+placed at `lua/forge/myforgejo.lua`).
 
 THE `forge.Forge` INTERFACE ~
-                                                        *forge-Forge-interface*
-A source must implement all methods in the `forge.Forge` class. Each
-source is a table with these fields and methods:
+                                                       *forge-Forge-interface*
+A source must implement all methods in the `forge.Forge` class. Each source is
+a table with these fields and methods:
 
 Fields: ~
   `name`        `string`       Source name (e.g. `"github"`).
@@ -580,7 +592,7 @@ PUBLIC API: `require('forge')` ~
     line number(s). In visual mode, includes the selected line range
     (e.g. `"src/foo.lua:10-20"`).
 
-                                                       *forge.remote_web_url()*
+                                                      *forge.remote_web_url()*
 `remote_web_url()`
     Returns `string`. The HTTPS URL of the `origin` remote, normalized
     from SSH or git URLs.
@@ -590,7 +602,7 @@ PUBLIC API: `require('forge')` ~
     Runs `args` (string[]) asynchronously and copies stdout to the `+`
     register.
 
-                                                           *forge.clear_list()*
+                                                          *forge.clear_list()*
 `clear_list(key?)`
     Clears cached list data. If `key` is given, clears only that key.
     If `nil`, clears all list caches.
@@ -616,81 +628,81 @@ PUBLIC API: `require('forge')` ~
     Synchronous `vim.notify` with `[forge.nvim]:` prefix and redraw.
 
 PUBLIC API: `require('forge.pickers')` ~
-                                                        *forge.pickers.git()*
+                                                         *forge.pickers.git()*
 `git()`
     Opens the main forge picker. Requires a git repository.
 
-                                                         *forge.pickers.pr()*
+                                                          *forge.pickers.pr()*
 `pr(state, f)`
     Opens the PR list picker. `state`: `"open"`, `"closed"`, or `"all"`.
     `f`: `forge.Forge`.
 
-                                                      *forge.pickers.issue()*
+                                                       *forge.pickers.issue()*
 `issue(state, f)`
     Opens the issue list picker. `state`: `"open"`, `"closed"`, or
     `"all"`. `f`: `forge.Forge`.
 
-                                                     *forge.pickers.checks()*
+                                                      *forge.pickers.checks()*
 `checks(f, num, filter?, cached_checks?)`
     Opens the checks picker for PR `num`. `filter`: `"all"`, `"fail"`,
     `"pass"`, or `"pending"`.
 
-                                                         *forge.pickers.ci()*
+                                                          *forge.pickers.ci()*
 `ci(f, branch?)`
     Opens the CI runs picker. `nil` branch shows all.
 
-                                                    *forge.pickers.commits()*
+                                                     *forge.pickers.commits()*
 `commits(f)`
     Opens the commit log picker. `f` may be `nil` (browse action
     requires a forge).
 
-                                                   *forge.pickers.branches()*
+                                                    *forge.pickers.branches()*
 `branches(f)`
     Opens the branch picker. `f` may be `nil`.
 
-                                                  *forge.pickers.pr_manage()*
+                                                   *forge.pickers.pr_manage()*
 `pr_manage(f, num)`
     Opens the management picker for PR `num`.
 
-                                                 *forge.pickers.pr_actions()*
+                                                  *forge.pickers.pr_actions()*
 `pr_actions(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
     keyed by fzf binding. Also has `_by_name` table keyed by action
     name (`"checkout"`, `"diff"`, `"worktree"`, `"browse"`, `"ci"`,
     `"manage"`).
 
-                                                *forge.pickers.issue_close()*
+                                                 *forge.pickers.issue_close()*
 `issue_close(f, num)`
     Closes issue `num`.
 
-                                               *forge.pickers.issue_reopen()*
+                                                *forge.pickers.issue_reopen()*
 `issue_reopen(f, num)`
     Reopens issue `num`.
 
 PUBLIC API: `require('forge.review')` ~
-                                                       *forge.review.start()*
+                                                        *forge.review.start()*
 `start(base, mode?)`
     Starts a review session. `base` is the diff range (e.g.
     `"origin/main"`, `"abc123^..abc123"`). `mode`: `"unified"` (default)
     or `"split"`.
 
-                                                        *forge.review.stop()*
+                                                         *forge.review.stop()*
 `stop()`
     Ends the current review session. Clears state.
 
-                                                      *forge.review.toggle()*
+                                                       *forge.review.toggle()*
 `toggle()`
     Toggles between unified and split view. No-op if no review is
     active.
 
-                                                         *forge.review.nav()*
+                                                          *forge.review.nav()*
 `nav(nav_cmd)`
     Returns `function`. Creates a navigation function for `nav_cmd`
     (`"cnext"`, `"cprev"`, `"lnext"`, `"lprev"`). In split mode,
     closes the split before navigating and reopens after. Wraps at
     list boundaries.
 
-                                                       *forge.review.state*
+                                                          *forge.review.state*
 `state`
     `table` with fields:
       `base`   `string?`          The current diff range, or `nil`.

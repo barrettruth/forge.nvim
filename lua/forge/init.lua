@@ -13,11 +13,11 @@ local M = {}
 ---@field hosts string[]
 
 ---@class forge.KeysConfig
----@field pr forge.PRPickerKeys
----@field issue forge.IssuePickerKeys
----@field ci forge.CIPickerKeys
----@field commits forge.CommitsPickerKeys
----@field branches forge.BranchesPickerKeys
+---@field pr forge.PRPickerKeys?
+---@field issue forge.IssuePickerKeys?
+---@field ci forge.CIPickerKeys?
+---@field commits forge.CommitsPickerKeys?
+---@field branches forge.BranchesPickerKeys?
 
 ---@class forge.PRPickerKeys
 ---@field checkout string|false
@@ -256,6 +256,7 @@ end
 ---@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, reviewers: string[]?): string[]
 ---@field create_pr_web_cmd fun(self: forge.Forge): string[]?
 ---@field default_branch_cmd fun(self: forge.Forge): string[]
+---@field checks_json_cmd (fun(self: forge.Forge, num: string): string[])?
 ---@field template_paths fun(self: forge.Forge): string[]
 
 ---@type table<string, forge.Forge>
@@ -461,12 +462,12 @@ local function parse_iso(iso)
     return nil
   end
   local ok, ts = pcall(os.time, {
-    year = tonumber(y),
-    month = tonumber(mo),
-    day = tonumber(d),
-    hour = tonumber(h),
-    min = tonumber(mi),
-    sec = tonumber(s),
+    year = tonumber(y) --[[@as integer]],
+    month = tonumber(mo) --[[@as integer]],
+    day = tonumber(d) --[[@as integer]],
+    hour = tonumber(h) --[[@as integer]],
+    min = tonumber(mi) --[[@as integer]],
+    sec = tonumber(s) --[[@as integer]],
   })
   if ok and ts then
     return ts
