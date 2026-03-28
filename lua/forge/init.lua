@@ -1,5 +1,67 @@
 local M = {}
 
+local DEFAULTS = {
+  ci = { lines = 10000 },
+  sources = {},
+  keys = {
+    picker = '<c-g>',
+    next_qf = ']q',
+    prev_qf = '[q',
+    next_loc = ']l',
+    prev_loc = '[l',
+    review_toggle = 's',
+    terminal_open = 'gx',
+    fugitive = {
+      create = 'cpr',
+      create_draft = 'cpd',
+      create_fill = 'cpf',
+      create_web = 'cpw',
+    },
+  },
+  picker_keys = {
+    pr = { checkout = 'default', diff = 'ctrl-d', worktree = 'ctrl-w', checks = 'ctrl-t', browse = 'ctrl-x', manage = 'ctrl-e', create = 'ctrl-a', toggle = 'ctrl-o', refresh = 'ctrl-r' },
+    issue = { browse = 'default', close_reopen = 'ctrl-s', toggle = 'ctrl-o', refresh = 'ctrl-r' },
+    checks = { log = 'default', browse = 'ctrl-x', failed = 'ctrl-f', passed = 'ctrl-p', running = 'ctrl-n', all = 'ctrl-a' },
+    ci = { log = 'default', browse = 'ctrl-x', refresh = 'ctrl-r' },
+    commits = { checkout = 'default', diff = 'ctrl-d', browse = 'ctrl-x', yank = 'ctrl-y' },
+    branches = { diff = 'ctrl-d', browse = 'ctrl-x' },
+  },
+  display = {
+    icons = {
+      open = '+',
+      merged = 'm',
+      closed = 'x',
+      pass = '*',
+      fail = 'x',
+      pending = '~',
+      skip = '-',
+      unknown = '?',
+    },
+    widths = {
+      title = 45,
+      author = 15,
+      name = 35,
+      branch = 25,
+    },
+    limits = {
+      pulls = 100,
+      issues = 100,
+      runs = 30,
+    },
+  },
+}
+
+---@type table<string, forge.Forge>
+local sources = {}
+
+function M.register(name, source)
+  sources[name] = source
+end
+
+function M.registered_sources()
+  return sources
+end
+
 local hl_defaults = {
   ForgeComposeComment = 'Comment',
   ForgeComposeBranch = 'Special',
@@ -62,7 +124,6 @@ end
 ---@field cli string
 ---@field kinds { issue: string, pr: string }
 ---@field labels { issue: string, pr: string, pr_one: string, pr_full: string, ci: string }
----@field list_cmd fun(self: forge.Forge, kind: string, state: string): string
 ---@field list_pr_json_cmd fun(self: forge.Forge, state: string): string[]
 ---@field list_issue_json_cmd fun(self: forge.Forge, state: string): string[]
 ---@field pr_json_fields fun(self: forge.Forge): { number: string, title: string, branch: string, state: string, author: string, created_at: string }
@@ -126,21 +187,45 @@ local function git_root()
   return root
 end
 
+local builtin_hosts = {
+  github = { 'github' },
+  gitlab = { 'gitlab' },
+  codeberg = { 'codeberg', 'gitea', 'forgejo' },
+}
+
+local function resolve_source(name)
+  if sources[name] then
+    return sources[name]
+  end
+  local ok, mod = pcall(require, 'forge.' .. name)
+  if ok then
+    sources[name] = mod
+    return mod
+  end
+  return nil
+end
+
 ---@param remote string
 ---@return string? forge_name
 local function detect_from_remote(remote)
-  if remote:find('github') and vim.fn.executable('gh') == 1 then
-    return 'github'
+  local cfg = M.config().sources
+
+  for name, opts in pairs(cfg) do
+    for _, host in ipairs(opts.hosts or {}) do
+      if remote:find(host, 1, true) then
+        return name
+      end
+    end
   end
-  if remote:find('gitlab') and vim.fn.executable('glab') == 1 then
-    return 'gitlab'
+
+  for name, patterns in pairs(builtin_hosts) do
+    for _, pattern in ipairs(patterns) do
+      if remote:find(pattern, 1, true) then
+        return name
+      end
+    end
   end
-  if
-    (remote:find('codeberg') or remote:find('gitea') or remote:find('forgejo'))
-    and vim.fn.executable('tea') == 1
-  then
-    return 'codeberg'
-  end
+
   return nil
 end
 
@@ -161,9 +246,15 @@ function M.detect()
   if not name then
     return nil
   end
-  local f = require('forge.' .. name)
-  forge_cache[root] = f
-  return f
+  local source = resolve_source(name)
+  if not source then
+    return nil
+  end
+  if vim.fn.executable(source.cli) ~= 1 then
+    return nil
+  end
+  forge_cache[root] = source
+  return source
 end
 
 ---@param f forge.Forge
@@ -362,6 +453,9 @@ end
 ---@param show_state boolean
 ---@return string
 function M.format_pr(entry, fields, show_state)
+  local display = M.config().display
+  local icons = display.icons
+  local widths = display.widths
   local num = tostring(entry[fields.number] or '')
   local title = entry[fields.title] or ''
   local author = extract_author(entry, fields.author)
@@ -371,19 +465,19 @@ function M.format_pr(entry, fields, show_state)
     local state = (entry[fields.state] or ''):lower()
     local icon, color
     if state == 'open' or state == 'opened' then
-      icon, color = '+', '\27[34m'
+      icon, color = icons.open, '\27[34m'
     elseif state == 'merged' then
-      icon, color = 'm', '\27[35m'
+      icon, color = icons.merged, '\27[35m'
     else
-      icon, color = 'x', '\27[31m'
+      icon, color = icons.closed, '\27[31m'
     end
     prefix = color .. icon .. '\27[0m  '
   end
-  return ('%s\27[34m#%-5s\27[0m %s \27[2m%-15s %3s\27[0m'):format(
+  return ('%s\27[34m#%-5s\27[0m %s \27[2m%-' .. widths.author .. 's %3s\27[0m'):format(
     prefix,
     num,
-    pad_or_truncate(title, 45),
-    pad_or_truncate(author, 15),
+    pad_or_truncate(title, widths.title),
+    pad_or_truncate(author, widths.author),
     age
   )
 end
@@ -393,6 +487,9 @@ end
 ---@param show_state boolean
 ---@return string
 function M.format_issue(entry, fields, show_state)
+  local display = M.config().display
+  local icons = display.icons
+  local widths = display.widths
   local num = tostring(entry[fields.number] or '')
   local title = entry[fields.title] or ''
   local author = extract_author(entry, fields.author)
@@ -402,17 +499,17 @@ function M.format_issue(entry, fields, show_state)
     local state = (entry[fields.state] or ''):lower()
     local icon, color
     if state == 'open' or state == 'opened' then
-      icon, color = '+', '\27[34m'
+      icon, color = icons.open, '\27[34m'
     else
-      icon, color = '*', '\27[2m'
+      icon, color = icons.closed, '\27[2m'
     end
     prefix = color .. icon .. '\27[0m  '
   end
-  return ('%s\27[34m#%-5s\27[0m %s \27[2m%-15s %3s\27[0m'):format(
+  return ('%s\27[34m#%-5s\27[0m %s \27[2m%-' .. widths.author .. 's %3s\27[0m'):format(
     prefix,
     num,
-    pad_or_truncate(title, 45),
-    pad_or_truncate(author, 15),
+    pad_or_truncate(title, widths.title),
+    pad_or_truncate(author, widths.author),
     age
   )
 end
@@ -420,19 +517,22 @@ end
 ---@param check table
 ---@return string
 function M.format_check(check)
+  local display = M.config().display
+  local icons = display.icons
+  local widths = display.widths
   local bucket = (check.bucket or 'pending'):lower()
   local name = check.name or ''
   local icon, color
   if bucket == 'pass' then
-    icon, color = '*', '\27[32m'
+    icon, color = icons.pass, '\27[32m'
   elseif bucket == 'fail' then
-    icon, color = 'x', '\27[31m'
+    icon, color = icons.fail, '\27[31m'
   elseif bucket == 'pending' then
-    icon, color = '~', '\27[33m'
+    icon, color = icons.pending, '\27[33m'
   elseif bucket == 'skipping' or bucket == 'cancel' then
-    icon, color = '-', '\27[2m'
+    icon, color = icons.skip, '\27[2m'
   else
-    icon, color = '?', '\27[2m'
+    icon, color = icons.unknown, '\27[2m'
   end
   local elapsed = ''
   if check.startedAt and check.completedAt and check.completedAt ~= '' then
@@ -447,33 +547,37 @@ function M.format_check(check)
       end
     end
   end
-  return ('%s%s\27[0m  %s \27[2m%s\27[0m'):format(color, icon, pad_or_truncate(name, 35), elapsed)
+  return ('%s%s\27[0m  %s \27[2m%s\27[0m'):format(color, icon, pad_or_truncate(name, widths.name), elapsed)
 end
 
 ---@param run forge.CIRun
 ---@return string
 function M.format_run(run)
+  local display = M.config().display
+  local icons = display.icons
+  local widths = display.widths
   local icon, color
   local s = run.status:lower()
   if s == 'success' then
-    icon, color = '*', '\27[32m'
+    icon, color = icons.pass, '\27[32m'
   elseif s == 'failure' or s == 'failed' then
-    icon, color = 'x', '\27[31m'
+    icon, color = icons.fail, '\27[31m'
   elseif s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
-    icon, color = '~', '\27[33m'
+    icon, color = icons.pending, '\27[33m'
   elseif s == 'cancelled' or s == 'canceled' or s == 'skipped' then
-    icon, color = '-', '\27[2m'
+    icon, color = icons.skip, '\27[2m'
   else
-    icon, color = '?', '\27[2m'
+    icon, color = icons.unknown, '\27[2m'
   end
   local event = abbreviate_event(run.event)
   local date = compact_date(run.created_at)
   if run.branch ~= '' then
+    local name_w = widths.name - widths.branch + 10
     return ('%s%s\27[0m  %s \27[36m%s\27[0m \27[2m%-6s %s\27[0m'):format(
       color,
       icon,
-      pad_or_truncate(run.name, 20),
-      pad_or_truncate(run.branch, 25),
+      pad_or_truncate(run.name, name_w),
+      pad_or_truncate(run.branch, widths.branch),
       event,
       date
     )
@@ -481,7 +585,7 @@ function M.format_run(run)
   return ('%s%s\27[0m  %s \27[2m%-6s %s\27[0m'):format(
     color,
     icon,
-    pad_or_truncate(run.name, 35),
+    pad_or_truncate(run.name, widths.name),
     event,
     date
   )
@@ -510,13 +614,16 @@ function M.filter_checks(checks, filter)
 end
 
 function M.config()
-  return vim.tbl_deep_extend('force', {
-    ci = { lines = 10000 },
-  }, vim.g.forge or {})
+  local user = vim.g.forge or {}
+  local cfg = vim.tbl_deep_extend('force', DEFAULTS, user)
+  if user.keys == false then
+    cfg.keys = false
+  end
+  if user.picker_keys == false then
+    cfg.picker_keys = false
+  end
+  return cfg
 end
-
----@type { base: string?, mode: 'unified'|'split' }
-M.review = { base = nil, mode = 'unified' }
 
 ---@param args string[]
 function M.yank_url(args)

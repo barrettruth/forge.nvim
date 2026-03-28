@@ -42,6 +42,17 @@ function M.check()
   else
     vim.health.info('vim-fugitive not found (fugitive keymaps disabled)')
   end
+
+  local forge_mod = require('forge')
+  for name, source in pairs(forge_mod.registered_sources()) do
+    if name ~= 'github' and name ~= 'gitlab' and name ~= 'codeberg' then
+      if vim.fn.executable(source.cli) == 1 then
+        vim.health.ok(source.cli .. ' found (custom: ' .. name .. ')')
+      else
+        vim.health.warn(source.cli .. ' not found (custom: ' .. name .. ' disabled)')
+      end
+    end
+  end
 end
 
 return M

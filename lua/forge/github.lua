@@ -21,11 +21,6 @@ end
 
 ---@param kind string
 ---@param state string
----@return string
-function M:list_cmd(kind, state)
-  return ('gh %s list --limit 100 --state %s'):format(kind, state)
-end
-
 ---@param state string
 ---@return string[]
 function M:list_pr_json_cmd(state)
@@ -34,7 +29,7 @@ function M:list_pr_json_cmd(state)
     'pr',
     'list',
     '--limit',
-    '100',
+    tostring(forge.config().display.limits.pulls),
     '--state',
     state,
     '--json',
@@ -50,7 +45,7 @@ function M:list_issue_json_cmd(state)
     'issue',
     'list',
     '--limit',
-    '100',
+    tostring(forge.config().display.limits.issues),
     '--state',
     state,
     '--json',
@@ -200,7 +195,7 @@ function M:list_runs_json_cmd(branch)
     '--json',
     'databaseId,name,headBranch,status,conclusion,event,url,createdAt',
     '--limit',
-    '30',
+    tostring(forge.config().display.limits.runs),
   }
   if branch then
     table.insert(cmd, '--branch')

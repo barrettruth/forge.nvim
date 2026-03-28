@@ -16,11 +16,6 @@ local M = {
 
 ---@param kind string
 ---@param state string
----@return string
-function M:list_cmd(kind, state)
-  return ('tea %s list --state %s'):format(kind, state)
-end
-
 ---@param state string
 ---@return string[]
 function M:list_pr_json_cmd(state)

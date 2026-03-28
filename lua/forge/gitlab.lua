@@ -16,17 +16,6 @@ local M = {
 
 ---@param kind string
 ---@param state string
----@return string
-function M:list_cmd(kind, state)
-  local cmd = ('glab %s list --per-page 100'):format(kind)
-  if state == 'closed' then
-    cmd = cmd .. ' --closed'
-  elseif state == 'all' then
-    cmd = cmd .. ' --all'
-  end
-  return cmd
-end
-
 ---@param state string
 ---@return string[]
 function M:list_pr_json_cmd(state)
@@ -35,7 +24,7 @@ function M:list_pr_json_cmd(state)
     'mr',
     'list',
     '--per-page',
-    '100',
+    tostring(forge.config().display.limits.pulls),
     '--output',
     'json',
   }
@@ -55,7 +44,7 @@ function M:list_issue_json_cmd(state)
     'issue',
     'list',
     '--per-page',
-    '100',
+    tostring(forge.config().display.limits.issues),
     '--output',
     'json',
   }
@@ -201,7 +190,7 @@ function M:list_runs_json_cmd(branch)
     '--output',
     'json',
     '--per-page',
-    '30',
+    tostring(forge.config().display.limits.runs),
   }
   if branch then
     table.insert(cmd, '--ref')
