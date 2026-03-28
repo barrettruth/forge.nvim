@@ -1,15 +1,14 @@
 name: luarocks-dev
 
 on:
-  push:
+  workflow_run:
+    workflows: [quality]
+    types: [completed]
     branches: [main]
 
 jobs:
-  quality:
-    uses: ./.github/workflows/quality.yaml
-
   publish:
-    needs: quality
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
