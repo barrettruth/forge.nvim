@@ -11,3 +11,5 @@ result
 result-*
 .direnv/
 .envrc
+
+scripts/demo
