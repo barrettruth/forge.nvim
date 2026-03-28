@@ -1,7 +1,5 @@
 *forge.nvim.txt*               Forge-agnostic git workflow for Neovim
 
-Author:  Barrett Ruth <br.barrettruth@gmail.com> License: MIT
-
 ==============================================================================
 INTRODUCTION                                                      *forge.nvim*
 
@@ -9,222 +7,788 @@ forge.nvim provides PR, issue, and CI workflows across GitHub, GitLab, and
 Codeberg from inside Neovim. It detects the forge from your git remote and
 delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
-Features: ~
-- Forge detection from git remote URL
-- PR lifecycle (list, create, checkout, review, merge, approve, draft toggle)
-- Issue management (list, browse, close/reopen)
-- CI/CD run viewing, log streaming, status filtering
-- PR compose buffer with diff stat and template discovery
-- Code review via diffs.nvim with unified/split toggle
-- Commit and branch browsing with forge permalinks
-- Worktree creation from PRs
-- fzf-lua pickers with contextual keybinds
-
-==============================================================================
-CONTENTS                                                      *forge-contents*
-
-  1. Introduction ............................................... |forge.nvim|
-  2. Requirements ....................................... |forge-requirements|
-  3. Setup ..................................................... |forge-setup|
-  4. Configuration ............................................ |forge-config|
-  5. Forge Picker ............................................ |forge-picker|
-  6. Pull Requests ................................................. |forge-pr|
-  7. Issues .................................................. |forge-issues|
-  8. CI/CD ...................................................... |forge-ci|
-  9. Commits ............................................... |forge-commits|
- 10. Branches .............................................. |forge-branches|
- 11. Review ................................................ |forge-review|
- 12. Compose Buffer ........................................ |forge-compose|
- 13. Highlight Groups .................................... |forge-highlights|
- 14. Health Check ............................................ |forge-health|
-
-==============================================================================
-REQUIREMENTS                                              *forge-requirements*
-
+Requirements: ~
 - Neovim 0.10.0+
 - fzf-lua (required)
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
-- vim-fugitive (optional, for fugitive keymaps)
+- vim-fugitive (optional, for fugitive keymaps and split review)
 - diffs.nvim (optional, for review mode)
 
-==============================================================================
-SETUP                                                            *forge-setup*
-
-Install with lazy.nvim: >lua
-    {
-      'barrettruth/forge.nvim',
-      keys = {
-        { '<c-g>', mode = { 'n', 'v' } },
-      },
-    }
-<
-
-Run `:checkhealth forge` to verify CLIs and dependencies.
+Run |:checkhealth| forge to verify CLIs and dependencies.
 
 ==============================================================================
 CONFIGURATION                                                   *forge-config*
 
-Configuration is done via `vim.g.forge`: >lua
+Configuration is set via the `vim.g.forge` global. All keys are optional;
+unset keys use defaults. >lua
     vim.g.forge = {
-      ci = { lines = 10000 },
+      ci = { lines = 5000 },
+      display = { icons = { open = '' } },
     }
 <
 
-                                                       *forge-config-ci-lines*
-ci.lines ~
-    Number of log lines to fetch for CI runs. Default: `10000`.
+Top-level keys: ~
+
+`ci`                                                         *forge-config-ci*
+  `ci.lines`        `integer`  (default `10000`)
+    Maximum number of log lines fetched for CI/check log output.
+
+`sources`                                                *forge-config-sources*
+  `table<string, { hosts: string[] }>`  (default `{}`)
+    Per-source host overrides for forge detection. Keys are source names
+    (e.g. `"github"`, `"gitlab"`, or a custom name). Each value has a
+    `hosts` list of hostname substrings matched against the git remote. >lua
+      vim.g.forge = {
+        sources = {
+          gitlab = { hosts = { 'git.internal.co' } },
+          myforgejo = { hosts = { 'forgejo.example.com' } },
+        },
+      }
+<
+
+`keys`                                                      *forge-config-keys*
+  `table|false`  (default shown below)
+    Global keymaps. Set to `false` to disable all global keymaps. Setting
+    an individual key to `nil` or `false` disables that single keymap.
+
+  Defaults: >lua
+      keys = {
+        picker = '<c-g>',
+        next_qf = ']q',
+        prev_qf = '[q',
+        next_loc = ']l',
+        prev_loc = '[l',
+        review_toggle = 's',
+        terminal_open = 'gx',
+        fugitive = {
+          create = 'cpr',
+          create_draft = 'cpd',
+          create_fill = 'cpf',
+          create_web = 'cpw',
+        },
+      }
+<
+  `keys.picker`           Open the main forge picker (|forge-picker|).
+  `keys.next_qf`          Navigate to next quickfix entry (wraps).
+  `keys.prev_qf`          Navigate to previous quickfix entry (wraps).
+  `keys.next_loc`         Navigate to next loclist entry (wraps).
+  `keys.prev_loc`         Navigate to previous loclist entry (wraps).
+  `keys.review_toggle`    Toggle unified/split review (|forge-review|).
+  `keys.terminal_open`    Open URL in browser from log terminal buffers.
+  `keys.fugitive.create`       Create PR via compose buffer.
+  `keys.fugitive.create_draft` Create draft PR via compose buffer.
+  `keys.fugitive.create_fill`  Create PR instantly (skip compose buffer).
+  `keys.fugitive.create_web`   Push and open create-PR page in browser.
+
+  Set `keys.fugitive` to `false` to disable all fugitive-buffer keymaps.
+
+`picker_keys`                                        *forge-config-picker-keys*
+  `table|false`  (default shown below)
+    Per-picker action bindings. Set to `false` to disable all picker-level
+    actions. Use `"default"` to bind to `<enter>`. Other values use fzf-lua
+    binding syntax (e.g. `"ctrl-d"`).
+
+  Defaults: >lua
+      picker_keys = {
+        pr = {
+          checkout = 'default',
+          diff = 'ctrl-d',
+          worktree = 'ctrl-w',
+          checks = 'ctrl-t',
+          browse = 'ctrl-x',
+          manage = 'ctrl-e',
+          create = 'ctrl-a',
+          toggle = 'ctrl-o',
+          refresh = 'ctrl-r',
+        },
+        issue = {
+          browse = 'default',
+          close_reopen = 'ctrl-s',
+          toggle = 'ctrl-o',
+          refresh = 'ctrl-r',
+        },
+        checks = {
+          log = 'default',
+          browse = 'ctrl-x',
+          failed = 'ctrl-f',
+          passed = 'ctrl-p',
+          running = 'ctrl-n',
+          all = 'ctrl-a',
+        },
+        ci = {
+          log = 'default',
+          browse = 'ctrl-x',
+          refresh = 'ctrl-r',
+        },
+        commits = {
+          checkout = 'default',
+          diff = 'ctrl-d',
+          browse = 'ctrl-x',
+          yank = 'ctrl-y',
+        },
+        branches = {
+          diff = 'ctrl-d',
+          browse = 'ctrl-x',
+        },
+      }
+<
+
+`display`                                                *forge-config-display*
+  Controls icons, column widths, and fetch limits used in picker
+  formatting.
+
+  `display.icons`                                    *forge-config-display-icons*
+    `table`  Status icons used in picker lines.
+
+    Key         Default   Used for ~
+    `open`        `"+"`       Open PRs/issues
+    `merged`      `"m"`       Merged PRs
+    `closed`      `"x"`       Closed PRs/issues
+    `pass`        `"*"`       Passed checks/runs
+    `fail`        `"x"`       Failed checks/runs
+    `pending`     `"~"`       In-progress checks/runs
+    `skip`        `"-"`       Skipped/cancelled runs
+    `unknown`     `"?"`       Unknown status
+
+  `display.widths`                                  *forge-config-display-widths*
+    `table`  Column widths (characters) for picker formatting.
+
+    Key         Default ~
+    `title`       `45`
+    `author`      `15`
+    `name`        `35`
+    `branch`      `25`
+
+  `display.limits`                                  *forge-config-display-limits*
+    `table`  Maximum items fetched per list API call.
+
+    Key         Default ~
+    `pulls`       `100`
+    `issues`      `100`
+    `runs`        `30`
 
 ==============================================================================
-FORGE PICKER                                                    *forge-picker*
+COMMANDS                                                             *:Forge*
 
-                                                                       *<c-g>*
-Press `<c-g>` in normal or visual mode to open the main forge picker. The
-picker adapts based on the detected forge and current buffer state.
+`:Forge`                                                      *:Forge-no-args*
+    Open the main forge picker (|forge-picker|). Same as pressing
+    `keys.picker`.
 
-Available entries: ~
-- Pull Requests / Merge Requests
-- Issues
-- CI / Pipelines
-- Browse Remote
-- Open File (current file on remote)
-- Yank Commit URL / Yank Branch URL
-- Commits
-- Branches
-- Worktrees
+`:Forge pr` [{flags}]                                              *:Forge-pr*
+    Open the PR list picker. Defaults to open PRs.
+    `--state=open`     Show open PRs (default).
+    `--state=closed`   Show closed PRs.
+    `--state=all`      Show all PRs.
+
+`:Forge pr create` [{flags}]                                *:Forge-pr-create*
+    Create a new PR.
+    (no flags)         Open the compose buffer (|forge-compose|).
+    `--draft`          Open compose buffer with draft pre-set.
+    `--fill`           Create instantly from commits (skip compose).
+    `--web`            Push and open the forge's web create-PR page.
+    `--draft --fill`   Create draft instantly.
+
+`:Forge pr checkout` {num}                                *:Forge-pr-checkout*
+    Check out the branch for PR `{num}`.
+
+`:Forge pr diff` {num}                                        *:Forge-pr-diff*
+    Start a review for PR `{num}` (|forge-review|).
+
+`:Forge pr worktree` {num}                                *:Forge-pr-worktree*
+    Fetch PR `{num}` and create a git worktree.
+
+`:Forge pr checks` {num}                                    *:Forge-pr-checks*
+    Open the checks picker for PR `{num}`.
+
+`:Forge pr browse` {num}                                    *:Forge-pr-browse*
+    Open PR `{num}` in the browser.
+
+`:Forge pr manage` {num}                                    *:Forge-pr-manage*
+    Open the management picker for PR `{num}` (approve, merge, close,
+    reopen, draft toggle).
+
+`:Forge issue` [{flags}]                                        *:Forge-issue*
+    Open the issue list picker. Defaults to all issues.
+    `--state=open`     Show open issues.
+    `--state=closed`   Show closed issues.
+    `--state=all`      Show all issues (default).
+
+`:Forge issue browse` {num}                              *:Forge-issue-browse*
+    Open issue `{num}` in the browser.
+
+`:Forge issue close` {num}                                *:Forge-issue-close*
+    Close issue `{num}`.
+
+`:Forge issue reopen` {num}                              *:Forge-issue-reopen*
+    Reopen issue `{num}`.
+
+`:Forge ci` [{flags}]                                              *:Forge-ci*
+    Open the CI runs picker. Defaults to current branch.
+    `--all`            Show runs for all branches.
+
+`:Forge commit`                                                *:Forge-commit*
+    Open the commit log picker.
+
+`:Forge commit checkout` {sha}                        *:Forge-commit-checkout*
+    Check out commit `{sha}` (detached HEAD).
+
+`:Forge commit diff` {sha}                                *:Forge-commit-diff*
+    Start a review for commit `{sha}`.
+
+`:Forge commit browse` {sha}                            *:Forge-commit-browse*
+    Open commit `{sha}` on the forge.
+
+`:Forge branch`                                                *:Forge-branch*
+    Open the branch picker.
+
+`:Forge branch diff` {name}                              *:Forge-branch-diff*
+    Start a review diffing against `{name}`.
+
+`:Forge branch browse` {name}                          *:Forge-branch-browse*
+    Open branch `{name}` on the forge.
+
+`:Forge worktree`                                          *:Forge-worktree*
+    Open fzf-lua's git worktree picker.
+
+`:Forge browse` [{flags}]                                      *:Forge-browse*
+    Open the current file location on the forge.
+    `--root`           Open the repository root page.
+    `--commit`         Open the current HEAD commit.
+    (no flags)         Open the current file and line(s) on the current
+                       branch. In visual mode, the selected line range is
+                       included.
+
+`:Forge yank` [{flags}]                                          *:Forge-yank*
+    Yank a permalink URL to the `+` register.
+    `--commit`         Yank a commit-pinned URL.
+    (no flags)         Yank a branch-pinned URL.
+
+`:Forge review end`                                          *:Forge-review-end*
+    End the current review session.
+
+`:Forge review toggle`                                    *:Forge-review-toggle*
+    Toggle between unified and split view (|forge-review|).
+
+`:Forge cache clear`                                    *:Forge-cache-clear*
+    Clear all internal caches (forge detection, repo info, list data).
+
+All subcommands support tab completion.
 
 ==============================================================================
-PULL REQUESTS                                                       *forge-pr*
+KEYMAPS                                                        *forge-keymaps*
 
-The PR picker lists open PRs by default. Toggle state with `<ctrl-o>` to cycle
-through open/closed/all.
+GLOBAL KEYMAPS ~
 
-PR picker keybinds: ~
-  `<enter>`     Checkout PR branch
-  `<ctrl-d>`    Review diff (requires diffs.nvim)
-  `<ctrl-w>`    Create worktree from PR
-  `<ctrl-t>`    View checks/CI status
-  `<ctrl-x>`    Open in browser
-  `<ctrl-e>`    Manage (merge, approve, close, draft toggle)
-  `<ctrl-a>`    Create new PR
-  `<ctrl-o>`    Toggle state filter (open/closed/all)
-  `<ctrl-r>`    Refresh list
+All global keymaps are configured via `keys` (|forge-config-keys|).
 
-PR management actions: ~
-  Approve, Merge (per available method), Close/Reopen, Draft toggle.
+  Default     Mode    Description ~
+  `<c-g>`       n, v    Open the main forge picker
+  `]q`          n       Next quickfix entry (wraps to first)
+  `[q`          n       Previous quickfix entry (wraps to last)
+  `]l`          n       Next loclist entry (wraps to first)
+  `[l`          n       Previous loclist entry (wraps to last)
 
-==============================================================================
-ISSUES                                                          *forge-issues*
+FUGITIVE KEYMAPS ~
 
-Issue picker keybinds: ~
-  `<enter>`     Open in browser
-  `<ctrl-s>`    Close/reopen issue
-  `<ctrl-o>`    Toggle state filter
-  `<ctrl-r>`    Refresh list
+Active in `fugitive` filetype buffers when a forge is detected. Configured
+via `keys.fugitive`. Set `keys.fugitive = false` to disable.
 
-==============================================================================
-CI/CD                                                               *forge-ci*
+  Default     Description ~
+  `cpr`         Create PR via compose buffer
+  `cpd`         Create draft PR via compose buffer
+  `cpf`         Create PR instantly (fill from commits)
+  `cpw`         Push and open create-PR page in browser
 
-CI picker shows workflow runs for the current branch.
+REVIEW KEYMAPS ~
 
-CI picker keybinds: ~
-  `<enter>`     View logs (tail for in-progress, full for completed)
-  `<ctrl-x>`    Open in browser
-  `<ctrl-r>`    Refresh
+Active during a review session (|forge-review|).
 
-Checks picker (from PR): ~
-  `<enter>`     View check logs
-  `<ctrl-x>`    Open in browser
-  `<ctrl-f>`    Filter to failed
-  `<ctrl-p>`    Filter to passed
-  `<ctrl-n>`    Filter to running
-  `<ctrl-a>`    Show all
+  Default     Description ~
+  `s`           Toggle unified/split view
+
+TERMINAL KEYMAPS ~
+
+Active in log terminal buffers opened by the checks or CI pickers.
+
+  Default     Description ~
+  `gx`          Open the associated check/run URL in the browser
 
 ==============================================================================
-COMMITS                                                        *forge-commits*
+PICKERS                                                        *forge-pickers*
 
-Commit picker keybinds: ~
-  `<enter>`     Checkout commit (detached HEAD)
-  `<ctrl-d>`    Review diff
-  `<ctrl-x>`    Open in browser (requires forge)
-  `<ctrl-y>`    Yank commit hash
+                                                            *forge-picker*
+FORGE PICKER ~
+The main entry point. Adapts based on the detected forge and current
+buffer. Lists: PRs/MRs, Issues, CI/CD, Browse Remote, Open File, Yank
+Commit URL, Yank Branch URL, Commits, Branches, Worktrees. Items that
+require a forge are hidden when no forge is detected. "Open File" and yank
+entries require a named buffer on a branch.
 
-==============================================================================
-BRANCHES                                                      *forge-branches*
+                                                            *forge-picker-pr*
+PR PICKER ~
+Lists PRs/MRs with number, title, author, and relative time.
 
-Branch picker keybinds: ~
-  `<ctrl-d>`    Review diff against branch
-  `<ctrl-x>`    Open branch on remote (requires forge)
+  Action      Default Key    Description ~
+  `checkout`    `<enter>`        Check out the PR branch
+  `diff`        `ctrl-d`         Start review (|forge-review|)
+  `worktree`    `ctrl-w`         Create worktree from PR
+  `checks`      `ctrl-t`         Open checks picker for this PR
+  `browse`      `ctrl-x`         Open PR in browser
+  `manage`      `ctrl-e`         Open management picker
+  `create`      `ctrl-a`         Create new PR (|forge-compose|)
+  `toggle`      `ctrl-o`         Cycle state: open -> closed -> all
+  `refresh`     `ctrl-r`         Clear cache and re-fetch
+
+                                                         *forge-picker-issue*
+ISSUE PICKER ~
+Lists issues with number, title, author, and relative time.
+
+  Action         Default Key    Description ~
+  `browse`         `<enter>`        Open issue in browser
+  `close_reopen`   `ctrl-s`         Close or reopen the issue
+  `toggle`         `ctrl-o`         Cycle state: all -> open -> closed
+  `refresh`        `ctrl-r`         Clear cache and re-fetch
+
+                                                        *forge-picker-checks*
+CHECKS PICKER ~
+Lists PR check runs with status icon, name, and elapsed time.
+
+  Action      Default Key    Description ~
+  `log`         `<enter>`        View log (tail for running, full otherwise)
+  `browse`      `ctrl-x`         Open check URL in browser
+  `failed`      `ctrl-f`         Filter to failed checks
+  `passed`      `ctrl-p`         Filter to passed checks
+  `running`     `ctrl-n`         Filter to running checks
+  `all`         `ctrl-a`         Show all checks
+
+                                                            *forge-picker-ci*
+CI PICKER ~
+Lists CI/CD runs for the current branch (or all branches with `--all`).
+
+  Action      Default Key    Description ~
+  `log`         `<enter>`        View log (tail for running, failed-only for
+                               failures, full otherwise)
+  `browse`      `ctrl-x`         Open run URL in browser
+  `refresh`     `ctrl-r`         Re-fetch runs
+
+                                                       *forge-picker-commits*
+COMMITS PICKER ~
+Git log with colored output and commit preview.
+
+  Action      Default Key    Description ~
+  `checkout`    `<enter>`        Checkout commit (detached HEAD)
+  `diff`        `ctrl-d`         Review the commit diff
+  `browse`      `ctrl-x`         Open commit on forge
+  `yank`        `ctrl-y`         Yank commit hash to `+` register
+
+                                                      *forge-picker-branches*
+BRANCHES PICKER ~
+Uses fzf-lua's `git_branches` with additional actions.
+
+  Action      Default Key    Description ~
+  `diff`        `ctrl-d`         Review diff against branch
+  `browse`      `ctrl-x`         Open branch on forge
+
+                                                        *forge-picker-manage*
+MANAGE PICKER ~
+Contextual actions for a specific PR, shown based on permissions and
+state: Approve, Merge (per available method: squash, rebase, merge),
+Close/Reopen, Mark as draft/Mark as ready.
 
 ==============================================================================
 REVIEW                                                          *forge-review*
 
-Review mode requires diffs.nvim. Enter review via `<ctrl-d>` on a PR or
-commit.
+Review mode provides unified and split diff viewing for PRs and commits.
+Requires diffs.nvim for unified view and vim-fugitive for split view.
 
-Review keybinds: ~
-  `s`           Toggle unified/split view
-  `]q` / `[q`   Next/previous quickfix entry (file navigation)
-  `]l` / `[l`   Next/previous loclist entry
+Starting a review: ~
+- `ctrl-d` on a PR in the PR picker
+- `ctrl-d` on a commit in the commit picker
+- `:Forge pr diff {num}`
+- `:Forge commit diff {sha}`
+- `:Forge branch diff {name}`
 
-Review mode ends automatically when the review buffer is wiped.
+Unified view (default): ~
+  diffs.nvim renders a combined diff in a `diffs://review:*` buffer with
+  a quickfix list of changed files.
+
+Split view: ~
+  Press the `review_toggle` key (default `s`) to switch to a side-by-side
+  fugitive split (`:Gvdiffsplit`). Press again to return to unified.
+
+Navigation: ~
+  `]q` / `[q` navigate quickfix entries. In split mode, the split is
+  automatically closed and reopened around the new file. Navigation wraps
+  at list boundaries.
+
+Ending a review: ~
+  `:Forge review end` or wipe the `diffs://review:*` buffer.
+
+State: ~
+  `require('forge.review').state` holds: >lua
+    { base = 'origin/main', mode = 'unified' }
+<
+  `base` is `nil` when no review is active.
 
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*
 
-Creating a PR opens a compose buffer (`forge://pr/new`) with:
+Creating a PR (without `--fill` or `--web`) opens a compose buffer at
+`forge://pr/new` with filetype `markdown` and buftype `acwrite`.
 
-- Line 1: PR title (pre-filled from commit subject or branch name)
-- Line 3+: PR body (pre-filled from commit body or PR template)
-- HTML comment block: metadata (branch info, draft, reviewers, diff stat)
+Layout: ~
+  Line 1      PR title (pre-filled from single commit subject or branch)
+  Line 2      Empty separator
+  Lines 3+    PR body (from commit body or discovered PR template)
+  `<!--`        Metadata comment block (branch, forge, draft, reviewers,
+              diff stat). Editable.
+  `-->`         End of metadata
 
-The compose buffer is `filetype=markdown` with `buftype=acwrite`. Write the
-buffer (`:w`) to push and create the PR. An empty title or body aborts.
+Write (`:w`) to push the branch and create the PR. An empty title or body
+aborts creation. The PR URL is copied to the `+` register on success.
 
-Metadata fields (editable in the comment block): ~
-  `Draft:`       Set to `yes` or `true` to create as draft
-  `Reviewers:`   Comma-separated list of reviewer usernames
+Metadata fields: ~
+  `Draft: yes`       Create as draft (also `true`). Empty = not draft.
+  `Reviewers:`       Comma or space separated usernames.
 
-Template discovery: ~ forge.nvim searches for PR templates in the repository:
-- `.github/pull_request_template.md`
-- `.github/PULL_REQUEST_TEMPLATE/` (single file auto-selected, multiple
-  prompts for choice)
-- GitLab/Codeberg equivalents
+Template discovery: ~
+  forge.nvim searches forge-specific template paths. If a template
+  directory contains multiple `.md` files, you are prompted to choose.
+  GitHub: `.github/pull_request_template.md`,
+          `.github/PULL_REQUEST_TEMPLATE/`
+  GitLab: `.gitlab/merge_request_templates/`
+  Codeberg: `.gitea/pull_request_template.md`,
+            `.github/pull_request_template.md`
 
-Fugitive keymaps: ~ From a fugitive buffer, the following keymaps are
-available:
-  `cpr`   Create PR
-  `cpd`   Create draft PR
-  `cpf`   Create PR instantly (skip compose buffer)
-  `cpw`   Create PR via web browser
+Highlight groups: ~
 
-==============================================================================
-HIGHLIGHT GROUPS                                            *forge-highlights*
+  Group                    Default Link      Description ~
+  `ForgeComposeComment`      `Comment`          Comment block lines
+  `ForgeComposeBranch`       `Special`          Branch names
+  `ForgeComposeForge`        `Type`             Forge name
+  `ForgeComposeDraft`        `DiagnosticWarn`   Draft status value
+  `ForgeComposeFile`         `Directory`        File paths in diff stat
+  `ForgeComposeAdded`        `Added`            Addition indicators (+)
+  `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
 
-The compose buffer uses the following highlight groups:
-
-  `ForgeComposeComment`    Entire comment block            Links to `Comment`
-  `ForgeComposeBranch`     Branch names                    Links to `Special`
-  `ForgeComposeForge`      Forge name                      Links to `Type`
-  `ForgeComposeDraft`      Draft status value              Links to `DiagnosticWarn`
-  `ForgeComposeFile`       File paths in diff stat         Links to `Directory`
-  `ForgeComposeAdded`      Addition indicators (+)         Links to `Added`
-  `ForgeComposeRemoved`    Deletion indicators (-)         Links to `Removed`
-
-All groups are defined with `default = true` so colorschemes can override
-them.
+All groups are defined with `default = true`.
 
 ==============================================================================
-HEALTH CHECK                                                    *forge-health*
+SOURCES                                                        *forge-sources*
 
-Run `:checkhealth forge` to verify:
-- git is available
-- Forge CLIs (`gh`, `glab`, `tea`) and their status
-- fzf-lua is installed
-- diffs.nvim is available (for review mode)
-- vim-fugitive is available (for fugitive keymaps)
+Built-in sources: ~
+
+  Name          CLI       Hosts matched ~
+  `github`        `gh`        `github`
+  `gitlab`        `glab`      `gitlab`
+  `codeberg`      `tea`       `codeberg`, `gitea`, `forgejo`
+
+Sources are lazy-loaded the first time a matching remote is detected.
+Built-in host patterns are checked after user-configured `sources` hosts,
+so user overrides take priority.
+
+HOST OVERRIDES ~
+                                                       *forge-sources-hosts*
+To route a self-hosted instance to a built-in source: >lua
+    vim.g.forge = {
+      sources = {
+        gitlab = { hosts = { 'gitlab.corp.com' } },
+      },
+    }
+<
+
+CUSTOM SOURCE REGISTRATION ~
+                                                    *forge-sources-register*
+Register a custom source with `require('forge').register()`: >lua
+    local my_source = { ... }
+    require('forge').register('myforgejo', my_source)
+<
+The name must match the key used in `sources` host config. The source
+module is also discoverable as `forge.<name>` (e.g. `require('forge.myforgejo')`
+if placed at `lua/forge/myforgejo.lua`).
+
+THE `forge.Forge` INTERFACE ~
+                                                        *forge-Forge-interface*
+A source must implement all methods in the `forge.Forge` class. Each
+source is a table with these fields and methods:
+
+Fields: ~
+  `name`        `string`       Source name (e.g. `"github"`).
+  `cli`         `string`       CLI executable name (e.g. `"gh"`).
+  `kinds`       `table`        `{ issue = string, pr = string }` -- CLI
+                              subcommand names for issues and PRs.
+  `labels`      `table`        `{ issue = string, pr = string,`
+                              `pr_one = string, pr_full = string,`
+                              `ci = string }` -- display labels.
+
+Required methods: ~
+
+All methods receive `self` as the first argument (use `:` syntax).
+
+  Method                              Returns ~
+  `list_pr_json_cmd(state)`             `string[]` cmd to list PRs as JSON.
+  `list_issue_json_cmd(state)`          `string[]` cmd to list issues as JSON.
+  `pr_json_fields()`                    `table` field name mapping:
+                                        `{ number, title, branch, state,`
+                                        `author, created_at }`.
+  `issue_json_fields()`                 `table` field name mapping:
+                                        `{ number, title, state, author,`
+                                        `created_at }`.
+  `view_web(kind, num)`                 Opens PR/issue in browser.
+  `browse(loc, branch)`                 Opens file location on remote.
+  `browse_root()`                       Opens repo root in browser.
+  `browse_branch(branch)`              Opens branch in browser.
+  `browse_commit(sha)`                 Opens commit in browser.
+  `checkout_cmd(num)`                   `string[]` cmd to checkout a PR.
+  `yank_branch(loc)`                    Yanks branch-pinned URL.
+  `yank_commit(loc)`                    Yanks commit-pinned URL.
+  `fetch_pr(num)`                       `string[]` git fetch refspec for PR.
+  `pr_base_cmd(num)`                    `string[]` cmd returning base branch.
+  `pr_for_branch_cmd(branch)`          `string[]` cmd returning PR number
+                                        for a branch (empty = no PR).
+  `checks_cmd(num)`                     `string` shell command for checks.
+  `check_log_cmd(run_id, failed_only)` `string[]` cmd to view check log.
+  `check_tail_cmd(run_id)`             `string[]` cmd to tail check log.
+  `list_runs_cmd(branch?)`             `string` shell command for CI runs.
+  `normalize_run(entry)`                `forge.CIRun` normalized run entry.
+  `run_log_cmd(id, failed_only)`       `string[]` cmd to view run log.
+  `run_tail_cmd(id)`                    `string[]` cmd to tail run log.
+  `merge_cmd(num, method)`             `string[]` cmd to merge PR.
+  `approve_cmd(num)`                    `string[]` cmd to approve PR.
+  `repo_info()`                         `forge.RepoInfo` with `permission`
+                                        (`"ADMIN"`, `"WRITE"`, `"READ"`)
+                                        and `merge_methods` (`string[]`).
+  `pr_state(num)`                       `forge.PRState` with `state`,
+                                        `mergeable`, `review_decision`,
+                                        `is_draft`.
+  `close_cmd(num)`                      `string[]` cmd to close PR.
+  `reopen_cmd(num)`                     `string[]` cmd to reopen PR.
+  `close_issue_cmd(num)`               `string[]` cmd to close issue.
+  `reopen_issue_cmd(num)`              `string[]` cmd to reopen issue.
+  `create_pr_cmd(title, body,`          `string[]` cmd to create a PR.
+    `base, draft, reviewers?)`
+  `default_branch_cmd()`                `string[]` cmd returning default
+                                        branch name.
+  `template_paths()`                    `string[]` repo-relative paths to
+                                        PR templates.
+  `draft_toggle_cmd(num, is_draft)`    `string[]?` cmd to toggle draft.
+                                        Return `nil` if unsupported.
+
+Optional methods: ~
+
+  Method                              Fallback ~
+  `list_runs_json_cmd(branch?)`        `string[]` JSON CI list cmd.
+                                        If absent, `list_runs_cmd` is used
+                                        as a raw fzf-lua command source.
+  `checks_json_cmd(num)`               `string[]` JSON checks cmd.
+                                        If absent, `checks_cmd` string is
+                                        used as a raw fzf-lua command.
+  `create_pr_web_cmd()`                `string[]?` cmd to open web PR
+                                        creation. Return `nil` to no-op.
+
+Skeleton: >lua
+    local M = {
+      name = 'myforgejo',
+      cli = 'tea',
+      kinds = { issue = 'issues', pr = 'pulls' },
+      labels = {
+        issue = 'Issues',
+        pr = 'PRs',
+        pr_one = 'PR',
+        pr_full = 'Pull Requests',
+        ci = 'CI/CD',
+      },
+    }
+
+    function M:list_pr_json_cmd(state)
+      return { 'tea', 'pulls', 'list', '--state', state, '--output', 'json' }
+    end
+
+    -- ... implement remaining methods ...
+
+    return M
+<
+
+==============================================================================
+HEALTH                                                          *forge-health*
+
+`:checkhealth forge`
+
+Reports on: ~
+- `git` availability
+- Forge CLI availability (`gh`, `glab`, `tea`)
+- `fzf-lua` installation (required)
+- `diffs.nvim` installation (review mode)
+- `vim-fugitive` availability (fugitive keymaps, split review)
+- Custom registered sources and their CLI availability
+
+==============================================================================
+API                                                                *forge-api*
+
+PUBLIC API: `require('forge')` ~
+                                                              *forge.detect()*
+`detect()`
+    Returns `forge.Forge?`. Detects the forge for the current git
+    repository by inspecting the `origin` remote URL. Returns `nil` if
+    not in a git repo, no matching source, or the CLI is not installed.
+    Results are cached per git root.
+
+                                                              *forge.config()*
+`config()`
+    Returns `table`. The resolved configuration, merging `vim.g.forge`
+    over defaults. If `vim.g.forge.keys` is `false`, `cfg.keys` is
+    `false`. Same for `picker_keys`.
+
+                                                            *forge.register()*
+`register(name, source)`
+    Registers a custom `forge.Forge` source under `name`.
+
+                                                  *forge.registered_sources()*
+`registered_sources()`
+    Returns `table<string, forge.Forge>`. All registered sources.
+
+                                                           *forge.create_pr()*
+`create_pr(opts?)`
+    Creates a PR. `opts` is `forge.CreatePROpts?`:
+      `draft`     `boolean?`  Create as draft.
+      `instant`   `boolean?`  Skip compose buffer, fill from commits.
+      `web`       `boolean?`  Push and open web create page.
+
+                                                         *forge.clear_cache()*
+`clear_cache()`
+    Clears all internal caches (forge detection, repo info, git root,
+    list data).
+
+                                                           *forge.repo_info()*
+`repo_info(f)`
+    Returns `forge.RepoInfo`. Fetches and caches repository info
+    (permissions, merge methods) for forge `f`.
+
+                                                            *forge.file_loc()*
+`file_loc()`
+    Returns `string`. Current buffer file path relative to git root with
+    line number(s). In visual mode, includes the selected line range
+    (e.g. `"src/foo.lua:10-20"`).
+
+                                                       *forge.remote_web_url()*
+`remote_web_url()`
+    Returns `string`. The HTTPS URL of the `origin` remote, normalized
+    from SSH or git URLs.
+
+                                                            *forge.yank_url()*
+`yank_url(args)`
+    Runs `args` (string[]) asynchronously and copies stdout to the `+`
+    register.
+
+                                                           *forge.clear_list()*
+`clear_list(key?)`
+    Clears cached list data. If `key` is given, clears only that key.
+    If `nil`, clears all list caches.
+
+                                                            *forge.list_key()*
+`list_key(kind, state)`
+    Returns `string`. Cache key for list data, scoped to git root.
+
+                                                            *forge.get_list()*
+`get_list(key)`
+    Returns `table[]?`. Cached list data for `key`.
+
+                                                            *forge.set_list()*
+`set_list(key, data)`
+    Stores `data` in the list cache under `key`.
+
+                                                                 *forge.log()*
+`log(msg, level?)`
+    Schedules a `vim.notify` with `[forge.nvim]:` prefix.
+
+                                                             *forge.log_now()*
+`log_now(msg, level?)`
+    Synchronous `vim.notify` with `[forge.nvim]:` prefix and redraw.
+
+PUBLIC API: `require('forge.pickers')` ~
+                                                        *forge.pickers.git()*
+`git()`
+    Opens the main forge picker. Requires a git repository.
+
+                                                         *forge.pickers.pr()*
+`pr(state, f)`
+    Opens the PR list picker. `state`: `"open"`, `"closed"`, or `"all"`.
+    `f`: `forge.Forge`.
+
+                                                      *forge.pickers.issue()*
+`issue(state, f)`
+    Opens the issue list picker. `state`: `"open"`, `"closed"`, or
+    `"all"`. `f`: `forge.Forge`.
+
+                                                     *forge.pickers.checks()*
+`checks(f, num, filter?, cached_checks?)`
+    Opens the checks picker for PR `num`. `filter`: `"all"`, `"fail"`,
+    `"pass"`, or `"pending"`.
+
+                                                         *forge.pickers.ci()*
+`ci(f, branch?)`
+    Opens the CI runs picker. `nil` branch shows all.
+
+                                                    *forge.pickers.commits()*
+`commits(f)`
+    Opens the commit log picker. `f` may be `nil` (browse action
+    requires a forge).
+
+                                                   *forge.pickers.branches()*
+`branches(f)`
+    Opens the branch picker. `f` may be `nil`.
+
+                                                  *forge.pickers.pr_manage()*
+`pr_manage(f, num)`
+    Opens the management picker for PR `num`.
+
+                                                 *forge.pickers.pr_actions()*
+`pr_actions(f, num)`
+    Returns `table<string, function>`. Action functions for PR `num`,
+    keyed by fzf binding. Also has `_by_name` table keyed by action
+    name (`"checkout"`, `"diff"`, `"worktree"`, `"browse"`, `"checks"`,
+    `"manage"`).
+
+                                                *forge.pickers.issue_close()*
+`issue_close(f, num)`
+    Closes issue `num`.
+
+                                               *forge.pickers.issue_reopen()*
+`issue_reopen(f, num)`
+    Reopens issue `num`.
+
+PUBLIC API: `require('forge.review')` ~
+                                                       *forge.review.start()*
+`start(base, mode?)`
+    Starts a review session. `base` is the diff range (e.g.
+    `"origin/main"`, `"abc123^..abc123"`). `mode`: `"unified"` (default)
+    or `"split"`.
+
+                                                        *forge.review.stop()*
+`stop()`
+    Ends the current review session. Clears state and removes the
+    `review_toggle` keymap.
+
+                                                      *forge.review.toggle()*
+`toggle()`
+    Toggles between unified and split view. No-op if no review is
+    active.
+
+                                                         *forge.review.nav()*
+`nav(nav_cmd)`
+    Returns `function`. Creates a navigation function for `nav_cmd`
+    (`"cnext"`, `"cprev"`, `"lnext"`, `"lprev"`). In split mode,
+    closes the split before navigating and reopens after. Wraps at
+    list boundaries.
+
+                                                       *forge.review.state*
+`state`
+    `table` with fields:
+      `base`   `string?`          The current diff range, or `nil`.
+      `mode`   `"unified"|"split"` Current view mode.
 
 ==============================================================================
  vim:tw=78:ts=8:ft=help:norl:

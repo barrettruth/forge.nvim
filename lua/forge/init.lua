@@ -1,5 +1,109 @@
 local M = {}
 
+---@class forge.Config
+---@field ci forge.CIConfig
+---@field sources table<string, forge.SourceConfig>
+---@field keys forge.KeysConfig|false
+---@field picker_keys forge.PickerKeysConfig|false
+---@field display forge.DisplayConfig
+
+---@class forge.CIConfig
+---@field lines integer
+
+---@class forge.SourceConfig
+---@field hosts string[]
+
+---@class forge.KeysConfig
+---@field picker string|false
+---@field next_qf string|false
+---@field prev_qf string|false
+---@field next_loc string|false
+---@field prev_loc string|false
+---@field review_toggle string|false
+---@field terminal_open string|false
+---@field fugitive forge.FugitiveKeysConfig|false
+
+---@class forge.FugitiveKeysConfig
+---@field create string|false
+---@field create_draft string|false
+---@field create_fill string|false
+---@field create_web string|false
+
+---@class forge.PickerKeysConfig
+---@field pr forge.PRPickerKeys
+---@field issue forge.IssuePickerKeys
+---@field checks forge.ChecksPickerKeys
+---@field ci forge.CIPickerKeys
+---@field commits forge.CommitsPickerKeys
+---@field branches forge.BranchesPickerKeys
+
+---@class forge.PRPickerKeys
+---@field checkout string|false
+---@field diff string|false
+---@field worktree string|false
+---@field checks string|false
+---@field browse string|false
+---@field manage string|false
+---@field create string|false
+---@field toggle string|false
+---@field refresh string|false
+
+---@class forge.IssuePickerKeys
+---@field browse string|false
+---@field close_reopen string|false
+---@field toggle string|false
+---@field refresh string|false
+
+---@class forge.ChecksPickerKeys
+---@field log string|false
+---@field browse string|false
+---@field failed string|false
+---@field passed string|false
+---@field running string|false
+---@field all string|false
+
+---@class forge.CIPickerKeys
+---@field log string|false
+---@field browse string|false
+---@field refresh string|false
+
+---@class forge.CommitsPickerKeys
+---@field checkout string|false
+---@field diff string|false
+---@field browse string|false
+---@field yank string|false
+
+---@class forge.BranchesPickerKeys
+---@field diff string|false
+---@field browse string|false
+
+---@class forge.DisplayConfig
+---@field icons forge.IconsConfig
+---@field widths forge.WidthsConfig
+---@field limits forge.LimitsConfig
+
+---@class forge.IconsConfig
+---@field open string
+---@field merged string
+---@field closed string
+---@field pass string
+---@field fail string
+---@field pending string
+---@field skip string
+---@field unknown string
+
+---@class forge.WidthsConfig
+---@field title integer
+---@field author integer
+---@field name integer
+---@field branch integer
+
+---@class forge.LimitsConfig
+---@field pulls integer
+---@field issues integer
+---@field runs integer
+
+---@type forge.Config
 local DEFAULTS = {
   ci = { lines = 10000 },
   sources = {},
@@ -71,10 +175,13 @@ local DEFAULTS = {
 ---@type table<string, forge.Forge>
 local sources = {}
 
+---@param name string
+---@param source forge.Forge
 function M.register(name, source)
   sources[name] = source
 end
 
+---@return table<string, forge.Forge>
 function M.registered_sources()
   return sources
 end
@@ -635,6 +742,7 @@ function M.filter_checks(checks, filter)
   return filtered
 end
 
+---@return forge.Config
 function M.config()
   local user = vim.g.forge or {}
   local cfg = vim.tbl_deep_extend('force', DEFAULTS, user)
