@@ -714,6 +714,25 @@ function M.config()
   if user.keys == false then
     cfg.keys = false
   end
+
+  vim.validate('forge.sources', cfg.sources, 'table')
+  vim.validate('forge.keys', cfg.keys, function(v)
+    return v == false or type(v) == 'table'
+  end, 'table or false')
+  vim.validate('forge.display', cfg.display, 'table')
+  vim.validate('forge.display.icons', cfg.display.icons, 'table')
+  vim.validate('forge.display.widths', cfg.display.widths, 'table')
+  vim.validate('forge.display.limits', cfg.display.limits, 'table')
+  vim.validate('forge.ci', cfg.ci, 'table')
+  vim.validate('forge.ci.lines', cfg.ci.lines, 'number')
+
+  for name, source in pairs(cfg.sources) do
+    vim.validate('forge.sources.' .. name, source, 'table')
+    if source.hosts ~= nil then
+      vim.validate('forge.sources.' .. name .. '.hosts', source.hosts, 'table')
+    end
+  end
+
   return cfg
 end
 
