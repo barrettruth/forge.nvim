@@ -35,7 +35,7 @@ unset keys use defaults. >lua
 
 Top-level keys: ~
 
-`picker`                                               *forge-config-picker*
+`picker`                                                 *forge-config-picker*
   `string`  (default `"auto"`)
     Picker backend to use. One of `"auto"`, `"fzf-lua"`, `"telescope"`, or
     `"snacks"`. When `"auto"`, forge.nvim tries fzf-lua, then snacks, then
@@ -712,7 +712,7 @@ PUBLIC API: `require('forge.pickers')` ~
 `pr_manage(f, num)`
     Opens the management picker for PR `num`.
 
-                                                *forge.pickers.pr_action_fns()*
+                                               *forge.pickers.pr_action_fns()*
 `pr_action_fns(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
     keyed by action name (`"checkout"`, `"diff"`, `"worktree"`,
