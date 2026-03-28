@@ -720,11 +720,86 @@ function M.config()
     return v == false or type(v) == 'table'
   end, 'table or false')
   vim.validate('forge.display', cfg.display, 'table')
-  vim.validate('forge.display.icons', cfg.display.icons, 'table')
-  vim.validate('forge.display.widths', cfg.display.widths, 'table')
-  vim.validate('forge.display.limits', cfg.display.limits, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, 'number')
+
+  vim.validate('forge.display.icons', cfg.display.icons, 'table')
+  vim.validate('forge.display.icons.open', cfg.display.icons.open, 'string')
+  vim.validate('forge.display.icons.merged', cfg.display.icons.merged, 'string')
+  vim.validate('forge.display.icons.closed', cfg.display.icons.closed, 'string')
+  vim.validate('forge.display.icons.pass', cfg.display.icons.pass, 'string')
+  vim.validate('forge.display.icons.fail', cfg.display.icons.fail, 'string')
+  vim.validate('forge.display.icons.pending', cfg.display.icons.pending, 'string')
+  vim.validate('forge.display.icons.skip', cfg.display.icons.skip, 'string')
+  vim.validate('forge.display.icons.unknown', cfg.display.icons.unknown, 'string')
+
+  vim.validate('forge.display.widths', cfg.display.widths, 'table')
+  vim.validate('forge.display.widths.title', cfg.display.widths.title, 'number')
+  vim.validate('forge.display.widths.author', cfg.display.widths.author, 'number')
+  vim.validate('forge.display.widths.name', cfg.display.widths.name, 'number')
+  vim.validate('forge.display.widths.branch', cfg.display.widths.branch, 'number')
+
+  vim.validate('forge.display.limits', cfg.display.limits, 'table')
+  vim.validate('forge.display.limits.pulls', cfg.display.limits.pulls, 'number')
+  vim.validate('forge.display.limits.issues', cfg.display.limits.issues, 'number')
+  vim.validate('forge.display.limits.runs', cfg.display.limits.runs, 'number')
+
+  local key_or_false = function(v)
+    return v == false or type(v) == 'string'
+  end
+  if type(cfg.keys) == 'table' then
+    local keys = cfg.keys --[[@as forge.KeysConfig]]
+    if keys.pr ~= nil then
+      vim.validate('forge.keys.pr', keys.pr, 'table')
+      for _, k in ipairs({
+        'checkout',
+        'diff',
+        'worktree',
+        'ci',
+        'browse',
+        'manage',
+        'create',
+        'filter',
+        'refresh',
+      }) do
+        vim.validate('forge.keys.pr.' .. k, keys.pr[k], key_or_false, 'string or false')
+      end
+    end
+    if keys.issue ~= nil then
+      vim.validate('forge.keys.issue', keys.issue, 'table')
+      for _, k in ipairs({ 'browse', 'close', 'filter', 'refresh' }) do
+        vim.validate('forge.keys.issue.' .. k, keys.issue[k], key_or_false, 'string or false')
+      end
+    end
+    if keys.ci ~= nil then
+      vim.validate('forge.keys.ci', keys.ci, 'table')
+      for _, k in ipairs({ 'log', 'browse', 'failed', 'passed', 'running', 'all', 'refresh' }) do
+        vim.validate('forge.keys.ci.' .. k, keys.ci[k], key_or_false, 'string or false')
+      end
+    end
+    if keys.commits ~= nil then
+      vim.validate('forge.keys.commits', keys.commits, 'table')
+      for _, k in ipairs({ 'checkout', 'diff', 'browse', 'yank' }) do
+        vim.validate(
+          'forge.keys.commits.' .. k,
+          keys.commits[k],
+          key_or_false,
+          'string or false'
+        )
+      end
+    end
+    if keys.branches ~= nil then
+      vim.validate('forge.keys.branches', keys.branches, 'table')
+      for _, k in ipairs({ 'diff', 'browse' }) do
+        vim.validate(
+          'forge.keys.branches.' .. k,
+          keys.branches[k],
+          key_or_false,
+          'string or false'
+        )
+      end
+    end
+  end
 
   for name, source in pairs(cfg.sources) do
     vim.validate('forge.sources.' .. name, source, 'table')
