@@ -86,7 +86,10 @@ describe('github', function()
   end)
 
   it('preserves in_progress status in normalize_run', function()
-    assert.equals('in_progress', gh:normalize_run({ databaseId = 1, status = 'in_progress' }).status)
+    assert.equals(
+      'in_progress',
+      gh:normalize_run({ databaseId = 1, status = 'in_progress' }).status
+    )
   end)
 end)
 
