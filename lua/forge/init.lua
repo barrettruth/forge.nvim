@@ -157,6 +157,16 @@ local hl_defaults = {
   ForgeComposeFile = 'Directory',
   ForgeComposeAdded = 'Added',
   ForgeComposeRemoved = 'Removed',
+  ForgeNumber = 'Number',
+  ForgeOpen = 'DiagnosticInfo',
+  ForgeMerged = 'Constant',
+  ForgeClosed = 'Comment',
+  ForgePass = 'DiagnosticOk',
+  ForgeFail = 'DiagnosticError',
+  ForgePending = 'DiagnosticWarn',
+  ForgeSkip = 'Comment',
+  ForgeBranch = 'Special',
+  ForgeDim = 'Comment',
 }
 
 for group, link in pairs(hl_defaults) do
@@ -490,21 +500,6 @@ local function relative_time(iso)
   return ('%dy'):format(math.floor(diff / 31536000))
 end
 
----@param iso string?
----@return string
-local function compact_date(iso)
-  local ts = parse_iso(iso)
-  if not ts then
-    return ''
-  end
-  local current_year = os.date('%Y')
-  local entry_year = os.date('%Y', ts)
-  if entry_year == current_year then
-    return os.date('%d/%m %H:%M', ts)
-  end
-  return os.date('%d/%m/%y %H:%M', ts)
-end
-
 local event_map = {
   merge_request_event = 'mr',
   external_pull_request_event = 'ext',
@@ -535,6 +530,11 @@ local function extract_author(entry, field)
   return tostring(v or '')
 end
 
+local function hl(group, text)
+  local utils = require('fzf-lua.utils')
+  return utils.ansi_from_hl(group, text)
+end
+
 ---@param entry table
 ---@param fields table
 ---@param show_state boolean
@@ -550,23 +550,22 @@ function M.format_pr(entry, fields, show_state)
   local prefix = ''
   if show_state then
     local state = (entry[fields.state] or ''):lower()
-    local icon, color
+    local icon, group
     if state == 'open' or state == 'opened' then
-      icon, color = icons.open, '\27[34m'
+      icon, group = icons.open, 'ForgeOpen'
     elseif state == 'merged' then
-      icon, color = icons.merged, '\27[35m'
+      icon, group = icons.merged, 'ForgeMerged'
     else
-      icon, color = icons.closed, '\27[31m'
+      icon, group = icons.closed, 'ForgeClosed'
     end
-    prefix = color .. icon .. '\27[0m  '
+    prefix = hl(group, icon) .. '  '
   end
-  return ('%s\27[34m#%-5s\27[0m %s \27[2m%-' .. widths.author .. 's %3s\27[0m'):format(
-    prefix,
-    num,
-    pad_or_truncate(title, widths.title),
-    pad_or_truncate(author, widths.author),
-    age
-  )
+  return prefix
+    .. hl('ForgeNumber', ('#%-5s'):format(num))
+    .. ' '
+    .. pad_or_truncate(title, widths.title)
+    .. ' '
+    .. hl('ForgeDim', pad_or_truncate(author, widths.author) .. (' %3s'):format(age))
 end
 
 ---@param entry table
@@ -584,21 +583,20 @@ function M.format_issue(entry, fields, show_state)
   local prefix = ''
   if show_state then
     local state = (entry[fields.state] or ''):lower()
-    local icon, color
+    local icon, group
     if state == 'open' or state == 'opened' then
-      icon, color = icons.open, '\27[34m'
+      icon, group = icons.open, 'ForgeOpen'
     else
-      icon, color = icons.closed, '\27[2m'
+      icon, group = icons.closed, 'ForgeClosed'
     end
-    prefix = color .. icon .. '\27[0m  '
+    prefix = hl(group, icon) .. '  '
   end
-  return ('%s\27[34m#%-5s\27[0m %s \27[2m%-' .. widths.author .. 's %3s\27[0m'):format(
-    prefix,
-    num,
-    pad_or_truncate(title, widths.title),
-    pad_or_truncate(author, widths.author),
-    age
-  )
+  return prefix
+    .. hl('ForgeNumber', ('#%-5s'):format(num))
+    .. ' '
+    .. pad_or_truncate(title, widths.title)
+    .. ' '
+    .. hl('ForgeDim', pad_or_truncate(author, widths.author) .. (' %3s'):format(age))
 end
 
 ---@param check table
@@ -609,17 +607,17 @@ function M.format_check(check)
   local widths = display.widths
   local bucket = (check.bucket or 'pending'):lower()
   local name = check.name or ''
-  local icon, color
+  local icon, group
   if bucket == 'pass' then
-    icon, color = icons.pass, '\27[32m'
+    icon, group = icons.pass, 'ForgePass'
   elseif bucket == 'fail' then
-    icon, color = icons.fail, '\27[31m'
+    icon, group = icons.fail, 'ForgeFail'
   elseif bucket == 'pending' then
-    icon, color = icons.pending, '\27[33m'
+    icon, group = icons.pending, 'ForgePending'
   elseif bucket == 'skipping' or bucket == 'cancel' then
-    icon, color = icons.skip, '\27[2m'
+    icon, group = icons.skip, 'ForgeSkip'
   else
-    icon, color = icons.unknown, '\27[2m'
+    icon, group = icons.unknown, 'ForgeSkip'
   end
   local elapsed = ''
   if check.startedAt and check.completedAt and check.completedAt ~= '' then
@@ -634,12 +632,7 @@ function M.format_check(check)
       end
     end
   end
-  return ('%s%s\27[0m  %s \27[2m%s\27[0m'):format(
-    color,
-    icon,
-    pad_or_truncate(name, widths.name),
-    elapsed
-  )
+  return hl(group, icon) .. '  ' .. pad_or_truncate(name, widths.name) .. ' ' .. hl('ForgeDim', elapsed)
 end
 
 ---@param run forge.CIRun
@@ -648,39 +641,31 @@ function M.format_run(run)
   local display = M.config().display
   local icons = display.icons
   local widths = display.widths
-  local icon, color
+  local icon, group
   local s = run.status:lower()
   if s == 'success' then
-    icon, color = icons.pass, '\27[32m'
+    icon, group = icons.pass, 'ForgePass'
   elseif s == 'failure' or s == 'failed' then
-    icon, color = icons.fail, '\27[31m'
+    icon, group = icons.fail, 'ForgeFail'
   elseif s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
-    icon, color = icons.pending, '\27[33m'
+    icon, group = icons.pending, 'ForgePending'
   elseif s == 'cancelled' or s == 'canceled' or s == 'skipped' then
-    icon, color = icons.skip, '\27[2m'
+    icon, group = icons.skip, 'ForgeSkip'
   else
-    icon, color = icons.unknown, '\27[2m'
+    icon, group = icons.unknown, 'ForgeSkip'
   end
   local event = abbreviate_event(run.event)
-  local date = compact_date(run.created_at)
+  local age = relative_time(run.created_at)
   if run.branch ~= '' then
     local name_w = widths.name - widths.branch + 10
-    return ('%s%s\27[0m  %s \27[36m%s\27[0m \27[2m%-6s %s\27[0m'):format(
-      color,
-      icon,
-      pad_or_truncate(run.name, name_w),
-      pad_or_truncate(run.branch, widths.branch),
-      event,
-      date
-    )
+    return hl(group, icon) .. '  '
+      .. pad_or_truncate(run.name, name_w) .. ' '
+      .. hl('ForgeBranch', pad_or_truncate(run.branch, widths.branch)) .. ' '
+      .. hl('ForgeDim', ('%-6s'):format(event) .. ' ' .. age)
   end
-  return ('%s%s\27[0m  %s \27[2m%-6s %s\27[0m'):format(
-    color,
-    icon,
-    pad_or_truncate(run.name, widths.name),
-    event,
-    date
-  )
+  return hl(group, icon) .. '  '
+    .. pad_or_truncate(run.name, widths.name) .. ' '
+    .. hl('ForgeDim', ('%-6s'):format(event) .. ' ' .. age)
 end
 
 ---@param checks table[]
