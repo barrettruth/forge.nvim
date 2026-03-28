@@ -9,7 +9,10 @@ delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
-- fzf-lua (required)
+- At least one picker backend:
+  - fzf-lua
+  - telescope.nvim
+  - snacks.nvim
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
@@ -32,6 +35,15 @@ unset keys use defaults. >lua
 
 Top-level keys: ~
 
+`picker`                                               *forge-config-picker*
+  `string`  (default `"auto"`)
+    Picker backend to use. One of `"auto"`, `"fzf-lua"`, `"telescope"`, or
+    `"snacks"`. When `"auto"`, forge.nvim tries fzf-lua, then snacks, then
+    telescope.
+
+    Note: commits, branches, and worktree pickers currently require fzf-lua.
+    Other backends show a notification for these pickers.
+
 `ci`                                                         *forge-config-ci*
   `ci.lines`        `integer`  (default `10000`)
     Maximum number of log lines fetched for CI/check log output.
@@ -53,7 +65,8 @@ Top-level keys: ~
   `table|false`  (default shown below)
     Per-picker action bindings. Set to `false` to disable all picker-level
     actions. Use `"<cr>"` to bind to enter. Values use vim keymap notation
-    (e.g. `"<c-d>"`), which is translated to fzf-lua format internally.
+    (e.g. `"<c-d>"`), which is translated to the appropriate format for
+    each picker backend.
 
   Defaults: >lua
       keys = {
@@ -575,7 +588,7 @@ HEALTH                                                          *forge-health*
 Reports on: ~
 - `git` availability
 - Forge CLI availability (`gh`, `glab`, `tea`)
-- `fzf-lua` installation (required)
+- Picker backends (fzf-lua, telescope, snacks) and which is active
 - `diffs.nvim` installation (review mode)
 - Custom registered sources and their CLI availability
 
@@ -699,12 +712,11 @@ PUBLIC API: `require('forge.pickers')` ~
 `pr_manage(f, num)`
     Opens the management picker for PR `num`.
 
-                                                  *forge.pickers.pr_actions()*
-`pr_actions(f, num)`
+                                                *forge.pickers.pr_action_fns()*
+`pr_action_fns(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
-    keyed by fzf binding. Also has `_by_name` table keyed by action
-    name (`"checkout"`, `"diff"`, `"worktree"`, `"browse"`, `"ci"`,
-    `"manage"`).
+    keyed by action name (`"checkout"`, `"diff"`, `"worktree"`,
+    `"browse"`, `"ci"`, `"manage"`).
 
                                                  *forge.pickers.issue_close()*
 `issue_close(f, num)`
