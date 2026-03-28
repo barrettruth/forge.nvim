@@ -17,12 +17,13 @@ local M = {}
 ---@field actions forge.PickerActionDef[]
 ---@field picker_name string
 
----@type table<string, string>
-local backends = {
+M.backends = {
   ['fzf-lua'] = 'forge.picker.fzf',
   telescope = 'forge.picker.telescope',
   snacks = 'forge.picker.snacks',
 }
+
+M.detect_order = { 'fzf-lua', 'snacks', 'telescope' }
 
 ---@return string
 local function detect()
@@ -31,16 +32,12 @@ local function detect()
   if name ~= 'auto' then
     return name
   end
-  if pcall(require, 'fzf-lua') then
-    return 'fzf-lua'
+  for _, backend in ipairs(M.detect_order) do
+    if pcall(require, backend) then
+      return backend
+    end
   end
-  if pcall(require, 'snacks') then
-    return 'snacks'
-  end
-  if pcall(require, 'telescope') then
-    return 'telescope'
-  end
-  return 'fzf-lua'
+  return M.detect_order[1]
 end
 
 ---@param entry forge.PickerEntry
@@ -64,7 +61,7 @@ end
 ---@param opts forge.PickerOpts
 function M.pick(opts)
   local name = detect()
-  local mod_path = backends[name]
+  local mod_path = M.backends[name]
   if not mod_path then
     vim.notify('[forge]: unknown picker backend: ' .. name, vim.log.levels.ERROR)
     return

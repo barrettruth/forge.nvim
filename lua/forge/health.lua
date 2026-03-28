@@ -24,11 +24,9 @@ function M.check()
 
   local picker_mod = require('forge.picker')
   local backend = picker_mod.backend()
-  local picker_backends = { 'fzf-lua', 'telescope', 'snacks' }
   local found_any = false
-  for _, name in ipairs(picker_backends) do
-    local mod = name == 'fzf-lua' and 'fzf-lua' or name
-    if pcall(require, mod) then
+  for _, name in ipairs(picker_mod.detect_order) do
+    if pcall(require, name) then
       local suffix = backend == name and ' (active)' or ''
       vim.health.ok(name .. ' found' .. suffix)
       found_any = true

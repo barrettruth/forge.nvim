@@ -725,8 +725,9 @@ function M.config()
     cfg.keys = false
   end
 
+  local picker_backends = require('forge.picker').backends
   vim.validate('forge.picker', cfg.picker, function(v)
-    return v == 'auto' or v == 'fzf-lua' or v == 'telescope' or v == 'snacks'
+    return v == 'auto' or picker_backends[v] ~= nil
   end, "'auto', 'fzf-lua', 'telescope', or 'snacks'")
   vim.validate('forge.sources', cfg.sources, 'table')
   vim.validate('forge.keys', cfg.keys, function(v)
