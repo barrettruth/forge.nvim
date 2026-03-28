@@ -18,7 +18,8 @@ your editor.
   unified/split toggle and quickfix navigation
 - Commit and branch browsing with checkout, diff, and URL generation
 - File/line permalink generation and yanking (commit and branch URLs)
-- [fzf-lua](https://github.com/ibhagwan/fzf-lua) pickers with contextual keybinds
+- [fzf-lua](https://github.com/ibhagwan/fzf-lua) pickers with contextual
+  keybinds
 - Pluggable source registration for custom or self-hosted forges
 
 ## Dependencies
@@ -69,8 +70,8 @@ git clone https://github.com/barrettruth/forge.nvim \
 
 ## Usage
 
-forge.nvim works through two entry points: the `:Forge` command and the
-`<c-g>` picker.
+forge.nvim works through two entry points: the `:Forge` command and the `<c-g>`
+picker.
 
 `:Forge` with no arguments (or `<c-g>`) opens the top-level picker — PRs,
 issues, CI, commits, branches, worktrees, and browse actions. Each sub-picker
@@ -163,107 +164,107 @@ vim.g.forge = {
 
 `:Forge` with no arguments opens the top-level picker. Subcommands:
 
-| Command | Description |
-|---|---|
-| `:Forge pr` | List open PRs |
-| `:Forge pr --state={open,closed,all}` | List PRs by state |
-| `:Forge pr create [--draft] [--fill] [--web]` | Create PR |
-| `:Forge pr checkout {num}` | Checkout PR branch |
-| `:Forge pr diff {num}` | Review PR diff |
-| `:Forge pr worktree {num}` | Fetch PR into worktree |
-| `:Forge pr checks {num}` | Show PR checks |
-| `:Forge pr browse {num}` | Open PR in browser |
-| `:Forge pr manage {num}` | Merge/approve/close/draft actions |
-| `:Forge issue` | List all issues |
-| `:Forge issue --state={open,closed,all}` | List issues by state |
-| `:Forge issue browse {num}` | Open issue in browser |
-| `:Forge issue close {num}` | Close issue |
-| `:Forge issue reopen {num}` | Reopen issue |
-| `:Forge ci` | CI runs for current branch |
-| `:Forge ci --all` | CI runs for all branches |
-| `:Forge commit` | Browse commits |
-| `:Forge commit checkout {sha}` | Checkout commit |
-| `:Forge commit diff {sha}` | Review commit diff |
-| `:Forge commit browse {sha}` | Open commit in browser |
-| `:Forge branch` | Browse branches |
-| `:Forge branch diff {name}` | Review branch diff |
-| `:Forge branch browse {name}` | Open branch in browser |
-| `:Forge worktree` | List worktrees |
-| `:Forge browse [--root] [--commit]` | Open file/repo/commit in browser |
-| `:Forge yank [--commit]` | Yank permalink for file/line |
-| `:Forge review end` | End review session |
-| `:Forge review toggle` | Toggle split/unified review |
-| `:Forge cache clear` | Clear all caches |
+| Command                                       | Description                       |
+| --------------------------------------------- | --------------------------------- |
+| `:Forge pr`                                   | List open PRs                     |
+| `:Forge pr --state={open,closed,all}`         | List PRs by state                 |
+| `:Forge pr create [--draft] [--fill] [--web]` | Create PR                         |
+| `:Forge pr checkout {num}`                    | Checkout PR branch                |
+| `:Forge pr diff {num}`                        | Review PR diff                    |
+| `:Forge pr worktree {num}`                    | Fetch PR into worktree            |
+| `:Forge pr checks {num}`                      | Show PR checks                    |
+| `:Forge pr browse {num}`                      | Open PR in browser                |
+| `:Forge pr manage {num}`                      | Merge/approve/close/draft actions |
+| `:Forge issue`                                | List all issues                   |
+| `:Forge issue --state={open,closed,all}`      | List issues by state              |
+| `:Forge issue browse {num}`                   | Open issue in browser             |
+| `:Forge issue close {num}`                    | Close issue                       |
+| `:Forge issue reopen {num}`                   | Reopen issue                      |
+| `:Forge ci`                                   | CI runs for current branch        |
+| `:Forge ci --all`                             | CI runs for all branches          |
+| `:Forge commit`                               | Browse commits                    |
+| `:Forge commit checkout {sha}`                | Checkout commit                   |
+| `:Forge commit diff {sha}`                    | Review commit diff                |
+| `:Forge commit browse {sha}`                  | Open commit in browser            |
+| `:Forge branch`                               | Browse branches                   |
+| `:Forge branch diff {name}`                   | Review branch diff                |
+| `:Forge branch browse {name}`                 | Open branch in browser            |
+| `:Forge worktree`                             | List worktrees                    |
+| `:Forge browse [--root] [--commit]`           | Open file/repo/commit in browser  |
+| `:Forge yank [--commit]`                      | Yank permalink for file/line      |
+| `:Forge review end`                           | End review session                |
+| `:Forge review toggle`                        | Toggle split/unified review       |
+| `:Forge cache clear`                          | Clear all caches                  |
 
 ## Keymaps
 
 ### Global
 
-| Key | Mode | Description |
-|---|---|---|
-| `<c-g>` | n, v | Open forge picker |
-| `]q` / `[q` | n | Next/prev quickfix entry (wraps) |
-| `]l` / `[l` | n | Next/prev loclist entry (wraps) |
+| Key         | Mode | Description                      |
+| ----------- | ---- | -------------------------------- |
+| `<c-g>`     | n, v | Open forge picker                |
+| `]q` / `[q` | n    | Next/prev quickfix entry (wraps) |
+| `]l` / `[l` | n    | Next/prev loclist entry (wraps)  |
 
 ### Fugitive buffer
 
 Active in `fugitive` filetype buffers when a forge is detected.
 
-| Key | Description |
-|---|---|
-| `cpr` | Create PR (compose buffer) |
-| `cpd` | Create draft PR |
+| Key   | Description                         |
+| ----- | ----------------------------------- |
+| `cpr` | Create PR (compose buffer)          |
+| `cpd` | Create draft PR                     |
 | `cpf` | Create PR from commits (no compose) |
-| `cpw` | Push and open web creation |
+| `cpw` | Push and open web creation          |
 
 ### Review
 
 Active during a review session.
 
-| Key | Description |
-|---|---|
+| Key | Description               |
+| --- | ------------------------- |
 | `s` | Toggle unified/split diff |
 
 ### Terminal (log buffers)
 
 Active on CI/check log terminals when a URL is available.
 
-| Key | Description |
-|---|---|
+| Key  | Description               |
+| ---- | ------------------------- |
 | `gx` | Open run/check in browser |
 
 ## Picker Actions
 
 Keybinds shown in the fzf header. `default` = `enter`.
 
-| Picker | Key | Action |
-|---|---|---|
-| **PR** | `enter` | Checkout |
-| | `ctrl-d` | Review diff |
-| | `ctrl-w` | Worktree |
-| | `ctrl-t` | Checks |
-| | `ctrl-x` | Browse |
-| | `ctrl-e` | Manage (merge/approve/close/draft) |
-| | `ctrl-a` | Create new |
-| | `ctrl-o` | Cycle state (open/closed/all) |
-| | `ctrl-r` | Refresh |
-| **Issue** | `enter` | Browse |
-| | `ctrl-s` | Close/reopen |
-| | `ctrl-o` | Cycle state |
-| | `ctrl-r` | Refresh |
-| **Checks** | `enter` | View log (tails if running) |
-| | `ctrl-x` | Browse |
-| | `ctrl-f` / `ctrl-p` / `ctrl-n` | Filter: failed / passed / running |
-| | `ctrl-a` | Show all |
-| **CI** | `enter` | View log (tails if running) |
-| | `ctrl-x` | Browse |
-| | `ctrl-r` | Refresh |
-| **Commits** | `enter` | Checkout (detached) |
-| | `ctrl-d` | Review diff |
-| | `ctrl-x` | Browse |
-| | `ctrl-y` | Yank hash |
-| **Branches** | `ctrl-d` | Review diff |
-| | `ctrl-x` | Browse |
+| Picker       | Key                            | Action                             |
+| ------------ | ------------------------------ | ---------------------------------- |
+| **PR**       | `enter`                        | Checkout                           |
+|              | `ctrl-d`                       | Review diff                        |
+|              | `ctrl-w`                       | Worktree                           |
+|              | `ctrl-t`                       | Checks                             |
+|              | `ctrl-x`                       | Browse                             |
+|              | `ctrl-e`                       | Manage (merge/approve/close/draft) |
+|              | `ctrl-a`                       | Create new                         |
+|              | `ctrl-o`                       | Cycle state (open/closed/all)      |
+|              | `ctrl-r`                       | Refresh                            |
+| **Issue**    | `enter`                        | Browse                             |
+|              | `ctrl-s`                       | Close/reopen                       |
+|              | `ctrl-o`                       | Cycle state                        |
+|              | `ctrl-r`                       | Refresh                            |
+| **Checks**   | `enter`                        | View log (tails if running)        |
+|              | `ctrl-x`                       | Browse                             |
+|              | `ctrl-f` / `ctrl-p` / `ctrl-n` | Filter: failed / passed / running  |
+|              | `ctrl-a`                       | Show all                           |
+| **CI**       | `enter`                        | View log (tails if running)        |
+|              | `ctrl-x`                       | Browse                             |
+|              | `ctrl-r`                       | Refresh                            |
+| **Commits**  | `enter`                        | Checkout (detached)                |
+|              | `ctrl-d`                       | Review diff                        |
+|              | `ctrl-x`                       | Browse                             |
+|              | `ctrl-y`                       | Yank hash                          |
+| **Branches** | `ctrl-d`                       | Review diff                        |
+|              | `ctrl-x`                       | Browse                             |
 
 ## Custom Sources
 
@@ -282,18 +283,18 @@ vim.g.forge = {
 ```
 
 A source is a table implementing the `forge.Forge` interface. Required fields:
-`name` (string), `cli` (string, checked via `executable()`), `kinds` (`{ issue,
-pr }`), and `labels` (`{ issue, pr, pr_one, pr_full, ci }`).
+`name` (string), `cli` (string, checked via `executable()`), `kinds`
+(`{ issue, pr }`), and `labels` (`{ issue, pr, pr_one, pr_full, ci }`).
 
-Required methods (all receive `self`): `list_pr_json_cmd`, `list_issue_json_cmd`,
-`pr_json_fields`, `issue_json_fields`, `view_web`, `browse`, `browse_root`,
-`browse_branch`, `browse_commit`, `checkout_cmd`, `yank_branch`, `yank_commit`,
-`fetch_pr`, `pr_base_cmd`, `pr_for_branch_cmd`, `checks_cmd`, `check_log_cmd`,
-`check_tail_cmd`, `list_runs_json_cmd`, `list_runs_cmd`, `normalize_run`,
-`run_log_cmd`, `run_tail_cmd`, `merge_cmd`, `approve_cmd`, `repo_info`,
-`pr_state`, `close_cmd`, `reopen_cmd`, `close_issue_cmd`, `reopen_issue_cmd`,
-`draft_toggle_cmd`, `create_pr_cmd`, `create_pr_web_cmd`, `default_branch_cmd`,
-`template_paths`.
+Required methods (all receive `self`): `list_pr_json_cmd`,
+`list_issue_json_cmd`, `pr_json_fields`, `issue_json_fields`, `view_web`,
+`browse`, `browse_root`, `browse_branch`, `browse_commit`, `checkout_cmd`,
+`yank_branch`, `yank_commit`, `fetch_pr`, `pr_base_cmd`, `pr_for_branch_cmd`,
+`checks_cmd`, `check_log_cmd`, `check_tail_cmd`, `list_runs_json_cmd`,
+`list_runs_cmd`, `normalize_run`, `run_log_cmd`, `run_tail_cmd`, `merge_cmd`,
+`approve_cmd`, `repo_info`, `pr_state`, `close_cmd`, `reopen_cmd`,
+`close_issue_cmd`, `reopen_issue_cmd`, `draft_toggle_cmd`, `create_pr_cmd`,
+`create_pr_web_cmd`, `default_branch_cmd`, `template_paths`.
 
 See `lua/forge/github.lua`, `lua/forge/gitlab.lua`, or `lua/forge/codeberg.lua`
 for complete implementations. The `forge.Forge` class definition with full type
@@ -328,29 +329,26 @@ Run `:checkhealth forge` to verify your setup. Checks for `git`, forge CLIs
 
 ## FAQ
 
-**Q: How do I create a PR?**
-`<c-g>` -> Pull Requests -> `ctrl-a` to compose. Or from fugitive: `cpr`
-(compose), `cpd` (draft), `cpf` (instant), `cpw` (web).
+**Q: How do I create a PR?** `<c-g>` -> Pull Requests -> `ctrl-a` to compose. Or
+from fugitive: `cpr` (compose), `cpd` (draft), `cpf` (instant), `cpw` (web).
 
-**Q: Does review mode require diffs.nvim?**
-Yes. Without [diffs.nvim](https://github.com/barrettruth/diffs.nvim), the diff
-action and review toggling are unavailable.
+**Q: Does review mode require diffs.nvim?** Yes. Without
+[diffs.nvim](https://github.com/barrettruth/diffs.nvim), the diff action and
+review toggling are unavailable.
 
-**Q: How does forge detection work?**
-forge.nvim reads the `origin` remote URL and matches against known hosts and
-any custom `sources.<name>.hosts`. The first match wins, and the CLI must be in
-`$PATH`.
+**Q: How does forge detection work?** forge.nvim reads the `origin` remote URL
+and matches against known hosts and any custom `sources.<name>.hosts`. The first
+match wins, and the CLI must be in `$PATH`.
 
-**Q: Can I use this with self-hosted GitLab/Gitea?**
-Yes. Add your host to `vim.g.forge.sources`. See the [examples](#examples).
+**Q: Can I use this with self-hosted GitLab/Gitea?** Yes. Add your host to
+`vim.g.forge.sources`. See the [examples](#examples).
 
-**Q: What does `ctrl-o` do in pickers?**
-Cycles the state filter: open -> closed -> all -> open.
+**Q: What does `ctrl-o` do in pickers?** Cycles the state filter: open -> closed
+-> all -> open.
 
-**Q: How do I merge/approve/close a PR?**
-`ctrl-e` on a PR in the picker opens the manage picker. Available actions depend
-on your repository permissions.
+**Q: How do I merge/approve/close a PR?** `ctrl-e` on a PR in the picker opens
+the manage picker. Available actions depend on your repository permissions.
 
-**Q: Does this work without a forge remote?**
-Partially. Commits, branches, and worktrees work in any git repo. PRs, issues,
-CI, and browse require a detected forge.
+**Q: Does this work without a forge remote?** Partially. Commits, branches, and
+worktrees work in any git repo. PRs, issues, CI, and browse require a detected
+forge.
