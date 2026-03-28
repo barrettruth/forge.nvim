@@ -411,6 +411,30 @@ Sources are lazy-loaded the first time a matching remote is detected. Built-in
 host patterns are checked after user-configured `sources` hosts, so user
 overrides take priority.
 
+COMPATIBILITY ~
+                                                         *forge-compatibility*
+Not all features are available on every forge. The table below shows per-forge
+support for features that vary:
+
+  Feature                     GitHub    GitLab    Codeberg ~
+  PR list/filter                yes       yes        yes
+  PR create                     yes       yes        yes
+  PR create (draft)             yes       yes         -
+  PR create (reviewers)         yes       yes         -
+  PR draft toggle               yes       yes         -
+  Per-PR CI checks              yes        -          -
+  CI runs (repo-wide)           yes       yes        yes
+  Issues                        yes       yes        yes
+  Browse/Yank                   yes       yes        yes
+
+Features marked `-` are unavailable due to CLI limitations. When a feature is
+unsupported, forge.nvim either hides the option (draft and reviewer fields in
+the compose buffer) or falls back gracefully (per-PR checks redirects to
+repo-wide CI with a notification).
+
+Each source declares its capabilities in a `capabilities` table. See
+|forge-Forge-interface|.
+
 HOST OVERRIDES ~
                                                          *forge-sources-hosts*
 To route a self-hosted instance to a built-in source: >lua
@@ -436,13 +460,18 @@ A source must implement all methods in the `forge.Forge` class. Each source is
 a table with these fields and methods:
 
 Fields: ~
-  `name`        `string`       Source name (e.g. `"github"`).
-  `cli`         `string`       CLI executable name (e.g. `"gh"`).
-  `kinds`       `table`        `{ issue = string, pr = string }` -- CLI
-                              subcommand names for issues and PRs.
-  `labels`      `table`        `{ issue = string, pr = string,`
-                              `pr_one = string, pr_full = string,`
-                              `ci = string }` -- display labels.
+  `name`           `string`       Source name (e.g. `"github"`).
+  `cli`            `string`       CLI executable name (e.g. `"gh"`).
+  `kinds`          `table`        `{ issue = string, pr = string }` -- CLI
+                                 subcommand names for issues and PRs.
+  `labels`         `table`        `{ issue = string, pr = string,`
+                                 `pr_one = string, pr_full = string,`
+                                 `ci = string }` -- display labels.
+  `capabilities`   `table`        Feature flags (see |forge-compatibility|):
+                                 `draft`           Create/toggle draft PRs.
+                                 `reviewers`       Assign reviewers on create.
+                                 `per_pr_checks`   CI checks scoped to a PR.
+                                 `ci_json`         Structured CI run data.
 
 Required methods: ~
 
@@ -520,6 +549,12 @@ Skeleton: >lua
         pr_one = 'PR',
         pr_full = 'Pull Requests',
         ci = 'CI/CD',
+      },
+      capabilities = {
+        draft = false,
+        reviewers = false,
+        per_pr_checks = false,
+        ci_json = false,
       },
     }
 
