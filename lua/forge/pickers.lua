@@ -134,16 +134,23 @@ local function pr_actions(f, num)
         local wt_path = vim.fs.normalize(root .. '/../' .. branch)
         forge_mod.log_now(('fetching %s #%s into worktree...'):format(kind, num))
         vim.system(fetch_cmd, { text = true }, function()
-          vim.system({ 'git', 'worktree', 'add', wt_path, branch }, { text = true }, function(result)
-            vim.schedule(function()
-              if result.code == 0 then
-                vim.notify(('[forge]: worktree at %s'):format(wt_path))
-              else
-                vim.notify('[forge]: ' .. cmd_error(result, 'worktree failed'), vim.log.levels.ERROR)
-              end
-              vim.cmd.redraw()
-            end)
-          end)
+          vim.system(
+            { 'git', 'worktree', 'add', wt_path, branch },
+            { text = true },
+            function(result)
+              vim.schedule(function()
+                if result.code == 0 then
+                  vim.notify(('[forge]: worktree at %s'):format(wt_path))
+                else
+                  vim.notify(
+                    '[forge]: ' .. cmd_error(result, 'worktree failed'),
+                    vim.log.levels.ERROR
+                  )
+                end
+                vim.cmd.redraw()
+              end)
+            end
+          )
         end)
       end,
     },

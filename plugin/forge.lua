@@ -10,19 +10,39 @@ if cfg.keys ~= false then
   end
 
   if k.next_qf then
-    vim.keymap.set('n', k.next_qf, require('forge.review').nav('cnext'), { desc = 'next quickfix entry' })
+    vim.keymap.set(
+      'n',
+      k.next_qf,
+      require('forge.review').nav('cnext'),
+      { desc = 'next quickfix entry' }
+    )
   end
 
   if k.prev_qf then
-    vim.keymap.set('n', k.prev_qf, require('forge.review').nav('cprev'), { desc = 'prev quickfix entry' })
+    vim.keymap.set(
+      'n',
+      k.prev_qf,
+      require('forge.review').nav('cprev'),
+      { desc = 'prev quickfix entry' }
+    )
   end
 
   if k.next_loc then
-    vim.keymap.set('n', k.next_loc, require('forge.review').nav('lnext'), { desc = 'next loclist entry' })
+    vim.keymap.set(
+      'n',
+      k.next_loc,
+      require('forge.review').nav('lnext'),
+      { desc = 'next loclist entry' }
+    )
   end
 
   if k.prev_loc then
-    vim.keymap.set('n', k.prev_loc, require('forge.review').nav('lprev'), { desc = 'prev loclist entry' })
+    vim.keymap.set(
+      'n',
+      k.prev_loc,
+      require('forge.review').nav('lprev'),
+      { desc = 'prev loclist entry' }
+    )
   end
 
   if k.fugitive ~= false then
@@ -423,9 +443,21 @@ end
 
 local function complete(arglead, cmdline, _)
   local parts = vim.split(vim.trim(cmdline), '%s+')
-  local subcmds = { 'pr', 'issue', 'ci', 'commit', 'branch', 'worktree', 'browse', 'yank', 'review', 'cache' }
+  local subcmds =
+    { 'pr', 'issue', 'ci', 'commit', 'branch', 'worktree', 'browse', 'yank', 'review', 'cache' }
   local sub_actions = {
-    pr = { 'checkout', 'diff', 'worktree', 'checks', 'browse', 'manage', 'create', '--state=open', '--state=closed', '--state=all' },
+    pr = {
+      'checkout',
+      'diff',
+      'worktree',
+      'checks',
+      'browse',
+      'manage',
+      'create',
+      '--state=open',
+      '--state=closed',
+      '--state=all',
+    },
     issue = { 'browse', 'close', 'reopen', '--state=open', '--state=closed', '--state=all' },
     ci = { '--all' },
     commit = { 'checkout', 'diff', 'browse' },
@@ -438,7 +470,9 @@ local function complete(arglead, cmdline, _)
   local create_flags = { '--draft', '--fill', '--web' }
 
   if #parts <= 2 then
-    return vim.tbl_filter(function(s) return s:find(arglead, 1, true) == 1 end, subcmds)
+    return vim.tbl_filter(function(s)
+      return s:find(arglead, 1, true) == 1
+    end, subcmds)
   end
   local sub = parts[2]
   if #parts == 3 or (#parts == 4 and sub == 'pr' and parts[3] == 'create') then
@@ -446,10 +480,14 @@ local function complete(arglead, cmdline, _)
     if sub == 'pr' and #parts >= 3 and parts[3] == 'create' then
       candidates = create_flags
     end
-    return vim.tbl_filter(function(s) return s:find(arglead, 1, true) == 1 end, candidates)
+    return vim.tbl_filter(function(s)
+      return s:find(arglead, 1, true) == 1
+    end, candidates)
   end
   if sub == 'pr' and parts[3] == 'create' then
-    return vim.tbl_filter(function(s) return s:find(arglead, 1, true) == 1 end, create_flags)
+    return vim.tbl_filter(function(s)
+      return s:find(arglead, 1, true) == 1
+    end, create_flags)
   end
   return {}
 end

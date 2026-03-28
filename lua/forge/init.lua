@@ -19,9 +19,26 @@ local DEFAULTS = {
     },
   },
   picker_keys = {
-    pr = { checkout = 'default', diff = 'ctrl-d', worktree = 'ctrl-w', checks = 'ctrl-t', browse = 'ctrl-x', manage = 'ctrl-e', create = 'ctrl-a', toggle = 'ctrl-o', refresh = 'ctrl-r' },
+    pr = {
+      checkout = 'default',
+      diff = 'ctrl-d',
+      worktree = 'ctrl-w',
+      checks = 'ctrl-t',
+      browse = 'ctrl-x',
+      manage = 'ctrl-e',
+      create = 'ctrl-a',
+      toggle = 'ctrl-o',
+      refresh = 'ctrl-r',
+    },
     issue = { browse = 'default', close_reopen = 'ctrl-s', toggle = 'ctrl-o', refresh = 'ctrl-r' },
-    checks = { log = 'default', browse = 'ctrl-x', failed = 'ctrl-f', passed = 'ctrl-p', running = 'ctrl-n', all = 'ctrl-a' },
+    checks = {
+      log = 'default',
+      browse = 'ctrl-x',
+      failed = 'ctrl-f',
+      passed = 'ctrl-p',
+      running = 'ctrl-n',
+      all = 'ctrl-a',
+    },
     ci = { log = 'default', browse = 'ctrl-x', refresh = 'ctrl-r' },
     commits = { checkout = 'default', diff = 'ctrl-d', browse = 'ctrl-x', yank = 'ctrl-y' },
     branches = { diff = 'ctrl-d', browse = 'ctrl-x' },
@@ -547,7 +564,12 @@ function M.format_check(check)
       end
     end
   end
-  return ('%s%s\27[0m  %s \27[2m%s\27[0m'):format(color, icon, pad_or_truncate(name, widths.name), elapsed)
+  return ('%s%s\27[0m  %s \27[2m%s\27[0m'):format(
+    color,
+    icon,
+    pad_or_truncate(name, widths.name),
+    elapsed
+  )
 end
 
 ---@param run forge.CIRun
