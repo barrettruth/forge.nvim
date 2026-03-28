@@ -780,23 +780,13 @@ function M.config()
     if keys.commits ~= nil then
       vim.validate('forge.keys.commits', keys.commits, 'table')
       for _, k in ipairs({ 'checkout', 'diff', 'browse', 'yank' }) do
-        vim.validate(
-          'forge.keys.commits.' .. k,
-          keys.commits[k],
-          key_or_false,
-          'string or false'
-        )
+        vim.validate('forge.keys.commits.' .. k, keys.commits[k], key_or_false, 'string or false')
       end
     end
     if keys.branches ~= nil then
       vim.validate('forge.keys.branches', keys.branches, 'table')
       for _, k in ipairs({ 'diff', 'browse' }) do
-        vim.validate(
-          'forge.keys.branches.' .. k,
-          keys.branches[k],
-          key_or_false,
-          'string or false'
-        )
+        vim.validate('forge.keys.branches.' .. k, keys.branches[k], key_or_false, 'string or false')
       end
     end
   end
