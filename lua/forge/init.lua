@@ -1,6 +1,7 @@
 local M = {}
 
 ---@class forge.Config
+---@field picker 'fzf-lua'|'telescope'|'snacks'|'auto'
 ---@field ci forge.CIConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
@@ -83,6 +84,7 @@ local M = {}
 
 ---@type forge.Config
 local DEFAULTS = {
+  picker = 'auto',
   ci = { lines = 10000 },
   sources = {},
   keys = {
@@ -538,15 +540,25 @@ local function extract_author(entry, field)
   return tostring(v or '')
 end
 
-local function hl(group, text)
-  local utils = require('fzf-lua.utils')
-  return utils.ansi_from_hl(group, text)
+---@param secs integer
+---@return string
+local function format_duration(secs)
+  if secs < 0 then
+    secs = 0
+  end
+  if secs >= 3600 then
+    return ('%dh%dm'):format(math.floor(secs / 3600), math.floor(secs % 3600 / 60))
+  end
+  if secs >= 60 then
+    return ('%dm%ds'):format(math.floor(secs / 60), secs % 60)
+  end
+  return ('%ds'):format(secs)
 end
 
 ---@param entry table
 ---@param fields table
 ---@param show_state boolean
----@return string
+---@return forge.Segment[]
 function M.format_pr(entry, fields, show_state)
   local display = M.config().display
   local icons = display.icons
@@ -555,7 +567,7 @@ function M.format_pr(entry, fields, show_state)
   local title = entry[fields.title] or ''
   local author = extract_author(entry, fields.author)
   local age = relative_time(entry[fields.created_at])
-  local prefix = ''
+  local segments = {}
   if show_state then
     local state = (entry[fields.state] or ''):lower()
     local icon, group
@@ -566,20 +578,22 @@ function M.format_pr(entry, fields, show_state)
     else
       icon, group = icons.closed, 'ForgeClosed'
     end
-    prefix = hl(group, icon) .. '  '
+    table.insert(segments, { icon, group })
+    table.insert(segments, { '  ' })
   end
-  return prefix
-    .. hl('ForgeNumber', ('#%-5s'):format(num))
-    .. ' '
-    .. pad_or_truncate(title, widths.title)
-    .. ' '
-    .. hl('ForgeDim', pad_or_truncate(author, widths.author) .. (' %3s'):format(age))
+  table.insert(segments, { ('#%-5s'):format(num), 'ForgeNumber' })
+  table.insert(segments, { ' ' .. pad_or_truncate(title, widths.title) .. ' ' })
+  table.insert(segments, {
+    pad_or_truncate(author, widths.author) .. (' %3s'):format(age),
+    'ForgeDim',
+  })
+  return segments
 end
 
 ---@param entry table
 ---@param fields table
 ---@param show_state boolean
----@return string
+---@return forge.Segment[]
 function M.format_issue(entry, fields, show_state)
   local display = M.config().display
   local icons = display.icons
@@ -588,7 +602,7 @@ function M.format_issue(entry, fields, show_state)
   local title = entry[fields.title] or ''
   local author = extract_author(entry, fields.author)
   local age = relative_time(entry[fields.created_at])
-  local prefix = ''
+  local segments = {}
   if show_state then
     local state = (entry[fields.state] or ''):lower()
     local icon, group
@@ -597,18 +611,20 @@ function M.format_issue(entry, fields, show_state)
     else
       icon, group = icons.closed, 'ForgeClosed'
     end
-    prefix = hl(group, icon) .. '  '
+    table.insert(segments, { icon, group })
+    table.insert(segments, { '  ' })
   end
-  return prefix
-    .. hl('ForgeNumber', ('#%-5s'):format(num))
-    .. ' '
-    .. pad_or_truncate(title, widths.title)
-    .. ' '
-    .. hl('ForgeDim', pad_or_truncate(author, widths.author) .. (' %3s'):format(age))
+  table.insert(segments, { ('#%-5s'):format(num), 'ForgeNumber' })
+  table.insert(segments, { ' ' .. pad_or_truncate(title, widths.title) .. ' ' })
+  table.insert(segments, {
+    pad_or_truncate(author, widths.author) .. (' %3s'):format(age),
+    'ForgeDim',
+  })
+  return segments
 end
 
 ---@param check table
----@return string
+---@return forge.Segment[]
 function M.format_check(check)
   local display = M.config().display
   local icons = display.icons
@@ -632,23 +648,18 @@ function M.format_check(check)
     local ok_s, ts = pcall(vim.fn.strptime, '%Y-%m-%dT%H:%M:%SZ', check.startedAt)
     local ok_e, te = pcall(vim.fn.strptime, '%Y-%m-%dT%H:%M:%SZ', check.completedAt)
     if ok_s and ok_e and ts > 0 and te > 0 then
-      local secs = te - ts
-      if secs >= 60 then
-        elapsed = ('%dm%ds'):format(math.floor(secs / 60), secs % 60)
-      else
-        elapsed = ('%ds'):format(secs)
-      end
+      elapsed = format_duration(te - ts)
     end
   end
-  return hl(group, icon)
-    .. '  '
-    .. pad_or_truncate(name, widths.name)
-    .. ' '
-    .. hl('ForgeDim', elapsed)
+  return {
+    { icon, group },
+    { '  ' .. pad_or_truncate(name, widths.name) .. ' ' },
+    { elapsed, 'ForgeDim' },
+  }
 end
 
 ---@param run forge.CIRun
----@return string
+---@return forge.Segment[]
 function M.format_run(run)
   local display = M.config().display
   local icons = display.icons
@@ -670,19 +681,18 @@ function M.format_run(run)
   local age = relative_time(run.created_at)
   if run.branch ~= '' then
     local name_w = widths.name - widths.branch + 10
-    return hl(group, icon)
-      .. '  '
-      .. pad_or_truncate(run.name, name_w)
-      .. ' '
-      .. hl('ForgeBranch', pad_or_truncate(run.branch, widths.branch))
-      .. ' '
-      .. hl('ForgeDim', ('%-6s'):format(event) .. ' ' .. age)
+    return {
+      { icon, group },
+      { '  ' .. pad_or_truncate(run.name, name_w) .. ' ' },
+      { pad_or_truncate(run.branch, widths.branch), 'ForgeBranch' },
+      { ' ' .. ('%-6s'):format(event) .. ' ' .. age, 'ForgeDim' },
+    }
   end
-  return hl(group, icon)
-    .. '  '
-    .. pad_or_truncate(run.name, widths.name)
-    .. ' '
-    .. hl('ForgeDim', ('%-6s'):format(event) .. ' ' .. age)
+  return {
+    { icon, group },
+    { '  ' .. pad_or_truncate(run.name, widths.name) .. ' ' },
+    { ('%-6s'):format(event) .. ' ' .. age, 'ForgeDim' },
+  }
 end
 
 ---@param checks table[]
@@ -715,6 +725,9 @@ function M.config()
     cfg.keys = false
   end
 
+  vim.validate('forge.picker', cfg.picker, function(v)
+    return v == 'auto' or v == 'fzf-lua' or v == 'telescope' or v == 'snacks'
+  end, "'auto', 'fzf-lua', 'telescope', or 'snacks'")
   vim.validate('forge.sources', cfg.sources, 'table')
   vim.validate('forge.keys', cfg.keys, function(v)
     return v == false or type(v) == 'table'

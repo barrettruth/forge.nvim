@@ -1,5 +1,7 @@
 local M = {}
 
+local picker = require('forge.picker')
+
 ---@param result { code: integer, stdout: string?, stderr: string? }
 ---@param fallback string
 ---@return string
@@ -13,36 +15,6 @@ local function cmd_error(result, fallback)
     msg = fallback
   end
   return msg
-end
-
-local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
-  :gsub('%-%-bind=[^%s]+', '')
-  :gsub('%-%-color=[^%s]+', '')
-
-local function to_fzf_key(key)
-  if key == '<cr>' then
-    return 'default'
-  end
-  return key:gsub('<c%-(%a)>', function(ch)
-    return 'ctrl-' .. ch:lower()
-  end)
-end
-
-local function build_actions(picker_name, action_defs)
-  local cfg = require('forge').config()
-  local keys = cfg.keys
-  if keys == false then
-    keys = {}
-  end
-  local bindings = keys[picker_name] or {}
-  local actions = {}
-  for _, def in ipairs(action_defs) do
-    local key = bindings[def.name]
-    if key then
-      actions[to_fzf_key(key)] = def.fn
-    end
-  end
-  return actions
 end
 
 ---@param kind string
@@ -79,130 +51,93 @@ end
 ---@param f forge.Forge
 ---@param num string
 ---@return table<string, function>
-local function pr_actions(f, num)
+local function pr_action_fns(f, num)
   local kind = f.labels.pr_one
-
-  local defs = {
-    {
-      name = 'checkout',
-      fn = function()
-        local forge_mod = require('forge')
-        forge_mod.log_now(('checking out %s #%s...'):format(kind, num))
-        vim.system(f:checkout_cmd(num), { text = true }, function(result)
+  return {
+    checkout = function()
+      local forge_mod = require('forge')
+      forge_mod.log_now(('checking out %s #%s...'):format(kind, num))
+      vim.system(f:checkout_cmd(num), { text = true }, function(result)
+        vim.schedule(function()
+          if result.code == 0 then
+            vim.notify(('[forge]: checked out %s #%s'):format(kind, num))
+          else
+            vim.notify('[forge]: ' .. cmd_error(result, 'checkout failed'), vim.log.levels.ERROR)
+          end
+          vim.cmd.redraw()
+        end)
+      end)
+    end,
+    browse = function()
+      f:view_web(f.kinds.pr, num)
+    end,
+    worktree = function()
+      local forge_mod = require('forge')
+      local fetch_cmd = f:fetch_pr(num)
+      local branch = fetch_cmd[#fetch_cmd]:match(':(.+)$')
+      if not branch then
+        return
+      end
+      local root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
+      local wt_path = vim.fs.normalize(root .. '/../' .. branch)
+      forge_mod.log_now(('fetching %s #%s into worktree...'):format(kind, num))
+      vim.system(fetch_cmd, { text = true }, function()
+        vim.system({ 'git', 'worktree', 'add', wt_path, branch }, { text = true }, function(result)
           vim.schedule(function()
             if result.code == 0 then
-              vim.notify(('[forge]: checked out %s #%s'):format(kind, num))
+              vim.notify(('[forge]: worktree at %s'):format(wt_path))
             else
-              vim.notify('[forge]: ' .. cmd_error(result, 'checkout failed'), vim.log.levels.ERROR)
+              vim.notify('[forge]: ' .. cmd_error(result, 'worktree failed'), vim.log.levels.ERROR)
             end
             vim.cmd.redraw()
           end)
         end)
-      end,
-    },
-    {
-      name = 'browse',
-      fn = function()
-        f:view_web(f.kinds.pr, num)
-      end,
-    },
-    {
-      name = 'worktree',
-      fn = function()
-        local forge_mod = require('forge')
-        local fetch_cmd = f:fetch_pr(num)
-        local branch = fetch_cmd[#fetch_cmd]:match(':(.+)$')
-        if not branch then
-          return
+      end)
+    end,
+    diff = function()
+      local forge_mod = require('forge')
+      local review = require('forge.review')
+      local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
+
+      forge_mod.log_now(('reviewing %s #%s...'):format(kind, num))
+      vim.system(f:checkout_cmd(num), { text = true }, function(co_result)
+        if co_result.code ~= 0 then
+          vim.schedule(function()
+            forge_mod.log('checkout skipped, proceeding with diff')
+          end)
         end
-        local root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-        local wt_path = vim.fs.normalize(root .. '/../' .. branch)
-        forge_mod.log_now(('fetching %s #%s into worktree...'):format(kind, num))
-        vim.system(fetch_cmd, { text = true }, function()
-          vim.system(
-            { 'git', 'worktree', 'add', wt_path, branch },
-            { text = true },
-            function(result)
-              vim.schedule(function()
-                if result.code == 0 then
-                  vim.notify(('[forge]: worktree at %s'):format(wt_path))
-                else
-                  vim.notify(
-                    '[forge]: ' .. cmd_error(result, 'worktree failed'),
-                    vim.log.levels.ERROR
-                  )
-                end
-                vim.cmd.redraw()
-              end)
+
+        vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
+          vim.schedule(function()
+            local base = vim.trim(base_result.stdout or '')
+            if base == '' or base_result.code ~= 0 then
+              base = 'main'
             end
-          )
-        end)
-      end,
-    },
-    {
-      name = 'diff',
-      fn = function()
-        local forge_mod = require('forge')
-        local review = require('forge.review')
-        local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-
-        forge_mod.log_now(('reviewing %s #%s...'):format(kind, num))
-        vim.system(f:checkout_cmd(num), { text = true }, function(co_result)
-          if co_result.code ~= 0 then
-            vim.schedule(function()
-              forge_mod.log('checkout skipped, proceeding with diff')
-            end)
-          end
-
-          vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
-            vim.schedule(function()
-              local base = vim.trim(base_result.stdout or '')
-              if base == '' or base_result.code ~= 0 then
-                base = 'main'
-              end
-              local range = 'origin/' .. base
-              review.start(range)
-              local ok, commands = pcall(require, 'diffs.commands')
-              if ok then
-                commands.greview(range, { repo_root = repo_root })
-              end
-              forge_mod.log(('review ready for %s #%s against %s'):format(kind, num, base))
-            end)
+            local range = 'origin/' .. base
+            review.start(range)
+            local ok, commands = pcall(require, 'diffs.commands')
+            if ok then
+              commands.greview(range, { repo_root = repo_root })
+            end
+            forge_mod.log(('review ready for %s #%s against %s'):format(kind, num, base))
           end)
         end)
-      end,
-    },
-    {
-      name = 'ci',
-      fn = function()
-        if f.capabilities.per_pr_checks then
-          M.checks(f, num)
-        else
-          require('forge').log(
-            ('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name)
-          )
-          M.ci(f)
-        end
-      end,
-    },
-    {
-      name = 'manage',
-      fn = function()
-        M.pr_manage(f, num)
-      end,
-    },
+      end)
+    end,
+    ci = function()
+      if f.capabilities.per_pr_checks then
+        M.checks(f, num)
+      else
+        require('forge').log(
+          ('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name)
+        )
+        M.ci(f)
+      end
+    end,
+    manage = function()
+      M.pr_manage(f, num)
+    end,
   }
-
-  ---@type table<string, function>
-  local name_to_fn = {}
-  for _, def in ipairs(defs) do
-    name_to_fn[def.name] = def.fn
-  end
-
-  local actions = build_actions('pr', defs)
-  ---@type table<string, function>
-  actions._by_name = name_to_fn
-  return actions
 end
 
 ---@param f forge.Forge
@@ -223,7 +158,10 @@ local function pr_manage_picker(f, num)
   local action_map = {}
 
   local function add(label, fn)
-    table.insert(entries, label)
+    table.insert(entries, {
+      display = { { label } },
+      value = label,
+    })
     action_map[label] = fn
   end
 
@@ -267,17 +205,20 @@ local function pr_manage_picker(f, num)
     end)
   end
 
-  require('fzf-lua').fzf_exec(entries, {
-    fzf_args = fzf_args,
+  picker.pick({
     prompt = ('%s #%s Actions> '):format(kind, num),
-    fzf_opts = { ['--no-multi'] = '' },
+    entries = entries,
     actions = {
-      ['default'] = function(selected)
-        if selected[1] and action_map[selected[1]] then
-          action_map[selected[1]]()
-        end
-      end,
+      {
+        name = 'default',
+        fn = function(entry)
+          if entry and action_map[entry.value] then
+            action_map[entry.value]()
+          end
+        end,
+      },
     },
+    picker_name = '_menu',
   })
 end
 
@@ -291,18 +232,13 @@ function M.checks(f, num, filter, cached_checks)
 
   local function open_picker(checks)
     local filtered = forge_mod.filter_checks(checks, filter)
-    local lines = {}
-    for i, c in ipairs(filtered) do
-      local line = ('%d\t%s'):format(i, forge_mod.format_check(c))
-      table.insert(lines, line)
-    end
-
-    local function get_check(selected)
-      if not selected[1] then
-        return nil
-      end
-      local idx = tonumber(selected[1]:match('^(%d+)'))
-      return idx and filtered[idx] or nil
+    local entries = {}
+    for _, c in ipairs(filtered) do
+      table.insert(entries, {
+        display = forge_mod.format_check(c),
+        value = c,
+        ordinal = c.name or '',
+      })
     end
 
     local labels = {
@@ -312,83 +248,75 @@ function M.checks(f, num, filter, cached_checks)
       pending = 'running',
     }
 
-    local check_actions = build_actions('ci', {
-      {
-        name = 'log',
-        fn = function(selected)
-          local c = get_check(selected)
-          if not c then
-            return
-          end
-          local run_id = (c.link or ''):match('/actions/runs/(%d+)')
-          if not run_id then
-            return
-          end
-          forge_mod.log_now('fetching check logs...')
-          local bucket = (c.bucket or ''):lower()
-          local cmd
-          if bucket == 'pending' then
-            cmd = f:check_tail_cmd(run_id)
-          else
-            cmd = f:check_log_cmd(run_id, bucket == 'fail')
-          end
-          vim.cmd('noautocmd botright new')
-          vim.fn.termopen(cmd)
-          vim.api.nvim_feedkeys(
-            vim.api.nvim_replace_termcodes('<C-\\><C-n>G', true, false, true),
-            'n',
-            false
-          )
-          if c.link then
-            vim.b.forge_check_url = c.link
-          end
-        end,
-      },
-      {
-        name = 'browse',
-        fn = function(selected)
-          local c = get_check(selected)
-          if c and c.link then
-            vim.ui.open(c.link)
-          end
-        end,
-      },
-      {
-        name = 'failed',
-        fn = function()
-          M.checks(f, num, 'fail', checks)
-        end,
-      },
-      {
-        name = 'passed',
-        fn = function()
-          M.checks(f, num, 'pass', checks)
-        end,
-      },
-      {
-        name = 'running',
-        fn = function()
-          M.checks(f, num, 'pending', checks)
-        end,
-      },
-      {
-        name = 'all',
-        fn = function()
-          M.checks(f, num, 'all', checks)
-        end,
-      },
-    })
-
-    require('fzf-lua').fzf_exec(lines, {
-      fzf_args = fzf_args,
+    picker.pick({
       prompt = ('Checks (#%s, %s)> '):format(num, labels[filter] or filter),
-      fzf_opts = {
-        ['--ansi'] = '',
-        ['--no-multi'] = '',
-        ['--with-nth'] = '2..',
-        ['--delimiter'] = '\t',
+      entries = entries,
+      actions = {
+        {
+          name = 'log',
+          fn = function(entry)
+            if not entry then
+              return
+            end
+            local c = entry.value
+            local run_id = (c.link or ''):match('/actions/runs/(%d+)')
+            if not run_id then
+              return
+            end
+            forge_mod.log_now('fetching check logs...')
+            local bucket = (c.bucket or ''):lower()
+            local cmd
+            if bucket == 'pending' then
+              cmd = f:check_tail_cmd(run_id)
+            else
+              cmd = f:check_log_cmd(run_id, bucket == 'fail')
+            end
+            vim.cmd('noautocmd botright new')
+            vim.fn.termopen(cmd)
+            vim.api.nvim_feedkeys(
+              vim.api.nvim_replace_termcodes('<C-\\><C-n>G', true, false, true),
+              'n',
+              false
+            )
+            if c.link then
+              vim.b.forge_check_url = c.link
+            end
+          end,
+        },
+        {
+          name = 'browse',
+          fn = function(entry)
+            if entry and entry.value.link then
+              vim.ui.open(entry.value.link)
+            end
+          end,
+        },
+        {
+          name = 'failed',
+          fn = function()
+            M.checks(f, num, 'fail', checks)
+          end,
+        },
+        {
+          name = 'passed',
+          fn = function()
+            M.checks(f, num, 'pass', checks)
+          end,
+        },
+        {
+          name = 'running',
+          fn = function()
+            M.checks(f, num, 'pending', checks)
+          end,
+        },
+        {
+          name = 'all',
+          fn = function()
+            M.checks(f, num, 'all', checks)
+          end,
+        },
       },
-      actions = check_actions,
+      picker_name = 'ci',
     })
   end
 
@@ -412,16 +340,7 @@ function M.checks(f, num, filter, cached_checks)
       end)
     end)
   else
-    require('fzf-lua').fzf_exec(f:checks_cmd(num), {
-      fzf_args = fzf_args,
-      prompt = ('Checks (#%s)> '):format(num),
-      fzf_opts = { ['--ansi'] = '' },
-      actions = {
-        ['ctrl-r'] = function()
-          M.checks(f, num, filter)
-        end,
-      },
-    })
+    vim.notify('[forge]: structured checks not available for this forge', vim.log.levels.INFO)
   end
 end
 
@@ -430,82 +349,70 @@ end
 function M.ci(f, branch)
   local forge_mod = require('forge')
 
-  local function open_picker(runs)
+  local function open_ci_picker(runs)
     local normalized = {}
     for _, entry in ipairs(runs) do
       table.insert(normalized, f:normalize_run(entry))
     end
 
-    local lines = {}
-    for i, run in ipairs(normalized) do
-      table.insert(lines, ('%d\t%s'):format(i, forge_mod.format_run(run)))
+    local entries = {}
+    for _, run in ipairs(normalized) do
+      table.insert(entries, {
+        display = forge_mod.format_run(run),
+        value = run,
+        ordinal = run.name .. ' ' .. run.branch,
+      })
     end
 
-    local function get_run(selected)
-      if not selected[1] then
-        return nil
-      end
-      local idx = tonumber(selected[1]:match('^(%d+)'))
-      return idx and normalized[idx] or nil
-    end
-
-    local ci_actions = build_actions('ci', {
-      {
-        name = 'log',
-        fn = function(selected)
-          local run = get_run(selected)
-          if not run then
-            return
-          end
-          forge_mod.log_now('fetching CI/CD logs...')
-          local s = run.status:lower()
-          local cmd
-          if s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
-            cmd = f:run_tail_cmd(run.id)
-          elseif s == 'failure' or s == 'failed' then
-            cmd = f:run_log_cmd(run.id, true)
-          else
-            cmd = f:run_log_cmd(run.id, false)
-          end
-          vim.cmd('noautocmd botright new')
-          vim.fn.termopen(cmd)
-          vim.api.nvim_feedkeys(
-            vim.api.nvim_replace_termcodes('<C-\\><C-n>G', true, false, true),
-            'n',
-            false
-          )
-          if run.url ~= '' then
-            vim.b.forge_run_url = run.url
-          end
-        end,
-      },
-      {
-        name = 'browse',
-        fn = function(selected)
-          local run = get_run(selected)
-          if run and run.url ~= '' then
-            vim.ui.open(run.url)
-          end
-        end,
-      },
-      {
-        name = 'refresh',
-        fn = function()
-          M.ci(f, branch)
-        end,
-      },
-    })
-
-    require('fzf-lua').fzf_exec(lines, {
-      fzf_args = fzf_args,
+    picker.pick({
       prompt = ('%s (%s)> '):format(f.labels.ci, branch or 'all'),
-      fzf_opts = {
-        ['--ansi'] = '',
-        ['--no-multi'] = '',
-        ['--with-nth'] = '2..',
-        ['--delimiter'] = '\t',
+      entries = entries,
+      actions = {
+        {
+          name = 'log',
+          fn = function(entry)
+            if not entry then
+              return
+            end
+            local run = entry.value
+            forge_mod.log_now('fetching CI/CD logs...')
+            local s = run.status:lower()
+            local cmd
+            if s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
+              cmd = f:run_tail_cmd(run.id)
+            elseif s == 'failure' or s == 'failed' then
+              cmd = f:run_log_cmd(run.id, true)
+            else
+              cmd = f:run_log_cmd(run.id, false)
+            end
+            vim.cmd('noautocmd botright new')
+            vim.fn.termopen(cmd)
+            vim.api.nvim_feedkeys(
+              vim.api.nvim_replace_termcodes('<C-\\><C-n>G', true, false, true),
+              'n',
+              false
+            )
+            if run.url ~= '' then
+              vim.b.forge_run_url = run.url
+            end
+          end,
+        },
+        {
+          name = 'browse',
+          fn = function(entry)
+            if entry and entry.value.url ~= '' then
+              vim.ui.open(entry.value.url)
+            end
+          end,
+        },
+        {
+          name = 'refresh',
+          fn = function()
+            M.ci(f, branch)
+          end,
+        },
       },
-      actions = ci_actions,
+      picker_name = 'ci',
     })
   end
 
@@ -515,7 +422,7 @@ function M.ci(f, branch)
       vim.schedule(function()
         local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
         if ok and runs and #runs > 0 then
-          open_picker(runs)
+          open_ci_picker(runs)
         else
           vim.notify('[forge]: no CI runs found', vim.log.levels.INFO)
           vim.cmd.redraw()
@@ -523,11 +430,7 @@ function M.ci(f, branch)
       end)
     end)
   elseif f.list_runs_cmd then
-    require('fzf-lua').fzf_exec(f:list_runs_cmd(branch), {
-      fzf_args = fzf_args,
-      prompt = f.labels.ci .. '> ',
-      fzf_opts = { ['--ansi'] = '' },
-    })
+    vim.notify('[forge]: structured CI data not available for this forge', vim.log.levels.INFO)
   end
 end
 
@@ -535,6 +438,27 @@ end
 function M.commits(f)
   local forge_mod = require('forge')
   local review = require('forge.review')
+
+  if picker.backend() ~= 'fzf-lua' then
+    vim.notify('[forge]: commits picker requires fzf-lua', vim.log.levels.WARN)
+    return
+  end
+
+  local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
+    :gsub('%-%-bind=[^%s]+', '')
+    :gsub('%-%-color=[^%s]+', '')
+
+  local function to_fzf_key(key)
+    if key == '<cr>' then
+      return 'default'
+    end
+    return key:gsub('<c%-(%a)>', function(ch)
+      return 'ctrl-' .. ch:lower()
+    end)
+  end
+
+  local cfg = require('forge').config()
+  local keys = type(cfg.keys) == 'table' and cfg.keys.commits or {}
   local log_cmd =
     'git log --color --pretty=format:"%C(yellow)%h%Creset %Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset"'
 
@@ -545,64 +469,54 @@ function M.commits(f)
     end
   end
 
-  local defs = {
-    {
-      name = 'checkout',
-      fn = function(selected)
-        with_sha(selected, function(sha)
-          forge_mod.log_now('checking out ' .. sha .. '...')
-          vim.system({ 'git', 'checkout', sha }, { text = true }, function(result)
-            vim.schedule(function()
-              if result.code == 0 then
-                vim.notify(('[forge]: checked out %s (detached)'):format(sha))
-              else
-                vim.notify(
-                  '[forge]: ' .. cmd_error(result, 'checkout failed'),
-                  vim.log.levels.ERROR
-                )
-              end
-              vim.cmd.redraw()
-            end)
+  local fzf_actions = {}
+  if keys.checkout then
+    fzf_actions[to_fzf_key(keys.checkout)] = function(selected)
+      with_sha(selected, function(sha)
+        forge_mod.log_now('checking out ' .. sha .. '...')
+        vim.system({ 'git', 'checkout', sha }, { text = true }, function(result)
+          vim.schedule(function()
+            if result.code == 0 then
+              vim.notify(('[forge]: checked out %s (detached)'):format(sha))
+            else
+              vim.notify('[forge]: ' .. cmd_error(result, 'checkout failed'), vim.log.levels.ERROR)
+            end
+            vim.cmd.redraw()
           end)
         end)
-      end,
-    },
-    {
-      name = 'diff',
-      fn = function(selected)
-        with_sha(selected, function(sha)
-          local range = sha .. '^..' .. sha
-          review.start(range)
-          local ok, commands = pcall(require, 'diffs.commands')
-          if ok then
-            commands.greview(range)
-          end
-          forge_mod.log_now('reviewing ' .. sha)
-        end)
-      end,
-    },
-    {
-      name = 'browse',
-      fn = function(selected)
-        with_sha(selected, function(sha)
-          if f then
-            f:browse_commit(sha)
-          end
-        end)
-      end,
-    },
-    {
-      name = 'yank',
-      fn = function(selected)
-        with_sha(selected, function(sha)
-          vim.fn.setreg('+', sha)
-          vim.notify('[forge]: copied ' .. sha)
-        end)
-      end,
-    },
-  }
-
-  local commit_actions = build_actions('commits', defs)
+      end)
+    end
+  end
+  if keys.diff then
+    fzf_actions[to_fzf_key(keys.diff)] = function(selected)
+      with_sha(selected, function(sha)
+        local range = sha .. '^..' .. sha
+        review.start(range)
+        local ok, commands = pcall(require, 'diffs.commands')
+        if ok then
+          commands.greview(range)
+        end
+        forge_mod.log_now('reviewing ' .. sha)
+      end)
+    end
+  end
+  if keys.browse then
+    fzf_actions[to_fzf_key(keys.browse)] = function(selected)
+      with_sha(selected, function(sha)
+        if f then
+          f:browse_commit(sha)
+        end
+      end)
+    end
+  end
+  if keys.yank then
+    fzf_actions[to_fzf_key(keys.yank)] = function(selected)
+      with_sha(selected, function(sha)
+        vim.fn.setreg('+', sha)
+        vim.notify('[forge]: copied ' .. sha)
+      end)
+    end
+  end
 
   require('fzf-lua').fzf_exec(log_cmd, {
     fzf_args = fzf_args,
@@ -612,7 +526,7 @@ function M.commits(f)
       ['--no-multi'] = '',
       ['--preview'] = 'git show --color {1}',
     },
-    actions = commit_actions,
+    actions = fzf_actions,
   })
 end
 
@@ -621,41 +535,54 @@ function M.branches(f)
   local forge_mod = require('forge')
   local review = require('forge.review')
 
-  local defs = {
-    {
-      name = 'diff',
-      fn = function(selected)
-        if not selected[1] then
-          return
-        end
-        local br = selected[1]:match('%s-[%+%*]?%s+([^ ]+)')
-        if not br then
-          return
-        end
-        review.start(br)
-        local ok, commands = pcall(require, 'diffs.commands')
-        if ok then
-          commands.greview(br)
-        end
-        forge_mod.log_now('reviewing ' .. br)
-      end,
-    },
-    {
-      name = 'browse',
-      fn = function(selected)
-        if not selected[1] then
-          return
-        end
-        local br = selected[1]:match('%s-[%+%*]?%s+([^ ]+)')
-        if br and f then
-          f:browse_branch(br)
-        end
-      end,
-    },
-  }
+  if picker.backend() ~= 'fzf-lua' then
+    vim.notify('[forge]: branches picker requires fzf-lua', vim.log.levels.WARN)
+    return
+  end
 
-  local branch_actions = build_actions('branches', defs)
-  require('fzf-lua').git_branches({ actions = branch_actions })
+  local function to_fzf_key(key)
+    if key == '<cr>' then
+      return 'default'
+    end
+    return key:gsub('<c%-(%a)>', function(ch)
+      return 'ctrl-' .. ch:lower()
+    end)
+  end
+
+  local cfg = require('forge').config()
+  local keys = type(cfg.keys) == 'table' and cfg.keys.branches or {}
+  local fzf_actions = {}
+
+  if keys.diff then
+    fzf_actions[to_fzf_key(keys.diff)] = function(selected)
+      if not selected[1] then
+        return
+      end
+      local br = selected[1]:match('%s-[%+%*]?%s+([^ ]+)')
+      if not br then
+        return
+      end
+      review.start(br)
+      local ok, commands = pcall(require, 'diffs.commands')
+      if ok then
+        commands.greview(br)
+      end
+      forge_mod.log_now('reviewing ' .. br)
+    end
+  end
+  if keys.browse then
+    fzf_actions[to_fzf_key(keys.browse)] = function(selected)
+      if not selected[1] then
+        return
+      end
+      local br = selected[1]:match('%s-[%+%*]?%s+([^ ]+)')
+      if br and f then
+        f:browse_branch(br)
+      end
+    end
+  end
+
+  require('fzf-lua').git_branches({ actions = fzf_actions })
 end
 
 ---@param state 'all'|'open'|'closed'
@@ -669,95 +596,89 @@ function M.pr(state, f)
   local show_state = state ~= 'open'
 
   local function open_pr_list(prs)
-    local lines = {}
+    local entries = {}
     for _, pr in ipairs(prs) do
-      table.insert(lines, forge_mod.format_pr(pr, pr_fields, show_state))
-    end
-    local function with_pr_num(selected, fn)
-      local num = selected[1] and selected[1]:match('[#!](%d+)')
-      if num then
-        fn(num)
-      end
+      local num = tostring(pr[pr_fields.number] or '')
+      table.insert(entries, {
+        display = forge_mod.format_pr(pr, pr_fields, show_state),
+        value = num,
+        ordinal = (pr[pr_fields.title] or '') .. ' #' .. num,
+      })
     end
 
-    local list_actions = build_actions('pr', {
-      {
-        name = 'checkout',
-        fn = function(selected)
-          with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name['checkout']()
-          end)
-        end,
-      },
-      {
-        name = 'diff',
-        fn = function(selected)
-          with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name['diff']()
-          end)
-        end,
-      },
-      {
-        name = 'worktree',
-        fn = function(selected)
-          with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name['worktree']()
-          end)
-        end,
-      },
-      {
-        name = 'ci',
-        fn = function(selected)
-          with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name['ci']()
-          end)
-        end,
-      },
-      {
-        name = 'browse',
-        fn = function(selected)
-          with_pr_num(selected, function(num)
-            f:view_web(cli_kind, num)
-          end)
-        end,
-      },
-      {
-        name = 'manage',
-        fn = function(selected)
-          with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name['manage']()
-          end)
-        end,
-      },
-      {
-        name = 'create',
-        fn = function()
-          forge_mod.create_pr()
-        end,
-      },
-      {
-        name = 'filter',
-        fn = function()
-          M.pr(next_state, f)
-        end,
-      },
-      {
-        name = 'refresh',
-        fn = function()
-          forge_mod.clear_list(cache_key)
-          M.pr(state, f)
-        end,
-      },
-    })
-
-    require('fzf-lua').fzf_exec(lines, {
-      fzf_args = fzf_args,
+    picker.pick({
       prompt = ('%s (%s)> '):format(f.labels.pr, state),
-      fzf_opts = {
-        ['--ansi'] = '',
-        ['--no-multi'] = '',
+      entries = entries,
+      actions = {
+        {
+          name = 'checkout',
+          fn = function(entry)
+            if entry then
+              pr_action_fns(f, entry.value).checkout()
+            end
+          end,
+        },
+        {
+          name = 'diff',
+          fn = function(entry)
+            if entry then
+              pr_action_fns(f, entry.value).diff()
+            end
+          end,
+        },
+        {
+          name = 'worktree',
+          fn = function(entry)
+            if entry then
+              pr_action_fns(f, entry.value).worktree()
+            end
+          end,
+        },
+        {
+          name = 'ci',
+          fn = function(entry)
+            if entry then
+              pr_action_fns(f, entry.value).ci()
+            end
+          end,
+        },
+        {
+          name = 'browse',
+          fn = function(entry)
+            if entry then
+              f:view_web(cli_kind, entry.value)
+            end
+          end,
+        },
+        {
+          name = 'manage',
+          fn = function(entry)
+            if entry then
+              pr_action_fns(f, entry.value).manage()
+            end
+          end,
+        },
+        {
+          name = 'create',
+          fn = function()
+            forge_mod.create_pr()
+          end,
+        },
+        {
+          name = 'filter',
+          fn = function()
+            M.pr(next_state, f)
+          end,
+        },
+        {
+          name = 'refresh',
+          fn = function()
+            forge_mod.clear_list(cache_key)
+            M.pr(state, f)
+          end,
+        },
       },
-      actions = list_actions,
+      picker_name = 'pr',
     })
   end
 
@@ -795,60 +716,53 @@ function M.issue(state, f)
     end)
     local state_field = issue_fields.state
     local state_map = {}
-    local lines = {}
+    local entries = {}
     for _, issue in ipairs(issues) do
       local n = tostring(issue[num_field] or '')
       local s = (issue[state_field] or ''):lower()
       state_map[n] = s == 'open' or s == 'opened'
-      table.insert(lines, forge_mod.format_issue(issue, issue_fields, issue_show_state))
-    end
-    local function with_issue_num(selected, fn)
-      local num = selected[1] and selected[1]:match('[#!](%d+)')
-      if num then
-        fn(num)
-      end
+      table.insert(entries, {
+        display = forge_mod.format_issue(issue, issue_fields, issue_show_state),
+        value = n,
+        ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
+      })
     end
 
-    local issue_actions = build_actions('issue', {
-      {
-        name = 'browse',
-        fn = function(selected)
-          with_issue_num(selected, function(num)
-            f:view_web(cli_kind, num)
-          end)
-        end,
-      },
-      {
-        name = 'close',
-        fn = function(selected)
-          with_issue_num(selected, function(num)
-            issue_toggle_state(f, num, state_map[num] ~= false)
-          end)
-        end,
-      },
-      {
-        name = 'filter',
-        fn = function()
-          M.issue(next_state, f)
-        end,
-      },
-      {
-        name = 'refresh',
-        fn = function()
-          forge_mod.clear_list(cache_key)
-          M.issue(state, f)
-        end,
-      },
-    })
-
-    require('fzf-lua').fzf_exec(lines, {
-      fzf_args = fzf_args,
+    picker.pick({
       prompt = ('%s (%s)> '):format(f.labels.issue, state),
-      fzf_opts = {
-        ['--ansi'] = '',
-        ['--no-multi'] = '',
+      entries = entries,
+      actions = {
+        {
+          name = 'browse',
+          fn = function(entry)
+            if entry then
+              f:view_web(cli_kind, entry.value)
+            end
+          end,
+        },
+        {
+          name = 'close',
+          fn = function(entry)
+            if entry then
+              issue_toggle_state(f, entry.value, state_map[entry.value] ~= false)
+            end
+          end,
+        },
+        {
+          name = 'filter',
+          fn = function()
+            M.issue(next_state, f)
+          end,
+        },
+        {
+          name = 'refresh',
+          fn = function()
+            forge_mod.clear_list(cache_key)
+            M.issue(state, f)
+          end,
+        },
       },
-      actions = issue_actions,
+      picker_name = 'issue',
     })
   end
 
@@ -891,7 +805,7 @@ end
 ---@param num string
 ---@return table<string, function>
 function M.pr_actions(f, num)
-  return pr_actions(f, num)
+  return pr_action_fns(f, num)
 end
 
 function M.git()
@@ -913,11 +827,14 @@ function M.git()
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
 
   local items = {}
-  local actions = {}
+  local action_map = {}
 
   local function add(label, action)
-    table.insert(items, label)
-    actions[label] = action
+    table.insert(items, {
+      display = { { label } },
+      value = label,
+    })
+    action_map[label] = action
   end
 
   if f then
@@ -968,21 +885,29 @@ function M.git()
   end)
 
   add('Worktrees', function()
-    require('fzf-lua').git_worktrees()
+    if picker.backend() == 'fzf-lua' then
+      require('fzf-lua').git_worktrees()
+    else
+      vim.notify('[forge]: worktrees picker requires fzf-lua', vim.log.levels.WARN)
+    end
   end)
 
   local prompt = f and (f.name:sub(1, 1):upper() .. f.name:sub(2)) .. '> ' or 'Git> '
 
-  require('fzf-lua').fzf_exec(items, {
-    fzf_args = fzf_args,
+  picker.pick({
     prompt = prompt,
+    entries = items,
     actions = {
-      ['default'] = function(selected)
-        if selected[1] and actions[selected[1]] then
-          actions[selected[1]]()
-        end
-      end,
+      {
+        name = 'default',
+        fn = function(entry)
+          if entry and action_map[entry.value] then
+            action_map[entry.value]()
+          end
+        end,
+      },
     },
+    picker_name = '_menu',
   })
 end
 
