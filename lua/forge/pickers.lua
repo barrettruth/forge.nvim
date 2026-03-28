@@ -19,11 +19,20 @@ local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
   :gsub('%-%-bind=[^%s]+', '')
   :gsub('%-%-color=[^%s]+', '')
 
+local function to_fzf_key(key)
+  if key == '<cr>' then
+    return 'default'
+  end
+  return key:gsub('<c%-(%a)>', function(ch)
+    return 'ctrl-' .. ch:lower()
+  end)
+end
+
 local function make_header(bindings)
   local utils = require('fzf-lua.utils')
   local parts = {}
   for _, b in ipairs(bindings) do
-    local key = utils.ansi_from_hl('FzfLuaHeaderBind', '<' .. b[1] .. '>')
+    local key = utils.ansi_from_hl('FzfLuaHeaderBind', b[1])
     local desc = utils.ansi_from_hl('FzfLuaHeaderText', b[2])
     table.insert(parts, key .. ' to ' .. desc)
   end
@@ -32,32 +41,24 @@ end
 
 local function build_actions(picker_name, action_defs)
   local cfg = require('forge').config()
-  local pk = cfg.picker_keys
-  if pk == false then
-    pk = {}
+  local keys = cfg.keys
+  if keys == false then
+    keys = {}
   end
-  local bindings = pk[picker_name] or {}
+  local bindings = keys[picker_name] or {}
   local actions = {}
   local header_entries = {}
   for _, def in ipairs(action_defs) do
     local key = bindings[def.name]
     if key then
-      actions[key] = def.fn
+      local fzf_key = to_fzf_key(key)
+      actions[fzf_key] = def.fn
       if def.label then
-        local display_key = key == 'default' and 'enter' or key:gsub('ctrl%-', 'ctrl-')
-        table.insert(header_entries, { display_key, def.label })
+        table.insert(header_entries, { key, def.label })
       end
     end
   end
   return actions, make_header(header_entries)
-end
-
-local function terminal_open_key()
-  local cfg = require('forge').config()
-  if cfg.keys == false then
-    return nil
-  end
-  return cfg.keys.terminal_open
 end
 
 ---@param kind string
@@ -188,7 +189,7 @@ local function pr_actions(f, num)
       end,
     },
     {
-      name = 'checks',
+      name = 'ci',
       fn = function()
         M.checks(f, num)
       end,
@@ -318,7 +319,7 @@ function M.checks(f, num, filter, cached_checks)
       pending = 'running',
     }
 
-    local check_actions, check_header = build_actions('checks', {
+    local check_actions, check_header = build_actions('ci', {
       {
         name = 'log',
         label = 'log',
@@ -346,15 +347,8 @@ function M.checks(f, num, filter, cached_checks)
             'n',
             false
           )
-          local to_key = terminal_open_key()
-          if c.link and to_key then
+          if c.link then
             vim.b.forge_check_url = c.link
-            vim.keymap.set('n', to_key, function()
-              vim.ui.open(vim.b.forge_check_url)
-            end, {
-              buffer = true,
-              desc = 'open check in browser',
-            })
           end
         end,
       },
@@ -495,15 +489,8 @@ function M.ci(f, branch)
             'n',
             false
           )
-          local to_key = terminal_open_key()
-          if run.url ~= '' and to_key then
+          if run.url ~= '' then
             vim.b.forge_run_url = run.url
-            vim.keymap.set('n', to_key, function()
-              vim.ui.open(vim.b.forge_run_url)
-            end, {
-              buffer = true,
-              desc = 'open run in browser',
-            })
           end
         end,
       },
@@ -745,11 +732,11 @@ function M.pr(state, f)
         end,
       },
       {
-        name = 'checks',
-        label = 'checks',
+        name = 'ci',
+        label = 'ci',
         fn = function(selected)
           with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name.checks()
+            pr_actions(f, num)._by_name.ci()
           end)
         end,
       },
@@ -779,8 +766,8 @@ function M.pr(state, f)
         end,
       },
       {
-        name = 'toggle',
-        label = 'toggle',
+        name = 'filter',
+        label = 'filter',
         fn = function()
           M.pr(next_state, f)
         end,
@@ -865,7 +852,7 @@ function M.issue(state, f)
         end,
       },
       {
-        name = 'close_reopen',
+        name = 'close',
         label = 'close/reopen',
         fn = function(selected)
           with_issue_num(selected, function(num)
@@ -874,8 +861,8 @@ function M.issue(state, f)
         end,
       },
       {
-        name = 'toggle',
-        label = 'toggle',
+        name = 'filter',
+        label = 'filter',
         fn = function()
           M.issue(next_state, f)
         end,

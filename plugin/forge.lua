@@ -1,86 +1,3 @@
-local cfg = require('forge').config()
-
-if cfg.keys ~= false then
-  local k = cfg.keys
-
-  if k.picker then
-    vim.keymap.set({ 'n', 'v' }, k.picker, function()
-      require('forge.pickers').git()
-    end, { desc = 'forge git picker' })
-  end
-
-  if k.next_qf then
-    vim.keymap.set(
-      'n',
-      k.next_qf,
-      require('forge.review').nav('cnext'),
-      { desc = 'next quickfix entry' }
-    )
-  end
-
-  if k.prev_qf then
-    vim.keymap.set(
-      'n',
-      k.prev_qf,
-      require('forge.review').nav('cprev'),
-      { desc = 'prev quickfix entry' }
-    )
-  end
-
-  if k.next_loc then
-    vim.keymap.set(
-      'n',
-      k.next_loc,
-      require('forge.review').nav('lnext'),
-      { desc = 'next loclist entry' }
-    )
-  end
-
-  if k.prev_loc then
-    vim.keymap.set(
-      'n',
-      k.prev_loc,
-      require('forge.review').nav('lprev'),
-      { desc = 'prev loclist entry' }
-    )
-  end
-
-  if k.fugitive ~= false then
-    vim.api.nvim_create_autocmd('FileType', {
-      pattern = 'fugitive',
-      callback = function(args)
-        local forge_mod = require('forge')
-        local f = forge_mod.detect()
-        if not f then
-          return
-        end
-        local fk = k.fugitive
-        local buf = args.buf
-        if fk.create then
-          vim.keymap.set('n', fk.create, function()
-            forge_mod.create_pr({ draft = false })
-          end, { buffer = buf, desc = 'create PR' })
-        end
-        if fk.create_draft then
-          vim.keymap.set('n', fk.create_draft, function()
-            forge_mod.create_pr({ draft = true })
-          end, { buffer = buf, desc = 'create draft PR' })
-        end
-        if fk.create_fill then
-          vim.keymap.set('n', fk.create_fill, function()
-            forge_mod.create_pr({ instant = true })
-          end, { buffer = buf, desc = 'create PR (fill)' })
-        end
-        if fk.create_web then
-          vim.keymap.set('n', fk.create_web, function()
-            forge_mod.create_pr({ web = true })
-          end, { buffer = buf, desc = 'create PR (web)' })
-        end
-      end,
-    })
-  end
-end
-
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'qf',
   callback = function()
@@ -188,7 +105,7 @@ local function dispatch(args)
       pickers.pr_actions(f, num)._by_name.diff()
     elseif action == 'worktree' then
       pickers.pr_actions(f, num)._by_name.worktree()
-    elseif action == 'checks' then
+    elseif action == 'ci' then
       pickers.checks(f, num)
     elseif action == 'browse' then
       f:view_web(f.kinds.pr, num)
@@ -424,17 +341,9 @@ local function dispatch(args)
     return
   end
 
-  if sub == 'cache' then
-    if #args < 2 then
-      vim.notify('[forge]: missing cache action (clear)', vim.log.levels.WARN)
-      return
-    end
-    if args[2] == 'clear' then
-      require('forge').clear_cache()
-      vim.notify('[forge]: cache cleared')
-    else
-      vim.notify('[forge]: unknown cache action: ' .. args[2], vim.log.levels.WARN)
-    end
+  if sub == 'clear' then
+    require('forge').clear_cache()
+    vim.notify('[forge]: cache cleared')
     return
   end
 
@@ -449,28 +358,19 @@ local function complete(arglead, cmdline, _)
   local arg_idx = arglead == '' and #words or #words - 1
 
   local subcmds =
-    { 'pr', 'issue', 'ci', 'commit', 'branch', 'worktree', 'browse', 'yank', 'review', 'cache' }
+    { 'pr', 'issue', 'ci', 'commit', 'branch', 'worktree', 'browse', 'yank', 'review', 'clear' }
   local sub_actions = {
-    pr = {
-      'checkout',
-      'diff',
-      'worktree',
-      'checks',
-      'browse',
-      'manage',
-      'create',
-      '--state=open',
-      '--state=closed',
-      '--state=all',
-    },
-    issue = { 'browse', 'close', 'reopen', '--state=open', '--state=closed', '--state=all' },
+    pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'create', '--state=' },
+    issue = { 'browse', 'close', 'reopen', '--state=' },
     ci = { '--all' },
     commit = { 'checkout', 'diff', 'browse' },
     branch = { 'diff', 'browse' },
     review = { 'end', 'toggle' },
-    cache = { 'clear' },
     browse = { '--root', '--commit' },
     yank = { '--commit' },
+  }
+  local flag_values = {
+    ['--state'] = { 'open', 'closed', 'all' },
   }
   local create_flags = { '--draft', '--fill', '--web' }
 
@@ -478,6 +378,15 @@ local function complete(arglead, cmdline, _)
     return vim.tbl_filter(function(s)
       return s:find(arglead, 1, true) == 1
     end, candidates)
+  end
+
+  local flag, value_prefix = arglead:match('^(%-%-[^=]+)=(.*)$')
+  if flag and flag_values[flag] then
+    return vim.tbl_map(function(v)
+      return flag .. '=' .. v
+    end, vim.tbl_filter(function(v)
+      return v:find(value_prefix, 1, true) == 1
+    end, flag_values[flag]))
   end
 
   if arg_idx == 1 then

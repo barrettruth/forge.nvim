@@ -14,7 +14,7 @@ Requirements: ~
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
-- vim-fugitive (optional, for fugitive keymaps and split review)
+- vim-fugitive (optional, for split review)
 - diffs.nvim (optional, for review mode)
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
@@ -51,87 +51,47 @@ Top-level keys: ~
 
 `keys`                                                      *forge-config-keys*
   `table|false`  (default shown below)
-    Global keymaps. Set to `false` to disable all global keymaps. Setting
-    an individual key to `nil` or `false` disables that single keymap.
+    Per-picker action bindings. Set to `false` to disable all picker-level
+    actions. Use `"<cr>"` to bind to enter. Values use vim keymap notation
+    (e.g. `"<c-d>"`), which is translated to fzf-lua format internally.
 
   Defaults: >lua
       keys = {
-        picker = '<c-g>',
-        next_qf = ']q',
-        prev_qf = '[q',
-        next_loc = ']l',
-        prev_loc = '[l',
-        review_toggle = 's',
-        terminal_open = 'gx',
-        fugitive = {
-          create = 'cpr',
-          create_draft = 'cpd',
-          create_fill = 'cpf',
-          create_web = 'cpw',
-        },
-      }
-<
-  `keys.picker`           Open the main forge picker (|forge-picker|).
-  `keys.next_qf`          Navigate to next quickfix entry (wraps).
-  `keys.prev_qf`          Navigate to previous quickfix entry (wraps).
-  `keys.next_loc`         Navigate to next loclist entry (wraps).
-  `keys.prev_loc`         Navigate to previous loclist entry (wraps).
-  `keys.review_toggle`    Toggle unified/split review (|forge-review|).
-  `keys.terminal_open`    Open URL in browser from log terminal buffers.
-  `keys.fugitive.create`       Create PR via compose buffer.
-  `keys.fugitive.create_draft` Create draft PR via compose buffer.
-  `keys.fugitive.create_fill`  Create PR instantly (skip compose buffer).
-  `keys.fugitive.create_web`   Push and open create-PR page in browser.
-
-  Set `keys.fugitive` to `false` to disable all fugitive-buffer keymaps.
-
-`picker_keys`                                        *forge-config-picker-keys*
-  `table|false`  (default shown below)
-    Per-picker action bindings. Set to `false` to disable all picker-level
-    actions. Use `"default"` to bind to `<enter>`. Other values use fzf-lua
-    binding syntax (e.g. `"ctrl-d"`).
-
-  Defaults: >lua
-      picker_keys = {
         pr = {
-          checkout = 'default',
-          diff = 'ctrl-d',
-          worktree = 'ctrl-w',
-          checks = 'ctrl-t',
-          browse = 'ctrl-x',
-          manage = 'ctrl-e',
-          create = 'ctrl-a',
-          toggle = 'ctrl-o',
-          refresh = 'ctrl-r',
+          checkout = '<cr>',
+          diff = '<c-d>',
+          worktree = '<c-w>',
+          ci = '<c-t>',
+          browse = '<c-x>',
+          manage = '<c-e>',
+          create = '<c-a>',
+          filter = '<c-o>',
+          refresh = '<c-r>',
         },
         issue = {
-          browse = 'default',
-          close_reopen = 'ctrl-s',
-          toggle = 'ctrl-o',
-          refresh = 'ctrl-r',
-        },
-        checks = {
-          log = 'default',
-          browse = 'ctrl-x',
-          failed = 'ctrl-f',
-          passed = 'ctrl-p',
-          running = 'ctrl-n',
-          all = 'ctrl-a',
+          browse = '<cr>',
+          close = '<c-s>',
+          filter = '<c-o>',
+          refresh = '<c-r>',
         },
         ci = {
-          log = 'default',
-          browse = 'ctrl-x',
-          refresh = 'ctrl-r',
+          log = '<cr>',
+          browse = '<c-x>',
+          failed = '<c-f>',
+          passed = '<c-p>',
+          running = '<c-n>',
+          all = '<c-a>',
+          refresh = '<c-r>',
         },
         commits = {
-          checkout = 'default',
-          diff = 'ctrl-d',
-          browse = 'ctrl-x',
-          yank = 'ctrl-y',
+          checkout = '<cr>',
+          diff = '<c-d>',
+          browse = '<c-x>',
+          yank = '<c-y>',
         },
         branches = {
-          diff = 'ctrl-d',
-          browse = 'ctrl-x',
+          diff = '<c-d>',
+          browse = '<c-x>',
         },
       }
 <
@@ -174,8 +134,7 @@ Top-level keys: ~
 COMMANDS                                                             *:Forge*
 
 `:Forge`                                                      *:Forge-no-args*
-    Open the main forge picker (|forge-picker|). Same as pressing
-    `keys.picker`.
+    Open the main forge picker (|forge-picker|).
 
 `:Forge pr` [{flags}]                                              *:Forge-pr*
     Open the PR list picker. Defaults to open PRs.
@@ -200,8 +159,8 @@ COMMANDS                                                             *:Forge*
 `:Forge pr worktree` {num}                                *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
 
-`:Forge pr checks` {num}                                    *:Forge-pr-checks*
-    Open the checks picker for PR `{num}`.
+`:Forge pr ci` {num}                                            *:Forge-pr-ci*
+    Open the CI checks picker for PR `{num}`.
 
 `:Forge pr browse` {num}                                    *:Forge-pr-browse*
     Open PR `{num}` in the browser.
@@ -272,49 +231,10 @@ COMMANDS                                                             *:Forge*
 `:Forge review toggle`                                    *:Forge-review-toggle*
     Toggle between unified and split view (|forge-review|).
 
-`:Forge cache clear`                                    *:Forge-cache-clear*
+`:Forge clear`                                              *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
 All subcommands support tab completion.
-
-==============================================================================
-KEYMAPS                                                        *forge-keymaps*
-
-GLOBAL KEYMAPS ~
-
-All global keymaps are configured via `keys` (|forge-config-keys|).
-
-  Default     Mode    Description ~
-  `<c-g>`       n, v    Open the main forge picker
-  `]q`          n       Next quickfix entry (wraps to first)
-  `[q`          n       Previous quickfix entry (wraps to last)
-  `]l`          n       Next loclist entry (wraps to first)
-  `[l`          n       Previous loclist entry (wraps to last)
-
-FUGITIVE KEYMAPS ~
-
-Active in `fugitive` filetype buffers when a forge is detected. Configured
-via `keys.fugitive`. Set `keys.fugitive = false` to disable.
-
-  Default     Description ~
-  `cpr`         Create PR via compose buffer
-  `cpd`         Create draft PR via compose buffer
-  `cpf`         Create PR instantly (fill from commits)
-  `cpw`         Push and open create-PR page in browser
-
-REVIEW KEYMAPS ~
-
-Active during a review session (|forge-review|).
-
-  Default     Description ~
-  `s`           Toggle unified/split view
-
-TERMINAL KEYMAPS ~
-
-Active in log terminal buffers opened by the checks or CI pickers.
-
-  Default     Description ~
-  `gx`          Open the associated check/run URL in the browser
 
 ==============================================================================
 PICKERS                                                        *forge-pickers*
@@ -332,65 +252,58 @@ PR PICKER ~
 Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
-  `checkout`    `<enter>`        Check out the PR branch
-  `diff`        `ctrl-d`         Start review (|forge-review|)
-  `worktree`    `ctrl-w`         Create worktree from PR
-  `checks`      `ctrl-t`         Open checks picker for this PR
-  `browse`      `ctrl-x`         Open PR in browser
-  `manage`      `ctrl-e`         Open management picker
-  `create`      `ctrl-a`         Create new PR (|forge-compose|)
-  `toggle`      `ctrl-o`         Cycle state: open -> closed -> all
-  `refresh`     `ctrl-r`         Clear cache and re-fetch
+  `checkout`    `<cr>`           Check out the PR branch
+  `diff`        `<c-d>`          Start review (|forge-review|)
+  `worktree`    `<c-w>`          Create worktree from PR
+  `ci`          `<c-t>`          Open CI checks picker for this PR
+  `browse`      `<c-x>`          Open PR in browser
+  `manage`      `<c-e>`          Open management picker
+  `create`      `<c-a>`          Create new PR (|forge-compose|)
+  `filter`      `<c-o>`          Cycle state: open -> closed -> all
+  `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                          *forge-picker-issue*
 ISSUE PICKER ~
 Lists issues with number, title, author, and relative time.
 
-  Action         Default Key    Description ~
-  `browse`         `<enter>`        Open issue in browser
-  `close_reopen`   `ctrl-s`         Close or reopen the issue
-  `toggle`         `ctrl-o`         Cycle state: all -> open -> closed
-  `refresh`        `ctrl-r`         Clear cache and re-fetch
-
-                                                        *forge-picker-checks*
-CHECKS PICKER ~
-Lists PR check runs with status icon, name, and elapsed time.
-
   Action      Default Key    Description ~
-  `log`         `<enter>`        View log (tail for running, full otherwise)
-  `browse`      `ctrl-x`         Open check URL in browser
-  `failed`      `ctrl-f`         Filter to failed checks
-  `passed`      `ctrl-p`         Filter to passed checks
-  `running`     `ctrl-n`         Filter to running checks
-  `all`         `ctrl-a`         Show all checks
+  `browse`      `<cr>`           Open issue in browser
+  `close`       `<c-s>`          Close or reopen the issue
+  `filter`      `<c-o>`          Cycle state: all -> open -> closed
+  `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                             *forge-picker-ci*
 CI PICKER ~
-Lists CI/CD runs for the current branch (or all branches with `--all`).
+Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide CI runs
+(`:Forge ci`). Both share the `keys.ci` bindings.
 
   Action      Default Key    Description ~
-  `log`         `<enter>`        View log (tail for running, failed-only for
+  `log`         `<cr>`           View log (tail for running, failed-only for
                                failures, full otherwise)
-  `browse`      `ctrl-x`         Open run URL in browser
-  `refresh`     `ctrl-r`         Re-fetch runs
+  `browse`      `<c-x>`          Open run/check URL in browser
+  `failed`      `<c-f>`          Filter to failed
+  `passed`      `<c-p>`          Filter to passed
+  `running`     `<c-n>`          Filter to running
+  `all`         `<c-a>`          Show all
+  `refresh`     `<c-r>`          Re-fetch runs
 
                                                        *forge-picker-commits*
 COMMITS PICKER ~
 Git log with colored output and commit preview.
 
   Action      Default Key    Description ~
-  `checkout`    `<enter>`        Checkout commit (detached HEAD)
-  `diff`        `ctrl-d`         Review the commit diff
-  `browse`      `ctrl-x`         Open commit on forge
-  `yank`        `ctrl-y`         Yank commit hash to `+` register
+  `checkout`    `<cr>`           Checkout commit (detached HEAD)
+  `diff`        `<c-d>`          Review the commit diff
+  `browse`      `<c-x>`          Open commit on forge
+  `yank`        `<c-y>`          Yank commit hash to `+` register
 
                                                       *forge-picker-branches*
 BRANCHES PICKER ~
 Uses fzf-lua's `git_branches` with additional actions.
 
   Action      Default Key    Description ~
-  `diff`        `ctrl-d`         Review diff against branch
-  `browse`      `ctrl-x`         Open branch on forge
+  `diff`        `<c-d>`          Review diff against branch
+  `browse`      `<c-x>`          Open branch on forge
 
                                                         *forge-picker-manage*
 MANAGE PICKER ~
@@ -405,8 +318,8 @@ Review mode provides unified and split diff viewing for PRs and commits.
 Requires diffs.nvim for unified view and vim-fugitive for split view.
 
 Starting a review: ~
-- `ctrl-d` on a PR in the PR picker
-- `ctrl-d` on a commit in the commit picker
+- `<c-d>` on a PR in the PR picker
+- `<c-d>` on a commit in the commit picker
 - `:Forge pr diff {num}`
 - `:Forge commit diff {sha}`
 - `:Forge branch diff {name}`
@@ -416,13 +329,8 @@ Unified view (default): ~
   a quickfix list of changed files.
 
 Split view: ~
-  Press the `review_toggle` key (default `s`) to switch to a side-by-side
-  fugitive split (`:Gvdiffsplit`). Press again to return to unified.
-
-Navigation: ~
-  `]q` / `[q` navigate quickfix entries. In split mode, the split is
-  automatically closed and reopened around the new file. Navigation wraps
-  at list boundaries.
+  `:Forge review toggle` switches to a side-by-side fugitive split
+  (`:Gvdiffsplit`). Run again to return to unified.
 
 Ending a review: ~
   `:Forge review end` or wipe the `diffs://review:*` buffer.
@@ -622,7 +530,6 @@ Reports on: ~
 - Forge CLI availability (`gh`, `glab`, `tea`)
 - `fzf-lua` installation (required)
 - `diffs.nvim` installation (review mode)
-- `vim-fugitive` availability (fugitive keymaps, split review)
 - Custom registered sources and their CLI availability
 
 ==============================================================================
@@ -640,7 +547,7 @@ PUBLIC API: `require('forge')` ~
 `config()`
     Returns `table`. The resolved configuration, merging `vim.g.forge`
     over defaults. If `vim.g.forge.keys` is `false`, `cfg.keys` is
-    `false`. Same for `picker_keys`.
+    `false`.
 
                                                             *forge.register()*
 `register(name, source)`
@@ -749,7 +656,7 @@ PUBLIC API: `require('forge.pickers')` ~
 `pr_actions(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
     keyed by fzf binding. Also has `_by_name` table keyed by action
-    name (`"checkout"`, `"diff"`, `"worktree"`, `"browse"`, `"checks"`,
+    name (`"checkout"`, `"diff"`, `"worktree"`, `"browse"`, `"ci"`,
     `"manage"`).
 
                                                 *forge.pickers.issue_close()*
@@ -769,8 +676,7 @@ PUBLIC API: `require('forge.review')` ~
 
                                                         *forge.review.stop()*
 `stop()`
-    Ends the current review session. Clears state and removes the
-    `review_toggle` keymap.
+    Ends the current review session. Clears state.
 
                                                       *forge.review.toggle()*
 `toggle()`

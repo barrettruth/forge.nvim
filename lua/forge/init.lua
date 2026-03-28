@@ -4,7 +4,6 @@ local M = {}
 ---@field ci forge.CIConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
----@field picker_keys forge.PickerKeysConfig|false
 ---@field display forge.DisplayConfig
 
 ---@class forge.CIConfig
@@ -14,25 +13,8 @@ local M = {}
 ---@field hosts string[]
 
 ---@class forge.KeysConfig
----@field picker string|false
----@field next_qf string|false
----@field prev_qf string|false
----@field next_loc string|false
----@field prev_loc string|false
----@field review_toggle string|false
----@field terminal_open string|false
----@field fugitive forge.FugitiveKeysConfig|false
-
----@class forge.FugitiveKeysConfig
----@field create string|false
----@field create_draft string|false
----@field create_fill string|false
----@field create_web string|false
-
----@class forge.PickerKeysConfig
 ---@field pr forge.PRPickerKeys
 ---@field issue forge.IssuePickerKeys
----@field checks forge.ChecksPickerKeys
 ---@field ci forge.CIPickerKeys
 ---@field commits forge.CommitsPickerKeys
 ---@field branches forge.BranchesPickerKeys
@@ -41,30 +23,26 @@ local M = {}
 ---@field checkout string|false
 ---@field diff string|false
 ---@field worktree string|false
----@field checks string|false
+---@field ci string|false
 ---@field browse string|false
 ---@field manage string|false
 ---@field create string|false
----@field toggle string|false
+---@field filter string|false
 ---@field refresh string|false
 
 ---@class forge.IssuePickerKeys
 ---@field browse string|false
----@field close_reopen string|false
----@field toggle string|false
+---@field close string|false
+---@field filter string|false
 ---@field refresh string|false
 
----@class forge.ChecksPickerKeys
+---@class forge.CIPickerKeys
 ---@field log string|false
 ---@field browse string|false
 ---@field failed string|false
 ---@field passed string|false
 ---@field running string|false
 ---@field all string|false
-
----@class forge.CIPickerKeys
----@field log string|false
----@field browse string|false
 ---@field refresh string|false
 
 ---@class forge.CommitsPickerKeys
@@ -108,44 +86,29 @@ local DEFAULTS = {
   ci = { lines = 10000 },
   sources = {},
   keys = {
-    picker = '<c-g>',
-    next_qf = ']q',
-    prev_qf = '[q',
-    next_loc = ']l',
-    prev_loc = '[l',
-    review_toggle = 's',
-    terminal_open = 'gx',
-    fugitive = {
-      create = 'cpr',
-      create_draft = 'cpd',
-      create_fill = 'cpf',
-      create_web = 'cpw',
-    },
-  },
-  picker_keys = {
     pr = {
-      checkout = 'default',
-      diff = 'ctrl-d',
-      worktree = 'ctrl-w',
-      checks = 'ctrl-t',
-      browse = 'ctrl-x',
-      manage = 'ctrl-e',
-      create = 'ctrl-a',
-      toggle = 'ctrl-o',
-      refresh = 'ctrl-r',
+      checkout = '<cr>',
+      diff = '<c-d>',
+      worktree = '<c-w>',
+      ci = '<c-t>',
+      browse = '<c-x>',
+      manage = '<c-e>',
+      create = '<c-a>',
+      filter = '<c-o>',
+      refresh = '<c-r>',
     },
-    issue = { browse = 'default', close_reopen = 'ctrl-s', toggle = 'ctrl-o', refresh = 'ctrl-r' },
-    checks = {
-      log = 'default',
-      browse = 'ctrl-x',
-      failed = 'ctrl-f',
-      passed = 'ctrl-p',
-      running = 'ctrl-n',
-      all = 'ctrl-a',
+    issue = { browse = '<cr>', close = '<c-s>', filter = '<c-o>', refresh = '<c-r>' },
+    ci = {
+      log = '<cr>',
+      browse = '<c-x>',
+      failed = '<c-f>',
+      passed = '<c-p>',
+      running = '<c-n>',
+      all = '<c-a>',
+      refresh = '<c-r>',
     },
-    ci = { log = 'default', browse = 'ctrl-x', refresh = 'ctrl-r' },
-    commits = { checkout = 'default', diff = 'ctrl-d', browse = 'ctrl-x', yank = 'ctrl-y' },
-    branches = { diff = 'ctrl-d', browse = 'ctrl-x' },
+    commits = { checkout = '<cr>', diff = '<c-d>', browse = '<c-x>', yank = '<c-y>' },
+    branches = { diff = '<c-d>', browse = '<c-x>' },
   },
   display = {
     icons = {
@@ -748,9 +711,6 @@ function M.config()
   local cfg = vim.tbl_deep_extend('force', DEFAULTS, user)
   if user.keys == false then
     cfg.keys = false
-  end
-  if user.picker_keys == false then
-    cfg.picker_keys = false
   end
   return cfg
 end

@@ -36,13 +36,6 @@ function M.check()
     vim.health.info('diffs.nvim not found (review mode disabled)')
   end
 
-  local has_fugitive = vim.fn.exists(':Git') == 2
-  if has_fugitive then
-    vim.health.ok('vim-fugitive found (fugitive keymaps available)')
-  else
-    vim.health.info('vim-fugitive not found (fugitive keymaps disabled)')
-  end
-
   local forge_mod = require('forge')
   for name, source in pairs(forge_mod.registered_sources()) do
     if name ~= 'github' and name ~= 'gitlab' and name ~= 'codeberg' then
