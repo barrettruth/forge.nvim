@@ -216,11 +216,18 @@ end
 ---@field permission string
 ---@field merge_methods string[]
 
+---@class forge.Capabilities
+---@field draft boolean
+---@field reviewers boolean
+---@field per_pr_checks boolean
+---@field ci_json boolean
+
 ---@class forge.Forge
 ---@field name string
 ---@field cli string
 ---@field kinds { issue: string, pr: string }
 ---@field labels { issue: string, pr: string, pr_one: string, pr_full: string, ci: string }
+---@field capabilities forge.Capabilities
 ---@field list_pr_json_cmd fun(self: forge.Forge, state: string): string[]
 ---@field list_issue_json_cmd fun(self: forge.Forge, state: string): string[]
 ---@field pr_json_fields fun(self: forge.Forge): { number: string, title: string, branch: string, state: string, author: string, created_at: string }
@@ -929,9 +936,9 @@ local function open_compose_buffer(f, branch, base, draft)
   ---@param ln integer
   ---@param start integer
   ---@param len integer
-  ---@param hl string
-  local function mark(ln, start, len, hl)
-    table.insert(marks, { line = ln, col = start, end_col = start + len, hl = hl })
+  ---@param hl_group string
+  local function mark(ln, start, len, hl_group)
+    table.insert(marks, { line = ln, col = start, end_col = start + len, hl = hl_group })
   end
 
   add_line('<!--')
@@ -947,15 +954,19 @@ local function open_compose_buffer(f, branch, base, draft)
   mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
   add_line('')
-  local draft_val = draft and 'yes' or ''
-  local draft_prefix = '  Draft: '
-  ln = add_line('%s%s', draft_prefix, draft_val)
-  if draft_val ~= '' then
-    mark(ln, #draft_prefix, #draft_val, 'ForgeComposeDraft')
+  if f.capabilities.draft then
+    local draft_val = draft and 'yes' or ''
+    local draft_prefix = '  Draft: '
+    ln = add_line('%s%s', draft_prefix, draft_val)
+    if draft_val ~= '' then
+      mark(ln, #draft_prefix, #draft_val, 'ForgeComposeDraft')
+    end
   end
 
-  local reviewers_prefix = '  Reviewers: '
-  add_line('%s', reviewers_prefix)
+  if f.capabilities.reviewers then
+    local reviewers_prefix = '  Reviewers: '
+    add_line('%s', reviewers_prefix)
+  end
 
   local stat_start, stat_end
   if diff_stat ~= '' then
@@ -990,8 +1001,8 @@ local function open_compose_buffer(f, branch, base, draft)
         end
         for pos, run in line:gmatch('()([+-]+)') do
           if pos > pipe then
-            local hl = run:sub(1, 1) == '+' and 'ForgeComposeAdded' or 'ForgeComposeRemoved'
-            mark(i, pos - 1, #run, hl)
+            local stat_hl = run:sub(1, 1) == '+' and 'ForgeComposeAdded' or 'ForgeComposeRemoved'
+            mark(i, pos - 1, #run, stat_hl)
           end
         end
       end

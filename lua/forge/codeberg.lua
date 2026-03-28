@@ -12,6 +12,12 @@ local M = {
     pr_full = 'Pull Requests',
     ci = 'CI/CD',
   },
+  capabilities = {
+    draft = false,
+    reviewers = false,
+    per_pr_checks = false,
+    ci_json = true,
+  },
 }
 
 ---@param state string
@@ -105,7 +111,9 @@ function M:yank_branch(loc)
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
   local base = forge.remote_web_url()
   local file, lines = loc:match('^(.+):(.+)$')
-  vim.fn.setreg('+', ('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines))
+  local url = ('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines)
+  vim.fn.setreg('+', url)
+  forge.log('URL copied')
 end
 
 ---@param loc string
@@ -113,7 +121,9 @@ function M:yank_commit(loc)
   local commit = vim.trim(vim.fn.system('git rev-parse HEAD'))
   local base = forge.remote_web_url()
   local file, lines = loc:match('^(.+):(.+)$')
-  vim.fn.setreg('+', ('%s/src/commit/%s/%s#L%s'):format(base, commit, file, lines))
+  local url = ('%s/src/commit/%s/%s#L%s'):format(base, commit, file, lines)
+  vim.fn.setreg('+', url)
+  forge.log('URL copied')
 end
 
 ---@param num string
@@ -128,19 +138,16 @@ function M:pr_base_cmd(num)
   return { 'tea', 'pr', num, '--fields', 'base', '--output', 'simple' }
 end
 
----@param _branch string
+---@param branch string
 ---@return string[]
-function M:pr_for_branch_cmd(_branch)
+function M:pr_for_branch_cmd(branch)
   return {
-    'tea',
-    'pr',
-    'list',
-    '--fields',
-    'index,head',
-    '--output',
-    'simple',
-    '--state',
-    'open',
+    'sh',
+    '-c',
+    ('tea pr list --state open --output json --fields index,head | jq -r \'[.[] | select(.head=="%s" or .head.name=="%s")][0].index // empty\''):format(
+      branch,
+      branch
+    ),
   }
 end
 
@@ -170,8 +177,30 @@ function M:check_tail_cmd(run_id)
   return { 'tea', 'actions', 'runs', 'logs', run_id, '--follow' }
 end
 
-function M:list_runs_cmd(_branch)
-  return 'tea actions runs list'
+function M:list_runs_json_cmd(branch)
+  local limit = tostring(forge.config().display.limits.runs)
+  local cmd = 'tea api "/repos/:owner/:repo/actions/runs?limit=' .. limit
+  if branch then
+    cmd = cmd .. '&branch=' .. branch
+  end
+  cmd = cmd .. '" 2>/dev/null | jq -r ".workflow_runs // []"'
+  return { 'sh', '-c', cmd }
+end
+
+function M:normalize_run(entry)
+  local status = entry.status or ''
+  if status == 'completed' then
+    status = entry.conclusion or 'unknown'
+  end
+  return {
+    id = tostring(entry.id or ''),
+    name = entry.name or '',
+    branch = entry.head_branch or '',
+    status = status,
+    event = entry.event or '',
+    url = entry.html_url or '',
+    created_at = entry.created_at or '',
+  }
 end
 
 function M:run_log_cmd(id, failed_only)
@@ -256,7 +285,8 @@ function M:default_branch_cmd()
   return {
     'sh',
     '-c',
-    "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'",
+    "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
+      .. " || tea api /repos/:owner/:repo 2>/dev/null | jq -r '.default_branch // empty'",
   }
 end
 
@@ -278,10 +308,35 @@ end
 
 ---@return forge.RepoInfo
 function M:repo_info()
-  return {
-    permission = 'ADMIN',
-    merge_methods = { 'squash', 'rebase', 'merge' },
-  }
+  local result = vim.system({ 'tea', 'api', '/repos/:owner/:repo' }, { text = true }):wait()
+  local ok, data = pcall(vim.json.decode, result.stdout or '{}')
+  if not ok or type(data) ~= 'table' then
+    return { permission = 'READ', merge_methods = { 'merge' } }
+  end
+
+  local perms = type(data.permissions) == 'table' and data.permissions or {}
+  local permission = 'READ'
+  if perms.admin then
+    permission = 'ADMIN'
+  elseif perms.push then
+    permission = 'WRITE'
+  end
+
+  local methods = {}
+  if data.allow_merge_commits ~= false then
+    table.insert(methods, 'merge')
+  end
+  if data.allow_squash_merge ~= false then
+    table.insert(methods, 'squash')
+  end
+  if data.allow_rebase ~= false then
+    table.insert(methods, 'rebase')
+  end
+  if #methods == 0 then
+    table.insert(methods, 'merge')
+  end
+
+  return { permission = permission, merge_methods = methods }
 end
 
 ---@param num string

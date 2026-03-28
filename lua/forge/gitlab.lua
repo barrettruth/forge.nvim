@@ -12,6 +12,12 @@ local M = {
     pr_full = 'Merge Requests',
     ci = 'CI/CD',
   },
+  capabilities = {
+    draft = true,
+    reviewers = true,
+    per_pr_checks = false,
+    ci_json = true,
+  },
 }
 
 ---@param state string
@@ -112,7 +118,9 @@ function M:yank_branch(loc)
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
   local base = forge.remote_web_url()
   local file, lines = loc:match('^(.+):(.+)$')
-  vim.fn.setreg('+', ('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines))
+  local url = ('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines)
+  vim.fn.setreg('+', url)
+  forge.log('URL copied')
 end
 
 ---@param loc string
@@ -120,7 +128,9 @@ function M:yank_commit(loc)
   local commit = vim.trim(vim.fn.system('git rev-parse HEAD'))
   local base = forge.remote_web_url()
   local file, lines = loc:match('^(.+):(.+)$')
-  vim.fn.setreg('+', ('%s/-/blob/%s/%s#L%s'):format(base, commit, file, lines))
+  local url = ('%s/-/blob/%s/%s#L%s'):format(base, commit, file, lines)
+  vim.fn.setreg('+', url)
+  forge.log('URL copied')
 end
 
 ---@param num string

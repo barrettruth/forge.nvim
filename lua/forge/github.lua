@@ -12,6 +12,12 @@ local M = {
     pr_full = 'Pull Requests',
     ci = 'CI/CD',
   },
+  capabilities = {
+    draft = true,
+    reviewers = true,
+    per_pr_checks = true,
+    ci_json = true,
+  },
 }
 
 local function nwo()

@@ -175,7 +175,14 @@ local function pr_actions(f, num)
     {
       name = 'ci',
       fn = function()
-        M.checks(f, num)
+        if f.capabilities.per_pr_checks then
+          M.checks(f, num)
+        else
+          require('forge').log(
+            ('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name)
+          )
+          M.ci(f)
+        end
       end,
     },
     {

@@ -106,7 +106,14 @@ local function dispatch(args)
     elseif action == 'worktree' then
       pickers.pr_actions(f, num)._by_name.worktree()
     elseif action == 'ci' then
-      pickers.checks(f, num)
+      if f.capabilities.per_pr_checks then
+        pickers.checks(f, num)
+      else
+        require('forge').log(
+          ('per-%s checks unavailable on %s, showing repo CI'):format(f.labels.pr_one, f.name)
+        )
+        pickers.ci(f)
+      end
     elseif action == 'browse' then
       f:view_web(f.kinds.pr, num)
     elseif action == 'manage' then
