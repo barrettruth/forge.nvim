@@ -678,7 +678,7 @@ function M.pr(state, f)
         name = 'checkout',
         fn = function(selected)
           with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name.checkout()
+            pr_actions(f, num)._by_name['checkout']()
           end)
         end,
       },
@@ -686,7 +686,7 @@ function M.pr(state, f)
         name = 'diff',
         fn = function(selected)
           with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name.diff()
+            pr_actions(f, num)._by_name['diff']()
           end)
         end,
       },
@@ -694,7 +694,7 @@ function M.pr(state, f)
         name = 'worktree',
         fn = function(selected)
           with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name.worktree()
+            pr_actions(f, num)._by_name['worktree']()
           end)
         end,
       },
@@ -702,7 +702,7 @@ function M.pr(state, f)
         name = 'ci',
         fn = function(selected)
           with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name.ci()
+            pr_actions(f, num)._by_name['ci']()
           end)
         end,
       },
@@ -718,7 +718,7 @@ function M.pr(state, f)
         name = 'manage',
         fn = function(selected)
           with_pr_num(selected, function(num)
-            pr_actions(f, num)._by_name.manage()
+            pr_actions(f, num)._by_name['manage']()
           end)
         end,
       },

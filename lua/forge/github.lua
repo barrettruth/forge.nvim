@@ -19,8 +19,6 @@ local function nwo()
   return url:match('github%.com/(.+)$') or ''
 end
 
----@param kind string
----@param state string
 ---@param state string
 ---@return string[]
 function M:list_pr_json_cmd(state)

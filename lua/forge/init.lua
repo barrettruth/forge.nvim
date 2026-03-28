@@ -633,7 +633,11 @@ function M.format_check(check)
       end
     end
   end
-  return hl(group, icon) .. '  ' .. pad_or_truncate(name, widths.name) .. ' ' .. hl('ForgeDim', elapsed)
+  return hl(group, icon)
+    .. '  '
+    .. pad_or_truncate(name, widths.name)
+    .. ' '
+    .. hl('ForgeDim', elapsed)
 end
 
 ---@param run forge.CIRun
@@ -659,13 +663,18 @@ function M.format_run(run)
   local age = relative_time(run.created_at)
   if run.branch ~= '' then
     local name_w = widths.name - widths.branch + 10
-    return hl(group, icon) .. '  '
-      .. pad_or_truncate(run.name, name_w) .. ' '
-      .. hl('ForgeBranch', pad_or_truncate(run.branch, widths.branch)) .. ' '
+    return hl(group, icon)
+      .. '  '
+      .. pad_or_truncate(run.name, name_w)
+      .. ' '
+      .. hl('ForgeBranch', pad_or_truncate(run.branch, widths.branch))
+      .. ' '
       .. hl('ForgeDim', ('%-6s'):format(event) .. ' ' .. age)
   end
-  return hl(group, icon) .. '  '
-    .. pad_or_truncate(run.name, widths.name) .. ' '
+  return hl(group, icon)
+    .. '  '
+    .. pad_or_truncate(run.name, widths.name)
+    .. ' '
     .. hl('ForgeDim', ('%-6s'):format(event) .. ' ' .. age)
 end
 
