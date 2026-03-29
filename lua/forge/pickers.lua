@@ -722,7 +722,14 @@ function M.release(state, f)
               prompt = 'Delete release ' .. tag .. '? ',
             }, function(choice)
               if choice == 'Yes' then
-                run_forge_cmd('release', tag, 'deleting', f:delete_release_cmd(tag), 'deleted', 'delete failed')
+                run_forge_cmd(
+                  'release',
+                  tag,
+                  'deleting',
+                  f:delete_release_cmd(tag),
+                  'deleted',
+                  'delete failed'
+                )
                 forge_mod.clear_list(cache_key)
               end
             end)
