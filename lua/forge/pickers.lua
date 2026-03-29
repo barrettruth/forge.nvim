@@ -2,6 +2,7 @@ local M = {}
 
 local log = require('forge.logger')
 local picker = require('forge.picker')
+local log = require('forge.logger')
 
 ---@param result { code: integer, stdout: string?, stderr: string? }
 ---@param fallback string
