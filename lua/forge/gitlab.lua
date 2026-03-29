@@ -173,8 +173,9 @@ end
 
 ---@param run_id string
 ---@param failed_only boolean
+---@param _job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only)
+function M:check_log_cmd(run_id, failed_only, _job_id)
   local _ = failed_only
   local lines = forge.config().ci.lines
   return {

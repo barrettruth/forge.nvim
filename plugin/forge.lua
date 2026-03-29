@@ -100,11 +100,11 @@ local function dispatch(args)
       return
     end
     if action == 'checkout' then
-      pickers.pr_actions(f, num)._by_name.checkout()
+      pickers.pr_actions(f, num).checkout()
     elseif action == 'diff' then
-      pickers.pr_actions(f, num)._by_name.diff()
+      pickers.pr_actions(f, num).diff()
     elseif action == 'worktree' then
-      pickers.pr_actions(f, num)._by_name.worktree()
+      pickers.pr_actions(f, num).worktree()
     elseif action == 'ci' then
       if f.capabilities.per_pr_checks then
         pickers.checks(f, num)

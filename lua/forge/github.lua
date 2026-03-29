@@ -174,14 +174,16 @@ end
 
 ---@param run_id string
 ---@param failed_only boolean
+---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only)
+function M:check_log_cmd(run_id, failed_only, job_id)
   local lines = forge.config().ci.lines
   local flag = failed_only and '--log-failed' or '--log'
+  local job_flag = job_id and (' --job %s'):format(job_id) or ''
   return {
     'sh',
     '-c',
-    ('gh run view %s -R %s %s | tail -n %d'):format(run_id, nwo(), flag, lines),
+    ('gh run view %s -R %s%s %s | tail -n %d'):format(run_id, nwo(), job_flag, flag, lines),
   }
 end
 

@@ -263,13 +263,14 @@ function M.checks(f, num, filter, cached_checks)
             if not run_id then
               return
             end
+            local job_id = (c.link or ''):match('/job/(%d+)')
             forge_mod.log_now('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
             local cmd
             if bucket == 'pending' then
               cmd = f:check_tail_cmd(run_id)
             else
-              cmd = f:check_log_cmd(run_id, bucket == 'fail')
+              cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
             end
             vim.cmd('noautocmd botright new')
             vim.fn.termopen(cmd)
@@ -313,6 +314,12 @@ function M.checks(f, num, filter, cached_checks)
           name = 'all',
           fn = function()
             M.checks(f, num, 'all', checks)
+          end,
+        },
+        {
+          name = 'refresh',
+          fn = function()
+            M.checks(f, num, filter)
           end,
         },
       },

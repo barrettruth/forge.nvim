@@ -249,7 +249,7 @@ end
 ---@field pr_base_cmd fun(self: forge.Forge, num: string): string[]
 ---@field pr_for_branch_cmd fun(self: forge.Forge, branch: string): string[]
 ---@field checks_cmd fun(self: forge.Forge, num: string): string
----@field check_log_cmd fun(self: forge.Forge, run_id: string, failed_only: boolean): string[]
+---@field check_log_cmd fun(self: forge.Forge, run_id: string, failed_only: boolean, job_id: string?): string[]
 ---@field check_tail_cmd fun(self: forge.Forge, run_id: string): string[]
 ---@field list_runs_json_cmd fun(self: forge.Forge, branch: string?): string[]
 ---@field list_runs_cmd fun(self: forge.Forge, branch: string?): string
