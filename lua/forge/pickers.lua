@@ -836,14 +836,6 @@ function M.git()
         end
         f:browse(loc, branch)
       end)
-
-      add('Yank Commit URL', function()
-        f:yank_commit(loc)
-      end)
-
-      add('Yank Branch URL', function()
-        f:yank_branch(loc)
-      end)
     end
   end
 

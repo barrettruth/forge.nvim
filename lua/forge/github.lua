@@ -106,16 +106,6 @@ function M:checkout_cmd(num)
   return { 'gh', 'pr', 'checkout', num }
 end
 
----@param loc string
-function M:yank_branch(loc)
-  forge.yank_url({ 'gh', 'browse', loc, '-n' })
-end
-
----@param loc string
-function M:yank_commit(loc)
-  forge.yank_url({ 'gh', 'browse', loc, '--commit=last', '-n' })
-end
-
 ---@param num string
 ---@return string[]
 function M:fetch_pr(num)
