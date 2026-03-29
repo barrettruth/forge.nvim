@@ -1,5 +1,48 @@
 *forge.nvim.txt*               Forge-agnostic git workflow for Neovim
 
+CONTENTS                                                 *forge.nvim-contents*
+
+    INTRODUCTION..................................................|forge.nvim|
+    CONFIGURATION...............................................|forge-config|
+    `picker`.............................................|forge-config-picker|
+    `debug`...............................................|forge-config-debug|
+    `ci`.....................................................|forge-config-ci|
+    `sources`...........................................|forge-config-sources|
+    `keys`.................................................|forge-config-keys|
+    `display`...........................................|forge-config-display|
+    `display.icons`...............................|forge-config-display-icons|
+    `display.widths`.............................|forge-config-display-widths|
+    `display.limits`.............................|forge-config-display-limits|
+    COMMANDS..........................................................|:Forge|
+    `:Forge`..................................................|:Forge-no-args|
+    `:Forge pr` [{flags}]..........................................|:Forge-pr|
+    `:Forge pr create` [{flags}]............................|:Forge-pr-create|
+    `:Forge pr checkout` {num}............................|:Forge-pr-checkout|
+    `:Forge pr diff` {num}....................................|:Forge-pr-diff|
+    `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
+    `:Forge pr ci` {num}........................................|:Forge-pr-ci|
+    `:Forge pr browse` {num}................................|:Forge-pr-browse|
+    `:Forge pr manage` {num}................................|:Forge-pr-manage|
+    `:Forge issue` [{flags}]....................................|:Forge-issue|
+    `:Forge issue browse` {num}..........................|:Forge-issue-browse|
+    `:Forge issue close` {num}............................|:Forge-issue-close|
+    `:Forge issue reopen` {num}..........................|:Forge-issue-reopen|
+    `:Forge ci` [{flags}]..........................................|:Forge-ci|
+    `:Forge release`..........................................|:Forge-release|
+    `:Forge release browse` {tag}......................|:Forge-release-browse|
+    `:Forge release delete` {tag}......................|:Forge-release-delete|
+    `:Forge browse` [{flags}]..................................|:Forge-browse|
+    `:Forge review end`....................................|:Forge-review-end|
+    `:Forge review toggle`..............................|:Forge-review-toggle|
+    `:Forge clear`..............................................|:Forge-clear|
+    PICKERS....................................................|forge-pickers|
+    REVIEW......................................................|forge-review|
+    COMPOSE BUFFER.............................................|forge-compose|
+    HIGHLIGHTS..............................................|forge-highlights|
+    SOURCES....................................................|forge-sources|
+    HEALTH......................................................|forge-health|
+    API............................................................|forge-api|
+
 ==============================================================================
 INTRODUCTION                                                      *forge.nvim*
 
@@ -337,7 +380,7 @@ Write (`:w`) to push the branch and create the PR. An empty title or body
 aborts creation. The PR URL is copied to the `+` register on success.
 
 Metadata fields: ~
-  `Draft: yes`       Create as draft (also `true`). Empty = not draft.
+  `Draft: true`      Create as draft. `false` = not draft.
   `Reviewers:`       Comma or space separated usernames.
 
 Template discovery: ~
