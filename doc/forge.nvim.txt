@@ -337,7 +337,7 @@ Write (`:w`) to push the branch and create the PR. An empty title or body
 aborts creation. The PR URL is copied to the `+` register on success.
 
 Metadata fields: ~
-  `Draft: yes`       Create as draft (also `true`). Empty = not draft.
+  `Draft: true`      Create as draft. `false` = not draft.
   `Reviewers:`       Comma or space separated usernames.
 
 Template discovery: ~

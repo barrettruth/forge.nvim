@@ -1080,7 +1080,7 @@ local function open_compose_buffer(f, branch, base, draft)
 
   add_line('')
   if f.capabilities.draft then
-    local draft_val = draft and 'yes' or 'no'
+    local draft_val = draft and 'true' or 'false'
     local draft_prefix = '  Draft: '
     ln = add_line('%s%s', draft_prefix, draft_val)
     mark(ln, #draft_prefix, #draft_val, draft and 'ForgeComposeDraft' or 'ForgeDim')
