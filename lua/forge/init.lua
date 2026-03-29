@@ -641,12 +641,10 @@ function M.format_check(check)
     icon, group = icons.unknown, 'ForgeSkip'
   end
   local elapsed = ''
-  if check.startedAt and check.completedAt and check.completedAt ~= '' then
-    local ok_s, ts = pcall(vim.fn.strptime, '%Y-%m-%dT%H:%M:%SZ', check.startedAt)
-    local ok_e, te = pcall(vim.fn.strptime, '%Y-%m-%dT%H:%M:%SZ', check.completedAt)
-    if ok_s and ok_e and ts > 0 and te > 0 then
-      elapsed = format_duration(te - ts)
-    end
+  local ts = parse_iso(check.startedAt)
+  local te = parse_iso(check.completedAt)
+  if ts and te then
+    elapsed = format_duration(te - ts)
   end
   return {
     { icon, group },
