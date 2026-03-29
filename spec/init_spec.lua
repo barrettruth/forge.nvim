@@ -210,6 +210,100 @@ describe('format_run', function()
   end)
 end)
 
+describe('format_release', function()
+  local fields = {
+    tag = 'tagName',
+    title = 'name',
+    is_draft = 'isDraft',
+    is_prerelease = 'isPrerelease',
+    is_latest = 'isLatest',
+    published_at = 'publishedAt',
+  }
+
+  it('formats a regular release', function()
+    local entry = {
+      tagName = 'v1.0.0',
+      name = 'Initial release',
+      isDraft = false,
+      isPrerelease = false,
+      isLatest = false,
+      publishedAt = '',
+    }
+    local result = flatten(forge.format_release(entry, fields))
+    assert.truthy(result:find('v1.0.0'))
+    assert.truthy(result:find('Initial release'))
+  end)
+
+  it('formats latest release with pass icon', function()
+    local entry = {
+      tagName = 'v2.0.0',
+      name = 'Latest',
+      isDraft = false,
+      isPrerelease = false,
+      isLatest = true,
+      publishedAt = '',
+    }
+    local segs = forge.format_release(entry, fields)
+    assert.equals('ForgePass', segs[1][2])
+  end)
+
+  it('formats draft release with pending icon', function()
+    local entry = {
+      tagName = 'v3.0.0-draft',
+      name = 'Draft',
+      isDraft = true,
+      isPrerelease = false,
+      isLatest = false,
+      publishedAt = '',
+    }
+    local segs = forge.format_release(entry, fields)
+    assert.equals('ForgePending', segs[1][2])
+  end)
+
+  it('formats prerelease with skip icon', function()
+    local entry = {
+      tagName = 'v4.0.0-rc1',
+      name = 'Release candidate',
+      isDraft = false,
+      isPrerelease = true,
+      isLatest = false,
+      publishedAt = '',
+    }
+    local segs = forge.format_release(entry, fields)
+    assert.equals('ForgeSkip', segs[1][2])
+  end)
+
+  it('omits title when same as tag', function()
+    local entry = {
+      tagName = 'v5.0.0',
+      name = 'v5.0.0',
+      isDraft = false,
+      isPrerelease = false,
+      isLatest = false,
+      publishedAt = '',
+    }
+    local result = flatten(forge.format_release(entry, fields))
+    local first = result:find('v5.0.0')
+    local second = result:find('v5.0.0', first + 1)
+    assert.falsy(second)
+  end)
+
+  it('handles missing optional fields', function()
+    local no_draft_fields = {
+      tag = 'tag_name',
+      title = 'name',
+      published_at = 'released_at',
+    }
+    local entry = {
+      tag_name = 'v1.0',
+      name = 'Release',
+      released_at = '',
+    }
+    local result = flatten(forge.format_release(entry, no_draft_fields))
+    assert.truthy(result:find('v1.0'))
+  end)
+end)
+
 describe('filter_checks', function()
   local checks = {
     { name = 'a', bucket = 'pass' },

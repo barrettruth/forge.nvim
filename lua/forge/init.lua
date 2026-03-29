@@ -17,6 +17,7 @@ local M = {}
 ---@field pr forge.PRPickerKeys?
 ---@field issue forge.IssuePickerKeys?
 ---@field ci forge.CIPickerKeys?
+---@field release forge.ReleasePickerKeys?
 
 ---@class forge.PRPickerKeys
 ---@field checkout string|false
@@ -44,6 +45,13 @@ local M = {}
 ---@field all string|false
 ---@field refresh string|false
 
+---@class forge.ReleasePickerKeys
+---@field browse string|false
+---@field yank string|false
+---@field delete string|false
+---@field filter string|false
+---@field refresh string|false
+
 ---@class forge.DisplayConfig
 ---@field icons forge.IconsConfig
 ---@field widths forge.WidthsConfig
@@ -69,6 +77,7 @@ local M = {}
 ---@field pulls integer
 ---@field issues integer
 ---@field runs integer
+---@field releases integer
 
 ---@type forge.Config
 local DEFAULTS = {
@@ -97,6 +106,13 @@ local DEFAULTS = {
       all = '<c-a>',
       refresh = '<c-r>',
     },
+    release = {
+      browse = '<cr>',
+      yank = '<c-y>',
+      delete = '<c-d>',
+      filter = '<c-o>',
+      refresh = '<c-r>',
+    },
   },
   display = {
     icons = {
@@ -119,6 +135,7 @@ local DEFAULTS = {
       pulls = 100,
       issues = 100,
       runs = 30,
+      releases = 30,
     },
   },
 }
@@ -253,6 +270,10 @@ end
 ---@field default_branch_cmd fun(self: forge.Forge): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string): string[])?
 ---@field template_paths fun(self: forge.Forge): string[]
+---@field list_releases_json_cmd fun(self: forge.Forge): string[]
+---@field release_json_fields fun(self: forge.Forge): { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
+---@field browse_release fun(self: forge.Forge, tag: string)
+---@field delete_release_cmd fun(self: forge.Forge, tag: string): string[]
 
 ---@type table<string, forge.Forge>
 local forge_cache = {}
@@ -681,6 +702,50 @@ function M.format_run(run)
   }
 end
 
+---@param entry table
+---@param fields table
+---@return forge.Segment[]
+function M.format_release(entry, fields)
+  local display = M.config().display
+  local icons = display.icons
+  local widths = display.widths
+  local tag = entry[fields.tag] or ''
+  local title = entry[fields.title] or ''
+  local is_draft = fields.is_draft and entry[fields.is_draft]
+  local is_pre = fields.is_prerelease and entry[fields.is_prerelease]
+  local is_latest = fields.is_latest and entry[fields.is_latest]
+  local age = relative_time(entry[fields.published_at])
+
+  local icon, group
+  if is_draft then
+    icon, group = icons.pending, 'ForgePending'
+  elseif is_pre then
+    icon, group = icons.skip, 'ForgeSkip'
+  elseif is_latest then
+    icon, group = icons.pass, 'ForgePass'
+  else
+    icon, group = icons.open, 'ForgeOpen'
+  end
+
+  local tag_w = 20
+  local title_w = widths.title
+  if title == '' or title == tag then
+    title_w = 0
+  end
+
+  local segments = {
+    { icon, group },
+    { '  ' .. pad_or_truncate(tag, tag_w), 'ForgeBranch' },
+  }
+  if title_w > 0 then
+    table.insert(segments, { ' ' .. pad_or_truncate(title, title_w) .. ' ' })
+  else
+    table.insert(segments, { ' ' })
+  end
+  table.insert(segments, { ('%3s'):format(age), 'ForgeDim' })
+  return segments
+end
+
 ---@param checks table[]
 ---@param filter string?
 ---@return table[]
@@ -743,6 +808,7 @@ function M.config()
   vim.validate('forge.display.limits.pulls', cfg.display.limits.pulls, 'number')
   vim.validate('forge.display.limits.issues', cfg.display.limits.issues, 'number')
   vim.validate('forge.display.limits.runs', cfg.display.limits.runs, 'number')
+  vim.validate('forge.display.limits.releases', cfg.display.limits.releases, 'number')
 
   local key_or_false = function(v)
     return v == false or type(v) == 'string'
@@ -775,6 +841,12 @@ function M.config()
       vim.validate('forge.keys.ci', keys.ci, 'table')
       for _, k in ipairs({ 'log', 'browse', 'failed', 'passed', 'running', 'all', 'refresh' }) do
         vim.validate('forge.keys.ci.' .. k, keys.ci[k], key_or_false, 'string or false')
+      end
+    end
+    if keys.release ~= nil then
+      vim.validate('forge.keys.release', keys.release, 'table')
+      for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'refresh' }) do
+        vim.validate('forge.keys.release.' .. k, keys.release[k], key_or_false, 'string or false')
       end
     end
   end

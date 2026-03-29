@@ -405,4 +405,28 @@ function M:pr_state(num)
   }
 end
 
+function M:list_releases_json_cmd()
+  return { 'glab', 'release', 'list', '--output', 'json' }
+end
+
+function M:release_json_fields()
+  return {
+    tag = 'tag_name',
+    title = 'name',
+    published_at = 'released_at',
+  }
+end
+
+---@param tag string
+function M:browse_release(tag)
+  local base = forge.remote_web_url()
+  vim.ui.open(base .. '/-/releases/' .. tag)
+end
+
+---@param tag string
+---@return string[]
+function M:delete_release_cmd(tag)
+  return { 'glab', 'release', 'delete', tag }
+end
+
 return M
