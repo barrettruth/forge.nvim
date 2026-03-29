@@ -219,11 +219,6 @@ COMMANDS                                                              *:Forge*
                        branch. In visual mode, the selected line range is
                        included.
 
-`:Forge yank` [{flags}]                                          *:Forge-yank*
-    Yank a permalink URL to the `+` register.
-    `--commit`         Yank a commit-pinned URL.
-    (no flags)         Yank a branch-pinned URL.
-
 `:Forge review end`                                        *:Forge-review-end*
     End the current review session.
 
@@ -241,9 +236,8 @@ PICKERS                                                        *forge-pickers*
                                                                 *forge-picker*
 FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
 current buffer. Lists: PRs/MRs, Issues, CI/CD, Releases, Browse Remote, Open
-File, Yank Commit URL, Yank Branch URL. Items that require a forge are hidden
-when no forge is detected. "Open File" and yank entries require a named buffer
-on a branch.
+File. Items that require a forge are hidden when no forge is detected. "Open
+File" requires a named buffer on a branch.
 
                                                              *forge-picker-pr*
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
@@ -407,19 +401,19 @@ COMPATIBILITY ~
 Not all features are available on every forge. The table below shows per-forge
 support for features that vary:
 
-  Feature                     GitHub    GitLab    Codeberg ~
-  PR list/filter                yes       yes        yes
-  PR create                     yes       yes        yes
-  PR create (draft)             yes       yes         -
-  PR create (reviewers)         yes       yes         -
-  PR draft toggle               yes       yes         -
-  Per-PR CI checks              yes       yes        yes*
-  Per-check log viewing         yes       yes         -
-  CI runs (repo-wide)           yes       yes        yes
-  Issues                        yes       yes        yes
-  Releases                      yes       yes        yes
-  Release draft/prerelease      yes        -         yes
-  Browse/Yank                   yes       yes        yes
+  Feature                    GitHub    GitLab    Codeberg ~
+  PR list/filter               yes       yes       yes
+  PR create                    yes       yes       yes
+  PR create (draft)            yes       yes        -
+  PR create (reviewers)        yes       yes        -
+  PR draft toggle              yes       yes        -
+  Per-PR CI checks             yes       yes       yes*
+  Per-check log viewing        yes       yes        -
+  CI runs (repo-wide)          yes       yes       yes
+  Issues                       yes       yes       yes
+  Releases                     yes       yes       yes
+  Release draft/prerelease     yes        -        yes
+  Browse                       yes       yes       yes
 
   * Codeberg per-PR checks show commit statuses reported by external CI.
     The browse action opens the CI provider's page. Log viewing requires
@@ -490,8 +484,6 @@ All methods receive `self` as the first argument (use `:` syntax).
   `browse_branch(branch)`              Opens branch in browser.
   `browse_commit(sha)`                 Opens commit in browser.
   `checkout_cmd(num)`                   `string[]` cmd to checkout a PR.
-  `yank_branch(loc)`                    Yanks branch-pinned URL.
-  `yank_commit(loc)`                    Yanks commit-pinned URL.
   `fetch_pr(num)`                       `string[]` git fetch refspec for PR.
   `pr_base_cmd(num)`                    `string[]` cmd returning base branch.
   `pr_for_branch_cmd(branch)`          `string[]` cmd returning PR number
@@ -637,11 +629,6 @@ PUBLIC API: `require('forge')` ~
 `remote_web_url()`
     Returns `string`. The HTTPS URL of the `origin` remote, normalized
     from SSH or git URLs.
-
-                                                            *forge.yank_url()*
-`yank_url(args)`
-    Runs `args` (string[]) asynchronously and copies stdout to the `+`
-    register.
 
                                                           *forge.clear_list()*
 `clear_list(key?)`

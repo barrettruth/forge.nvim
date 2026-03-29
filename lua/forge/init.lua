@@ -229,8 +229,6 @@ local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 ---@field browse_branch fun(self: forge.Forge, branch: string)
 ---@field browse_commit fun(self: forge.Forge, sha: string)
 ---@field checkout_cmd fun(self: forge.Forge, num: string): string[]
----@field yank_branch fun(self: forge.Forge, loc: string)
----@field yank_commit fun(self: forge.Forge, loc: string)
 ---@field fetch_pr fun(self: forge.Forge, num: string): string[]
 ---@field pr_base_cmd fun(self: forge.Forge, num: string): string[]
 ---@field pr_for_branch_cmd fun(self: forge.Forge, branch: string): string[]
@@ -854,20 +852,6 @@ function M.config()
   end
 
   return cfg
-end
-
----@param args string[]
-function M.yank_url(args)
-  vim.system(args, { text = true }, function(result)
-    if result.code == 0 then
-      local url = vim.trim(result.stdout or '')
-      if url ~= '' then
-        vim.schedule(function()
-          vim.fn.setreg('+', url)
-        end)
-      end
-    end
-  end)
 end
 
 ---@param branch string

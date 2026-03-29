@@ -106,26 +106,6 @@ function M:checkout_cmd(num)
   return { 'tea', 'pr', 'checkout', num }
 end
 
----@param loc string
-function M:yank_branch(loc)
-  local branch = vim.trim(vim.fn.system('git branch --show-current'))
-  local base = forge.remote_web_url()
-  local file, lines = loc:match('^(.+):(.+)$')
-  local url = ('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines)
-  vim.fn.setreg('+', url)
-  require('forge.logger').info('URL copied')
-end
-
----@param loc string
-function M:yank_commit(loc)
-  local commit = vim.trim(vim.fn.system('git rev-parse HEAD'))
-  local base = forge.remote_web_url()
-  local file, lines = loc:match('^(.+):(.+)$')
-  local url = ('%s/src/commit/%s/%s#L%s'):format(base, commit, file, lines)
-  vim.fn.setreg('+', url)
-  require('forge.logger').info('URL copied')
-end
-
 ---@param num string
 ---@return string[]
 function M:fetch_pr(num)

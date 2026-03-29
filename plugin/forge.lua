@@ -266,25 +266,6 @@ local function dispatch(args)
     return
   end
 
-  if sub == 'yank' then
-    if not require_git_or_warn() then
-      return
-    end
-    local f = require_forge_or_warn()
-    if not f then
-      return
-    end
-    local forge_mod = require('forge')
-    local loc = forge_mod.file_loc()
-    local flags = parse_flags(args, 2)
-    if flags.commit then
-      f:yank_commit(loc)
-    else
-      f:yank_branch(loc)
-    end
-    return
-  end
-
   if sub == 'review' then
     local review = require('forge.review')
     if #args < 2 then
@@ -318,7 +299,7 @@ local function complete(arglead, cmdline, _)
   end
   local arg_idx = arglead == '' and #words or #words - 1
 
-  local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'yank', 'review', 'clear' }
+  local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'review', 'clear' }
   local sub_actions = {
     pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'create', '--state=' },
     issue = { 'browse', 'close', 'reopen', '--state=' },
@@ -326,7 +307,6 @@ local function complete(arglead, cmdline, _)
     release = { 'browse', 'delete' },
     review = { 'end', 'toggle' },
     browse = { '--root', '--commit' },
-    yank = { '--commit' },
   }
   local flag_values = {
     ['--state'] = { 'open', 'closed', 'all' },
