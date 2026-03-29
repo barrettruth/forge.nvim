@@ -15,7 +15,7 @@ local M = {
   capabilities = {
     draft = true,
     reviewers = true,
-    per_pr_checks = false,
+    per_pr_checks = true,
     ci_json = true,
   },
 }
@@ -161,6 +161,33 @@ function M:pr_for_branch_cmd(branch)
     'sh',
     '-c',
     ("glab mr list --source-branch '%s' -F json | jq -r '.[0].iid // empty'"):format(branch),
+  }
+end
+
+---@param num string
+---@return string[]
+function M:checks_json_cmd(num)
+  local jq = [=[
+    [.[] | {
+      name: .name,
+      bucket: (if .status == "success" then "pass"
+               elif .status == "failed" then "fail"
+               elif (.status == "running" or .status == "pending" or .status == "created") then "pending"
+               elif .status == "canceled" then "cancel"
+               else "skipping" end),
+      link: .web_url,
+      startedAt: .started_at,
+      completedAt: .finished_at,
+      run_id: (.id | tostring)
+    }]
+  ]=]
+  return {
+    'sh',
+    '-c',
+    ('PID=$(glab api "projects/:id/merge_requests/%s/pipelines?per_page=1" 2>/dev/null | jq -r ".[0].id // empty") && [ -n "$PID" ] && glab api "projects/:id/pipelines/$PID/jobs?per_page=100" 2>/dev/null | jq -r \'%s\''):format(
+      num,
+      jq:gsub('%s+', ' ')
+    ),
   }
 end
 

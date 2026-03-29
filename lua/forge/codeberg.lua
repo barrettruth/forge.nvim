@@ -15,7 +15,7 @@ local M = {
   capabilities = {
     draft = false,
     reviewers = false,
-    per_pr_checks = false,
+    per_pr_checks = true,
     ci_json = true,
   },
 }
@@ -147,6 +147,31 @@ function M:pr_for_branch_cmd(branch)
     ('tea pr list --state open --output json --fields index,head | jq -r \'[.[] | select(.head=="%s" or .head.name=="%s")][0].index // empty\''):format(
       branch,
       branch
+    ),
+  }
+end
+
+---@param num string
+---@return string[]
+function M:checks_json_cmd(num)
+  local jq = [=[
+    [.statuses // [] | .[] | {
+      name: .context,
+      bucket: (if .status == "success" then "pass"
+               elif (.status == "failure" or .status == "error") then "fail"
+               elif .status == "pending" then "pending"
+               else "skipping" end),
+      link: .target_url,
+      startedAt: .created_at,
+      completedAt: .updated_at
+    }]
+  ]=]
+  return {
+    'sh',
+    '-c',
+    ('SHA=$(tea api "/repos/:owner/:repo/pulls/%s" 2>/dev/null | jq -r ".head.sha // empty") && [ -n "$SHA" ] && tea api "/repos/:owner/:repo/commits/$SHA/status" 2>/dev/null | jq -r \'%s\''):format(
+      num,
+      jq:gsub('%s+', ' ')
     ),
   }
 end
