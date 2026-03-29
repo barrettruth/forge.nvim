@@ -260,12 +260,7 @@ function M.checks(f, num, filter, cached_checks)
             local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
             log.info('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
-            local cmd
-            if bucket == 'pending' then
-              cmd = f:check_tail_cmd(run_id)
-            else
-              cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
-            end
+            local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
             vim.cmd('noautocmd botright new')
             vim.fn.termopen(cmd)
             vim.api.nvim_feedkeys(
