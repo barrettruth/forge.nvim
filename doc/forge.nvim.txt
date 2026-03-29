@@ -41,9 +41,6 @@ Top-level keys: ~
     `"snacks"`. When `"auto"`, forge.nvim tries fzf-lua, then snacks, then
     telescope.
 
-    Note: commits, branches, and worktree pickers currently require fzf-lua.
-    Other backends show a notification for these pickers.
-
 `ci`                                                         *forge-config-ci*
   `ci.lines`        `integer`  (default `10000`)
     Maximum number of log lines fetched for CI/check log output.
@@ -95,16 +92,6 @@ Top-level keys: ~
           running = '<c-n>',
           all = '<c-a>',
           refresh = '<c-r>',
-        },
-        commits = {
-          checkout = '<cr>',
-          diff = '<c-d>',
-          browse = '<c-x>',
-          yank = '<c-y>',
-        },
-        branches = {
-          diff = '<c-d>',
-          browse = '<c-x>',
         },
       }
 <
@@ -201,30 +188,6 @@ COMMANDS                                                              *:Forge*
     Open the CI runs picker. Defaults to current branch.
     `--all`            Show runs for all branches.
 
-`:Forge commit`                                                *:Forge-commit*
-    Open the commit log picker.
-
-`:Forge commit checkout` {sha}                        *:Forge-commit-checkout*
-    Check out commit `{sha}` (detached HEAD).
-
-`:Forge commit diff` {sha}                                *:Forge-commit-diff*
-    Start a review for commit `{sha}`.
-
-`:Forge commit browse` {sha}                            *:Forge-commit-browse*
-    Open commit `{sha}` on the forge.
-
-`:Forge branch`                                                *:Forge-branch*
-    Open the branch picker.
-
-`:Forge branch diff` {name}                               *:Forge-branch-diff*
-    Start a review diffing against `{name}`.
-
-`:Forge branch browse` {name}                           *:Forge-branch-browse*
-    Open branch `{name}` on the forge.
-
-`:Forge worktree`                                            *:Forge-worktree*
-    Open fzf-lua's git worktree picker.
-
 `:Forge browse` [{flags}]                                      *:Forge-browse*
     Open the current file location on the forge.
     `--root`           Open the repository root page.
@@ -255,9 +218,9 @@ PICKERS                                                        *forge-pickers*
                                                                 *forge-picker*
 FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
 current buffer. Lists: PRs/MRs, Issues, CI/CD, Browse Remote, Open File, Yank
-Commit URL, Yank Branch URL, Commits, Branches, Worktrees. Items that require
-a forge are hidden when no forge is detected. "Open File" and yank entries
-require a named buffer on a branch.
+Commit URL, Yank Branch URL. Items that require a forge are hidden when no
+forge is detected. "Open File" and yank entries require a named buffer on a
+branch.
 
                                                              *forge-picker-pr*
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
@@ -296,22 +259,6 @@ CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
   `all`         `<c-a>`          Show all
   `refresh`     `<c-r>`          Re-fetch runs
 
-                                                        *forge-picker-commits*
-COMMITS PICKER ~ Git log with colored output and commit preview.
-
-  Action      Default Key    Description ~
-  `checkout`    `<cr>`           Checkout commit (detached HEAD)
-  `diff`        `<c-d>`          Review the commit diff
-  `browse`      `<c-x>`          Open commit on forge
-  `yank`        `<c-y>`          Yank commit hash to `+` register
-
-                                                       *forge-picker-branches*
-BRANCHES PICKER ~ Uses fzf-lua's `git_branches` with additional actions.
-
-  Action      Default Key    Description ~
-  `diff`        `<c-d>`          Review diff against branch
-  `browse`      `<c-x>`          Open branch on forge
-
                                                          *forge-picker-manage*
 MANAGE PICKER ~ Contextual actions for a specific PR, shown based on
 permissions and state: Approve, Merge (per available method: squash, rebase,
@@ -325,10 +272,7 @@ Requires diffs.nvim for unified view and vim-fugitive for split view.
 
 Starting a review: ~
 - `<c-d>` on a PR in the PR picker
-- `<c-d>` on a commit in the commit picker
 - `:Forge pr diff {num}`
-- `:Forge commit diff {sha}`
-- `:Forge branch diff {name}`
 
 Unified view (default): ~
   diffs.nvim renders a combined diff in a `diffs://review:*` buffer with
@@ -698,15 +642,6 @@ PUBLIC API: `require('forge.pickers')` ~
                                                           *forge.pickers.ci()*
 `ci(f, branch?)`
     Opens the CI runs picker. `nil` branch shows all.
-
-                                                     *forge.pickers.commits()*
-`commits(f)`
-    Opens the commit log picker. `f` may be `nil` (browse action
-    requires a forge).
-
-                                                    *forge.pickers.branches()*
-`branches(f)`
-    Opens the branch picker. `f` may be `nil`.
 
                                                    *forge.pickers.pr_manage()*
 `pr_manage(f, num)`

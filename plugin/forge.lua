@@ -188,103 +188,6 @@ local function dispatch(args)
     return
   end
 
-  if sub == 'commit' then
-    if not require_git_or_warn() then
-      return
-    end
-    local forge_mod = require('forge')
-    local f = forge_mod.detect()
-    local pickers = require('forge.pickers')
-    if #args == 1 then
-      pickers.commits(f)
-      return
-    end
-    local _, pos = parse_flags(args, 2)
-    local action = pos[1]
-    local sha = pos[2]
-    if not sha then
-      vim.notify('[forge]: missing commit sha', vim.log.levels.WARN)
-      return
-    end
-    if action == 'checkout' then
-      forge_mod.log_now('checking out ' .. sha .. '...')
-      vim.system({ 'git', 'checkout', sha }, { text = true }, function(result)
-        vim.schedule(function()
-          if result.code == 0 then
-            vim.notify(('[forge]: checked out %s (detached)'):format(sha))
-          else
-            vim.notify('[forge]: checkout failed', vim.log.levels.ERROR)
-          end
-          vim.cmd.redraw()
-        end)
-      end)
-    elseif action == 'diff' then
-      local review = require('forge.review')
-      local range = sha .. '^..' .. sha
-      review.start(range)
-      local ok, commands = pcall(require, 'diffs.commands')
-      if ok then
-        commands.greview(range)
-      end
-      forge_mod.log_now('reviewing ' .. sha)
-    elseif action == 'browse' then
-      if not f then
-        vim.notify('[forge]: no forge detected', vim.log.levels.WARN)
-        return
-      end
-      f:browse_commit(sha)
-    else
-      vim.notify('[forge]: unknown commit action: ' .. action, vim.log.levels.WARN)
-    end
-    return
-  end
-
-  if sub == 'branch' then
-    if not require_git_or_warn() then
-      return
-    end
-    local forge_mod = require('forge')
-    local f = forge_mod.detect()
-    local pickers = require('forge.pickers')
-    if #args == 1 then
-      pickers.branches(f)
-      return
-    end
-    local _, pos = parse_flags(args, 2)
-    local action = pos[1]
-    local name = pos[2]
-    if not name then
-      vim.notify('[forge]: missing branch name', vim.log.levels.WARN)
-      return
-    end
-    if action == 'diff' then
-      local review = require('forge.review')
-      review.start(name)
-      local ok, commands = pcall(require, 'diffs.commands')
-      if ok then
-        commands.greview(name)
-      end
-      forge_mod.log_now('reviewing ' .. name)
-    elseif action == 'browse' then
-      if not f then
-        vim.notify('[forge]: no forge detected', vim.log.levels.WARN)
-        return
-      end
-      f:browse_branch(name)
-    else
-      vim.notify('[forge]: unknown branch action: ' .. action, vim.log.levels.WARN)
-    end
-    return
-  end
-
-  if sub == 'worktree' then
-    if not require_git_or_warn() then
-      return
-    end
-    require('fzf-lua').git_worktrees()
-    return
-  end
-
   if sub == 'browse' then
     if not require_git_or_warn() then
       return
@@ -364,14 +267,11 @@ local function complete(arglead, cmdline, _)
   end
   local arg_idx = arglead == '' and #words or #words - 1
 
-  local subcmds =
-    { 'pr', 'issue', 'ci', 'commit', 'branch', 'worktree', 'browse', 'yank', 'review', 'clear' }
+  local subcmds = { 'pr', 'issue', 'ci', 'browse', 'yank', 'review', 'clear' }
   local sub_actions = {
     pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'create', '--state=' },
     issue = { 'browse', 'close', 'reopen', '--state=' },
     ci = { '--all' },
-    commit = { 'checkout', 'diff', 'browse' },
-    branch = { 'diff', 'browse' },
     review = { 'end', 'toggle' },
     browse = { '--root', '--commit' },
     yank = { '--commit' },
