@@ -2,7 +2,6 @@ local M = {}
 
 local log = require('forge.logger')
 local picker = require('forge.picker')
-local log = require('forge.logger')
 
 ---@param result { code: integer, stdout: string?, stderr: string? }
 ---@param fallback string
@@ -253,11 +252,12 @@ function M.checks(f, num, filter, cached_checks)
               return
             end
             local c = entry.value
-            local run_id = (c.link or ''):match('/actions/runs/(%d+)')
+            local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
             if not run_id then
+              log.info('logs not available, use browse to view')
               return
             end
-            local job_id = (c.link or ''):match('/job/(%d+)')
+            local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
             log.info('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
             local cmd
