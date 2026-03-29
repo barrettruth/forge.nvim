@@ -63,12 +63,12 @@ function M.pick(opts)
   local name = detect()
   local mod_path = M.backends[name]
   if not mod_path then
-    vim.notify('[forge]: unknown picker backend: ' .. name, vim.log.levels.ERROR)
+    require('forge.logger').error('unknown picker backend: ' .. name)
     return
   end
   local ok, backend = pcall(require, mod_path)
   if not ok then
-    vim.notify('[forge]: picker backend ' .. name .. ' not available', vim.log.levels.ERROR)
+    require('forge.logger').error('picker backend ' .. name .. ' not available')
     return
   end
   backend.pick(opts)

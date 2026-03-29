@@ -113,7 +113,7 @@ function M:yank_branch(loc)
   local file, lines = loc:match('^(.+):(.+)$')
   local url = ('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines)
   vim.fn.setreg('+', url)
-  forge.log('URL copied')
+  require('forge.logger').info('URL copied')
 end
 
 ---@param loc string
@@ -123,7 +123,7 @@ function M:yank_commit(loc)
   local file, lines = loc:match('^(.+):(.+)$')
   local url = ('%s/src/commit/%s/%s#L%s'):format(base, commit, file, lines)
   vim.fn.setreg('+', url)
-  forge.log('URL copied')
+  require('forge.logger').info('URL copied')
 end
 
 ---@param num string

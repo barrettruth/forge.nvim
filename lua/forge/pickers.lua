@@ -1,5 +1,6 @@
 local M = {}
 
+local log = require('forge.logger')
 local picker = require('forge.picker')
 
 ---@param result { code: integer, stdout: string?, stderr: string? }
@@ -24,15 +25,14 @@ end
 ---@param success_msg string
 ---@param fail_msg string
 local function run_forge_cmd(kind, num, label, cmd, success_msg, fail_msg)
-  require('forge').log_now(label .. ' ' .. kind .. ' #' .. num .. '...')
+  log.info(label .. ' ' .. kind .. ' #' .. num .. '...')
   vim.system(cmd, { text = true }, function(result)
     vim.schedule(function()
       if result.code == 0 then
-        vim.notify(('[forge]: %s %s #%s'):format(success_msg, kind, num))
+        log.info(('%s %s #%s'):format(success_msg, kind, num))
       else
-        vim.notify('[forge]: ' .. cmd_error(result, fail_msg), vim.log.levels.ERROR)
+        log.error(cmd_error(result, fail_msg))
       end
-      vim.cmd.redraw()
     end)
   end)
 end
@@ -55,16 +55,14 @@ local function pr_action_fns(f, num)
   local kind = f.labels.pr_one
   return {
     checkout = function()
-      local forge_mod = require('forge')
-      forge_mod.log_now(('checking out %s #%s...'):format(kind, num))
+      log.info(('checking out %s #%s...'):format(kind, num))
       vim.system(f:checkout_cmd(num), { text = true }, function(result)
         vim.schedule(function()
           if result.code == 0 then
-            vim.notify(('[forge]: checked out %s #%s'):format(kind, num))
+            log.info(('checked out %s #%s'):format(kind, num))
           else
-            vim.notify('[forge]: ' .. cmd_error(result, 'checkout failed'), vim.log.levels.ERROR)
+            log.error(cmd_error(result, 'checkout failed'))
           end
-          vim.cmd.redraw()
         end)
       end)
     end,
@@ -72,7 +70,6 @@ local function pr_action_fns(f, num)
       f:view_web(f.kinds.pr, num)
     end,
     worktree = function()
-      local forge_mod = require('forge')
       local fetch_cmd = f:fetch_pr(num)
       local branch = fetch_cmd[#fetch_cmd]:match(':(.+)$')
       if not branch then
@@ -80,30 +77,28 @@ local function pr_action_fns(f, num)
       end
       local root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
       local wt_path = vim.fs.normalize(root .. '/../' .. branch)
-      forge_mod.log_now(('fetching %s #%s into worktree...'):format(kind, num))
+      log.info(('fetching %s #%s into worktree...'):format(kind, num))
       vim.system(fetch_cmd, { text = true }, function()
         vim.system({ 'git', 'worktree', 'add', wt_path, branch }, { text = true }, function(result)
           vim.schedule(function()
             if result.code == 0 then
-              vim.notify(('[forge]: worktree at %s'):format(wt_path))
+              log.info(('worktree at %s'):format(wt_path))
             else
-              vim.notify('[forge]: ' .. cmd_error(result, 'worktree failed'), vim.log.levels.ERROR)
+              log.error(cmd_error(result, 'worktree failed'))
             end
-            vim.cmd.redraw()
           end)
         end)
       end)
     end,
     diff = function()
-      local forge_mod = require('forge')
       local review = require('forge.review')
       local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
 
-      forge_mod.log_now(('reviewing %s #%s...'):format(kind, num))
+      log.info(('reviewing %s #%s...'):format(kind, num))
       vim.system(f:checkout_cmd(num), { text = true }, function(co_result)
         if co_result.code ~= 0 then
           vim.schedule(function()
-            forge_mod.log('checkout skipped, proceeding with diff')
+            log.debug('checkout skipped, proceeding with diff')
           end)
         end
 
@@ -119,7 +114,7 @@ local function pr_action_fns(f, num)
             if ok then
               commands.greview(range, { repo_root = repo_root })
             end
-            forge_mod.log(('review ready for %s #%s against %s'):format(kind, num, base))
+            log.debug(('review ready for %s #%s against %s'):format(kind, num, base))
           end)
         end)
       end)
@@ -128,9 +123,7 @@ local function pr_action_fns(f, num)
       if f.capabilities.per_pr_checks then
         M.checks(f, num)
       else
-        require('forge').log(
-          ('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name)
-        )
+        log.debug(('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name))
         M.ci(f)
       end
     end,
@@ -145,7 +138,7 @@ end
 local function pr_manage_picker(f, num)
   local forge_mod = require('forge')
   local kind = f.labels.pr_one
-  forge_mod.log_now('loading actions for ' .. kind .. ' #' .. num .. '...')
+  log.info('loading actions for ' .. kind .. ' #' .. num .. '...')
 
   local info = forge_mod.repo_info(f)
   local can_write = info.permission == 'ADMIN'
@@ -264,7 +257,7 @@ function M.checks(f, num, filter, cached_checks)
               return
             end
             local job_id = (c.link or ''):match('/job/(%d+)')
-            forge_mod.log_now('fetching check logs...')
+            log.info('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
             local cmd
             if bucket == 'pending' then
@@ -328,26 +321,25 @@ function M.checks(f, num, filter, cached_checks)
   end
 
   if cached_checks then
-    forge_mod.log(('checks picker (%s #%s, cached)'):format(f.labels.pr_one, num))
+    log.debug(('checks (%s #%s, cached)'):format(f.labels.pr_one, num))
     open_picker(cached_checks)
     return
   end
 
   if f.checks_json_cmd then
-    forge_mod.log_now(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
+    log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
     vim.system(f:checks_json_cmd(num), { text = true }, function(result)
       vim.schedule(function()
         local ok, checks = pcall(vim.json.decode, result.stdout or '[]')
         if ok and checks then
           open_picker(checks)
         else
-          vim.notify('[forge]: no checks found', vim.log.levels.INFO)
-          vim.cmd.redraw()
+          log.info('no checks found')
         end
       end)
     end)
   else
-    vim.notify('[forge]: structured checks not available for this forge', vim.log.levels.INFO)
+    log.info('structured checks not available for this forge')
   end
 end
 
@@ -382,7 +374,7 @@ function M.ci(f, branch)
               return
             end
             local run = entry.value
-            forge_mod.log_now('fetching CI/CD logs...')
+            log.info('fetching CI/CD logs...')
             local s = run.status:lower()
             local cmd
             if s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
@@ -424,20 +416,19 @@ function M.ci(f, branch)
   end
 
   if f.list_runs_json_cmd then
-    forge_mod.log_now('fetching CI runs...')
+    log.info('fetching CI runs...')
     vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
       vim.schedule(function()
         local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
         if ok and runs and #runs > 0 then
           open_ci_picker(runs)
         else
-          vim.notify('[forge]: no CI runs found', vim.log.levels.INFO)
-          vim.cmd.redraw()
+          log.info('no CI runs found')
         end
       end)
     end)
   elseif f.list_runs_cmd then
-    vim.notify('[forge]: structured CI data not available for this forge', vim.log.levels.INFO)
+    log.info('structured CI data not available for this forge')
   end
 end
 
@@ -542,13 +533,15 @@ function M.pr(state, f)
   if cached then
     open_pr_list(cached)
   else
-    forge_mod.log_now(('fetching %s list (%s)...'):format(f.labels.pr, state))
+    log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
     vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
       vim.schedule(function()
         local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
         if ok and prs then
           forge_mod.set_list(cache_key, prs)
           open_pr_list(prs)
+        else
+          log.error('failed to fetch ' .. f.labels.pr)
         end
       end)
     end)
@@ -626,13 +619,15 @@ function M.issue(state, f)
   if cached then
     open_issue_list(cached)
   else
-    forge_mod.log_now('fetching issue list (' .. state .. ')...')
+    log.info('fetching issue list (' .. state .. ')...')
     vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
       vim.schedule(function()
         local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
         if ok and issues then
           forge_mod.set_list(cache_key, issues)
           open_issue_list(issues)
+        else
+          log.error('failed to fetch issues')
         end
       end)
     end)
@@ -714,7 +709,7 @@ function M.release(state, f)
               local tag = entry.value.tag
               local url = base .. '/releases/tag/' .. tag
               vim.fn.setreg('+', url)
-              vim.notify('[forge]: copied release URL')
+              log.info('copied release URL')
             end
           end,
         },
@@ -764,7 +759,7 @@ function M.release(state, f)
   if cached then
     open_release_list(cached)
   else
-    forge_mod.log_now('fetching releases...')
+    log.info('fetching releases...')
     vim.system(f:list_releases_json_cmd(), { text = true }, function(result)
       vim.schedule(function()
         local ok, releases = pcall(vim.json.decode, result.stdout or '[]')
@@ -772,8 +767,7 @@ function M.release(state, f)
           forge_mod.set_list(cache_key, releases)
           open_release_list(releases)
         else
-          vim.notify('[forge]: no releases found', vim.log.levels.INFO)
-          vim.cmd.redraw()
+          log.info('no releases found')
         end
       end)
     end)
@@ -783,7 +777,7 @@ end
 function M.git()
   vim.fn.system('git rev-parse --show-toplevel')
   if vim.v.shell_error ~= 0 then
-    vim.notify('[forge]: not a git repository', vim.log.levels.WARN)
+    log.warn('not a git repository')
     return
   end
 
@@ -836,7 +830,7 @@ function M.git()
     if has_file then
       add('Open File', function()
         if branch == '' then
-          vim.notify('[forge]: detached HEAD', vim.log.levels.WARN)
+          log.warn('detached HEAD')
           return
         end
         f:browse(loc, branch)
