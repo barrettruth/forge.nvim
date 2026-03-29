@@ -23,7 +23,7 @@ local function render(segments)
   local parts = {}
   for _, seg in ipairs(segments) do
     if seg[2] then
-      table.insert(parts, utils.ansi_from_hl(seg[2], seg[1]))
+      table.insert(parts, (utils.ansi_from_hl(seg[2], seg[1])))
     else
       table.insert(parts, seg[1])
     end
