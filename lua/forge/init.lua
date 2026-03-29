@@ -17,8 +17,6 @@ local M = {}
 ---@field pr forge.PRPickerKeys?
 ---@field issue forge.IssuePickerKeys?
 ---@field ci forge.CIPickerKeys?
----@field commits forge.CommitsPickerKeys?
----@field branches forge.BranchesPickerKeys?
 
 ---@class forge.PRPickerKeys
 ---@field checkout string|false
@@ -45,16 +43,6 @@ local M = {}
 ---@field running string|false
 ---@field all string|false
 ---@field refresh string|false
-
----@class forge.CommitsPickerKeys
----@field checkout string|false
----@field diff string|false
----@field browse string|false
----@field yank string|false
-
----@class forge.BranchesPickerKeys
----@field diff string|false
----@field browse string|false
 
 ---@class forge.DisplayConfig
 ---@field icons forge.IconsConfig
@@ -109,8 +97,6 @@ local DEFAULTS = {
       all = '<c-a>',
       refresh = '<c-r>',
     },
-    commits = { checkout = '<cr>', diff = '<c-d>', browse = '<c-x>', yank = '<c-y>' },
-    branches = { diff = '<c-d>', browse = '<c-x>' },
   },
   display = {
     icons = {
@@ -789,18 +775,6 @@ function M.config()
       vim.validate('forge.keys.ci', keys.ci, 'table')
       for _, k in ipairs({ 'log', 'browse', 'failed', 'passed', 'running', 'all', 'refresh' }) do
         vim.validate('forge.keys.ci.' .. k, keys.ci[k], key_or_false, 'string or false')
-      end
-    end
-    if keys.commits ~= nil then
-      vim.validate('forge.keys.commits', keys.commits, 'table')
-      for _, k in ipairs({ 'checkout', 'diff', 'browse', 'yank' }) do
-        vim.validate('forge.keys.commits.' .. k, keys.commits[k], key_or_false, 'string or false')
-      end
-    end
-    if keys.branches ~= nil then
-      vim.validate('forge.keys.branches', keys.branches, 'table')
-      for _, k in ipairs({ 'diff', 'browse' }) do
-        vim.validate('forge.keys.branches.' .. k, keys.branches[k], key_or_false, 'string or false')
       end
     end
   end
