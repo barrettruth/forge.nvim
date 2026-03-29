@@ -4,8 +4,8 @@
 INTRODUCTION                                                      *forge.nvim*
 
 forge.nvim provides PR, issue, CI, and release workflows across GitHub,
-GitLab, and Codeberg from inside Neovim. It detects the forge from your git remote and
-delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
+GitLab, and Codeberg from inside Neovim. It detects the forge from your git
+remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
@@ -40,6 +40,12 @@ Top-level keys: ~
     Picker backend to use. One of `"auto"`, `"fzf-lua"`, `"telescope"`, or
     `"snacks"`. When `"auto"`, forge.nvim tries fzf-lua, then snacks, then
     telescope.
+
+`debug`                                                   *forge-config-debug*
+  `boolean|string`  (default `false`)
+    Enable debug logging. When `true`, debug messages are shown via
+    `vim.notify`. When a `string`, messages are written to that file path
+    (e.g. `"/tmp/forge.log"`). See |forge.logger.debug()|.
 
 `ci`                                                         *forge-config-ci*
   `ci.lines`        `integer`  (default `10000`)
@@ -407,17 +413,22 @@ support for features that vary:
   PR create (draft)             yes       yes         -
   PR create (reviewers)         yes       yes         -
   PR draft toggle               yes       yes         -
-  Per-PR CI checks              yes        -          -
+  Per-PR CI checks              yes       yes        yes*
+  Per-check log viewing         yes       yes         -
   CI runs (repo-wide)           yes       yes        yes
   Issues                        yes       yes        yes
   Releases                      yes       yes        yes
   Release draft/prerelease      yes        -         yes
   Browse/Yank                   yes       yes        yes
 
-Features marked `-` are unavailable due to CLI limitations. When a feature is
-unsupported, forge.nvim either hides the option (draft and reviewer fields in
-the compose buffer) or falls back gracefully (per-PR checks redirects to
-repo-wide CI with a notification).
+  * Codeberg per-PR checks show commit statuses reported by external CI.
+    The browse action opens the CI provider's page. Log viewing requires
+    forge-native CI (GitHub Actions or GitLab pipelines).
+
+Features marked `-` are unavailable due to CLI or API limitations. When a
+feature is unsupported, forge.nvim either hides the option (draft and reviewer
+fields in the compose buffer) or falls back gracefully (log action shows a
+notification and suggests browse).
 
 Each source declares its capabilities in a `capabilities` table. See
 |forge-Forge-interface|.
@@ -649,13 +660,23 @@ PUBLIC API: `require('forge')` ~
 `set_list(key, data)`
     Stores `data` in the list cache under `key`.
 
-                                                                 *forge.log()*
-`log(msg, level?)`
-    Schedules a `vim.notify` with `[forge.nvim]:` prefix.
+PUBLIC API: `require('forge.logger')` ~
+                                                        *forge.logger.debug()*
+`debug(msg)`
+    Logs a debug message. Only shown when `vim.g.forge.debug` is truthy.
+    When `debug` is a `string`, writes to that file path.
 
-                                                             *forge.log_now()*
-`log_now(msg, level?)`
-    Synchronous `vim.notify` with `[forge.nvim]:` prefix and redraw.
+                                                         *forge.logger.info()*
+`info(msg)`
+    Logs an info message via `vim.notify`.
+
+                                                         *forge.logger.warn()*
+`warn(msg)`
+    Logs a warning message via `vim.notify`.
+
+                                                        *forge.logger.error()*
+`error(msg)`
+    Logs an error message via `vim.notify`.
 
 PUBLIC API: `require('forge.pickers')` ~
                                                          *forge.pickers.git()*
