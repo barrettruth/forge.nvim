@@ -357,4 +357,39 @@ function M:pr_state(num)
   }
 end
 
+function M:list_releases_json_cmd()
+  local limit = tostring(forge.config().display.limits.releases)
+  return {
+    'sh',
+    '-c',
+    'tea api "/repos/:owner/:repo/releases?limit=' .. limit .. '"',
+  }
+end
+
+function M:release_json_fields()
+  return {
+    tag = 'tag_name',
+    title = 'name',
+    is_draft = 'draft',
+    is_prerelease = 'prerelease',
+    published_at = 'published_at',
+  }
+end
+
+---@param tag string
+function M:browse_release(tag)
+  local base = forge.remote_web_url()
+  vim.ui.open(base .. '/releases/tag/' .. tag)
+end
+
+---@param tag string
+---@return string[]
+function M:delete_release_cmd(tag)
+  return {
+    'sh',
+    '-c',
+    "tea api -X DELETE '/repos/:owner/:repo/releases/tags/" .. tag .. "'",
+  }
+end
+
 return M

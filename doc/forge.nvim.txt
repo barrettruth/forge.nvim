@@ -3,8 +3,8 @@
 ==============================================================================
 INTRODUCTION                                                      *forge.nvim*
 
-forge.nvim provides PR, issue, and CI workflows across GitHub, GitLab, and
-Codeberg from inside Neovim. It detects the forge from your git remote and
+forge.nvim provides PR, issue, CI, and release workflows across GitHub,
+GitLab, and Codeberg from inside Neovim. It detects the forge from your git remote and
 delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
@@ -93,6 +93,13 @@ Top-level keys: ~
           all = '<c-a>',
           refresh = '<c-r>',
         },
+        release = {
+          browse = '<cr>',
+          yank = '<c-y>',
+          delete = '<c-d>',
+          filter = '<c-o>',
+          refresh = '<c-r>',
+        },
       }
 <
 
@@ -129,6 +136,7 @@ Top-level keys: ~
     `pulls`       `100`
     `issues`      `100`
     `runs`        `30`
+    `releases`    `30`
 
 ==============================================================================
 COMMANDS                                                              *:Forge*
@@ -188,6 +196,15 @@ COMMANDS                                                              *:Forge*
     Open the CI runs picker. Defaults to current branch.
     `--all`            Show runs for all branches.
 
+`:Forge release`                                              *:Forge-release*
+    Open the release list picker (|forge-picker-release|).
+
+`:Forge release browse` {tag}                          *:Forge-release-browse*
+    Open release `{tag}` in the browser.
+
+`:Forge release delete` {tag}                          *:Forge-release-delete*
+    Delete release `{tag}` (with confirmation prompt).
+
 `:Forge browse` [{flags}]                                      *:Forge-browse*
     Open the current file location on the forge.
     `--root`           Open the repository root page.
@@ -217,10 +234,10 @@ PICKERS                                                        *forge-pickers*
 
                                                                 *forge-picker*
 FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
-current buffer. Lists: PRs/MRs, Issues, CI/CD, Browse Remote, Open File, Yank
-Commit URL, Yank Branch URL. Items that require a forge are hidden when no
-forge is detected. "Open File" and yank entries require a named buffer on a
-branch.
+current buffer. Lists: PRs/MRs, Issues, CI/CD, Releases, Browse Remote, Open
+File, Yank Commit URL, Yank Branch URL. Items that require a forge are hidden
+when no forge is detected. "Open File" and yank entries require a named buffer
+on a branch.
 
                                                              *forge-picker-pr*
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
@@ -258,6 +275,17 @@ CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
   `running`     `<c-n>`          Filter to running
   `all`         `<c-a>`          Show all
   `refresh`     `<c-r>`          Re-fetch runs
+
+                                                        *forge-picker-release*
+RELEASE PICKER ~ Lists releases with tag, title, and relative time. Draft and
+prerelease badges are shown for forges that support them (GitHub, Codeberg).
+
+  Action      Default Key    Description ~
+  `browse`      `<cr>`           Open release in browser
+  `yank`        `<c-y>`          Copy release URL to `+` register
+  `delete`      `<c-d>`          Delete release (with confirmation)
+  `filter`      `<c-o>`          Cycle filter: all -> draft -> prerelease
+  `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                          *forge-picker-manage*
 MANAGE PICKER ~ Contextual actions for a specific PR, shown based on
@@ -382,6 +410,8 @@ support for features that vary:
   Per-PR CI checks              yes        -          -
   CI runs (repo-wide)           yes       yes        yes
   Issues                        yes       yes        yes
+  Releases                      yes       yes        yes
+  Release draft/prerelease      yes        -         yes
   Browse/Yank                   yes       yes        yes
 
 Features marked `-` are unavailable due to CLI limitations. When a feature is
@@ -482,6 +512,14 @@ All methods receive `self` as the first argument (use `:` syntax).
                                         PR templates.
   `draft_toggle_cmd(num, is_draft)`    `string[]?` cmd to toggle draft.
                                         Return `nil` if unsupported.
+  `list_releases_json_cmd()`           `string[]` cmd to list releases as
+                                        JSON.
+  `release_json_fields()`              `table` field name mapping:
+                                        `{ tag, title, is_draft?,`
+                                        `is_prerelease?, is_latest?,`
+                                        `published_at }`.
+  `browse_release(tag)`                Opens release in browser.
+  `delete_release_cmd(tag)`            `string[]` cmd to delete release.
 
 Optional methods: ~
 
@@ -642,6 +680,11 @@ PUBLIC API: `require('forge.pickers')` ~
                                                           *forge.pickers.ci()*
 `ci(f, branch?)`
     Opens the CI runs picker. `nil` branch shows all.
+
+                                                     *forge.pickers.release()*
+`release(state, f)`
+    Opens the release list picker. `state`: `"all"`, `"draft"`, or
+    `"prerelease"`. `f`: `forge.Forge`.
 
                                                    *forge.pickers.pr_manage()*
 `pr_manage(f, num)`

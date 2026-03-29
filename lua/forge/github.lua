@@ -382,4 +382,38 @@ function M:pr_state(num)
   }
 end
 
+function M:list_releases_json_cmd()
+  return {
+    'gh',
+    'release',
+    'list',
+    '--json',
+    'tagName,name,isDraft,isPrerelease,isLatest,publishedAt',
+    '--limit',
+    tostring(forge.config().display.limits.releases),
+  }
+end
+
+function M:release_json_fields()
+  return {
+    tag = 'tagName',
+    title = 'name',
+    is_draft = 'isDraft',
+    is_prerelease = 'isPrerelease',
+    is_latest = 'isLatest',
+    published_at = 'publishedAt',
+  }
+end
+
+---@param tag string
+function M:browse_release(tag)
+  vim.system({ 'gh', 'release', 'view', tag, '--web' })
+end
+
+---@param tag string
+---@return string[]
+function M:delete_release_cmd(tag)
+  return { 'gh', 'release', 'delete', tag, '--yes' }
+end
+
 return M

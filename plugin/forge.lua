@@ -188,6 +188,56 @@ local function dispatch(args)
     return
   end
 
+  if sub == 'release' then
+    if not require_git_or_warn() then
+      return
+    end
+    local f = require_forge_or_warn()
+    if not f then
+      return
+    end
+    local pickers = require('forge.pickers')
+    if #args == 1 then
+      pickers.release('all', f)
+      return
+    end
+    local _, pos = parse_flags(args, 2)
+    local action = pos[1]
+    local tag = pos[2]
+    if action == 'browse' then
+      if not tag then
+        vim.notify('[forge]: missing release tag', vim.log.levels.WARN)
+        return
+      end
+      f:browse_release(tag)
+    elseif action == 'delete' then
+      if not tag then
+        vim.notify('[forge]: missing release tag', vim.log.levels.WARN)
+        return
+      end
+      vim.ui.select({ 'Yes', 'No' }, {
+        prompt = 'Delete release ' .. tag .. '? ',
+      }, function(choice)
+        if choice == 'Yes' then
+          require('forge').log_now('deleting release ' .. tag .. '...')
+          vim.system(f:delete_release_cmd(tag), { text = true }, function(result)
+            vim.schedule(function()
+              if result.code == 0 then
+                vim.notify('[forge]: deleted release ' .. tag)
+              else
+                vim.notify('[forge]: delete failed', vim.log.levels.ERROR)
+              end
+              vim.cmd.redraw()
+            end)
+          end)
+        end
+      end)
+    else
+      vim.notify('[forge]: unknown release action: ' .. (action or ''), vim.log.levels.WARN)
+    end
+    return
+  end
+
   if sub == 'browse' then
     if not require_git_or_warn() then
       return
@@ -267,11 +317,12 @@ local function complete(arglead, cmdline, _)
   end
   local arg_idx = arglead == '' and #words or #words - 1
 
-  local subcmds = { 'pr', 'issue', 'ci', 'browse', 'yank', 'review', 'clear' }
+  local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'yank', 'review', 'clear' }
   local sub_actions = {
     pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'create', '--state=' },
     issue = { 'browse', 'close', 'reopen', '--state=' },
     ci = { '--all' },
+    release = { 'browse', 'delete' },
     review = { 'end', 'toggle' },
     browse = { '--root', '--commit' },
     yank = { '--commit' },
