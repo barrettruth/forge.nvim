@@ -2,6 +2,7 @@ local M = {}
 
 ---@class forge.Config
 ---@field picker 'fzf-lua'|'telescope'|'snacks'|'auto'
+---@field debug boolean|string?
 ---@field ci forge.CIConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
@@ -82,6 +83,7 @@ local M = {}
 ---@type forge.Config
 local DEFAULTS = {
   picker = 'auto',
+  debug = false,
   ci = { lines = 10000 },
   sources = {},
   keys = {
@@ -179,22 +181,6 @@ for group, link in pairs(hl_defaults) do
 end
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
-
----@param msg string
----@param level integer?
-function M.log(msg, level)
-  vim.schedule(function()
-    vim.notify('[forge.nvim]: ' .. msg, level or vim.log.levels.INFO)
-    vim.cmd.redraw()
-  end)
-end
-
----@param msg string
----@param level integer?
-function M.log_now(msg, level)
-  vim.notify('[forge.nvim]: ' .. msg, level or vim.log.levels.INFO)
-  vim.cmd.redraw()
-end
 
 ---@class forge.PRState
 ---@field state string
@@ -345,8 +331,10 @@ end
 
 ---@return forge.Forge?
 function M.detect()
+  local log = require('forge.logger')
   local root = git_root()
   if not root then
+    log.debug('detect: not a git repository')
     return nil
   end
   if forge_cache[root] then
@@ -354,17 +342,21 @@ function M.detect()
   end
   local remote = vim.trim(vim.fn.system('git remote get-url origin'))
   if vim.v.shell_error ~= 0 then
+    log.debug('detect: no origin remote')
     return nil
   end
   local name = detect_from_remote(remote)
   if not name then
+    log.debug('detect: no forge matched remote ' .. remote)
     return nil
   end
   local source = resolve_source(name)
   if not source then
+    log.debug('detect: failed to load source module ' .. name)
     return nil
   end
   if vim.fn.executable(source.cli) ~= 1 then
+    log.debug('detect: CLI ' .. source.cli .. ' not found')
     return nil
   end
   forge_cache[root] = source
@@ -780,6 +772,9 @@ function M.config()
   vim.validate('forge.picker', cfg.picker, function(v)
     return v == 'auto' or picker_backends[v] ~= nil
   end, "'auto', 'fzf-lua', 'telescope', or 'snacks'")
+  vim.validate('forge.debug', cfg.debug, function(v)
+    return v == false or v == true or type(v) == 'string'
+  end, 'boolean or string')
   vim.validate('forge.sources', cfg.sources, 'table')
   vim.validate('forge.keys', cfg.keys, function(v)
     return v == false or type(v) == 'table'
@@ -994,14 +989,17 @@ end
 ---@param pr_reviewers string[]?
 ---@param buf integer?
 local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_reviewers, buf)
-  M.log_now('pushing and creating ' .. f.labels.pr_one .. '...')
+  local log = require('forge.logger')
+  log.info('pushing and creating ' .. f.labels.pr_one .. '...')
   vim.system({ 'git', 'push', '-u', 'origin', branch }, { text = true }, function(push_result)
     if push_result.code ~= 0 then
       local msg = vim.trim(push_result.stderr or '')
       if msg == '' then
         msg = 'push failed'
       end
-      M.log(msg, vim.log.levels.ERROR)
+      vim.schedule(function()
+        log.error(msg)
+      end)
       return
     end
     vim.system(
@@ -1014,7 +1012,7 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_rev
             if url ~= '' then
               vim.fn.setreg('+', url)
             end
-            M.log_now(('created %s → %s'):format(f.labels.pr_one, url))
+            log.info(('created %s → %s'):format(f.labels.pr_one, url))
             M.clear_list()
             if buf and vim.api.nvim_buf_is_valid(buf) then
               vim.bo[buf].modified = false
@@ -1028,9 +1026,8 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_rev
             if msg == '' then
               msg = 'creation failed'
             end
-            M.log_now(msg, vim.log.levels.ERROR)
+            log.error(msg)
           end
-          vim.cmd.redraw()
         end)
       end
     )
@@ -1208,14 +1205,14 @@ local function open_compose_buffer(f, branch, base, draft)
       end
       local pr_title = vim.trim(content_lines[1] or '')
       if pr_title == '' then
-        M.log_now('aborting: empty title', vim.log.levels.WARN)
+        require('forge.logger').warn('aborting: empty title')
         vim.bo[buf].modified = false
         vim.api.nvim_buf_delete(buf, { force = true })
         return
       end
       local pr_body = vim.trim(table.concat(content_lines, '\n', 3))
       if pr_body == '' then
-        M.log_now('aborting: empty body', vim.log.levels.WARN)
+        require('forge.logger').warn('aborting: empty body')
         vim.bo[buf].modified = false
         vim.api.nvim_buf_delete(buf, { force = true })
         return
@@ -1240,38 +1237,36 @@ end
 ---@param opts forge.CreatePROpts?
 function M.create_pr(opts)
   opts = opts or {}
+  local log = require('forge.logger')
 
   local f = M.detect()
   if not f then
-    M.log_now('no forge detected', vim.log.levels.WARN)
+    log.warn('no forge detected')
     return
   end
 
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
   if branch == '' then
-    M.log_now('detached HEAD', vim.log.levels.WARN)
+    log.warn('detached HEAD')
     return
   end
 
-  M.log_now('checking for existing ' .. f.labels.pr_one .. '...')
+  log.info('checking for existing ' .. f.labels.pr_one .. '...')
 
   vim.system(f:pr_for_branch_cmd(branch), { text = true }, function(result)
     local num = vim.trim(result.stdout or '')
     vim.schedule(function()
       if num ~= '' and num ~= 'null' then
-        M.log_now(
-          ('%s #%s already exists for branch %s'):format(f.labels.pr_one, num, branch),
-          vim.log.levels.WARN
-        )
+        log.warn(('%s #%s already exists for branch %s'):format(f.labels.pr_one, num, branch))
         return
       end
 
       if opts.web then
-        M.log_now('pushing...')
+        log.info('pushing...')
         vim.system({ 'git', 'push', '-u', 'origin', branch }, { text = true }, function(push_result)
           vim.schedule(function()
             if push_result.code ~= 0 then
-              M.log_now('push failed', vim.log.levels.ERROR)
+              log.error('push failed')
               return
             end
             local web_cmd = f:create_pr_web_cmd()
@@ -1283,7 +1278,7 @@ function M.create_pr(opts)
         return
       end
 
-      M.log_now('resolving base branch...')
+      log.info('resolving base branch...')
       vim.system(f:default_branch_cmd(), { text = true }, function(base_result)
         local base = vim.trim(base_result.stdout or '')
         if base == '' then
@@ -1294,7 +1289,7 @@ function M.create_pr(opts)
             .system({ 'git', 'diff', '--quiet', 'origin/' .. base .. '..HEAD' }, { text = true })
             :wait().code ~= 0
           if not has_diff then
-            M.log_now('no changes from origin/' .. base, vim.log.levels.WARN)
+            log.warn('no changes from origin/' .. base)
             return
           end
           if opts.instant then

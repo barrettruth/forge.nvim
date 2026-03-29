@@ -19,11 +19,13 @@ vim.api.nvim_create_autocmd('FileType', {
   end,
 })
 
+local log = require('forge.logger')
+
 local function require_forge_or_warn()
   local forge_mod = require('forge')
   local f = forge_mod.detect()
   if not f then
-    vim.notify('[forge]: no forge detected', vim.log.levels.WARN)
+    log.warn('no forge detected')
     return nil, forge_mod
   end
   return f, forge_mod
@@ -32,7 +34,7 @@ end
 local function require_git_or_warn()
   vim.fn.system('git rev-parse --show-toplevel')
   if vim.v.shell_error ~= 0 then
-    vim.notify('[forge]: not a git repository', vim.log.levels.WARN)
+    log.warn('not a git repository')
     return false
   end
   return true
@@ -96,7 +98,7 @@ local function dispatch(args)
     end
     local num = pos[2]
     if not num then
-      vim.notify('[forge]: missing argument', vim.log.levels.WARN)
+      log.warn('missing argument')
       return
     end
     if action == 'checkout' then
@@ -109,7 +111,7 @@ local function dispatch(args)
       if f.capabilities.per_pr_checks then
         pickers.checks(f, num)
       else
-        require('forge').log(
+        log.debug(
           ('per-%s checks unavailable on %s, showing repo CI'):format(f.labels.pr_one, f.name)
         )
         pickers.ci(f)
@@ -119,7 +121,7 @@ local function dispatch(args)
     elseif action == 'manage' then
       pickers.pr_manage(f, num)
     else
-      vim.notify('[forge]: unknown pr action: ' .. action, vim.log.levels.WARN)
+      log.warn('unknown pr action: ' .. action)
     end
     return
   end
@@ -146,24 +148,24 @@ local function dispatch(args)
     local num = pos[2]
     if action == 'browse' then
       if not num then
-        vim.notify('[forge]: missing issue number', vim.log.levels.WARN)
+        log.warn('missing issue number')
         return
       end
       f:view_web(f.kinds.issue, num)
     elseif action == 'close' then
       if not num then
-        vim.notify('[forge]: missing issue number', vim.log.levels.WARN)
+        log.warn('missing issue number')
         return
       end
       pickers.issue_close(f, num)
     elseif action == 'reopen' then
       if not num then
-        vim.notify('[forge]: missing issue number', vim.log.levels.WARN)
+        log.warn('missing issue number')
         return
       end
       pickers.issue_reopen(f, num)
     else
-      vim.notify('[forge]: unknown issue action: ' .. (action or ''), vim.log.levels.WARN)
+      log.warn('unknown issue action: ' .. (action or ''))
     end
     return
   end
@@ -206,34 +208,33 @@ local function dispatch(args)
     local tag = pos[2]
     if action == 'browse' then
       if not tag then
-        vim.notify('[forge]: missing release tag', vim.log.levels.WARN)
+        log.warn('missing release tag')
         return
       end
       f:browse_release(tag)
     elseif action == 'delete' then
       if not tag then
-        vim.notify('[forge]: missing release tag', vim.log.levels.WARN)
+        log.warn('missing release tag')
         return
       end
       vim.ui.select({ 'Yes', 'No' }, {
         prompt = 'Delete release ' .. tag .. '? ',
       }, function(choice)
         if choice == 'Yes' then
-          require('forge').log_now('deleting release ' .. tag .. '...')
+          log.info('deleting release ' .. tag .. '...')
           vim.system(f:delete_release_cmd(tag), { text = true }, function(result)
             vim.schedule(function()
               if result.code == 0 then
-                vim.notify('[forge]: deleted release ' .. tag)
+                log.info('deleted release ' .. tag)
               else
-                vim.notify('[forge]: delete failed', vim.log.levels.ERROR)
+                log.error('delete failed')
               end
-              vim.cmd.redraw()
             end)
           end)
         end
       end)
     else
-      vim.notify('[forge]: unknown release action: ' .. (action or ''), vim.log.levels.WARN)
+      log.warn('unknown release action: ' .. (action or ''))
     end
     return
   end
@@ -257,7 +258,7 @@ local function dispatch(args)
       local loc = forge_mod.file_loc()
       local branch = vim.trim(vim.fn.system('git branch --show-current'))
       if branch == '' then
-        vim.notify('[forge]: detached HEAD', vim.log.levels.WARN)
+        log.warn('detached HEAD')
         return
       end
       f:browse(loc, branch)
@@ -287,7 +288,7 @@ local function dispatch(args)
   if sub == 'review' then
     local review = require('forge.review')
     if #args < 2 then
-      vim.notify('[forge]: missing review action (end, toggle)', vim.log.levels.WARN)
+      log.warn('missing review action (end, toggle)')
       return
     end
     local action = args[2]
@@ -296,18 +297,18 @@ local function dispatch(args)
     elseif action == 'toggle' then
       review.toggle()
     else
-      vim.notify('[forge]: unknown review action: ' .. action, vim.log.levels.WARN)
+      log.warn('unknown review action: ' .. action)
     end
     return
   end
 
   if sub == 'clear' then
     require('forge').clear_cache()
-    vim.notify('[forge]: cache cleared')
+    log.info('cache cleared')
     return
   end
 
-  vim.notify('[forge]: unknown command: ' .. sub, vim.log.levels.WARN)
+  log.warn('unknown command: ' .. sub)
 end
 
 local function complete(arglead, cmdline, _)
