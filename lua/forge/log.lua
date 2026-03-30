@@ -276,6 +276,12 @@ local function parse_github(raw_lines, steps)
       if m then
         kind = 'notice'
         content = m
+        goto emit
+      end
+      m = content:match('^%[command%](.*)$')
+      if m then
+        kind = 'command'
+        content = m
       end
       ::emit::
       local text, h = strip_ansi(content)
@@ -488,6 +494,8 @@ local function render(buf, parsed)
       end
     elseif line.kind == 'notice' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogWarning' })
+    elseif line.kind == 'command' then
+      vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogCommand' })
     elseif line.kind == 'debug' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogDim' })
     end
