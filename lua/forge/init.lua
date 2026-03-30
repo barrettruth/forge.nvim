@@ -195,7 +195,6 @@ local hl_defaults = {
   ForgeDim = 'Comment',
   ForgeLogJob = 'Title',
   ForgeLogStep = 'Function',
-  ForgeLogTimestamp = 'Comment',
   ForgeLogError = 'DiagnosticError',
   ForgeLogWarning = 'DiagnosticWarn',
   ForgeLogSection = 'Special',

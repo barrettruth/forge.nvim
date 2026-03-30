@@ -16,19 +16,6 @@ local sgr_map = {
   [96] = 'ForgeLogSection',
 }
 
-local function format_duration(secs)
-  if secs < 0 then
-    secs = 0
-  end
-  if secs >= 3600 then
-    return ('%dh%dm'):format(math.floor(secs / 3600), math.floor(secs % 3600 / 60))
-  end
-  if secs >= 60 then
-    return ('%dm%ds'):format(math.floor(secs / 60), secs % 60)
-  end
-  return ('%ds'):format(secs)
-end
-
 local function strip_ansi(line)
   if line:byte(1) == 0xEF and line:byte(2) == 0xBB and line:byte(3) == 0xBF then
     line = line:sub(4)
@@ -112,7 +99,7 @@ local function parse_github(raw_lines)
       headers[#headers + 1] = #lines
     end
     do
-      local ts, content = rest:match('^(%d%d%d%d%-%d%d%-%d%dT[%d:.]+Z)%s(.*)$')
+      local _, content = rest:match('^(%d%d%d%d%-%d%d%-%d%dT[%d:.]+Z)%s(.*)$')
       if not content then
         content = rest
       end
@@ -156,7 +143,6 @@ local function parse_github(raw_lines)
         hls = offset_hls(h, 4),
         fold = kind == 'group' and '>3' or '2',
         kind = kind,
-        ts = ts,
       }
       if kind == 'error' then
         errors[#errors + 1] = #lines
@@ -174,12 +160,9 @@ local function parse_gitlab(raw_lines)
   local headers = {}
   local errors = {}
   local in_section = false
-  local sec_start_ts
   for _, raw in ipairs(raw_lines) do
     raw = raw:gsub('\r', '')
-    local ts_s = raw:match('^section_start:(%d+):')
-    if ts_s then
-      sec_start_ts = tonumber(ts_s)
+    if raw:match('^section_start:') then
       local _, sep_end = raw:find('\027%[0K')
       local header_raw
       if sep_end then
@@ -197,12 +180,7 @@ local function parse_gitlab(raw_lines)
       goto continue
     end
     if raw:match('^section_end:') then
-      local ts_e = tonumber(raw:match('^section_end:(%d+):'))
-      if ts_e and sec_start_ts and #headers > 0 then
-        lines[headers[#headers]].elapsed = ts_e - sec_start_ts
-      end
       in_section = false
-      sec_start_ts = nil
       goto continue
     end
     do
@@ -258,12 +236,6 @@ local function render(buf, parsed)
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogStep' })
     elseif line.kind == 'section' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogSection' })
-      if line.elapsed then
-        vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, {
-          virt_text = { { format_duration(line.elapsed), 'ForgeLogTimestamp' } },
-          virt_text_pos = 'right_align',
-        })
-      end
     elseif line.kind == 'error' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogError' })
     elseif line.kind == 'warning' or line.kind == 'notice' then
@@ -276,15 +248,6 @@ local function render(buf, parsed)
         end_col = hl.end_col,
         hl_group = hl.group,
       })
-    end
-    if line.ts then
-      local short = line.ts:match('T(%d%d:%d%d:%d%d)')
-      if short then
-        vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, {
-          virt_text = { { short, 'ForgeLogTimestamp' } },
-          virt_text_pos = 'right_align',
-        })
-      end
     end
   end
   buf_data[buf] = {

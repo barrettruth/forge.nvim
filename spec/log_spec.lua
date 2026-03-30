@@ -128,13 +128,6 @@ describe('parse_github', function()
     assert.equals('>3', result.lines[3].fold)
   end)
 
-  it('extracts timestamps', function()
-    local result = parse_github({
-      'job\tstep\t2024-01-15T10:30:45.1234567Z hello',
-    })
-    assert.equals('2024-01-15T10:30:45.1234567Z', result.lines[3].ts)
-  end)
-
   it('handles non-tab lines as raw', function()
     local result = parse_github({
       'raw line without tabs',
@@ -186,7 +179,6 @@ describe('parse_gitlab', function()
     assert.equals('>1', result.lines[1].fold)
     assert.equals('  running command', result.lines[2].text)
     assert.equals('1', result.lines[2].fold)
-    assert.equals(5, result.lines[1].elapsed)
   end)
 
   it('tracks section headers', function()
@@ -223,7 +215,6 @@ describe('parse_gitlab', function()
       'section_end:110:build\027[0K',
     })
     assert.equals('Building project', result.lines[1].text)
-    assert.equals(10, result.lines[1].elapsed)
   end)
 
   it('handles multiple sections', function()
