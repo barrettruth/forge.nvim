@@ -495,7 +495,10 @@ local function render(buf, parsed)
     elseif line.kind == 'notice' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogWarning' })
     elseif line.kind == 'command' then
-      vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogCommand' })
+      vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, {
+        end_col = #line.text,
+        hl_group = 'ForgeLogCommand',
+      })
     elseif line.kind == 'debug' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogDim' })
     end

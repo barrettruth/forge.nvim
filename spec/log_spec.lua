@@ -213,6 +213,17 @@ describe('parse_github', function()
     assert.equals('1', result.lines[5].fold)
   end)
 
+  it('detects [command] lines', function()
+    local result = parse_github({
+      'job\tstep\t2024-01-01T00:00:00Z [command]/usr/bin/git version',
+      'job\tstep\t2024-01-01T00:00:01Z normal line',
+    })
+    assert.equals('command', result.lines[3].kind)
+    assert.equals('    /usr/bin/git version', result.lines[3].text)
+    assert.equals('content', result.lines[4].kind)
+    assert.equals('    normal line', result.lines[4].text)
+  end)
+
   it('does not skip real step names', function()
     local result = parse_github({
       'job\tSetup\t2024-01-01T00:00:00Z ##[group]My Group',

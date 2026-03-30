@@ -200,7 +200,7 @@ local hl_defaults = {
   ForgeLogWarning = 'DiagnosticVirtualTextWarn',
   ForgeLogWarningLabel = { bold = true },
   ForgeLogSection = 'Function',
-  ForgeLogCommand = 'Identifier',
+  ForgeLogCommand = 'Special',
   ForgeLogDim = 'Comment',
 }
 
