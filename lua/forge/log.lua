@@ -640,6 +640,12 @@ function M.open(cmd, opts, reuse_buf)
     vim.api.nvim_create_autocmd('BufWipeout', {
       buffer = buf,
       callback = function()
+        local d = buf_data[buf]
+        if d and d.procs then
+          for _, p in ipairs(d.procs) do
+            pcall(function() p:kill() end)
+          end
+        end
         buf_data[buf] = nil
       end,
     })
@@ -692,13 +698,14 @@ function M.open(cmd, opts, reuse_buf)
     end)
   end
 
-  vim.system(cmd, { text = true }, function(result)
+  local procs = {}
+  procs[#procs + 1] = vim.system(cmd, { text = true }, function(result)
     log_result = result
     try_render()
   end)
 
   if opts.steps_cmd then
-    vim.system(opts.steps_cmd, { text = true }, function(result)
+    procs[#procs + 1] = vim.system(opts.steps_cmd, { text = true }, function(result)
       if result.code == 0 and result.stdout and result.stdout ~= '' then
         local ok, data = pcall(vim.json.decode, result.stdout)
         if ok and data and data.jobs then
@@ -714,6 +721,8 @@ function M.open(cmd, opts, reuse_buf)
       try_render()
     end)
   end
+  buf_data[buf] = buf_data[buf] or {}
+  buf_data[buf].procs = procs
 end
 
 M._strip_ansi = strip_ansi

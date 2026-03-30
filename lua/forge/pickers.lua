@@ -258,8 +258,12 @@ function M.checks(f, num, filter, cached_checks)
               return
             end
             local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
-            log.info('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
+            if bucket == 'skipping' then
+              log.info('no log available — job was not started')
+              return
+            end
+            log.info('fetching check logs...')
             local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
             local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
             require('forge.log').open(cmd, {
