@@ -873,7 +873,15 @@ function M.config()
     end
     if keys.log ~= nil then
       vim.validate('forge.keys.log', keys.log, 'table')
-      for _, k in ipairs({ 'close', 'next_step', 'prev_step', 'next_error', 'prev_error', 'browse', 'refresh' }) do
+      for _, k in ipairs({
+        'close',
+        'next_step',
+        'prev_step',
+        'next_error',
+        'prev_error',
+        'browse',
+        'refresh',
+      }) do
         vim.validate('forge.keys.log.' .. k, keys.log[k], key_or_false, 'string or false')
       end
     end
