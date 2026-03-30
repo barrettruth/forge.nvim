@@ -176,7 +176,7 @@ function M.registered_sources()
 end
 
 local hl_defaults = {
-  ForgeComposeComment = 'Comment',
+  ForgeComposeComment = { italic = true },
   ForgeComposeBranch = 'Special',
   ForgeComposeForge = 'Type',
   ForgeComposeDraft = 'DiagnosticWarn',
@@ -491,7 +491,7 @@ end
 ---@param iso string?
 ---@return integer?
 local function parse_iso(iso)
-  if not iso or iso == '' then
+  if not iso or type(iso) ~= 'string' or iso == '' then
     return nil
   end
   local y, mo, d, h, mi, s = iso:match('(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)')
