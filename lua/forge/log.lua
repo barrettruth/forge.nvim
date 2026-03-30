@@ -231,12 +231,39 @@ local parser_for = {
   gitlab = parse_gitlab,
 }
 
+local function fold_ranges(parsed)
+  local ranges = {}
+  local stack = {}
+  for i, line in ipairs(parsed.lines) do
+    local expr = line.fold
+    if expr:sub(1, 1) == '>' then
+      local level = tonumber(expr:sub(2))
+      while #stack > 0 and stack[#stack].level >= level do
+        local f = table.remove(stack)
+        if i - 1 > f.start then
+          ranges[#ranges + 1] = { f.start, i - 1, f.level }
+        end
+      end
+      stack[#stack + 1] = { start = i, level = level }
+    end
+  end
+  local n = #parsed.lines
+  while #stack > 0 do
+    local f = table.remove(stack)
+    if n > f.start then
+      ranges[#ranges + 1] = { f.start, n, f.level }
+    end
+  end
+  table.sort(ranges, function(a, b)
+    return a[3] > b[3]
+  end)
+  return ranges
+end
+
 local function render(buf, parsed)
   local texts = {}
-  local fold_exprs = {}
   for i, line in ipairs(parsed.lines) do
     texts[i] = line.text
-    fold_exprs[i] = line.fold
   end
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, texts)
@@ -265,10 +292,22 @@ local function render(buf, parsed)
     end
   end
   buf_data[buf] = {
-    fold_exprs = fold_exprs,
     headers = parsed.headers,
     errors = parsed.errors,
   }
+  local ranges = fold_ranges(parsed)
+  local wins = vim.fn.win_findbuf(buf)
+  if #wins > 0 then
+    vim.api.nvim_win_call(wins[1], function()
+      vim.wo[0].foldmethod = 'manual'
+      vim.wo[0].foldtext = ''
+      pcall(vim.cmd, 'silent! normal! zE')
+      for _, r in ipairs(ranges) do
+        vim.cmd(r[1] .. ',' .. r[2] .. 'fold')
+      end
+      vim.wo[0].foldlevel = 99
+    end)
+  end
 end
 
 local function jump(buf, kind, dir)
@@ -358,10 +397,6 @@ function M.open(cmd, opts, reuse_buf)
     vim.bo[buf].modifiable = false
     vim.bo[buf].filetype = 'forge_log'
     pcall(vim.api.nvim_buf_set_name, buf, 'forge://log/' .. (opts.title or 'ci'))
-    vim.wo[0].foldmethod = 'expr'
-    vim.wo[0].foldexpr = 'v:lua.require("forge.log").foldexpr(v:lnum)'
-    vim.wo[0].foldlevel = 99
-    vim.wo[0].foldtext = ''
     setup_keymaps(buf, opts.url, cmd, opts)
     vim.api.nvim_create_autocmd('BufWipeout', {
       buffer = buf,
@@ -387,7 +422,7 @@ function M.open(cmd, opts, reuse_buf)
         vim.bo[buf].modifiable = true
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(msg, '\n'))
         vim.bo[buf].modifiable = false
-        buf_data[buf] = { fold_exprs = {}, headers = {}, errors = {} }
+        buf_data[buf] = { headers = {}, errors = {} }
         return
       end
       local raw_lines = vim.split(stdout, '\n', { plain = true })
@@ -409,15 +444,6 @@ function M.open(cmd, opts, reuse_buf)
       end
     end)
   end)
-end
-
-function M.foldexpr(lnum)
-  local buf = vim.api.nvim_get_current_buf()
-  local d = buf_data[buf]
-  if not d then
-    return '0'
-  end
-  return d.fold_exprs[lnum] or '0'
 end
 
 M._strip_ansi = strip_ansi
