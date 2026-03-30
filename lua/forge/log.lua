@@ -76,6 +76,8 @@ local function parse_github(raw_lines)
   local headers = {}
   local errors = {}
   local cur_job, cur_step
+  local unknown_step = false
+  local in_group = false
   for _, raw in ipairs(raw_lines) do
     if raw:byte(1) == 0xEF and raw:byte(2) == 0xBB and raw:byte(3) == 0xBF then
       raw = raw:sub(4)
@@ -90,13 +92,18 @@ local function parse_github(raw_lines)
     if job ~= cur_job then
       cur_job = job
       cur_step = nil
+      in_group = false
       lines[#lines + 1] = { text = job, hls = {}, fold = '>1', kind = 'job' }
       headers[#headers + 1] = #lines
     end
     if step ~= cur_step then
       cur_step = step
-      lines[#lines + 1] = { text = '  ' .. step, hls = {}, fold = '>2', kind = 'step' }
-      headers[#headers + 1] = #lines
+      in_group = false
+      unknown_step = step == 'UNKNOWN STEP'
+      if not unknown_step then
+        lines[#lines + 1] = { text = '  ' .. step, hls = {}, fold = '>2', kind = 'step' }
+        headers[#headers + 1] = #lines
+      end
     end
     do
       local _, content = rest:match('^(%d%d%d%d%-%d%d%-%d%dT[%d:.]+Z)%s(.*)$')
@@ -107,13 +114,13 @@ local function parse_github(raw_lines)
       m = content:match('^##%[error[^%]]*%](.*)$')
       if m then
         kind = 'error'
-        content = m
+        content = 'Error: ' .. m
         goto emit
       end
       m = content:match('^##%[warning[^%]]*%](.*)$')
       if m then
         kind = 'warning'
-        content = m
+        content = 'Warning: ' .. m
         goto emit
       end
       m = content:match('^##%[group[^%]]*%](.*)$')
@@ -123,6 +130,7 @@ local function parse_github(raw_lines)
         goto emit
       end
       if content:match('^##%[endgroup') then
+        in_group = false
         goto continue
       end
       m = content:match('^##%[debug[^%]]*%](.*)$')
@@ -138,16 +146,26 @@ local function parse_github(raw_lines)
       end
       ::emit::
       local text, h = strip_ansi(content)
+      local indent_n = (unknown_step and not in_group) and 2 or 4
+      local fold_val
+      if kind == 'group' then
+        fold_val = unknown_step and '>2' or '>3'
+      elseif unknown_step and not in_group then
+        fold_val = '1'
+      else
+        fold_val = '2'
+      end
       lines[#lines + 1] = {
-        text = '    ' .. text,
-        hls = offset_hls(h, 4),
-        fold = kind == 'group' and '>3' or '2',
+        text = (' '):rep(indent_n) .. text,
+        hls = offset_hls(h, indent_n),
+        fold = fold_val,
         kind = kind,
       }
       if kind == 'error' then
         errors[#errors + 1] = #lines
       elseif kind == 'group' then
         headers[#headers + 1] = #lines
+        in_group = true
       end
     end
     ::continue::
@@ -279,7 +297,23 @@ local function render(buf, parsed)
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogSection' })
     elseif line.kind == 'error' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogError' })
-    elseif line.kind == 'warning' or line.kind == 'notice' then
+      local start = line.text:find('Error: ', 1, true)
+      if start then
+        vim.api.nvim_buf_set_extmark(buf, ns, lnum, start - 1, {
+          end_col = start + 6,
+          hl_group = 'ForgeLogErrorLabel',
+        })
+      end
+    elseif line.kind == 'warning' then
+      vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogWarning' })
+      local start = line.text:find('Warning: ', 1, true)
+      if start then
+        vim.api.nvim_buf_set_extmark(buf, ns, lnum, start - 1, {
+          end_col = start + 8,
+          hl_group = 'ForgeLogWarningLabel',
+        })
+      end
+    elseif line.kind == 'notice' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogWarning' })
     elseif line.kind == 'debug' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogDim' })
