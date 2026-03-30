@@ -599,7 +599,7 @@ function M._foldtext()
   local hl = meta.conclusion == 'failure' and 'ForgeFail' or 'ForgeLogStep'
   local dur = meta.duration
   local width = vim.api.nvim_win_get_width(0)
-  local pad = math.max(1, width - vim.fn.strdisplaywidth(line) - #dur)
+  local pad = math.max(1, width - vim.fn.strdisplaywidth(line) - #dur - 1)
   return {
     { line, hl },
     { (' '):rep(pad), '' },
