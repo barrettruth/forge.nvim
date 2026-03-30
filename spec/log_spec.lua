@@ -97,7 +97,7 @@ describe('parse_github', function()
     })
     assert.equals(3, #result.lines)
     assert.equals('error', result.lines[3].kind)
-    assert.equals('    something broke', result.lines[3].text)
+    assert.equals('    Error: something broke', result.lines[3].text)
     assert.equals(1, #result.errors)
     assert.equals(3, result.errors[1])
   end)
@@ -114,7 +114,7 @@ describe('parse_github', function()
       'job\tstep\t2024-01-01T00:00:00Z ##[error file=main.go,line=5]compile error',
     })
     assert.equals('error', result.lines[3].kind)
-    assert.equals('    compile error', result.lines[3].text)
+    assert.equals('    Error: compile error', result.lines[3].text)
   end)
 
   it('skips endgroup lines', function()
@@ -163,6 +163,69 @@ describe('parse_github', function()
     assert.equals('test', result.lines[4].text)
     assert.equals('job', result.lines[4].kind)
     assert.equals('>1', result.lines[4].fold)
+  end)
+
+  it('prepends Warning: to warning content', function()
+    local result = parse_github({
+      'job\tstep\t2024-01-01T00:00:00Z ##[warning]careful now',
+    })
+    assert.equals('warning', result.lines[3].kind)
+    assert.equals('    Warning: careful now', result.lines[3].text)
+  end)
+
+  it('skips UNKNOWN STEP header and promotes groups', function()
+    local result = parse_github({
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:00Z ##[group]Run cachix/install-nix',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:01Z installing...',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:02Z ##[endgroup]',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:03Z ##[group]Run nix develop',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:04Z building...',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:05Z ##[endgroup]',
+    })
+    assert.equals('job', result.lines[1].text)
+    assert.equals('job', result.lines[1].kind)
+    assert.equals('  Run cachix/install-nix', result.lines[2].text)
+    assert.equals('group', result.lines[2].kind)
+    assert.equals('>2', result.lines[2].fold)
+    assert.equals('    installing...', result.lines[3].text)
+    assert.equals('2', result.lines[3].fold)
+    assert.equals('  Run nix develop', result.lines[4].text)
+    assert.equals('>2', result.lines[4].fold)
+    assert.equals('    building...', result.lines[5].text)
+    assert.equals('2', result.lines[5].fold)
+  end)
+
+  it('uses indent 2 for content outside groups in UNKNOWN STEP', function()
+    local result = parse_github({
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:00Z top level content',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:01Z ##[group]My Group',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:02Z inside group',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:03Z ##[endgroup]',
+      'job\tUNKNOWN STEP\t2024-01-01T00:00:04Z after group',
+    })
+    assert.equals('  top level content', result.lines[2].text)
+    assert.equals('1', result.lines[2].fold)
+    assert.equals('  My Group', result.lines[3].text)
+    assert.equals('>2', result.lines[3].fold)
+    assert.equals('    inside group', result.lines[4].text)
+    assert.equals('2', result.lines[4].fold)
+    assert.equals('  after group', result.lines[5].text)
+    assert.equals('1', result.lines[5].fold)
+  end)
+
+  it('does not skip real step names', function()
+    local result = parse_github({
+      'job\tSetup\t2024-01-01T00:00:00Z ##[group]My Group',
+      'job\tSetup\t2024-01-01T00:00:01Z inside',
+      'job\tSetup\t2024-01-01T00:00:02Z ##[endgroup]',
+    })
+    assert.equals('  Setup', result.lines[2].text)
+    assert.equals('step', result.lines[2].kind)
+    assert.equals('>2', result.lines[2].fold)
+    assert.equals('    My Group', result.lines[3].text)
+    assert.equals('>3', result.lines[3].fold)
+    assert.equals('    inside', result.lines[4].text)
+    assert.equals('2', result.lines[4].fold)
   end)
 end)
 
