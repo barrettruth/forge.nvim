@@ -261,16 +261,11 @@ function M.checks(f, num, filter, cached_checks)
             log.info('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
             local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
-            vim.cmd('noautocmd botright new')
-            vim.fn.termopen(cmd)
-            vim.api.nvim_feedkeys(
-              vim.api.nvim_replace_termcodes('<C-\\><C-n>G', true, false, true),
-              'n',
-              false
-            )
-            if c.link then
-              vim.b.forge_check_url = c.link
-            end
+            require('forge.log').open(cmd, {
+              forge_name = f.name,
+              url = c.link,
+              title = c.name or run_id,
+            })
           end,
         },
         {
@@ -372,24 +367,13 @@ function M.ci(f, branch)
             local run = entry.value
             log.info('fetching CI/CD logs...')
             local s = run.status:lower()
-            local cmd
-            if s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
-              cmd = f:run_tail_cmd(run.id)
-            elseif s == 'failure' or s == 'failed' then
-              cmd = f:run_log_cmd(run.id, true)
-            else
-              cmd = f:run_log_cmd(run.id, false)
-            end
-            vim.cmd('noautocmd botright new')
-            vim.fn.termopen(cmd)
-            vim.api.nvim_feedkeys(
-              vim.api.nvim_replace_termcodes('<C-\\><C-n>G', true, false, true),
-              'n',
-              false
-            )
-            if run.url ~= '' then
-              vim.b.forge_run_url = run.url
-            end
+            local failed = s == 'failure' or s == 'failed'
+            local cmd = f:run_log_cmd(run.id, failed)
+            require('forge.log').open(cmd, {
+              forge_name = f.name,
+              url = run.url ~= '' and run.url or nil,
+              title = run.name or run.id,
+            })
           end,
         },
         {

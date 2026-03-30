@@ -19,6 +19,7 @@ local M = {}
 ---@field issue forge.IssuePickerKeys?
 ---@field ci forge.CIPickerKeys?
 ---@field release forge.ReleasePickerKeys?
+---@field log forge.LogViewerKeys?
 
 ---@class forge.PRPickerKeys
 ---@field checkout string|false
@@ -51,6 +52,15 @@ local M = {}
 ---@field yank string|false
 ---@field delete string|false
 ---@field filter string|false
+---@field refresh string|false
+
+---@class forge.LogViewerKeys
+---@field close string|false
+---@field next_step string|false
+---@field prev_step string|false
+---@field next_error string|false
+---@field prev_error string|false
+---@field browse string|false
 ---@field refresh string|false
 
 ---@class forge.DisplayConfig
@@ -115,6 +125,15 @@ local DEFAULTS = {
       filter = '<c-o>',
       refresh = '<c-r>',
     },
+    log = {
+      close = 'q',
+      next_step = ']]',
+      prev_step = '[[',
+      next_error = ']e',
+      prev_error = '[e',
+      browse = 'gx',
+      refresh = '<c-r>',
+    },
   },
   display = {
     icons = {
@@ -174,6 +193,13 @@ local hl_defaults = {
   ForgeSkip = 'Comment',
   ForgeBranch = 'Special',
   ForgeDim = 'Comment',
+  ForgeLogJob = 'Title',
+  ForgeLogStep = 'Function',
+  ForgeLogTimestamp = 'Comment',
+  ForgeLogError = 'DiagnosticError',
+  ForgeLogWarning = 'DiagnosticWarn',
+  ForgeLogSection = 'Special',
+  ForgeLogDim = 'Comment',
 }
 
 for group, link in pairs(hl_defaults) do
@@ -838,6 +864,12 @@ function M.config()
       vim.validate('forge.keys.release', keys.release, 'table')
       for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'refresh' }) do
         vim.validate('forge.keys.release.' .. k, keys.release[k], key_or_false, 'string or false')
+      end
+    end
+    if keys.log ~= nil then
+      vim.validate('forge.keys.log', keys.log, 'table')
+      for _, k in ipairs({ 'close', 'next_step', 'prev_step', 'next_error', 'prev_error', 'browse', 'refresh' }) do
+        vim.validate('forge.keys.log.' .. k, keys.log[k], key_or_false, 'string or false')
       end
     end
   end
