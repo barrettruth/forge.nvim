@@ -498,16 +498,23 @@ local function render(buf, parsed)
       })
     end
   end
+  local fold_meta = {}
+  for i, line in ipairs(parsed.lines) do
+    if line.kind == 'step' and line.duration then
+      fold_meta[i] = { duration = line.duration, conclusion = line.conclusion }
+    end
+  end
   buf_data[buf] = {
     headers = parsed.headers,
     errors = parsed.errors,
+    fold_meta = fold_meta,
   }
   local ranges = fold_ranges(parsed)
   local wins = vim.fn.win_findbuf(buf)
   if #wins > 0 then
     vim.api.nvim_win_call(wins[1], function()
       vim.wo[0].foldmethod = 'manual'
-      vim.wo[0].foldtext = ''
+      vim.wo[0].foldtext = 'v:lua.require("forge.log")._foldtext()'
       pcall(vim.cmd, 'silent! normal! zE')
       for _, r in ipairs(ranges) do
         vim.cmd(r[1] .. ',' .. r[2] .. 'fold')
@@ -575,6 +582,29 @@ local function setup_keymaps(buf, url, cmd, opts)
   map(keys.refresh, function()
     M.open(cmd, opts, buf)
   end, 'Refresh')
+end
+
+function M._foldtext()
+  local lnum = vim.v.foldstart
+  local buf = vim.api.nvim_get_current_buf()
+  local d = buf_data[buf]
+  local line = vim.fn.getline(lnum)
+  if not d or not d.fold_meta then
+    return line
+  end
+  local meta = d.fold_meta[lnum]
+  if not meta or not meta.duration then
+    return line
+  end
+  local hl = meta.conclusion == 'failure' and 'ForgeFail' or 'ForgeLogStep'
+  local dur = meta.duration
+  local width = vim.api.nvim_win_get_width(0)
+  local pad = math.max(1, width - vim.fn.strdisplaywidth(line) - #dur)
+  return {
+    { line, hl },
+    { (' '):rep(pad), '' },
+    { dur, 'ForgeLogDim' },
+  }
 end
 
 ---@class forge.LogOpts
