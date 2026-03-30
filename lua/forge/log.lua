@@ -71,13 +71,125 @@ local function offset_hls(hls, n)
   return hls
 end
 
-local function parse_github(raw_lines)
+---@type table<string, string>
+local step_icons = {
+  success = '✓',
+  failure = '✗',
+  skipped = '⊘',
+}
+
+---@param started string?
+---@param completed string?
+---@return string?
+local function format_duration(started, completed)
+  if not started or not completed then
+    return nil
+  end
+  local function parse_iso(s)
+    local y, mo, d, h, mi, sec = s:match('^(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)')
+    if not y then
+      return nil
+    end
+    return os.time({ year = y, month = mo, day = d, hour = h, min = mi, sec = sec })
+  end
+  local t0 = parse_iso(started)
+  local t1 = parse_iso(completed)
+  if not t0 or not t1 then
+    return nil
+  end
+  local diff = math.max(0, t1 - t0)
+  if diff < 60 then
+    return ('%ds'):format(diff)
+  elseif diff < 3600 then
+    return ('%dm %ds'):format(math.floor(diff / 60), diff % 60)
+  end
+  return ('%dh %dm'):format(math.floor(diff / 3600), math.floor(diff % 3600 / 60))
+end
+
+---@class forge.StepEntry
+---@field name string
+---@field conclusion string
+---@field started string?
+---@field completed string?
+---@field number integer
+---@field emitted boolean
+
+---@class forge.StepLookup
+---@field by_name table<string, forge.StepEntry>
+---@field ordered forge.StepEntry[]
+---@field post_steps forge.StepEntry[]
+---@field setup forge.StepEntry?
+---@field complete forge.StepEntry?
+
+---@param steps table[]?
+---@return forge.StepLookup?
+local function build_step_lookup(steps)
+  if not steps or #steps == 0 then
+    return nil
+  end
+  table.sort(steps, function(a, b)
+    return a.number < b.number
+  end)
+  local lookup = {
+    by_name = {},
+    ordered = {},
+    post_steps = {},
+  }
+  for _, s in ipairs(steps) do
+    local entry = {
+      name = s.name,
+      conclusion = s.conclusion or '',
+      started = s.startedAt,
+      completed = s.completedAt,
+      number = s.number,
+      emitted = false,
+    }
+    lookup.ordered[#lookup.ordered + 1] = entry
+    lookup.by_name[s.name] = entry
+    if s.name == 'Set up job' then
+      lookup.setup = entry
+    elseif s.name == 'Complete job' then
+      lookup.complete = entry
+    elseif s.name:match('^Post ') then
+      lookup.post_steps[#lookup.post_steps + 1] = entry
+    end
+  end
+  return #lookup.ordered > 0 and lookup or nil
+end
+
+---@param raw_lines string[]
+---@param steps table[]?
+---@return { lines: table[], headers: integer[], errors: integer[] }
+local function parse_github(raw_lines, steps)
   local lines = {}
   local headers = {}
   local errors = {}
   local cur_job, cur_step
-  local unknown_step = false
   local in_group = false
+  local lookup = build_step_lookup(steps)
+  local post_idx = 0
+  local unknown_step = false
+
+  ---@param se forge.StepEntry
+  local function emit_step(se)
+    if se.emitted then
+      return
+    end
+    se.emitted = true
+    in_group = false
+    local icon = step_icons[se.conclusion] or '●'
+    local dur = format_duration(se.started, se.completed)
+    lines[#lines + 1] = {
+      text = ('%s %s'):format(icon, se.name),
+      hls = {},
+      fold = '>2',
+      kind = 'step',
+      duration = dur,
+      conclusion = se.conclusion,
+    }
+    headers[#headers + 1] = #lines
+  end
+
   for _, raw in ipairs(raw_lines) do
     if raw:byte(1) == 0xEF and raw:byte(2) == 0xBB and raw:byte(3) == 0xBF then
       raw = raw:sub(4)
@@ -92,11 +204,15 @@ local function parse_github(raw_lines)
     if job ~= cur_job then
       cur_job = job
       cur_step = nil
+      post_idx = 0
       in_group = false
       lines[#lines + 1] = { text = job, hls = {}, fold = '>1', kind = 'job' }
       headers[#headers + 1] = #lines
+      if lookup and lookup.setup then
+        emit_step(lookup.setup)
+      end
     end
-    if step ~= cur_step then
+    if not lookup and step ~= cur_step then
       cur_step = step
       in_group = false
       unknown_step = step == 'UNKNOWN STEP'
@@ -110,6 +226,20 @@ local function parse_github(raw_lines)
       if not content then
         content = rest
       end
+
+      if lookup then
+        if content == 'Post job cleanup.' then
+          post_idx = post_idx + 1
+          if lookup.post_steps[post_idx] then
+            emit_step(lookup.post_steps[post_idx])
+          end
+        elseif content:match('^Cleaning up orphan processes') then
+          if lookup.complete then
+            emit_step(lookup.complete)
+          end
+        end
+      end
+
       local kind, m = 'content', nil
       m = content:match('^##%[error[^%]]*%](.*)$')
       if m then
@@ -123,8 +253,11 @@ local function parse_github(raw_lines)
         content = 'Warning: ' .. m
         goto emit
       end
-      m = content:match('^##%[group[^%]]*%](.*)$')
+      m = content:match('^##%[group%](.*)$')
       if m then
+        if lookup and lookup.by_name[m] then
+          emit_step(lookup.by_name[m])
+        end
         kind = 'group'
         content = m
         goto emit
@@ -146,14 +279,33 @@ local function parse_github(raw_lines)
       end
       ::emit::
       local text, h = strip_ansi(content)
-      local indent_n = (unknown_step and not in_group) and 2 or 4
+      if kind == 'error' or kind == 'warning' then
+        h = {}
+      end
+      local indent_n
       local fold_val
-      if kind == 'group' then
-        fold_val = unknown_step and '>2' or '>3'
-      elseif unknown_step and not in_group then
-        fold_val = '1'
+      if lookup then
+        if kind == 'group' then
+          indent_n = 2
+          fold_val = '>3'
+        elseif in_group then
+          indent_n = 4
+          fold_val = '3'
+        else
+          indent_n = 2
+          fold_val = '2'
+        end
       else
-        fold_val = '2'
+        indent_n = (unknown_step and not in_group) and 2 or 4
+        if kind == 'group' then
+          fold_val = unknown_step and '>2' or '>3'
+        elseif unknown_step then
+          fold_val = in_group and '2' or '1'
+        elseif in_group then
+          fold_val = '3'
+        else
+          fold_val = '2'
+        end
       end
       lines[#lines + 1] = {
         text = (' '):rep(indent_n) .. text,
@@ -169,6 +321,11 @@ local function parse_github(raw_lines)
       end
     end
     ::continue::
+  end
+  if lookup then
+    for _, se in ipairs(lookup.ordered) do
+      emit_step(se)
+    end
   end
   return { lines = lines, headers = headers, errors = errors }
 end
@@ -263,6 +420,14 @@ local function fold_ranges(parsed)
         end
       end
       stack[#stack + 1] = { start = i, level = level }
+    else
+      local level = tonumber(expr) or 0
+      while #stack > 0 and stack[#stack].level > level do
+        local f = table.remove(stack)
+        if i - 1 > f.start then
+          ranges[#ranges + 1] = { f.start, i - 1, f.level }
+        end
+      end
     end
   end
   local n = #parsed.lines
@@ -291,7 +456,15 @@ local function render(buf, parsed)
     local lnum = i - 1
     if line.kind == 'job' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogJob' })
-    elseif line.kind == 'step' or line.kind == 'group' then
+    elseif line.kind == 'step' then
+      local hl = line.conclusion == 'failure' and 'ForgeFail' or 'ForgeLogStep'
+      local ext_opts = { line_hl_group = hl }
+      if line.duration then
+        ext_opts.virt_text = { { line.duration, 'ForgeLogDim' } }
+        ext_opts.virt_text_pos = 'eol'
+      end
+      vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, ext_opts)
+    elseif line.kind == 'group' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogStep' })
     elseif line.kind == 'section' then
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, { line_hl_group = 'ForgeLogSection' })
@@ -339,7 +512,7 @@ local function render(buf, parsed)
       for _, r in ipairs(ranges) do
         vim.cmd(r[1] .. ',' .. r[2] .. 'fold')
       end
-      vim.wo[0].foldlevel = 99
+      vim.wo[0].foldlevel = 1
     end)
   end
 end
@@ -408,6 +581,8 @@ end
 ---@field forge_name string
 ---@field url string?
 ---@field title string?
+---@field steps_cmd string[]?
+---@field job_id string?
 
 ---@param cmd string[]
 ---@param opts forge.LogOpts
@@ -442,14 +617,22 @@ function M.open(cmd, opts, reuse_buf)
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
   vim.bo[buf].modifiable = false
-  vim.system(cmd, { text = true }, function(result)
+
+  local log_result, steps
+  local pending = opts.steps_cmd and 2 or 1
+
+  local function try_render()
+    pending = pending - 1
+    if pending > 0 then
+      return
+    end
     vim.schedule(function()
       if not vim.api.nvim_buf_is_valid(buf) then
         return
       end
-      local stdout = result.stdout or ''
-      if result.code ~= 0 or stdout == '' then
-        local msg = vim.trim(result.stderr or stdout)
+      local stdout = (log_result.stdout or '')
+      if log_result.code ~= 0 or stdout == '' then
+        local msg = vim.trim(log_result.stderr or stdout)
         if msg == '' then
           msg = 'no log output'
         end
@@ -463,7 +646,7 @@ function M.open(cmd, opts, reuse_buf)
       if raw_lines[#raw_lines] == '' then
         raw_lines[#raw_lines] = nil
       end
-      local parsed = parse(raw_lines)
+      local parsed = parse(raw_lines, steps)
       render(buf, parsed)
       local wins = vim.fn.win_findbuf(buf)
       if #wins > 0 then
@@ -477,7 +660,30 @@ function M.open(cmd, opts, reuse_buf)
         end
       end
     end)
+  end
+
+  vim.system(cmd, { text = true }, function(result)
+    log_result = result
+    try_render()
   end)
+
+  if opts.steps_cmd then
+    vim.system(opts.steps_cmd, { text = true }, function(result)
+      if result.code == 0 and result.stdout and result.stdout ~= '' then
+        local ok, data = pcall(vim.json.decode, result.stdout)
+        if ok and data and data.jobs then
+          local job_id = opts.job_id and tonumber(opts.job_id)
+          for _, j in ipairs(data.jobs) do
+            if not job_id or j.databaseId == job_id then
+              steps = j.steps
+              break
+            end
+          end
+        end
+      end
+      try_render()
+    end)
+  end
 end
 
 M._strip_ansi = strip_ansi

@@ -179,6 +179,10 @@ end
 
 ---@param run_id string
 ---@return string[]
+function M:steps_cmd(run_id)
+  return { 'gh', 'run', 'view', run_id, '-R', nwo(), '--json', 'jobs' }
+end
+
 function M:check_tail_cmd(run_id)
   return { 'gh', 'run', 'watch', run_id, '-R', nwo() }
 end

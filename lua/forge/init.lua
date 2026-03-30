@@ -196,15 +196,19 @@ local hl_defaults = {
   ForgeLogJob = 'Title',
   ForgeLogStep = 'Function',
   ForgeLogError = 'DiagnosticVirtualTextError',
-  ForgeLogErrorLabel = 'ErrorMsg',
+  ForgeLogErrorLabel = { bold = true },
   ForgeLogWarning = 'DiagnosticVirtualTextWarn',
-  ForgeLogWarningLabel = 'WarningMsg',
+  ForgeLogWarningLabel = { bold = true },
   ForgeLogSection = 'Special',
   ForgeLogDim = 'Comment',
 }
 
-for group, link in pairs(hl_defaults) do
-  vim.api.nvim_set_hl(0, group, { default = true, link = link })
+for group, val in pairs(hl_defaults) do
+  if type(val) == 'string' then
+    vim.api.nvim_set_hl(0, group, { default = true, link = val })
+  else
+    vim.api.nvim_set_hl(0, group, vim.tbl_extend('keep', { default = true }, val))
+  end
 end
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')

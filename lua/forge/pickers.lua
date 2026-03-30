@@ -261,10 +261,13 @@ function M.checks(f, num, filter, cached_checks)
             log.info('fetching check logs...')
             local bucket = (c.bucket or ''):lower()
             local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
+            local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
             require('forge.log').open(cmd, {
               forge_name = f.name,
               url = c.link,
               title = c.name or run_id,
+              steps_cmd = steps_cmd,
+              job_id = job_id,
             })
           end,
         },
@@ -369,10 +372,12 @@ function M.ci(f, branch)
             local s = run.status:lower()
             local failed = s == 'failure' or s == 'failed'
             local cmd = f:run_log_cmd(run.id, failed)
+            local steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil
             require('forge.log').open(cmd, {
               forge_name = f.name,
               url = run.url ~= '' and run.url or nil,
               title = run.name or run.id,
+              steps_cmd = steps_cmd,
             })
           end,
         },

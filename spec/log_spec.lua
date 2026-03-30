@@ -225,7 +225,7 @@ describe('parse_github', function()
     assert.equals('    My Group', result.lines[3].text)
     assert.equals('>3', result.lines[3].fold)
     assert.equals('    inside', result.lines[4].text)
-    assert.equals('2', result.lines[4].fold)
+    assert.equals('3', result.lines[4].fold)
   end)
 end)
 
