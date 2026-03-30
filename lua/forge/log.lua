@@ -160,53 +160,67 @@ local function parse_gitlab(raw_lines)
   local headers = {}
   local errors = {}
   local in_section = false
+
+  local function process_section_start(raw)
+    local _, sep_end = raw:find('\027%[0K')
+    local header_raw
+    if sep_end then
+      header_raw = raw:sub(sep_end + 1)
+    else
+      header_raw = raw:match('^section_start:%d+:(.+)$') or ''
+    end
+    local text, h = strip_ansi(header_raw)
+    if text == '' then
+      text = raw:match('^section_start:%d+:([^%c\027]+)') or 'section'
+    end
+    lines[#lines + 1] = { text = text, hls = h, fold = '>1', kind = 'section' }
+    headers[#headers + 1] = #lines
+    in_section = true
+  end
+
+  local function process_content(raw)
+    local text, h = strip_ansi(raw)
+    if text == '' then
+      return
+    end
+    local prefix = in_section and '  ' or ''
+    if #prefix > 0 then
+      offset_hls(h, #prefix)
+    end
+    local kind = 'content'
+    for _, hl in ipairs(h) do
+      if hl.group == 'ForgeFail' then
+        kind = 'error'
+        break
+      end
+    end
+    lines[#lines + 1] = {
+      text = prefix .. text,
+      hls = h,
+      fold = in_section and '1' or '0',
+      kind = kind,
+    }
+    if kind == 'error' then
+      errors[#errors + 1] = #lines
+    end
+  end
+
   for _, raw in ipairs(raw_lines) do
     raw = raw:gsub('\r', '')
     if raw:match('^section_start:') then
-      local _, sep_end = raw:find('\027%[0K')
-      local header_raw
-      if sep_end then
-        header_raw = raw:sub(sep_end + 1)
-      else
-        header_raw = raw:match('^section_start:%d+:(.+)$') or ''
-      end
-      local text, h = strip_ansi(header_raw)
-      if text == '' then
-        text = raw:match('^section_start:%d+:([^%c\027]+)') or 'section'
-      end
-      lines[#lines + 1] = { text = text, hls = h, fold = '>1', kind = 'section' }
-      headers[#headers + 1] = #lines
-      in_section = true
-      goto continue
-    end
-    if raw:match('^section_end:') then
+      process_section_start(raw)
+    elseif raw:match('^section_end:') then
       in_section = false
-      goto continue
+      local _, sep_end = raw:find('\027%[0K')
+      local remainder = sep_end and raw:sub(sep_end + 1) or ''
+      if remainder:match('^section_start:') then
+        process_section_start(remainder)
+      elseif remainder ~= '' then
+        process_content(remainder)
+      end
+    else
+      process_content(raw)
     end
-    do
-      local text, h = strip_ansi(raw)
-      local prefix = in_section and '  ' or ''
-      if #prefix > 0 then
-        offset_hls(h, #prefix)
-      end
-      local kind = 'content'
-      for _, hl in ipairs(h) do
-        if hl.group == 'ForgeFail' then
-          kind = 'error'
-          break
-        end
-      end
-      lines[#lines + 1] = {
-        text = prefix .. text,
-        hls = h,
-        fold = in_section and '1' or '0',
-        kind = kind,
-      }
-      if kind == 'error' then
-        errors[#errors + 1] = #lines
-      end
-    end
-    ::continue::
   end
   return { lines = lines, headers = headers, errors = errors }
 end

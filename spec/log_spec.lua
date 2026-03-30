@@ -217,6 +217,24 @@ describe('parse_gitlab', function()
     assert.equals('Building project', result.lines[1].text)
   end)
 
+  it('extracts content after section_end separator', function()
+    local result = parse_gitlab({
+      'section_end:100:step\027[0K\027[31;1mERROR: Job failed: exit code 1\027[0;m',
+    })
+    assert.equals(1, #result.lines)
+    assert.equals('ERROR: Job failed: exit code 1', result.lines[1].text)
+    assert.equals('error', result.lines[1].kind)
+  end)
+
+  it('handles section_end + section_start on same line', function()
+    local result = parse_gitlab({
+      'section_end:100:step_script\027[0Ksection_start:100:cleanup\027[0K\027[36;1mCleaning up\027[0;m',
+    })
+    assert.equals(1, #result.lines)
+    assert.equals('Cleaning up', result.lines[1].text)
+    assert.equals('section', result.lines[1].kind)
+  end)
+
   it('handles multiple sections', function()
     local result = parse_gitlab({
       'section_start:100:a\027[0KFirst',
