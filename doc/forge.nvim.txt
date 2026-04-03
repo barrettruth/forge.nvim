@@ -426,11 +426,13 @@ Compose buffer: ~
   Group                    Default Link      Description ~
   `ForgeComposeComment`      `Comment`          Comment block lines
   `ForgeComposeBranch`       `Special`          Branch names
-  `ForgeComposeForge`        `Type`             Forge name
+  `ForgeComposeForge`        `Label`            Forge name
   `ForgeComposeDraft`        `DiagnosticWarn`   Draft status value
-  `ForgeComposeFile`         `Directory`        File paths in diff stat
+  `ForgeComposeFile`         `Constant`         File paths in diff stat
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
+  `ForgeComposeHeader`       `PreProc`          Section headers
+  `ForgeComposeLabel`        `Label`            Metadata labels (Draft:, etc.)
 
 Picker lines: ~
 
