@@ -36,6 +36,13 @@ function M.check()
     vim.health.error('no picker backend found (install fzf-lua, telescope.nvim, or snacks.nvim)')
   end
 
+  local has_yaml = pcall(vim.treesitter.language.inspect, 'yaml')
+  if has_yaml then
+    vim.health.ok('tree-sitter yaml parser found')
+  else
+    vim.health.info('tree-sitter yaml parser not found (YAML issue form templates disabled)')
+  end
+
   local has_diffs = pcall(require, 'diffs')
   if has_diffs then
     vim.health.ok('diffs.nvim found (review mode available)')
