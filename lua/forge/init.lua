@@ -1135,7 +1135,7 @@ local function open_issue_compose_buffer(f)
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
-  local lines = { '', '' }
+  local lines = { '# ', '' }
   if template and template ~= '' then
     for _, line in ipairs(vim.split(template, '\n', { plain = true })) do
       table.insert(lines, line)
@@ -1206,7 +1206,7 @@ local function open_issue_compose_buffer(f)
         end
         table.insert(content_lines, l)
       end
-      local issue_title = vim.trim(content_lines[1] or '')
+      local issue_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
       if issue_title == '' then
         require('forge.logger').warn('aborting: empty title')
         vim.bo[buf].modified = false
@@ -1249,8 +1249,8 @@ local function open_issue_compose_buffer(f)
     end,
   })
 
-  vim.api.nvim_win_set_cursor(0, { 1, 0 })
-  vim.cmd.startinsert()
+  vim.api.nvim_win_set_cursor(0, { 1, 2 })
+  vim.cmd.startinsert({ bang = true })
 end
 
 ---@param f forge.Forge
@@ -1269,7 +1269,7 @@ local function open_compose_buffer(f, branch, base, draft)
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
-  local lines = { title, '' }
+  local lines = { '# ' .. title, '' }
   if body ~= '' then
     for _, line in ipairs(vim.split(body, '\n', { plain = true })) do
       table.insert(lines, line)
@@ -1424,7 +1424,7 @@ local function open_compose_buffer(f, branch, base, draft)
         end
         table.insert(content_lines, l)
       end
-      local pr_title = vim.trim(content_lines[1] or '')
+      local pr_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
       if pr_title == '' then
         require('forge.logger').warn('aborting: empty title')
         vim.bo[buf].modified = false
@@ -1445,8 +1445,8 @@ local function open_compose_buffer(f, branch, base, draft)
     end,
   })
 
-  vim.api.nvim_win_set_cursor(0, { 1, 0 })
-  vim.cmd('normal! 0vg_')
+  vim.api.nvim_win_set_cursor(0, { 1, 2 })
+  vim.cmd('normal! v$h')
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-G>', true, false, true), 'n', false)
 end
 
