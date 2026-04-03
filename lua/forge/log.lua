@@ -624,6 +624,57 @@ end
 ---@field title string?
 ---@field steps_cmd string[]?
 ---@field job_id string?
+---@field in_progress boolean?
+---@field status_cmd string[]?
+
+local function stop_timer(buf)
+  local d = buf_data[buf]
+  if d and d.timer then
+    d.timer:stop()
+    if not d.timer:is_closing() then
+      d.timer:close()
+    end
+    d.timer = nil
+  end
+end
+
+local function start_auto_refresh(buf, interval, status_cmd, refresh_fn)
+  if interval <= 0 then
+    return
+  end
+  stop_timer(buf)
+  local timer = vim.uv.new_timer()
+  buf_data[buf] = buf_data[buf] or {}
+  buf_data[buf].timer = timer
+  timer:start(
+    interval * 1000,
+    interval * 1000,
+    vim.schedule_wrap(function()
+      if not vim.api.nvim_buf_is_valid(buf) then
+        stop_timer(buf)
+        return
+      end
+      if status_cmd then
+        vim.system(status_cmd, { text = true }, function(result)
+          vim.schedule(function()
+            if not vim.api.nvim_buf_is_valid(buf) then
+              stop_timer(buf)
+              return
+            end
+            local ok, data = pcall(vim.json.decode, result.stdout or '{}')
+            local completed = ok and data and data.status == 'completed'
+            refresh_fn(completed)
+            if completed then
+              stop_timer(buf)
+            end
+          end)
+        end)
+      else
+        refresh_fn(false)
+      end
+    end)
+  )
+end
 
 ---@param cmd string[]
 ---@param opts forge.LogOpts
@@ -632,8 +683,10 @@ function M.open(cmd, opts, reuse_buf)
   local parse = parser_for[opts.forge_name] or parse_github
   local buf
   local saved_cursor
+  local old_line_count
   if reuse_buf and vim.api.nvim_buf_is_valid(reuse_buf) then
     buf = reuse_buf
+    old_line_count = vim.api.nvim_buf_line_count(buf)
     local wins = vim.fn.win_findbuf(buf)
     if #wins > 0 then
       saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
@@ -651,10 +704,13 @@ function M.open(cmd, opts, reuse_buf)
     vim.api.nvim_create_autocmd('BufWipeout', {
       buffer = buf,
       callback = function()
+        stop_timer(buf)
         local d = buf_data[buf]
         if d and d.procs then
           for _, p in ipairs(d.procs) do
-            pcall(function() p:kill() end)
+            pcall(function()
+              p:kill()
+            end)
           end
         end
         buf_data[buf] = nil
@@ -698,13 +754,28 @@ function M.open(cmd, opts, reuse_buf)
       local wins = vim.fn.win_findbuf(buf)
       if #wins > 0 then
         local win = wins[1]
+        local lc = vim.api.nvim_buf_line_count(buf)
         if saved_cursor then
-          local lc = vim.api.nvim_buf_line_count(buf)
-          saved_cursor[1] = math.min(saved_cursor[1], lc)
-          vim.api.nvim_win_set_cursor(win, saved_cursor)
+          local was_at_bottom = old_line_count and saved_cursor[1] >= old_line_count
+          if was_at_bottom then
+            vim.api.nvim_win_set_cursor(win, { lc, 0 })
+          else
+            saved_cursor[1] = math.min(saved_cursor[1], lc)
+            vim.api.nvim_win_set_cursor(win, saved_cursor)
+          end
         else
-          vim.api.nvim_win_set_cursor(win, { vim.api.nvim_buf_line_count(buf), 0 })
+          vim.api.nvim_win_set_cursor(win, { lc, 0 })
         end
+      end
+
+      if opts.in_progress then
+        local cfg = require('forge').config()
+        start_auto_refresh(buf, cfg.ci.refresh, opts.status_cmd, function(completed)
+          if completed then
+            opts = vim.tbl_extend('force', opts, { in_progress = false })
+          end
+          M.open(cmd, opts, buf)
+        end)
       end
     end)
   end
@@ -734,6 +805,207 @@ function M.open(cmd, opts, reuse_buf)
   end
   buf_data[buf] = buf_data[buf] or {}
   buf_data[buf].procs = procs
+end
+
+---@class forge.SummaryOpts
+---@field forge_name string
+---@field run_id string
+---@field url string?
+---@field title string?
+---@field in_progress boolean?
+---@field status_cmd string[]?
+---@field log_cmd_fn fun(job_id: string, failed: boolean): string[], forge.LogOpts
+
+local function parse_summary(raw_lines)
+  local lines = {}
+  local hls = {}
+  local jobs = {}
+  local job_lnums = {}
+
+  for _, raw in ipairs(raw_lines) do
+    local text, h = strip_ansi(raw)
+    lines[#lines + 1] = text
+    hls[#hls + 1] = h
+    local job_id = text:match('%(ID (%d+)%)%s*$')
+    if job_id then
+      local failed = text:match('^X ') ~= nil
+      jobs[#lines] = { id = job_id, failed = failed }
+      job_lnums[#job_lnums + 1] = #lines
+    end
+  end
+
+  return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
+end
+
+---@param cmd string[]
+---@param opts forge.SummaryOpts
+---@param reuse_buf integer?
+function M.open_summary(cmd, opts, reuse_buf)
+  local buf
+  local saved_cursor
+  local old_line_count
+  if reuse_buf and vim.api.nvim_buf_is_valid(reuse_buf) then
+    buf = reuse_buf
+    old_line_count = vim.api.nvim_buf_line_count(buf)
+    local wins = vim.fn.win_findbuf(buf)
+    if #wins > 0 then
+      saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
+    end
+  else
+    local cfg = require('forge').config()
+    local split = cfg.ci.split or cfg.split
+    local prefix = split == 'vertical' and 'vertical' or 'botright'
+    vim.cmd('noautocmd ' .. prefix .. ' new')
+    buf = vim.api.nvim_get_current_buf()
+    vim.bo[buf].buftype = 'nofile'
+    vim.bo[buf].bufhidden = 'wipe'
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].modifiable = false
+    vim.bo[buf].filetype = 'forge_log'
+    pcall(vim.api.nvim_buf_set_name, buf, 'forge://ci/' .. (opts.title or 'summary'))
+    vim.api.nvim_create_autocmd('BufWipeout', {
+      buffer = buf,
+      callback = function()
+        stop_timer(buf)
+        local d = buf_data[buf]
+        if d and d.procs then
+          for _, p in ipairs(d.procs) do
+            pcall(function()
+              p:kill()
+            end)
+          end
+        end
+        buf_data[buf] = nil
+      end,
+    })
+  end
+
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
+  vim.bo[buf].modifiable = false
+
+  local proc = vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(buf) then
+        return
+      end
+      local stdout = result.stdout or ''
+      if result.code ~= 0 or stdout == '' then
+        local msg = vim.trim(result.stderr or stdout)
+        if msg == '' then
+          msg = 'no output'
+        end
+        vim.bo[buf].modifiable = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(msg, '\n'))
+        vim.bo[buf].modifiable = false
+        buf_data[buf] = { headers = {}, errors = {} }
+        return
+      end
+
+      local raw_lines = vim.split(stdout, '\n', { plain = true })
+      if raw_lines[#raw_lines] == '' then
+        raw_lines[#raw_lines] = nil
+      end
+      local parsed = parse_summary(raw_lines)
+
+      vim.bo[buf].modifiable = true
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, parsed.lines)
+      vim.bo[buf].modifiable = false
+
+      vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+      for i, h in ipairs(parsed.hls) do
+        for _, hl in ipairs(h) do
+          vim.api.nvim_buf_set_extmark(buf, ns, i - 1, hl.col, {
+            end_col = hl.end_col,
+            hl_group = hl.group,
+          })
+        end
+      end
+
+      buf_data[buf] = {
+        headers = parsed.job_lnums,
+        errors = {},
+        jobs = parsed.jobs,
+      }
+
+      if not reuse_buf then
+        local cfg = require('forge').config()
+        if cfg.keys ~= false then
+          local keys = cfg.keys.log or {}
+          local function map(key, fn, desc)
+            if key and key ~= false then
+              vim.keymap.set('n', key, fn, { buffer = buf, desc = desc })
+            end
+          end
+          map(keys.close, function()
+            vim.api.nvim_buf_delete(buf, { force = true })
+          end, 'Close')
+          map(keys.browse, function()
+            if opts.url then
+              vim.ui.open(opts.url)
+            end
+          end, 'Browse')
+          map(keys.refresh, function()
+            M.open_summary(cmd, opts, buf)
+          end, 'Refresh')
+          map(keys.next_step, function()
+            jump(buf, 'header', 1)
+          end, 'Next job')
+          map(keys.prev_step, function()
+            jump(buf, 'header', -1)
+          end, 'Previous job')
+          vim.keymap.set('n', '<cr>', function()
+            local lnum = vim.api.nvim_win_get_cursor(0)[1]
+            local d = buf_data[buf]
+            if not d or not d.jobs then
+              return
+            end
+            local job = d.jobs[lnum]
+            if not job then
+              for i = lnum, 1, -1 do
+                if d.jobs[i] then
+                  job = d.jobs[i]
+                  break
+                end
+              end
+            end
+            if job and opts.log_cmd_fn then
+              local log_cmd, log_opts = opts.log_cmd_fn(job.id, job.failed)
+              M.open(log_cmd, log_opts)
+            end
+          end, { buffer = buf, desc = 'Open job log' })
+        end
+      end
+
+      local wins = vim.fn.win_findbuf(buf)
+      if #wins > 0 then
+        local win = wins[1]
+        if saved_cursor then
+          local lc = vim.api.nvim_buf_line_count(buf)
+          local was_at_bottom = old_line_count and saved_cursor[1] >= old_line_count
+          if was_at_bottom then
+            vim.api.nvim_win_set_cursor(win, { lc, 0 })
+          else
+            saved_cursor[1] = math.min(saved_cursor[1], lc)
+            vim.api.nvim_win_set_cursor(win, saved_cursor)
+          end
+        end
+      end
+
+      if opts.in_progress then
+        local cfg = require('forge').config()
+        start_auto_refresh(buf, cfg.ci.refresh, opts.status_cmd, function(completed)
+          if completed then
+            opts = vim.tbl_extend('force', opts, { in_progress = false })
+          end
+          M.open_summary(cmd, opts, buf)
+        end)
+      end
+    end)
+  end)
+
+  buf_data[buf] = buf_data[buf] or {}
+  buf_data[buf].procs = { proc }
 end
 
 M._strip_ansi = strip_ansi

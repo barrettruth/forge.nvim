@@ -179,8 +179,42 @@ function M:steps_cmd(run_id)
   return { 'gh', 'run', 'view', run_id, '-R', nwo(), '--json', 'jobs' }
 end
 
-function M:check_tail_cmd(run_id)
-  return { 'gh', 'run', 'watch', run_id, '-R', nwo() }
+---@param id string
+---@param opts? { job_id?: string, log?: boolean, failed?: boolean }
+---@return string[]
+function M:view_cmd(id, opts)
+  opts = opts or {}
+  local cmd = { 'gh', 'run', 'view', id, '-R', nwo() }
+  if opts.job_id then
+    table.insert(cmd, '--job')
+    table.insert(cmd, opts.job_id)
+  end
+  if opts.log then
+    table.insert(cmd, opts.failed and '--log-failed' or '--log')
+  end
+  return cmd
+end
+
+---@param id string
+---@return string[]
+function M:watch_cmd(id)
+  return { 'gh', 'run', 'watch', id, '-R', nwo() }
+end
+
+---@param id string
+---@return string[]
+function M:run_status_cmd(id)
+  return { 'gh', 'run', 'view', id, '-R', nwo(), '--json', 'status,conclusion' }
+end
+
+function M:run_log_cmd(id, failed_only)
+  local lines = forge.config().ci.lines
+  local flag = failed_only and '--log-failed' or '--log'
+  return {
+    'sh',
+    '-c',
+    ('gh run view %s -R %s %s | tail -n %d'):format(id, nwo(), flag, lines),
+  }
 end
 
 function M:list_runs_json_cmd(branch)
@@ -214,20 +248,6 @@ function M:normalize_run(entry)
     url = entry.url or '',
     created_at = entry.createdAt or '',
   }
-end
-
-function M:run_log_cmd(id, failed_only)
-  local lines = forge.config().ci.lines
-  local flag = failed_only and '--log-failed' or '--log'
-  return {
-    'sh',
-    '-c',
-    ('gh run view %s -R %s %s | tail -n %d'):format(id, nwo(), flag, lines),
-  }
-end
-
-function M:run_tail_cmd(id)
-  return { 'gh', 'run', 'watch', id, '-R', nwo() }
 end
 
 ---@param num string

@@ -179,6 +179,18 @@ function M:check_tail_cmd(run_id)
   return { 'tea', 'actions', 'runs', 'logs', run_id, '--follow' }
 end
 
+---@param run_id string
+---@param job_id string?
+---@return string[]
+function M:live_tail_cmd(run_id, job_id)
+  local cmd = { 'tea', 'actions', 'runs', 'logs', run_id, '--follow' }
+  if job_id then
+    table.insert(cmd, '--job')
+    table.insert(cmd, job_id)
+  end
+  return cmd
+end
+
 function M:list_runs_json_cmd(branch)
   local limit = tostring(forge.config().display.limits.runs)
   local cmd = 'tea api "/repos/:owner/:repo/actions/runs?limit=' .. limit
