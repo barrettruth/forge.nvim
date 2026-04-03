@@ -40,6 +40,7 @@ local M = {}
 ---@class forge.IssuePickerKeys
 ---@field browse string|false
 ---@field close string|false
+---@field create string|false
 ---@field filter string|false
 ---@field refresh string|false
 
@@ -115,7 +116,13 @@ local DEFAULTS = {
       filter = '<c-o>',
       refresh = '<c-r>',
     },
-    issue = { browse = '<cr>', close = '<c-s>', filter = '<c-o>', refresh = '<c-r>' },
+    issue = {
+      browse = '<cr>',
+      close = '<c-s>',
+      filter = '<c-o>',
+      refresh = '<c-r>',
+      create = '<c-a>',
+    },
     ci = {
       log = '<cr>',
       watch = '<c-w>',
@@ -300,6 +307,9 @@ local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 ---@field release_json_fields fun(self: forge.Forge): { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
 ---@field browse_release fun(self: forge.Forge, tag: string)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string): string[]
+---@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, assignees: string[]?): string[]
+---@field issue_template_paths fun(self: forge.Forge): string[]
+---@field create_issue_web_cmd (fun(self: forge.Forge): string[]?)?
 
 ---@type table<string, forge.Forge>
 local forge_cache = {}
@@ -875,7 +885,7 @@ function M.config()
     end
     if keys.issue ~= nil then
       vim.validate('forge.keys.issue', keys.issue, 'table')
-      for _, k in ipairs({ 'browse', 'close', 'filter', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'close', 'create', 'filter', 'refresh' }) do
         vim.validate('forge.keys.issue.' .. k, keys.issue[k], key_or_false, 'string or false')
       end
     end
@@ -955,11 +965,11 @@ local function fill_from_commits(branch, base)
   return clean, table.concat(lines, '\n')
 end
 
----@param f forge.Forge
+---@param paths string[]
 ---@param repo_root string
+---@param label string
 ---@return string?
-local function discover_template(f, repo_root)
-  local paths = f:template_paths()
+local function discover_template(paths, repo_root, label)
   for _, p in ipairs(paths) do
     local full = repo_root .. '/' .. p
     local stat = vim.uv.fs_stat(full)
@@ -1002,7 +1012,7 @@ local function discover_template(f, repo_root)
           table.sort(templates)
           local chosen
           vim.ui.select(templates, {
-            prompt = 'PR template: ',
+            prompt = label .. ' template: ',
           }, function(choice)
             chosen = choice
           end)
@@ -1081,6 +1091,164 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_rev
   end)
 end
 
+local function submit_issue(f, title, body, labels, assignees, buf)
+  local log = require('forge.logger')
+  log.info('creating issue...')
+  vim.system(f:create_issue_cmd(title, body, labels, assignees), { text = true }, function(result)
+    vim.schedule(function()
+      if result.code == 0 then
+        local url = vim.trim(result.stdout or '')
+        if url ~= '' then
+          vim.fn.setreg('+', url)
+        end
+        log.info(('created issue → %s'):format(url))
+        M.clear_list()
+        if buf and vim.api.nvim_buf_is_valid(buf) then
+          vim.bo[buf].modified = false
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end
+      else
+        local msg = vim.trim(result.stderr or '')
+        if msg == '' then
+          msg = vim.trim(result.stdout or '')
+        end
+        if msg == '' then
+          msg = 'creation failed'
+        end
+        log.error(msg)
+      end
+    end)
+  end)
+end
+
+local function open_issue_compose_buffer(f)
+  local root = git_root() or ''
+  local template = discover_template(f:issue_template_paths(), root, 'Issue')
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(buf, 'forge://issue/new')
+  vim.bo[buf].buftype = 'acwrite'
+  vim.bo[buf].filetype = 'markdown'
+  vim.bo[buf].swapfile = false
+
+  local lines = { '', '' }
+  if template and template ~= '' then
+    for _, line in ipairs(vim.split(template, '\n', { plain = true })) do
+      table.insert(lines, line)
+    end
+  else
+    table.insert(lines, '')
+  end
+
+  table.insert(lines, '')
+  local comment_start = #lines + 1
+
+  local marks = {}
+
+  local function add_line(fmt, ...)
+    local text = fmt:format(...)
+    table.insert(lines, text)
+    return #lines
+  end
+
+  local function mark(ln, start, len, hl_group)
+    table.insert(marks, { line = ln, col = start, end_col = start + len, hl = hl_group })
+  end
+
+  add_line('<!--')
+
+  local creating_prefix = '  Creating issue via '
+  local ln = add_line('%s%s.', creating_prefix, f.name)
+  mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
+
+  add_line('')
+  local labels_prefix = '  Labels: '
+  add_line('%s', labels_prefix)
+
+  local assignees_prefix = '  Assignees: '
+  add_line('%s', assignees_prefix)
+
+  add_line('')
+  add_line('  An empty title or body aborts creation.')
+  add_line('-->')
+
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modified = false
+
+  vim.api.nvim_set_current_buf(buf)
+
+  for _, m in ipairs(marks) do
+    vim.api.nvim_buf_set_extmark(buf, compose_ns, m.line - 1, m.col, {
+      end_col = m.end_col,
+      hl_group = m.hl,
+      priority = 200,
+    })
+  end
+  for i = comment_start, #lines do
+    vim.api.nvim_buf_set_extmark(buf, compose_ns, i - 1, 0, {
+      line_hl_group = 'ForgeComposeComment',
+      priority = 200,
+    })
+  end
+
+  vim.api.nvim_create_autocmd('BufWriteCmd', {
+    buffer = buf,
+    callback = function()
+      local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local content_lines = {}
+      for _, l in ipairs(buf_lines) do
+        if l:match('^<!--') then
+          break
+        end
+        table.insert(content_lines, l)
+      end
+      local issue_title = vim.trim(content_lines[1] or '')
+      if issue_title == '' then
+        require('forge.logger').warn('aborting: empty title')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+      local issue_body = vim.trim(table.concat(content_lines, '\n', 3))
+      if issue_body == '' then
+        require('forge.logger').warn('aborting: empty body')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+
+      local in_comment = false
+      local issue_labels = {}
+      local issue_assignees = {}
+      for _, l in ipairs(buf_lines) do
+        if l:match('^<!--') then
+          in_comment = true
+        elseif l:match('^%-%->') then
+          break
+        elseif in_comment then
+          local lv = l:match('^%s*Labels:%s*(.*)$')
+          if lv then
+            for label in vim.trim(lv):gmatch('[^,%s]+') do
+              table.insert(issue_labels, label)
+            end
+          end
+          local av = l:match('^%s*Assignees:%s*(.*)$')
+          if av then
+            for assignee in vim.trim(av):gmatch('[^,%s]+') do
+              table.insert(issue_assignees, assignee)
+            end
+          end
+        end
+      end
+
+      submit_issue(f, issue_title, issue_body, issue_labels, issue_assignees, buf)
+    end,
+  })
+
+  vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  vim.cmd.startinsert()
+end
+
 ---@param f forge.Forge
 ---@param branch string
 ---@param base string
@@ -1088,7 +1256,7 @@ end
 local function open_compose_buffer(f, branch, base, draft)
   local root = git_root() or ''
   local title, commit_body = fill_from_commits(branch, base)
-  local template = discover_template(f, root)
+  local template = discover_template(f:template_paths(), root, f.labels.pr_one)
   local body = template or commit_body
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -1347,6 +1515,36 @@ function M.create_pr(opts)
       end)
     end)
   end)
+end
+
+---@class forge.CreateIssueOpts
+---@field web boolean?
+
+---@param opts forge.CreateIssueOpts?
+function M.create_issue(opts)
+  opts = opts or {}
+  local log = require('forge.logger')
+
+  local f = M.detect()
+  if not f then
+    log.warn('no forge detected')
+    return
+  end
+
+  if opts.web then
+    if f.create_issue_web_cmd then
+      local cmd = f:create_issue_web_cmd()
+      if cmd then
+        vim.system(cmd)
+      end
+    else
+      local url = M.remote_web_url() .. '/issues/new'
+      vim.ui.open(url)
+    end
+    return
+  end
+
+  open_issue_compose_buffer(f)
 end
 
 return M
