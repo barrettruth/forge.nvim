@@ -2,7 +2,7 @@
 
 CONTENTS                                                 *forge.nvim-contents*
 
-    INTRODUCTION..................................................|forge.nvim|
+    INTRODUCTION..........................................|forge.nvim| |forge|
     CONFIGURATION...............................................|forge-config|
     `picker`.............................................|forge-config-picker|
     `debug`...............................................|forge-config-debug|
@@ -44,7 +44,7 @@ CONTENTS                                                 *forge.nvim-contents*
     API............................................................|forge-api|
 
 ==============================================================================
-INTRODUCTION                                                      *forge.nvim*
+INTRODUCTION                                              *forge* *forge.nvim*
 
 forge.nvim provides PR, issue, CI, and release workflows across GitHub,
 GitLab, and Codeberg from inside Neovim. It detects the forge from your git
