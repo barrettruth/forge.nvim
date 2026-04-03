@@ -184,13 +184,17 @@ function M.registered_sources()
 end
 
 local hl_defaults = {
+  -- TODO: https://github.com/barrettruth/forge.nvim/issues/33
+  -- ForgeComposeComment = 'Comment',
   ForgeComposeComment = { italic = true },
   ForgeComposeBranch = 'Special',
-  ForgeComposeForge = 'Type',
+  ForgeComposeForge = 'Label',
   ForgeComposeDraft = 'DiagnosticWarn',
-  ForgeComposeFile = 'Directory',
+  ForgeComposeFile = 'Constant',
   ForgeComposeAdded = 'Added',
   ForgeComposeRemoved = 'Removed',
+  ForgeComposeHeader = 'PreProc',
+  ForgeComposeLabel = 'Label',
   ForgeNumber = 'Number',
   ForgeOpen = 'DiagnosticInfo',
   ForgeMerged = 'Constant',
@@ -1139,6 +1143,7 @@ local function open_compose_buffer(f, branch, base, draft)
 
   local creating_prefix = '  Creating ' .. pr_kind .. ' via '
   ln = add_line('%s%s.', creating_prefix, f.name)
+  mark(ln, 2, #creating_prefix - 2, 'ForgeComposeHeader')
   mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
   add_line('')
@@ -1146,12 +1151,14 @@ local function open_compose_buffer(f, branch, base, draft)
     local draft_val = draft and 'true' or 'false'
     local draft_prefix = '  Draft: '
     ln = add_line('%s%s', draft_prefix, draft_val)
+    mark(ln, 2, 6, 'ForgeComposeLabel')
     mark(ln, #draft_prefix, #draft_val, draft and 'ForgeComposeDraft' or 'ForgeDim')
   end
 
   if f.capabilities.reviewers then
     local reviewers_prefix = '  Reviewers: '
-    add_line('%s', reviewers_prefix)
+    ln = add_line('%s', reviewers_prefix)
+    mark(ln, 2, 10, 'ForgeComposeLabel')
   end
 
   local stat_start, stat_end
@@ -1159,6 +1166,7 @@ local function open_compose_buffer(f, branch, base, draft)
     add_line('')
     local changes_prefix = '  Changes not in origin/'
     ln = add_line('%s%s:', changes_prefix, base)
+    mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
     mark(ln, #changes_prefix, #base, 'ForgeComposeBranch')
     add_line('')
     stat_start = #lines + 1
