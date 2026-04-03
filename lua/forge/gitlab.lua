@@ -176,15 +176,16 @@ end
 
 ---@param run_id string
 ---@param failed_only boolean
----@param _job_id string?
+---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only, _job_id)
+function M:check_log_cmd(run_id, failed_only, job_id)
   local _ = failed_only
   local lines = forge.config().ci.lines
+  local id = job_id or run_id
   return {
     'sh',
     '-c',
-    ('glab ci trace %s | tail -n %d'):format(run_id, lines),
+    ('glab ci trace %s | tail -n %d'):format(id, lines),
   }
 end
 
@@ -200,9 +201,15 @@ function M:live_tail_cmd(run_id)
   return { 'glab', 'ci', 'trace', run_id }
 end
 
+---@param id string?
 ---@return string[]
-function M:watch_cmd()
-  return { 'glab', 'ci', 'view' }
+function M:watch_cmd(id)
+  local cmd = { 'glab', 'ci', 'view' }
+  if id then
+    table.insert(cmd, '-p')
+    table.insert(cmd, id)
+  end
+  return cmd
 end
 
 function M:list_runs_json_cmd(branch)
