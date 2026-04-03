@@ -250,7 +250,6 @@ function M:normalize_run(entry)
   }
 end
 
-
 ---@param num string
 ---@param method string
 ---@return string[]

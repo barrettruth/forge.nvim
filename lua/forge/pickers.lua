@@ -381,7 +381,10 @@ function M.ci(f, branch)
             end
             local run = entry.value
             local s = run.status:lower()
-            local in_progress = s == 'in_progress' or s == 'queued' or s == 'pending' or s == 'running'
+            local in_progress = s == 'in_progress'
+              or s == 'queued'
+              or s == 'pending'
+              or s == 'running'
             local url = run.url ~= '' and run.url or nil
             local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id) or nil
             if f.view_cmd then

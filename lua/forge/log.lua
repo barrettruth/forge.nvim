@@ -646,30 +646,34 @@ local function start_auto_refresh(buf, interval, status_cmd, refresh_fn)
   local timer = vim.uv.new_timer()
   buf_data[buf] = buf_data[buf] or {}
   buf_data[buf].timer = timer
-  timer:start(interval * 1000, interval * 1000, vim.schedule_wrap(function()
-    if not vim.api.nvim_buf_is_valid(buf) then
-      stop_timer(buf)
-      return
-    end
-    if status_cmd then
-      vim.system(status_cmd, { text = true }, function(result)
-        vim.schedule(function()
-          if not vim.api.nvim_buf_is_valid(buf) then
-            stop_timer(buf)
-            return
-          end
-          local ok, data = pcall(vim.json.decode, result.stdout or '{}')
-          local completed = ok and data and data.status == 'completed'
-          refresh_fn(completed)
-          if completed then
-            stop_timer(buf)
-          end
+  timer:start(
+    interval * 1000,
+    interval * 1000,
+    vim.schedule_wrap(function()
+      if not vim.api.nvim_buf_is_valid(buf) then
+        stop_timer(buf)
+        return
+      end
+      if status_cmd then
+        vim.system(status_cmd, { text = true }, function(result)
+          vim.schedule(function()
+            if not vim.api.nvim_buf_is_valid(buf) then
+              stop_timer(buf)
+              return
+            end
+            local ok, data = pcall(vim.json.decode, result.stdout or '{}')
+            local completed = ok and data and data.status == 'completed'
+            refresh_fn(completed)
+            if completed then
+              stop_timer(buf)
+            end
+          end)
         end)
-      end)
-    else
-      refresh_fn(false)
-    end
-  end))
+      else
+        refresh_fn(false)
+      end
+    end)
+  )
 end
 
 ---@param cmd string[]
@@ -704,7 +708,9 @@ function M.open(cmd, opts, reuse_buf)
         local d = buf_data[buf]
         if d and d.procs then
           for _, p in ipairs(d.procs) do
-            pcall(function() p:kill() end)
+            pcall(function()
+              p:kill()
+            end)
           end
         end
         buf_data[buf] = nil
@@ -864,7 +870,9 @@ function M.open_summary(cmd, opts, reuse_buf)
         local d = buf_data[buf]
         if d and d.procs then
           for _, p in ipairs(d.procs) do
-            pcall(function() p:kill() end)
+            pcall(function()
+              p:kill()
+            end)
           end
         end
         buf_data[buf] = nil
