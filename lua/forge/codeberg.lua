@@ -161,15 +161,16 @@ end
 
 ---@param run_id string
 ---@param failed_only boolean
----@param _job_id string?
+---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only, _job_id)
+function M:check_log_cmd(run_id, failed_only, job_id)
   local _ = failed_only
   local lines = forge.config().ci.lines
+  local job_flag = job_id and (' --job %s'):format(job_id) or ''
   return {
     'sh',
     '-c',
-    ('tea actions runs logs %s | tail -n %d'):format(run_id, lines),
+    ('tea actions runs logs %s%s | tail -n %d'):format(run_id, job_flag, lines),
   }
 end
 
