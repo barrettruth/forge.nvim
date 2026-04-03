@@ -26,7 +26,8 @@ describe('config', function()
   it('returns defaults when vim.g.forge is nil', function()
     vim.g.forge = nil
     local cfg = forge.config()
-    assert.equals(10000, cfg.ci.lines)
+    assert.equals(1000, cfg.ci.lines)
+    assert.equals('horizontal', cfg.split)
     assert.equals(45, cfg.display.widths.title)
     assert.equals(100, cfg.display.limits.pulls)
     assert.equals('+', cfg.display.icons.open)
@@ -450,6 +451,58 @@ describe('config validation', function()
 
   it('rejects non-table source hosts', function()
     vim.g.forge = { sources = { custom = { hosts = 99 } } }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('rejects invalid split value', function()
+    vim.g.forge = { split = 'diagonal' }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('accepts horizontal split', function()
+    vim.g.forge = { split = 'horizontal' }
+    local cfg = forge.config()
+    assert.equals('horizontal', cfg.split)
+  end)
+
+  it('accepts vertical split', function()
+    vim.g.forge = { split = 'vertical' }
+    local cfg = forge.config()
+    assert.equals('vertical', cfg.split)
+  end)
+
+  it('accepts ci.split override', function()
+    vim.g.forge = { split = 'horizontal', ci = { split = 'vertical' } }
+    local cfg = forge.config()
+    assert.equals('horizontal', cfg.split)
+    assert.equals('vertical', cfg.ci.split)
+  end)
+
+  it('rejects invalid ci.split', function()
+    vim.g.forge = { ci = { split = 'bad' } }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('defaults ci.refresh to 5', function()
+    vim.g.forge = nil
+    local cfg = forge.config()
+    assert.equals(5, cfg.ci.refresh)
+  end)
+
+  it('accepts ci.refresh = 0 to disable', function()
+    vim.g.forge = { ci = { refresh = 0 } }
+    local cfg = forge.config()
+    assert.equals(0, cfg.ci.refresh)
+  end)
+
+  it('rejects non-number ci.refresh', function()
+    vim.g.forge = { ci = { refresh = 'fast' } }
     assert.has_error(function()
       forge.config()
     end)

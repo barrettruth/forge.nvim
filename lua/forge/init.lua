@@ -1,8 +1,11 @@
 local M = {}
 
+---@alias forge.Split 'horizontal'|'vertical'
+
 ---@class forge.Config
 ---@field picker 'fzf-lua'|'telescope'|'snacks'|'auto'
 ---@field debug boolean|string?
+---@field split forge.Split
 ---@field ci forge.CIConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
@@ -10,6 +13,8 @@ local M = {}
 
 ---@class forge.CIConfig
 ---@field lines integer
+---@field split forge.Split?
+---@field refresh integer
 
 ---@class forge.SourceConfig
 ---@field hosts string[]
@@ -40,6 +45,7 @@ local M = {}
 
 ---@class forge.CIPickerKeys
 ---@field log string|false
+---@field watch string|false
 ---@field browse string|false
 ---@field failed string|false
 ---@field passed string|false
@@ -94,7 +100,8 @@ local M = {}
 local DEFAULTS = {
   picker = 'auto',
   debug = false,
-  ci = { lines = 10000 },
+  split = 'horizontal',
+  ci = { lines = 1000, refresh = 5 },
   sources = {},
   keys = {
     pr = {
@@ -111,6 +118,7 @@ local DEFAULTS = {
     issue = { browse = '<cr>', close = '<c-s>', filter = '<c-o>', refresh = '<c-r>' },
     ci = {
       log = '<cr>',
+      watch = '<c-w>',
       browse = '<c-x>',
       failed = '<c-f>',
       passed = '<c-p>',
@@ -265,12 +273,15 @@ local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 ---@field pr_for_branch_cmd fun(self: forge.Forge, branch: string): string[]
 ---@field checks_cmd fun(self: forge.Forge, num: string): string
 ---@field check_log_cmd fun(self: forge.Forge, run_id: string, failed_only: boolean, job_id: string?): string[]
----@field check_tail_cmd fun(self: forge.Forge, run_id: string): string[]
+---@field steps_cmd (fun(self: forge.Forge, run_id: string): string[])?
+---@field view_cmd (fun(self: forge.Forge, id: string, opts?: { job_id?: string, log?: boolean, failed?: boolean }): string[])?
+---@field watch_cmd (fun(self: forge.Forge, id: string): string[])?
+---@field run_status_cmd (fun(self: forge.Forge, id: string): string[])?
+---@field live_tail_cmd (fun(self: forge.Forge, run_id: string, job_id: string?): string[])?
 ---@field list_runs_json_cmd fun(self: forge.Forge, branch: string?): string[]
 ---@field list_runs_cmd fun(self: forge.Forge, branch: string?): string
 ---@field normalize_run fun(self: forge.Forge, entry: table): forge.CIRun
 ---@field run_log_cmd fun(self: forge.Forge, id: string, failed_only: boolean): string[]
----@field run_tail_cmd fun(self: forge.Forge, id: string): string[]
 ---@field merge_cmd fun(self: forge.Forge, num: string, method: string): string[]
 ---@field approve_cmd fun(self: forge.Forge, num: string): string[]
 ---@field repo_info fun(self: forge.Forge): forge.RepoInfo
@@ -806,9 +817,18 @@ function M.config()
   vim.validate('forge.keys', cfg.keys, function(v)
     return v == false or type(v) == 'table'
   end, 'table or false')
+  vim.validate('forge.split', cfg.split, function(v)
+    return v == 'horizontal' or v == 'vertical'
+  end, "'horizontal' or 'vertical'")
   vim.validate('forge.display', cfg.display, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, 'number')
+  vim.validate('forge.ci.refresh', cfg.ci.refresh, 'number')
+  if cfg.ci.split ~= nil then
+    vim.validate('forge.ci.split', cfg.ci.split, function(v)
+      return v == 'horizontal' or v == 'vertical'
+    end, "'horizontal' or 'vertical'")
+  end
 
   vim.validate('forge.display.icons', cfg.display.icons, 'table')
   vim.validate('forge.display.icons.open', cfg.display.icons.open, 'string')

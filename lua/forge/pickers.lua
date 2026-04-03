@@ -263,16 +263,24 @@ function M.checks(f, num, filter, cached_checks)
               log.info('no log available — job was not started')
               return
             end
-            log.info('fetching check logs...')
-            local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
-            local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
-            require('forge.log').open(cmd, {
-              forge_name = f.name,
-              url = c.link,
-              title = c.name or run_id,
-              steps_cmd = steps_cmd,
-              job_id = job_id,
-            })
+            local in_progress = bucket == 'pending'
+            if in_progress and f.live_tail_cmd then
+              require('forge.term').open(f:live_tail_cmd(run_id, job_id), { url = c.link })
+            else
+              log.info('fetching check logs...')
+              local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
+              local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
+              local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id) or nil
+              require('forge.log').open(cmd, {
+                forge_name = f.name,
+                url = c.link,
+                title = c.name or run_id,
+                steps_cmd = steps_cmd,
+                job_id = job_id,
+                in_progress = in_progress,
+                status_cmd = status_cmd,
+              })
+            end
           end,
         },
         {
@@ -372,17 +380,59 @@ function M.ci(f, branch)
               return
             end
             local run = entry.value
-            log.info('fetching CI/CD logs...')
             local s = run.status:lower()
-            local failed = s == 'failure' or s == 'failed'
-            local cmd = f:run_log_cmd(run.id, failed)
-            local steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil
-            require('forge.log').open(cmd, {
-              forge_name = f.name,
-              url = run.url ~= '' and run.url or nil,
-              title = run.name or run.id,
-              steps_cmd = steps_cmd,
-            })
+            local in_progress = s == 'in_progress' or s == 'queued' or s == 'pending' or s == 'running'
+            local url = run.url ~= '' and run.url or nil
+            local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id) or nil
+            if f.view_cmd then
+              require('forge.log').open_summary(f:view_cmd(run.id), {
+                forge_name = f.name,
+                run_id = run.id,
+                url = url,
+                title = run.name or run.id,
+                in_progress = in_progress,
+                status_cmd = status_cmd,
+                log_cmd_fn = function(job_id, failed)
+                  return f:check_log_cmd(run.id, failed, job_id),
+                    {
+                      forge_name = f.name,
+                      url = url,
+                      title = (run.name or run.id) .. ' / ' .. (job_id or ''),
+                      steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
+                      job_id = job_id,
+                      in_progress = in_progress,
+                      status_cmd = status_cmd,
+                    }
+                end,
+              })
+            else
+              log.info('fetching CI/CD logs...')
+              local failed = s == 'failure' or s == 'failed'
+              local cmd = f:run_log_cmd(run.id, failed)
+              local steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil
+              require('forge.log').open(cmd, {
+                forge_name = f.name,
+                url = url,
+                title = run.name or run.id,
+                steps_cmd = steps_cmd,
+                in_progress = in_progress,
+                status_cmd = status_cmd,
+              })
+            end
+          end,
+        },
+        {
+          name = 'watch',
+          fn = function(entry)
+            if not entry then
+              return
+            end
+            if f.watch_cmd then
+              local run = entry.value
+              require('forge.term').open(f:watch_cmd(run.id), {
+                url = run.url ~= '' and run.url or nil,
+              })
+            end
           end,
         },
         {

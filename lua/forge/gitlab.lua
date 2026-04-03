@@ -194,6 +194,17 @@ function M:check_tail_cmd(run_id)
   return { 'glab', 'ci', 'trace', run_id }
 end
 
+---@param run_id string
+---@return string[]
+function M:live_tail_cmd(run_id)
+  return { 'glab', 'ci', 'trace', run_id }
+end
+
+---@return string[]
+function M:watch_cmd()
+  return { 'glab', 'ci', 'view' }
+end
+
 function M:list_runs_json_cmd(branch)
   local cmd = {
     'glab',

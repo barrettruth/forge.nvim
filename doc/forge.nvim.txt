@@ -6,6 +6,7 @@ CONTENTS                                                 *forge.nvim-contents*
     CONFIGURATION...............................................|forge-config|
     `picker`.............................................|forge-config-picker|
     `debug`...............................................|forge-config-debug|
+    `split`...............................................|forge-config-split|
     `ci`.....................................................|forge-config-ci|
     `sources`...........................................|forge-config-sources|
     `keys`.................................................|forge-config-keys|
@@ -90,9 +91,21 @@ Top-level keys: ~
     `vim.notify`. When a `string`, messages are written to that file path
     (e.g. `"/tmp/forge.log"`). See |forge.logger.debug()|.
 
+`split`                                                   *forge-config-split*
+  `string`  (default `"horizontal"`)
+    Default split direction for terminal views. One of `"horizontal"` or
+    `"vertical"`. Individual scopes (e.g. `ci.split`) override this value.
+
 `ci`                                                         *forge-config-ci*
-  `ci.lines`        `integer`  (default `10000`)
+  `ci.lines`        `integer`  (default `1000`)
     Maximum number of log lines fetched for CI/check log output.
+
+  `ci.refresh`      `integer`  (default `5`)
+    Auto-refresh interval in seconds for in-progress CI views.
+    Set to `0` to disable auto-refresh entirely.
+
+  `ci.split`        `string?`  (default `nil`, inherits from `split`)
+    Split direction for CI views. Overrides the global `split`.
 
 `sources`                                               *forge-config-sources*
   `table<string, { hosts: string[] }>`  (default `{}`)
@@ -309,9 +322,17 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
 CI PICKER ~ Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide
 CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
 
+On GitHub, `<cr>` on a run opens a summary buffer showing all jobs with
+status, durations, and annotations. Press `<cr>` on a job line to open its
+full log. On GitLab and Codeberg, in-progress jobs open a live-tailing
+terminal (`glab ci trace`, `tea actions runs logs --follow`); completed
+jobs render in a buffer with highlighting and folds.
+
+In-progress views auto-refresh at the `ci.refresh` interval.
+
   Action      Default Key    Description ~
-  `log`         `<cr>`           View log (tail for running, failed-only for
-                               failures, full otherwise)
+  `log`         `<cr>`           Summary (GitHub) or log buffer (others)
+  `watch`       `<c-w>`          Live-watch in terminal
   `browse`      `<c-x>`          Open run/check URL in browser
   `failed`      `<c-f>`          Filter to failed
   `passed`      `<c-p>`          Filter to passed
@@ -532,12 +553,19 @@ All methods receive `self` as the first argument (use `:` syntax).
   `pr_for_branch_cmd(branch)`          `string[]` cmd returning PR number
                                         for a branch (empty = no PR).
   `checks_cmd(num)`                     `string` shell command for checks.
-  `check_log_cmd(run_id, failed_only)` `string[]` cmd to view check log.
-  `check_tail_cmd(run_id)`             `string[]` cmd to tail check log.
+  `check_log_cmd(run_id, failed, id?)`  `string[]` cmd to view check log.
+  `steps_cmd(run_id)`                   `string[]?` cmd to fetch step JSON.
+  `view_cmd(id, opts?)`                `string[]?` cmd to view a run/job.
+                                        `opts`: `{ job_id?, log?, failed? }`.
+  `watch_cmd(id)`                       `string[]?` cmd to live-watch a run
+                                        in a terminal.
+  `run_status_cmd(id)`                  `string[]?` cmd returning JSON with
+                                        `status` and `conclusion` fields.
+  `live_tail_cmd(run_id, job_id?)`     `string[]?` cmd to live-tail a
+                                        specific job in a terminal.
   `list_runs_cmd(branch?)`             `string` shell command for CI runs.
   `normalize_run(entry)`                `forge.CIRun` normalized run entry.
   `run_log_cmd(id, failed_only)`       `string[]` cmd to view run log.
-  `run_tail_cmd(id)`                    `string[]` cmd to tail run log.
   `merge_cmd(num, method)`             `string[]` cmd to merge PR.
   `approve_cmd(num)`                    `string[]` cmd to approve PR.
   `repo_info()`                         `forge.RepoInfo` with `permission`
