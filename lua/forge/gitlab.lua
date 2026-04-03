@@ -347,6 +347,34 @@ function M:create_pr_web_cmd()
   return { 'glab', 'mr', 'create', '--web' }
 end
 
+---@param title string
+---@param body string
+---@param labels string[]?
+---@param assignees string[]?
+---@return string[]
+function M:create_issue_cmd(title, body, labels, assignees)
+  local cmd = { 'glab', 'issue', 'create', '--title', title, '--description', body, '--yes' }
+  if labels and #labels > 0 then
+    table.insert(cmd, '--label')
+    table.insert(cmd, table.concat(labels, ','))
+  end
+  for _, a in ipairs(assignees or {}) do
+    table.insert(cmd, '--assignee')
+    table.insert(cmd, a)
+  end
+  return cmd
+end
+
+---@return string[]
+function M:create_issue_web_cmd()
+  return { 'glab', 'issue', 'create', '--web' }
+end
+
+---@return string[]
+function M:issue_template_paths()
+  return { '.gitlab/issue_templates/' }
+end
+
 ---@return string[]
 function M:default_branch_cmd()
   return {

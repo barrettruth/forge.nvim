@@ -640,6 +640,12 @@ function M.issue(state, f)
           end,
         },
         {
+          name = 'create',
+          fn = function()
+            forge_mod.create_issue()
+          end,
+        },
+        {
           name = 'filter',
           fn = function()
             M.issue(next_state, f)

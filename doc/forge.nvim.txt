@@ -28,6 +28,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge issue browse` {num}..........................|:Forge-issue-browse|
     `:Forge issue close` {num}............................|:Forge-issue-close|
     `:Forge issue reopen` {num}..........................|:Forge-issue-reopen|
+    `:Forge issue create` [{flags}]........................|:Forge-issue-create|
     `:Forge ci` [{flags}]..........................................|:Forge-ci|
     `:Forge release`..........................................|:Forge-release|
     `:Forge release browse` {tag}......................|:Forge-release-browse|
@@ -254,6 +255,11 @@ COMMANDS                                                              *:Forge*
 `:Forge issue reopen` {num}                              *:Forge-issue-reopen*
     Reopen issue `{num}`.
 
+`:Forge issue create` [{flags}]                          *:Forge-issue-create*
+    Create a new issue.
+    (no flags)         Open the compose buffer.
+    `--web`            Open the forge's web create-issue page.
+
 `:Forge ci` [{flags}]                                              *:Forge-ci*
     Open the CI runs picker. Defaults to current branch.
     `--all`            Show runs for all branches.
@@ -315,6 +321,7 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
   Action      Default Key    Description ~
   `browse`      `<cr>`           Open issue in browser
   `close`       `<c-s>`          Close or reopen the issue
+  `create`      `<c-a>`          Create new issue
   `filter`      `<c-o>`          Cycle state: all -> open -> closed
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
@@ -404,6 +411,23 @@ Metadata fields: ~
   `Draft: true`      Create as draft. `false` = not draft.
   `Reviewers:`       Comma or space separated usernames.
 
+Creating an issue (without `--web`) opens a compose buffer at
+`forge://issue/new` with filetype `markdown` and buftype `acwrite`.
+
+Layout: ~
+  Line 1      Issue title
+  Line 2      Empty separator
+  Lines 3+    Issue body (from discovered issue template, or empty)
+  `<!--`        Metadata comment block (forge, labels, assignees).
+  `-->`         End of metadata
+
+Write (`:w`) to create the issue. An empty title or body aborts creation.
+The issue URL is copied to the `+` register on success.
+
+Metadata fields: ~
+  `Labels:`          Comma or space separated label names.
+  `Assignees:`       Comma or space separated usernames.
+
 Template discovery: ~
   forge.nvim searches forge-specific template paths. If a template
   directory contains multiple `.md` files, you are prompted to choose.
@@ -412,6 +436,15 @@ Template discovery: ~
   GitLab: `.gitlab/merge_request_templates/`
   Codeberg: `.gitea/pull_request_template.md`,
             `.github/pull_request_template.md`
+
+  Issue templates: ~
+  GitHub: `.github/ISSUE_TEMPLATE.md`,
+          `.github/ISSUE_TEMPLATE/`
+  GitLab: `.gitlab/issue_templates/`
+  Codeberg: `.gitea/issue_template.md`,
+            `.gitea/ISSUE_TEMPLATE/`,
+            `.github/ISSUE_TEMPLATE.md`,
+            `.github/ISSUE_TEMPLATE/`
 
 See |forge-highlights| for compose buffer highlight groups.
 
@@ -476,6 +509,7 @@ support for features that vary:
   Per-PR CI checks             yes       yes       yes*
   Per-check log viewing        yes       yes        -
   CI runs (repo-wide)          yes       yes       yes
+  Issue create                   yes       yes       yes
   Issues                       yes       yes       yes
   Releases                     yes       yes       yes
   Release draft/prerelease     yes        -        yes
@@ -582,6 +616,10 @@ All methods receive `self` as the first argument (use `:` syntax).
   `reopen_issue_cmd(num)`              `string[]` cmd to reopen issue.
   `create_pr_cmd(title, body,`          `string[]` cmd to create a PR.
     `base, draft, reviewers?)`
+  `create_issue_cmd(title, body,`       `string[]` cmd to create an issue.
+    `labels?, assignees?)`
+  `issue_template_paths()`              `string[]` repo-relative paths to
+                                        issue templates.
   `default_branch_cmd()`                `string[]` cmd returning default
                                         branch name.
   `template_paths()`                    `string[]` repo-relative paths to
@@ -608,6 +646,9 @@ Optional methods: ~
                                         used as a raw fzf-lua command.
   `create_pr_web_cmd()`                `string[]?` cmd to open web PR
                                         creation. Return `nil` to no-op.
+  `create_issue_web_cmd()`             `string[]?` cmd to open web issue
+                                        creation. If absent, falls back
+                                        to opening `{remote}/issues/new`.
 
 Skeleton: >lua
     local M = {
@@ -681,6 +722,11 @@ PUBLIC API: `require('forge')` ~
       `draft`     `boolean?`  Create as draft.
       `instant`   `boolean?`  Skip compose buffer, fill from commits.
       `web`       `boolean?`  Push and open web create page.
+
+                                                       *forge.create_issue()*
+`create_issue(opts?)`
+    Creates an issue. `opts` is `forge.CreateIssueOpts?`:
+      `web`       `boolean?`  Open web creation page.
 
                                                          *forge.clear_cache()*
 `clear_cache()`

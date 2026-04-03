@@ -310,6 +310,37 @@ function M:create_pr_web_cmd()
   return { 'gh', 'pr', 'create', '--web' }
 end
 
+---@param title string
+---@param body string
+---@param labels string[]?
+---@param assignees string[]?
+---@return string[]
+function M:create_issue_cmd(title, body, labels, assignees)
+  local cmd = { 'gh', 'issue', 'create', '--title', title, '--body', body }
+  for _, l in ipairs(labels or {}) do
+    table.insert(cmd, '--label')
+    table.insert(cmd, l)
+  end
+  for _, a in ipairs(assignees or {}) do
+    table.insert(cmd, '--assignee')
+    table.insert(cmd, a)
+  end
+  return cmd
+end
+
+---@return string[]
+function M:create_issue_web_cmd()
+  return { 'gh', 'issue', 'create', '--web' }
+end
+
+---@return string[]
+function M:issue_template_paths()
+  return {
+    '.github/ISSUE_TEMPLATE.md',
+    '.github/ISSUE_TEMPLATE/',
+  }
+end
+
 ---@return string[]
 function M:default_branch_cmd()
   return { 'gh', 'repo', 'view', '--json', 'defaultBranchRef', '--jq', '.defaultBranchRef.name' }

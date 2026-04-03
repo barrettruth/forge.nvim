@@ -295,6 +295,25 @@ function M:create_pr_web_cmd()
   return nil
 end
 
+---@param title string
+---@param body string
+---@param _labels string[]?
+---@param _assignees string[]?
+---@return string[]
+function M:create_issue_cmd(title, body, _labels, _assignees)
+  return { 'tea', 'issues', 'create', '--title', title, '--description', body }
+end
+
+---@return string[]
+function M:issue_template_paths()
+  return {
+    '.gitea/issue_template.md',
+    '.gitea/ISSUE_TEMPLATE/',
+    '.github/ISSUE_TEMPLATE.md',
+    '.github/ISSUE_TEMPLATE/',
+  }
+end
+
 ---@return string[]
 function M:default_branch_cmd()
   return {

@@ -130,7 +130,7 @@ local function dispatch(args)
     if not require_git_or_warn() then
       return
     end
-    local f = require_forge_or_warn()
+    local f, forge_mod = require_forge_or_warn()
     if not f then
       return
     end
@@ -145,6 +145,15 @@ local function dispatch(args)
       return
     end
     local action = pos[1]
+    if action == 'create' then
+      local cf = parse_flags(args, 3)
+      if cf.web then
+        forge_mod.create_issue({ web = true })
+      else
+        forge_mod.create_issue()
+      end
+      return
+    end
     local num = pos[2]
     if action == 'browse' then
       if not num then
@@ -300,7 +309,7 @@ local function complete(arglead, cmdline, _)
   local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'review', 'clear' }
   local sub_actions = {
     pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'create', '--state=' },
-    issue = { 'browse', 'close', 'reopen', '--state=' },
+    issue = { 'browse', 'close', 'reopen', 'create', '--state=' },
     ci = { '--all' },
     release = { 'browse', 'delete' },
     review = { 'end', 'toggle' },
@@ -341,6 +350,10 @@ local function complete(arglead, cmdline, _)
 
   if sub == 'pr' and words[3] == 'create' then
     return filter(create_flags)
+  end
+
+  if sub == 'issue' and words[3] == 'create' then
+    return filter({ '--web' })
   end
 
   return {}
