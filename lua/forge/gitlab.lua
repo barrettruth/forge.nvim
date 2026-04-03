@@ -95,10 +95,6 @@ function M:browse(loc, branch)
   vim.ui.open(('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
-function M:browse_root()
-  vim.system({ 'glab', 'repo', 'view', '--web' })
-end
-
 function M:browse_branch(branch)
   local base = forge.remote_web_url()
   vim.ui.open(base .. '/-/tree/' .. branch)

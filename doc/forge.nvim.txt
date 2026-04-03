@@ -278,9 +278,9 @@ PICKERS                                                        *forge-pickers*
 
                                                                 *forge-picker*
 FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
-current buffer. Lists: PRs/MRs, Issues, CI/CD, Releases, Browse Remote, Open
-File. Items that require a forge are hidden when no forge is detected. "Open
-File" requires a named buffer on a branch.
+current buffer. Lists: PRs/MRs, Issues, CI/CD, Releases, Open File. Items that
+require a forge are hidden when no forge is detected. "Open File" requires a
+named buffer on a branch.
 
                                                              *forge-picker-pr*
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.

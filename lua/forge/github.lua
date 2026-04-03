@@ -90,10 +90,6 @@ function M:browse(loc, branch)
   vim.system({ 'gh', 'browse', loc, '--branch', branch })
 end
 
-function M:browse_root()
-  vim.system({ 'gh', 'browse' })
-end
-
 function M:browse_branch(branch)
   vim.system({ 'gh', 'browse', '--branch', branch })
 end

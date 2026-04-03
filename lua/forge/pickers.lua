@@ -812,10 +812,6 @@ function M.git()
       M.release('all', f)
     end)
 
-    add('Browse Remote', function()
-      f:browse_root()
-    end)
-
     if has_file then
       add('Open File', function()
         if branch == '' then

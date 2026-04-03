@@ -248,9 +248,7 @@ local function dispatch(args)
       return
     end
     local flags = parse_flags(args, 2)
-    if flags.root then
-      f:browse_root()
-    elseif flags.commit then
+    if flags.commit then
       local sha = vim.trim(vim.fn.system('git rev-parse HEAD'))
       f:browse_commit(sha)
     else

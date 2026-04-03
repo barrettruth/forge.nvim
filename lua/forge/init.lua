@@ -257,7 +257,6 @@ local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 ---@field issue_json_fields fun(self: forge.Forge): { number: string, title: string, state: string, author: string, created_at: string }
 ---@field view_web fun(self: forge.Forge, kind: string, num: string)
 ---@field browse fun(self: forge.Forge, loc: string, branch: string)
----@field browse_root fun(self: forge.Forge)
 ---@field browse_branch fun(self: forge.Forge, branch: string)
 ---@field browse_commit fun(self: forge.Forge, sha: string)
 ---@field checkout_cmd fun(self: forge.Forge, num: string): string[]

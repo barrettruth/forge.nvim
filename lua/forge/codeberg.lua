@@ -88,10 +88,6 @@ function M:browse(loc, branch)
   vim.ui.open(('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
-function M:browse_root()
-  vim.ui.open(forge.remote_web_url())
-end
-
 function M:browse_branch(branch)
   local base = forge.remote_web_url()
   vim.ui.open(base .. '/src/branch/' .. branch)
