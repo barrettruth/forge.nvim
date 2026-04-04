@@ -18,6 +18,29 @@ local M = {
     per_pr_checks = true,
     ci_json = true,
   },
+  pr_fields = {
+    number = 'number',
+    title = 'title',
+    branch = 'headRefName',
+    state = 'state',
+    author = 'author',
+    created_at = 'createdAt',
+  },
+  issue_fields = {
+    number = 'number',
+    title = 'title',
+    state = 'state',
+    author = 'author',
+    created_at = 'createdAt',
+  },
+  release_fields = {
+    tag = 'tagName',
+    title = 'name',
+    is_draft = 'isDraft',
+    is_prerelease = 'isPrerelease',
+    is_latest = 'isLatest',
+    published_at = 'publishedAt',
+  },
 }
 
 local function nwo()
@@ -54,27 +77,6 @@ function M:list_issue_json_cmd(state)
     state,
     '--json',
     'number,title,state,author,createdAt',
-  }
-end
-
-function M:pr_json_fields()
-  return {
-    number = 'number',
-    title = 'title',
-    branch = 'headRefName',
-    state = 'state',
-    author = 'author',
-    created_at = 'createdAt',
-  }
-end
-
-function M:issue_json_fields()
-  return {
-    number = 'number',
-    title = 'title',
-    state = 'state',
-    author = 'author',
-    created_at = 'createdAt',
   }
 end
 
@@ -454,17 +456,6 @@ function M:list_releases_json_cmd()
     'tagName,name,isDraft,isPrerelease,isLatest,publishedAt',
     '--limit',
     tostring(forge.config().display.limits.releases),
-  }
-end
-
-function M:release_json_fields()
-  return {
-    tag = 'tagName',
-    title = 'name',
-    is_draft = 'isDraft',
-    is_prerelease = 'isPrerelease',
-    is_latest = 'isLatest',
-    published_at = 'publishedAt',
   }
 end
 
