@@ -360,7 +360,10 @@ local function complete(arglead, cmdline, _)
   if arg_idx == 2 then
     local candidates = vim.list_extend({}, sub_actions[sub] or {})
     if sub == 'ci' and not arglead:match('^%-') then
-      vim.list_extend(candidates, vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags'))
+      vim.list_extend(
+        candidates,
+        vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags')
+      )
     end
     return filter(candidates)
   end
