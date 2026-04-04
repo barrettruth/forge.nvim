@@ -32,6 +32,7 @@ without leaving your editor.
   mode
 - (Optional) [vim-fugitive](https://github.com/tpope/vim-fugitive) for split
   diff and fugitive keymaps
+- (Optional) tree-sitter `yaml` parser for YAML issue form templates
 
 ## Installation
 

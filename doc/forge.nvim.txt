@@ -430,7 +430,11 @@ Metadata fields: ~
 
 Template discovery: ~
   forge.nvim searches forge-specific template paths. If a template
-  directory contains multiple `.md` files, you are prompted to choose.
+  directory contains multiple files, you are prompted to choose.
+  Both `.md` and `.yml`/`.yaml` issue form templates are supported.
+  YAML templates are parsed and rendered as markdown sections.
+  `config.yml`/`config.yaml` files are skipped.
+
   GitHub: `.github/pull_request_template.md`,
           `.github/PULL_REQUEST_TEMPLATE/`
   GitLab: `.gitlab/merge_request_templates/`

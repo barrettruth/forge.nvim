@@ -233,6 +233,12 @@ end
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 
+---@param s string
+---@return string
+local function normalize_body(s)
+  return vim.trim(s):gsub('%s+', ' ')
+end
+
 ---@class forge.PRState
 ---@field state string
 ---@field mergeable string
@@ -969,69 +975,118 @@ local function fill_from_commits(branch, base)
   return clean, table.concat(lines, '\n')
 end
 
+---@param path string
+---@return string?
+local function read_file(path)
+  local st = vim.uv.fs_stat(path)
+  if not st then
+    return nil
+  end
+  local fd = vim.uv.fs_open(path, 'r', 438)
+  if not fd then
+    return nil
+  end
+  local content = vim.uv.fs_read(fd, st.size, 0)
+  vim.uv.fs_close(fd)
+  return content
+end
+
+---@param name string
+---@return boolean
+local function is_yaml(name)
+  return name:match('%.ya?ml$') ~= nil
+end
+
+---@param content string
+---@param yaml_file boolean
+---@return forge.TemplateResult
+local function make_template_result(content, yaml_file)
+  if yaml_file then
+    local yaml = require('forge.yaml')
+    return yaml.render(yaml.parse(content))
+  end
+  return { body = vim.trim(content) }
+end
+
+---@param content string
+---@return string?
+local function yaml_name(content)
+  for line in content:gmatch('[^\n]+') do
+    local val = line:match('^name:%s+(.+)')
+    if val then
+      val = vim.trim(val)
+      if #val >= 2 and (val:sub(1, 1) == "'" or val:sub(1, 1) == '"') then
+        val = val:sub(2, -2)
+      end
+      return val
+    end
+  end
+  return nil
+end
+
+---@class forge.TemplateEntry
+---@field name string
+---@field display string
+---@field is_yaml boolean
+
 ---@param paths string[]
 ---@param repo_root string
 ---@param label string
----@return string?
+---@return forge.TemplateResult?
 local function discover_template(paths, repo_root, label)
   for _, p in ipairs(paths) do
     local full = repo_root .. '/' .. p
     local stat = vim.uv.fs_stat(full)
     if stat and stat.type == 'file' then
-      local fd = vim.uv.fs_open(full, 'r', 438)
-      if fd then
-        local content = vim.uv.fs_read(fd, stat.size, 0)
-        vim.uv.fs_close(fd)
-        if content then
-          return vim.trim(content)
-        end
+      local content = read_file(full)
+      if content then
+        return make_template_result(content, is_yaml(p))
       end
     elseif stat and stat.type == 'directory' then
       local handle = vim.uv.fs_scandir(full)
       if handle then
+        ---@type forge.TemplateEntry[]
         local templates = {}
         while true do
           local name, typ = vim.uv.fs_scandir_next(handle)
           if not name then
             break
           end
-          if (typ == 'file' or not typ) and name:match('%.md$') then
-            table.insert(templates, name)
+          local is_md = name:match('%.md$')
+          local is_yml = is_yaml(name) and not name:match('^config%.ya?ml$')
+          if (typ == 'file' or not typ) and (is_md or is_yml) then
+            local display = name
+            if is_yml then
+              local content = read_file(full .. '/' .. name)
+              if content then
+                display = yaml_name(content) or name
+              end
+            end
+            table.insert(templates, { name = name, display = display, is_yaml = is_yml ~= nil })
           end
         end
         if #templates == 1 then
-          local tpath = full .. '/' .. templates[1]
-          local tstat = vim.uv.fs_stat(tpath)
-          if tstat then
-            local fd = vim.uv.fs_open(tpath, 'r', 438)
-            if fd then
-              local content = vim.uv.fs_read(fd, tstat.size, 0)
-              vim.uv.fs_close(fd)
-              if content then
-                return vim.trim(content)
-              end
-            end
+          local content = read_file(full .. '/' .. templates[1].name)
+          if content then
+            return make_template_result(content, templates[1].is_yaml)
           end
         elseif #templates > 1 then
-          table.sort(templates)
+          table.sort(templates, function(a, b)
+            return a.display < b.display
+          end)
           local chosen
           vim.ui.select(templates, {
             prompt = label .. ' template: ',
+            format_item = function(entry)
+              return entry.display
+            end,
           }, function(choice)
             chosen = choice
           end)
           if chosen then
-            local tpath = full .. '/' .. chosen
-            local tstat = vim.uv.fs_stat(tpath)
-            if tstat then
-              local fd = vim.uv.fs_open(tpath, 'r', 438)
-              if fd then
-                local content = vim.uv.fs_read(fd, tstat.size, 0)
-                vim.uv.fs_close(fd)
-                if content then
-                  return vim.trim(content)
-                end
-              end
+            local content = read_file(full .. '/' .. chosen.name)
+            if content then
+              return make_template_result(content, chosen.is_yaml)
             end
           end
         end
@@ -1127,7 +1182,7 @@ end
 
 local function open_issue_compose_buffer(f)
   local root = git_root() or ''
-  local template = discover_template(f:issue_template_paths(), root, 'Issue')
+  local result = discover_template(f:issue_template_paths(), root, 'Issue')
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, 'forge://issue/new')
@@ -1135,9 +1190,13 @@ local function open_issue_compose_buffer(f)
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
-  local lines = { '# ', '' }
-  if template and template ~= '' then
-    for _, line in ipairs(vim.split(template, '\n', { plain = true })) do
+  local title_prefix = '# ' .. (result and result.title or '')
+  local template_labels = result and result.labels or {}
+  local body = result and result.body or ''
+
+  local lines = { title_prefix, '' }
+  if body ~= '' then
+    for _, line in ipairs(vim.split(body, '\n', { plain = true })) do
       table.insert(lines, line)
     end
   else
@@ -1167,7 +1226,8 @@ local function open_issue_compose_buffer(f)
 
   add_line('')
   local labels_prefix = '  Labels: '
-  add_line('%s', labels_prefix)
+  local labels_val = #template_labels > 0 and table.concat(template_labels, ', ') or ''
+  add_line('%s%s', labels_prefix, labels_val)
 
   local assignees_prefix = '  Assignees: '
   add_line('%s', assignees_prefix)
@@ -1220,6 +1280,12 @@ local function open_issue_compose_buffer(f)
         vim.api.nvim_buf_delete(buf, { force = true })
         return
       end
+      if body ~= '' and normalize_body(issue_body) == normalize_body(body) then
+        require('forge.logger').warn('aborting: body unchanged from template')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
 
       local in_comment = false
       local issue_labels = {}
@@ -1260,8 +1326,8 @@ end
 local function open_compose_buffer(f, branch, base, draft)
   local root = git_root() or ''
   local title, commit_body = fill_from_commits(branch, base)
-  local template = discover_template(f:template_paths(), root, f.labels.pr_one)
-  local body = template or commit_body
+  local result = discover_template(f:template_paths(), root, f.labels.pr_one)
+  local body = (result and result.body) or commit_body
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, 'forge://pr/new')
@@ -1434,6 +1500,12 @@ local function open_compose_buffer(f, branch, base, draft)
       local pr_body = vim.trim(table.concat(content_lines, '\n', 3))
       if pr_body == '' then
         require('forge.logger').warn('aborting: empty body')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+      if body ~= '' and normalize_body(pr_body) == normalize_body(body) then
+        require('forge.logger').warn('aborting: body unchanged from template')
         vim.bo[buf].modified = false
         vim.api.nvim_buf_delete(buf, { force = true })
         return
