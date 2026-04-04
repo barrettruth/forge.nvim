@@ -1202,6 +1202,7 @@ local function open_issue_compose_buffer(f, result)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, 'forge://issue/new')
   vim.bo[buf].buftype = 'acwrite'
+  vim.bo[buf].bufhidden = 'wipe'
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
@@ -1347,6 +1348,7 @@ local function open_compose_buffer(f, branch, base, draft, template)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, 'forge://pr/new')
   vim.bo[buf].buftype = 'acwrite'
+  vim.bo[buf].bufhidden = 'wipe'
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
