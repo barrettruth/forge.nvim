@@ -318,6 +318,7 @@ function M.checks(f, num, filter, cached_checks)
         {
           name = 'refresh',
           fn = function()
+            log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
             M.checks(f, num, filter)
           end,
         },
@@ -449,6 +450,7 @@ function M.ci(f, branch)
         {
           name = 'refresh',
           fn = function()
+            log.info('refreshing CI runs...')
             M.ci(f, branch)
           end,
         },
