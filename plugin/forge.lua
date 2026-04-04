@@ -147,11 +147,17 @@ local function dispatch(args)
     local action = pos[1]
     if action == 'create' then
       local cf = parse_flags(args, 3)
+      local opts = {}
       if cf.web then
-        forge_mod.create_issue({ web = true })
-      else
-        forge_mod.create_issue()
+        opts.web = true
       end
+      if cf.blank then
+        opts.blank = true
+      end
+      if cf.template then
+        opts.template = cf.template ~= true and cf.template or nil
+      end
+      forge_mod.create_issue(opts)
       return
     end
     local num = pos[2]
@@ -319,6 +325,7 @@ local function complete(arglead, cmdline, _)
     ['--state'] = { 'open', 'closed', 'all' },
   }
   local create_flags = { '--draft', '--fill', '--web' }
+  local issue_create_flags = { '--web', '--blank', '--template=' }
 
   local function filter(candidates)
     return vim.tbl_filter(function(s)
@@ -327,15 +334,21 @@ local function complete(arglead, cmdline, _)
   end
 
   local flag, value_prefix = arglead:match('^(%-%-[^=]+)=(.*)$')
-  if flag and flag_values[flag] then
-    return vim.tbl_map(
-      function(v)
-        return flag .. '=' .. v
-      end,
-      vim.tbl_filter(function(v)
-        return v:find(value_prefix, 1, true) == 1
-      end, flag_values[flag])
-    )
+  if flag then
+    local values = flag_values[flag]
+    if not values and flag == '--template' then
+      values = require('forge').template_slugs()
+    end
+    if values then
+      return vim.tbl_map(
+        function(v)
+          return flag .. '=' .. v
+        end,
+        vim.tbl_filter(function(v)
+          return v:find(value_prefix, 1, true) == 1
+        end, values)
+      )
+    end
   end
 
   if arg_idx == 1 then
@@ -353,7 +366,7 @@ local function complete(arglead, cmdline, _)
   end
 
   if sub == 'issue' and words[3] == 'create' then
-    return filter({ '--web' })
+    return filter(issue_create_flags)
   end
 
   return {}
