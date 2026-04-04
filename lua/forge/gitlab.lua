@@ -377,6 +377,26 @@ function M:parse_pr_details(json)
   }
 end
 
+---@param field string
+---@return string[]?
+function M:completion_cmd(field)
+  if field == 'labels' then
+    return { 'sh', '-c', "glab label list -F json | jq -r '.[].name'" }
+  elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
+    return { 'sh', '-c', "glab api 'projects/:id/members/all?per_page=100' | jq -r '.[].username'" }
+  elseif field == 'milestone' then
+    return { 'sh', '-c', "glab api 'projects/:id/milestones?state=active' | jq -r '.[].title'" }
+  elseif field == 'issues' then
+    return {
+      'sh',
+      '-c',
+      'glab issue list --per-page 50 -F json | jq -r \'.[] | "\\(.iid)\\t\\(.title)"\''
+        .. ' && glab mr list --per-page 50 -F json | jq -r \'.[] | "\\(.iid)\\t\\(.title)"\'',
+    }
+  end
+  return nil
+end
+
 ---@param title string
 ---@param body string
 ---@param base string

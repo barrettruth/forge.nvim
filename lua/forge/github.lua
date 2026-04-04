@@ -361,6 +361,26 @@ function M:parse_pr_details(json)
   }
 end
 
+---@param field string
+---@return string[]?
+function M:completion_cmd(field)
+  if field == 'labels' then
+    return { 'gh', 'label', 'list', '--json', 'name', '--jq', '.[].name' }
+  elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
+    return { 'gh', 'api', 'repos/' .. nwo() .. '/collaborators', '--jq', '.[].login' }
+  elseif field == 'milestone' then
+    return { 'gh', 'api', 'repos/' .. nwo() .. '/milestones', '--jq', '.[].title' }
+  elseif field == 'issues' then
+    return {
+      'sh',
+      '-c',
+      'gh issue list --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\''
+        .. ' && gh pr list --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\'',
+    }
+  end
+  return nil
+end
+
 ---@param title string
 ---@param body string
 ---@param base string

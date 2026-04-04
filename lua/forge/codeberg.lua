@@ -318,6 +318,30 @@ function M:parse_pr_details(json)
   }
 end
 
+---@param field string
+---@return string[]?
+function M:completion_cmd(field)
+  if field == 'labels' then
+    return { 'sh', '-c', "tea api '/repos/:owner/:repo/labels' | jq -r '.[].name'" }
+  elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
+    return { 'sh', '-c', "tea api '/repos/:owner/:repo/collaborators' | jq -r '.[].login'" }
+  elseif field == 'milestone' then
+    return {
+      'sh',
+      '-c',
+      "tea api '/repos/:owner/:repo/milestones?state=open' | jq -r '.[].title'",
+    }
+  elseif field == 'issues' then
+    return {
+      'sh',
+      '-c',
+      "tea api '/repos/:owner/:repo/issues?limit=50&type=issues' | jq -r '.[] | \"\\(.number)\\t\\(.title)\"'"
+        .. " && tea api '/repos/:owner/:repo/pulls?limit=50' | jq -r '.[] | \"\\(.number)\\t\\(.title)\"'",
+    }
+  end
+  return nil
+end
+
 ---@param title string
 ---@param body string
 ---@param base string
