@@ -308,7 +308,7 @@ end
 ---@field close_issue_cmd fun(self: forge.Forge, num: string): string[]
 ---@field reopen_issue_cmd fun(self: forge.Forge, num: string): string[]
 ---@field draft_toggle_cmd fun(self: forge.Forge, num: string, is_draft: boolean): string[]?
----@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, reviewers: string[]?): string[]
+---@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?): string[]
 ---@field create_pr_web_cmd fun(self: forge.Forge): string[]?
 ---@field default_branch_cmd fun(self: forge.Forge): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string): string[])?
@@ -317,7 +317,7 @@ end
 ---@field release_json_fields fun(self: forge.Forge): { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
 ---@field browse_release fun(self: forge.Forge, tag: string)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string): string[]
----@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, assignees: string[]?): string[]
+---@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?): string[]
 ---@field issue_template_paths fun(self: forge.Forge): string[]
 ---@field create_issue_web_cmd (fun(self: forge.Forge): string[]?)?
 
@@ -1119,8 +1119,23 @@ end
 ---@param pr_base string
 ---@param pr_draft boolean
 ---@param pr_reviewers string[]?
+---@param pr_labels string[]?
+---@param pr_assignees string[]?
+---@param pr_milestone string?
 ---@param buf integer?
-local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_reviewers, buf)
+local function push_and_create(
+  f,
+  branch,
+  title,
+  body,
+  pr_base,
+  pr_draft,
+  pr_reviewers,
+  pr_labels,
+  pr_assignees,
+  pr_milestone,
+  buf
+)
   local log = require('forge.logger')
   log.info('pushing and creating ' .. f.labels.pr_one .. '...')
   vim.system({ 'git', 'push', '-u', 'origin', branch }, { text = true }, function(push_result)
@@ -1135,7 +1150,16 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_rev
       return
     end
     vim.system(
-      f:create_pr_cmd(title, body, pr_base, pr_draft, pr_reviewers),
+      f:create_pr_cmd(
+        title,
+        body,
+        pr_base,
+        pr_draft,
+        pr_reviewers,
+        pr_labels,
+        pr_assignees,
+        pr_milestone
+      ),
       { text = true },
       function(create_result)
         vim.schedule(function()
@@ -1166,34 +1190,38 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, pr_rev
   end)
 end
 
-local function submit_issue(f, title, body, labels, assignees, buf)
+local function submit_issue(f, title, body, labels, assignees, milestone, buf)
   local log = require('forge.logger')
   log.info('creating issue...')
-  vim.system(f:create_issue_cmd(title, body, labels, assignees), { text = true }, function(result)
-    vim.schedule(function()
-      if result.code == 0 then
-        local url = vim.trim(result.stdout or '')
-        if url ~= '' then
-          vim.fn.setreg('+', url)
+  vim.system(
+    f:create_issue_cmd(title, body, labels, assignees, milestone),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code == 0 then
+          local url = vim.trim(result.stdout or '')
+          if url ~= '' then
+            vim.fn.setreg('+', url)
+          end
+          log.info(('created issue → %s'):format(url))
+          M.clear_list()
+          if buf and vim.api.nvim_buf_is_valid(buf) then
+            vim.bo[buf].modified = false
+            vim.api.nvim_buf_delete(buf, { force = true })
+          end
+        else
+          local msg = vim.trim(result.stderr or '')
+          if msg == '' then
+            msg = vim.trim(result.stdout or '')
+          end
+          if msg == '' then
+            msg = 'creation failed'
+          end
+          log.error(msg)
         end
-        log.info(('created issue → %s'):format(url))
-        M.clear_list()
-        if buf and vim.api.nvim_buf_is_valid(buf) then
-          vim.bo[buf].modified = false
-          vim.api.nvim_buf_delete(buf, { force = true })
-        end
-      else
-        local msg = vim.trim(result.stderr or '')
-        if msg == '' then
-          msg = vim.trim(result.stdout or '')
-        end
-        if msg == '' then
-          msg = 'creation failed'
-        end
-        log.error(msg)
-      end
-    end)
-  end)
+      end)
+    end
+  )
 end
 
 ---@param f forge.Forge
@@ -1248,6 +1276,9 @@ local function open_issue_compose_buffer(f, result)
 
   local assignees_prefix = '  Assignees: '
   add_line('%s', assignees_prefix)
+
+  local milestone_prefix = '  Milestone: '
+  add_line('%s', milestone_prefix)
 
   add_line('')
   add_line('  An empty title or body aborts creation.')
@@ -1307,6 +1338,7 @@ local function open_issue_compose_buffer(f, result)
       local in_comment = false
       local issue_labels = {}
       local issue_assignees = {}
+      local issue_milestone = ''
       for _, l in ipairs(buf_lines) do
         if l:match('^<!--') then
           in_comment = true
@@ -1325,10 +1357,14 @@ local function open_issue_compose_buffer(f, result)
               table.insert(issue_assignees, assignee)
             end
           end
+          local mv = l:match('^%s*Milestone:%s*(.*)$')
+          if mv then
+            issue_milestone = vim.trim(mv)
+          end
         end
       end
 
-      submit_issue(f, issue_title, issue_body, issue_labels, issue_assignees, buf)
+      submit_issue(f, issue_title, issue_body, issue_labels, issue_assignees, issue_milestone, buf)
     end,
   })
 
@@ -1412,6 +1448,18 @@ local function open_compose_buffer(f, branch, base, draft, template)
     mark(ln, 2, 10, 'ForgeComposeLabel')
   end
 
+  local labels_prefix = '  Labels: '
+  ln = add_line('%s', labels_prefix)
+  mark(ln, 2, 7, 'ForgeComposeLabel')
+
+  local assignees_prefix = '  Assignees: '
+  ln = add_line('%s', assignees_prefix)
+  mark(ln, 2, 10, 'ForgeComposeLabel')
+
+  local milestone_prefix = '  Milestone: '
+  ln = add_line('%s', milestone_prefix)
+  mark(ln, 2, 10, 'ForgeComposeLabel')
+
   local stat_start, stat_end
   if diff_stat ~= '' then
     add_line('')
@@ -1468,12 +1516,15 @@ local function open_compose_buffer(f, branch, base, draft, template)
     })
   end
 
-  ---@return boolean, string[], string
+  ---@return boolean, string[], string[], string[], string, string
   local function parse_comment()
     local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
     local in_comment = false
     local pr_draft = false
     local pr_reviewers = {}
+    local pr_labels = {}
+    local pr_assignees = {}
+    local pr_milestone = ''
     for _, l in ipairs(buf_lines) do
       if l:match('^<!--') then
         in_comment = true
@@ -1491,9 +1542,25 @@ local function open_compose_buffer(f, branch, base, draft, template)
             table.insert(pr_reviewers, r)
           end
         end
+        local lv = l:match('^%s*Labels:%s*(.*)$')
+        if lv then
+          for label in vim.trim(lv):gmatch('[^,%s]+') do
+            table.insert(pr_labels, label)
+          end
+        end
+        local av = l:match('^%s*Assignees:%s*(.*)$')
+        if av then
+          for a in vim.trim(av):gmatch('[^,%s]+') do
+            table.insert(pr_assignees, a)
+          end
+        end
+        local mv = l:match('^%s*Milestone:%s*(.*)$')
+        if mv then
+          pr_milestone = vim.trim(mv)
+        end
       end
     end
-    return pr_draft, pr_reviewers, base
+    return pr_draft, pr_reviewers, pr_labels, pr_assignees, pr_milestone, base
   end
 
   vim.api.nvim_create_autocmd('BufWriteCmd', {
@@ -1528,9 +1595,21 @@ local function open_compose_buffer(f, branch, base, draft, template)
         return
       end
 
-      local pr_draft, pr_reviewers, pr_base = parse_comment()
+      local pr_draft, pr_reviewers, pr_labels, pr_assignees, pr_milestone, pr_base = parse_comment()
 
-      push_and_create(f, branch, pr_title, pr_body, pr_base, pr_draft, pr_reviewers, buf)
+      push_and_create(
+        f,
+        branch,
+        pr_title,
+        pr_body,
+        pr_base,
+        pr_draft,
+        pr_reviewers,
+        pr_labels,
+        pr_assignees,
+        pr_milestone,
+        buf
+      )
     end,
   })
 
@@ -1604,7 +1683,7 @@ function M.create_pr(opts)
           end
           if opts.instant then
             local title, body = fill_from_commits(branch, base)
-            push_and_create(f, branch, title, body, base, opts.draft or false)
+            push_and_create(f, branch, title, body, base, opts.draft or false, {}, {}, {}, '')
           else
             local root = git_root() or ''
             local draft = opts.draft or false

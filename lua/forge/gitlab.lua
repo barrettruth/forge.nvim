@@ -318,8 +318,11 @@ end
 ---@param base string
 ---@param draft boolean
 ---@param reviewers string[]?
+---@param labels string[]?
+---@param assignees string[]?
+---@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, reviewers)
+function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone)
   local cmd = {
     'glab',
     'mr',
@@ -339,6 +342,18 @@ function M:create_pr_cmd(title, body, base, draft, reviewers)
     table.insert(cmd, '--reviewer')
     table.insert(cmd, r)
   end
+  if labels and #labels > 0 then
+    table.insert(cmd, '--label')
+    table.insert(cmd, table.concat(labels, ','))
+  end
+  for _, a in ipairs(assignees or {}) do
+    table.insert(cmd, '--assignee')
+    table.insert(cmd, a)
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
+  end
   return cmd
 end
 
@@ -351,8 +366,9 @@ end
 ---@param body string
 ---@param labels string[]?
 ---@param assignees string[]?
+---@param milestone string?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, assignees)
+function M:create_issue_cmd(title, body, labels, assignees, milestone)
   local cmd = { 'glab', 'issue', 'create', '--title', title, '--description', body, '--yes' }
   if labels and #labels > 0 then
     table.insert(cmd, '--label')
@@ -361,6 +377,10 @@ function M:create_issue_cmd(title, body, labels, assignees)
   for _, a in ipairs(assignees or {}) do
     table.insert(cmd, '--assignee')
     table.insert(cmd, a)
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
   end
   return cmd
 end

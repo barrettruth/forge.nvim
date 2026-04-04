@@ -274,9 +274,25 @@ end
 ---@param base string
 ---@param _draft boolean
 ---@param _reviewers string[]?
+---@param labels string[]?
+---@param assignees string[]?
+---@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, _draft, _reviewers)
-  return { 'tea', 'pr', 'create', '--title', title, '--description', body, '--base', base }
+function M:create_pr_cmd(title, body, base, _draft, _reviewers, labels, assignees, milestone)
+  local cmd = { 'tea', 'pr', 'create', '--title', title, '--description', body, '--base', base }
+  if labels and #labels > 0 then
+    table.insert(cmd, '--labels')
+    table.insert(cmd, table.concat(labels, ','))
+  end
+  if assignees and #assignees > 0 then
+    table.insert(cmd, '--assignees')
+    table.insert(cmd, table.concat(assignees, ','))
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
+  end
+  return cmd
 end
 
 ---@return string[]?
@@ -297,11 +313,25 @@ end
 
 ---@param title string
 ---@param body string
----@param _labels string[]?
----@param _assignees string[]?
+---@param labels string[]?
+---@param assignees string[]?
+---@param milestone string?
 ---@return string[]
-function M:create_issue_cmd(title, body, _labels, _assignees)
-  return { 'tea', 'issues', 'create', '--title', title, '--description', body }
+function M:create_issue_cmd(title, body, labels, assignees, milestone)
+  local cmd = { 'tea', 'issues', 'create', '--title', title, '--description', body }
+  if labels and #labels > 0 then
+    table.insert(cmd, '--labels')
+    table.insert(cmd, table.concat(labels, ','))
+  end
+  if assignees and #assignees > 0 then
+    table.insert(cmd, '--assignees')
+    table.insert(cmd, table.concat(assignees, ','))
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
+  end
+  return cmd
 end
 
 ---@return string[]
