@@ -61,6 +61,7 @@ local function create_compose_buf(name)
   vim.bo[buf].bufhidden = 'wipe'
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
+  vim.bo[buf].omnifunc = 'v:lua.require("forge.completion").omnifunc'
   return buf
 end
 

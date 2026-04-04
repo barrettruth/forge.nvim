@@ -171,6 +171,7 @@ local M = {}
 ---@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?): string[]
 ---@field fetch_pr_details_cmd fun(self: forge.Forge, num: string): string[]
 ---@field parse_pr_details fun(self: forge.Forge, json: table): { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+---@field completion_cmd (fun(self: forge.Forge, field: string): string[]?)?
 ---@field create_pr_web_cmd fun(self: forge.Forge): string[]?
 ---@field default_branch_cmd fun(self: forge.Forge): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string): string[])?
