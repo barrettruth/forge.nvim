@@ -96,6 +96,15 @@ local function dispatch(args)
       forge_mod.create_pr(opts)
       return
     end
+    if action == 'edit' then
+      local num = pos[2]
+      if not num then
+        log.warn('missing PR number')
+        return
+      end
+      forge_mod.edit_pr(num)
+      return
+    end
     local num = pos[2]
     if not num then
       log.warn('missing argument')
@@ -314,7 +323,7 @@ local function complete(arglead, cmdline, _)
 
   local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'review', 'clear' }
   local sub_actions = {
-    pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'create', '--state=' },
+    pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'edit', 'create', '--state=' },
     issue = { 'browse', 'close', 'reopen', 'create', '--state=' },
     ci = { '--all' },
     release = { 'browse', 'delete' },

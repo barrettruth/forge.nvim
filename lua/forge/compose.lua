@@ -492,4 +492,234 @@ end
 
 M.push_and_create = push_and_create
 
+---@param f forge.Forge
+---@param num string
+---@param title string
+---@param body string
+---@param pr_draft boolean
+---@param original_draft boolean
+---@param pr_reviewers string[]?
+---@param pr_labels string[]?
+---@param pr_assignees string[]?
+---@param pr_milestone string?
+---@param buf integer?
+local function update_pr(
+  f,
+  num,
+  title,
+  body,
+  pr_draft,
+  original_draft,
+  pr_reviewers,
+  pr_labels,
+  pr_assignees,
+  pr_milestone,
+  buf
+)
+  local log = require('forge.logger')
+  log.info('updating ' .. f.labels.pr_one .. ' #' .. num .. '...')
+  vim.system(
+    f:update_pr_cmd(num, title, body, pr_reviewers, pr_labels, pr_assignees, pr_milestone),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code ~= 0 then
+          local msg = vim.trim(result.stderr or '')
+          if msg == '' then
+            msg = vim.trim(result.stdout or '')
+          end
+          if msg == '' then
+            msg = 'update failed'
+          end
+          log.error(msg)
+          return
+        end
+        if pr_draft ~= original_draft then
+          local draft_cmd = f:draft_toggle_cmd(num, original_draft)
+          if draft_cmd then
+            vim.system(draft_cmd, { text = true }, function(dr)
+              vim.schedule(function()
+                if dr.code ~= 0 then
+                  log.warn('updated ' .. f.labels.pr_one .. ' but draft toggle failed')
+                else
+                  log.info(('updated %s #%s'):format(f.labels.pr_one, num))
+                end
+              end)
+            end)
+          else
+            log.info(('updated %s #%s'):format(f.labels.pr_one, num))
+          end
+        else
+          log.info(('updated %s #%s'):format(f.labels.pr_one, num))
+        end
+        require('forge').clear_list()
+        if buf and vim.api.nvim_buf_is_valid(buf) then
+          vim.bo[buf].modified = false
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end
+      end)
+    end
+  )
+end
+
+---@param f forge.Forge
+---@param num string
+---@param details { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+---@param branch string
+---@param base string
+function M.open_pr_edit(f, num, details, branch, base)
+  local buf = create_compose_buf(('forge://pr/%s/edit'):format(num))
+
+  local b = ComposeBuilder.new()
+  b.lines = { '# ' .. details.title, '' }
+  if details.body ~= '' then
+    for _, line in ipairs(vim.split(details.body, '\n', { plain = true })) do
+      table.insert(b.lines, line)
+    end
+  else
+    table.insert(b.lines, '')
+  end
+
+  table.insert(b.lines, '')
+  local comment_start = #b.lines + 1
+
+  local pr_kind = f.labels.pr_full:gsub('s$', '')
+  local diff_stat = vim.fn.system('git diff --stat origin/' .. base .. '..HEAD'):gsub('%s+$', '')
+
+  b:add_line('<!--')
+
+  local branch_prefix = '  On branch '
+  local against = ' against '
+  local ln = b:add_line('%s%s%s%s.', branch_prefix, branch, against, base)
+  b:mark(ln, #branch_prefix, #branch, 'ForgeComposeBranch')
+  b:mark(ln, #branch_prefix + #branch + #against, #base, 'ForgeComposeBranch')
+
+  local editing_prefix = '  Editing ' .. pr_kind .. ' #' .. num .. ' via '
+  ln = b:add_line('%s%s.', editing_prefix, f.name)
+  b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
+  b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
+
+  b:add_line('')
+  local original_draft = details.draft
+  if f.capabilities.draft then
+    local draft_val = details.draft and 'true' or 'false'
+    local draft_prefix = '  Draft: '
+    ln = b:add_line('%s%s', draft_prefix, draft_val)
+    b:mark(ln, 2, 6, 'ForgeComposeLabel')
+    b:mark(ln, #draft_prefix, #draft_val, details.draft and 'ForgeComposeDraft' or 'ForgeDim')
+  end
+
+  if f.capabilities.reviewers then
+    local reviewers_prefix = '  Reviewers: '
+    local reviewers_val = table.concat(details.reviewers, ', ')
+    ln = b:add_line('%s%s', reviewers_prefix, reviewers_val)
+    b:mark(ln, 2, 10, 'ForgeComposeLabel')
+  end
+
+  local labels_prefix = '  Labels: '
+  local labels_val = table.concat(details.labels, ', ')
+  ln = b:add_line('%s%s', labels_prefix, labels_val)
+  b:mark(ln, 2, 7, 'ForgeComposeLabel')
+
+  local assignees_prefix = '  Assignees: '
+  local assignees_val = table.concat(details.assignees, ', ')
+  ln = b:add_line('%s%s', assignees_prefix, assignees_val)
+  b:mark(ln, 2, 10, 'ForgeComposeLabel')
+
+  local milestone_prefix = '  Milestone: '
+  ln = b:add_line('%s%s', milestone_prefix, details.milestone)
+  b:mark(ln, 2, 10, 'ForgeComposeLabel')
+
+  local stat_start, stat_end
+  if diff_stat ~= '' then
+    b:add_line('')
+    local changes_prefix = '  Changes not in origin/'
+    ln = b:add_line('%s%s:', changes_prefix, base)
+    b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
+    b:mark(ln, #changes_prefix, #base, 'ForgeComposeBranch')
+    b:add_line('')
+    stat_start = #b.lines + 1
+    for _, sl in ipairs(vim.split(diff_stat, '\n', { plain = true })) do
+      table.insert(b.lines, '  ' .. sl)
+    end
+    stat_end = #b.lines
+  end
+  b:add_line('')
+  b:add_line('  An empty title or body aborts editing.')
+  b:add_line('-->')
+
+  b:apply(buf, comment_start)
+
+  if stat_start and stat_end then
+    for i = stat_start, stat_end do
+      local line = b.lines[i]
+      local pipe = line:find('|')
+      if pipe then
+        local fname_start = line:find('%S')
+        if fname_start then
+          b:mark(i, fname_start - 1, pipe - fname_start - 1, 'ForgeComposeFile')
+        end
+        for pos, run in line:gmatch('()([+-]+)') do
+          if pos > pipe then
+            local stat_hl = run:sub(1, 1) == '+' and 'ForgeComposeAdded' or 'ForgeComposeRemoved'
+            b:mark(i, pos - 1, #run, stat_hl)
+          end
+        end
+      end
+    end
+    for _, m in ipairs(b.marks) do
+      if m.line >= stat_start then
+        vim.api.nvim_buf_set_extmark(buf, compose_ns, m.line - 1, m.col, {
+          end_col = m.end_col,
+          hl_group = m.hl,
+          priority = 200,
+        })
+      end
+    end
+  end
+
+  vim.api.nvim_create_autocmd('BufWriteCmd', {
+    buffer = buf,
+    callback = function()
+      local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local content_lines = extract_content(buf_lines)
+      local pr_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
+
+      local log = require('forge.logger')
+      if pr_title == '' then
+        log.warn('aborting: empty title')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+      local pr_body = vim.trim(table.concat(content_lines, '\n', 3))
+      if pr_body == '' then
+        log.warn('aborting: empty body')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+
+      local meta = parse_comment_metadata(buf_lines)
+      update_pr(
+        f,
+        num,
+        pr_title,
+        pr_body,
+        meta.draft,
+        original_draft,
+        meta.reviewers,
+        meta.labels,
+        meta.assignees,
+        meta.milestone,
+        buf
+      )
+    end,
+  })
+
+  vim.api.nvim_win_set_cursor(0, { 1, 2 })
+  vim.cmd('normal! v$h')
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-G>', true, false, true), 'n', false)
+end
+
 return M

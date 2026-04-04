@@ -289,6 +289,78 @@ function M:reopen_issue_cmd(num)
   return { 'gh', 'issue', 'reopen', num }
 end
 
+---@param num string
+---@return string[]
+function M:fetch_pr_details_cmd(num)
+  return {
+    'gh',
+    'pr',
+    'view',
+    num,
+    '--json',
+    'title,body,isDraft,labels,assignees,reviewRequests,milestone',
+  }
+end
+
+---@param num string
+---@param title string
+---@param body string
+---@param reviewers string[]?
+---@param labels string[]?
+---@param assignees string[]?
+---@param milestone string?
+---@return string[]
+function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone)
+  local cmd = { 'gh', 'pr', 'edit', num, '--title', title, '--body', body }
+  for _, r in ipairs(reviewers or {}) do
+    table.insert(cmd, '--add-reviewer')
+    table.insert(cmd, r)
+  end
+  for _, l in ipairs(labels or {}) do
+    table.insert(cmd, '--add-label')
+    table.insert(cmd, l)
+  end
+  for _, a in ipairs(assignees or {}) do
+    table.insert(cmd, '--add-assignee')
+    table.insert(cmd, a)
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
+  end
+  return cmd
+end
+
+---@param json table
+---@return { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+function M:parse_pr_details(json)
+  local labels = {}
+  for _, l in ipairs(json.labels or {}) do
+    table.insert(labels, l.name or '')
+  end
+  local assignees = {}
+  for _, a in ipairs(json.assignees or {}) do
+    table.insert(assignees, a.login or '')
+  end
+  local reviewers = {}
+  for _, r in ipairs(json.reviewRequests or {}) do
+    table.insert(reviewers, r.login or '')
+  end
+  local milestone = ''
+  if type(json.milestone) == 'table' and json.milestone.title then
+    milestone = json.milestone.title
+  end
+  return {
+    title = json.title or '',
+    body = json.body or '',
+    draft = json.isDraft == true,
+    labels = labels,
+    assignees = assignees,
+    reviewers = reviewers,
+    milestone = milestone,
+  }
+end
+
 ---@param title string
 ---@param body string
 ---@param base string
