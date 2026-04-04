@@ -624,6 +624,14 @@ function M.issue(state, f)
       entries = entries,
       actions = {
         {
+          name = 'default',
+          fn = function(entry)
+            if entry then
+              f:view_web(cli_kind, entry.value)
+            end
+          end,
+        },
+        {
           name = 'browse',
           fn = function(entry)
             if entry then

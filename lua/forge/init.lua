@@ -117,7 +117,7 @@ local DEFAULTS = {
       refresh = '<c-r>',
     },
     issue = {
-      browse = '<cr>',
+      browse = '<c-x>',
       close = '<c-s>',
       filter = '<c-o>',
       refresh = '<c-r>',
