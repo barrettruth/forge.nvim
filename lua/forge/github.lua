@@ -292,8 +292,11 @@ end
 ---@param base string
 ---@param draft boolean
 ---@param reviewers string[]?
+---@param labels string[]?
+---@param assignees string[]?
+---@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, reviewers)
+function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone)
   local cmd = { 'gh', 'pr', 'create', '--title', title, '--body', body, '--base', base }
   if draft then
     table.insert(cmd, '--draft')
@@ -301,6 +304,18 @@ function M:create_pr_cmd(title, body, base, draft, reviewers)
   for _, r in ipairs(reviewers or {}) do
     table.insert(cmd, '--reviewer')
     table.insert(cmd, r)
+  end
+  for _, l in ipairs(labels or {}) do
+    table.insert(cmd, '--label')
+    table.insert(cmd, l)
+  end
+  for _, a in ipairs(assignees or {}) do
+    table.insert(cmd, '--assignee')
+    table.insert(cmd, a)
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
   end
   return cmd
 end
@@ -314,8 +329,9 @@ end
 ---@param body string
 ---@param labels string[]?
 ---@param assignees string[]?
+---@param milestone string?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, assignees)
+function M:create_issue_cmd(title, body, labels, assignees, milestone)
   local cmd = { 'gh', 'issue', 'create', '--title', title, '--body', body }
   for _, l in ipairs(labels or {}) do
     table.insert(cmd, '--label')
@@ -324,6 +340,10 @@ function M:create_issue_cmd(title, body, labels, assignees)
   for _, a in ipairs(assignees or {}) do
     table.insert(cmd, '--assignee')
     table.insert(cmd, a)
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
   end
   return cmd
 end
