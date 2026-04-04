@@ -270,6 +270,54 @@ function M:reopen_issue_cmd(num)
   return { 'tea', 'issues', 'reopen', num }
 end
 
+---@param num string
+---@return string[]
+function M:fetch_pr_details_cmd(num)
+  return {
+    'sh',
+    '-c',
+    ('tea api "/repos/:owner/:repo/pulls/%s"'):format(num),
+  }
+end
+
+---@param num string
+---@param title string
+---@param body string
+---@param _reviewers string[]?
+---@param _labels string[]?
+---@param _assignees string[]?
+---@param _milestone string?
+---@return string[]
+function M:update_pr_cmd(num, title, body, _reviewers, _labels, _assignees, _milestone)
+  return { 'tea', 'pr', 'edit', num, '--title', title, '--description', body }
+end
+
+---@param json table
+---@return { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+function M:parse_pr_details(json)
+  local labels = {}
+  for _, l in ipairs(json.labels or {}) do
+    table.insert(labels, l.name or '')
+  end
+  local assignees = {}
+  for _, a in ipairs(json.assignees or {}) do
+    table.insert(assignees, a.login or '')
+  end
+  local milestone = ''
+  if type(json.milestone) == 'table' and json.milestone.title then
+    milestone = json.milestone.title
+  end
+  return {
+    title = json.title or '',
+    body = json.body or '',
+    draft = false,
+    labels = labels,
+    assignees = assignees,
+    reviewers = {},
+    milestone = milestone,
+  }
+end
+
 ---@param title string
 ---@param body string
 ---@param base string

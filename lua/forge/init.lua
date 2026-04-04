@@ -243,7 +243,7 @@ function M.create_pr(opts)
     local num = vim.trim(result.stdout or '')
     vim.schedule(function()
       if num ~= '' and num ~= 'null' then
-        log.warn(('%s #%s already exists for branch %s'):format(f.labels.pr_one, num, branch))
+        M.edit_pr(num)
         return
       end
 
@@ -315,6 +315,51 @@ function M.create_pr(opts)
             end
           end
         end)
+      end)
+    end)
+  end)
+end
+
+---@param num string
+function M.edit_pr(num)
+  local log = require('forge.logger')
+
+  local f = M.detect()
+  if not f then
+    log.warn('no forge detected')
+    return
+  end
+
+  local branch = vim.trim(vim.fn.system('git branch --show-current'))
+  if branch == '' then
+    log.warn('detached HEAD')
+    return
+  end
+
+  log.info(('fetching %s #%s...'):format(f.labels.pr_one, num))
+
+  vim.system(f:fetch_pr_details_cmd(num), { text = true }, function(result)
+    if result.code ~= 0 then
+      vim.schedule(function()
+        log.error('failed to fetch ' .. f.labels.pr_one .. ' #' .. num)
+      end)
+      return
+    end
+    local ok, json = pcall(vim.json.decode, result.stdout or '{}')
+    if not ok or type(json) ~= 'table' then
+      vim.schedule(function()
+        log.error('failed to parse ' .. f.labels.pr_one .. ' details')
+      end)
+      return
+    end
+    local details = f:parse_pr_details(json)
+    vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
+      local base = vim.trim(base_result.stdout or '')
+      if base == '' then
+        base = 'main'
+      end
+      vim.schedule(function()
+        compose_mod.open_pr_edit(f, num, details, branch, base)
       end)
     end)
   end)

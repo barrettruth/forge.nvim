@@ -33,6 +33,7 @@ local M = {}
 ---@field ci string|false
 ---@field browse string|false
 ---@field manage string|false
+---@field edit string|false
 ---@field create string|false
 ---@field filter string|false
 ---@field refresh string|false
@@ -167,6 +168,9 @@ local M = {}
 ---@field reopen_issue_cmd fun(self: forge.Forge, num: string): string[]
 ---@field draft_toggle_cmd fun(self: forge.Forge, num: string, is_draft: boolean): string[]?
 ---@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?): string[]
+---@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?): string[]
+---@field fetch_pr_details_cmd fun(self: forge.Forge, num: string): string[]
+---@field parse_pr_details fun(self: forge.Forge, json: table): { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
 ---@field create_pr_web_cmd fun(self: forge.Forge): string[]?
 ---@field default_branch_cmd fun(self: forge.Forge): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string): string[])?
@@ -193,7 +197,8 @@ local DEFAULTS = {
       worktree = '<c-w>',
       ci = '<c-t>',
       browse = '<c-x>',
-      manage = '<c-e>',
+      manage = '<c-m>',
+      edit = '<c-e>',
       create = '<c-a>',
       filter = '<c-o>',
       refresh = '<c-r>',
@@ -369,6 +374,7 @@ function M.config()
         'ci',
         'browse',
         'manage',
+        'edit',
         'create',
         'filter',
         'refresh',

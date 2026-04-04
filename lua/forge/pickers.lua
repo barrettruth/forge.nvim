@@ -130,6 +130,9 @@ local function pr_action_fns(f, num)
     manage = function()
       M.pr_manage(f, num)
     end,
+    edit = function()
+      require('forge').edit_pr(num)
+    end,
   }
 end
 
@@ -546,6 +549,14 @@ function M.pr(state, f)
           fn = function(entry)
             if entry then
               pr_action_fns(f, entry.value).manage()
+            end
+          end,
+        },
+        {
+          name = 'edit',
+          fn = function(entry)
+            if entry then
+              pr_action_fns(f, entry.value).edit()
             end
           end,
         },
