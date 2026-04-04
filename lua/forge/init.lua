@@ -1644,6 +1644,8 @@ end
 
 ---@class forge.CreateIssueOpts
 ---@field web boolean?
+---@field blank boolean?
+---@field template string?
 
 ---@param opts forge.CreateIssueOpts?
 function M.create_issue(opts)
@@ -1669,8 +1671,26 @@ function M.create_issue(opts)
     return
   end
 
+  if opts.blank then
+    open_issue_compose_buffer(f, nil)
+    return
+  end
+
   local root = git_root() or ''
   local result, templates = discover_templates(f:issue_template_paths(), root)
+
+  if opts.template and templates then
+    local slug = opts.template:lower()
+    for _, t in ipairs(templates) do
+      if t.name:gsub('%.ya?ml$', ''):gsub('%.md$', ''):lower() == slug then
+        open_issue_compose_buffer(f, load_template(t))
+        return
+      end
+    end
+    log.warn('template not found: ' .. opts.template)
+    return
+  end
+
   if result or not templates then
     open_issue_compose_buffer(f, result)
     return
@@ -1700,6 +1720,24 @@ function M.create_issue(opts)
     },
     picker_name = '_menu',
   })
+end
+
+function M.template_slugs()
+  local f = M.detect()
+  if not f then
+    return {}
+  end
+  local root = git_root() or ''
+  local _, templates = discover_templates(f:issue_template_paths(), root)
+  if not templates then
+    return {}
+  end
+  local slugs = {}
+  for _, t in ipairs(templates) do
+    local slug = t.name:gsub('%.ya?ml$', ''):gsub('%.md$', '')
+    slugs[#slugs + 1] = slug
+  end
+  return slugs
 end
 
 M._discover_templates = discover_templates
