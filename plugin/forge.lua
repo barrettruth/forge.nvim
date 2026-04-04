@@ -193,15 +193,15 @@ local function dispatch(args)
     if not f then
       return
     end
-    local flags = parse_flags(args, 2)
-    local branch
+    local flags, positional = parse_flags(args, 2)
+    local ref
     if not flags.all then
-      branch = vim.trim(vim.fn.system('git branch --show-current'))
-      if branch == '' then
-        branch = nil
+      ref = positional[1] or vim.trim(vim.fn.system('git branch --show-current'))
+      if ref == '' then
+        ref = nil
       end
     end
-    require('forge.pickers').ci(f, branch)
+    require('forge.pickers').ci(f, ref)
     return
   end
 
@@ -358,7 +358,14 @@ local function complete(arglead, cmdline, _)
   local sub = words[2]
 
   if arg_idx == 2 then
-    return filter(sub_actions[sub] or {})
+    local candidates = vim.list_extend({}, sub_actions[sub] or {})
+    if sub == 'ci' and not arglead:match('^%-') then
+      vim.list_extend(
+        candidates,
+        vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags')
+      )
+    end
+    return filter(candidates)
   end
 
   if sub == 'pr' and words[3] == 'create' then
