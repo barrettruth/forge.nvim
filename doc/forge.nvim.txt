@@ -142,7 +142,7 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         issue = {
-          browse = '<cr>',
+          browse = '<c-x>',
           close = '<c-s>',
           filter = '<c-o>',
           refresh = '<c-r>',
@@ -319,7 +319,7 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
 
   Action      Default Key    Description ~
-  `browse`      `<cr>`           Open issue in browser
+  `browse`      `<cr>` / `<c-x>`     Open issue in browser
   `close`       `<c-s>`          Close or reopen the issue
   `create`      `<c-a>`          Create new issue
   `filter`      `<c-o>`          Cycle state: all -> open -> closed
