@@ -1205,7 +1205,8 @@ local function open_issue_compose_buffer(f, result)
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
-  local title_prefix = '# ' .. (result and result.title or '')
+  local template_title = result and result.title or ''
+  local title_prefix = '# ' .. template_title
   local template_labels = result and result.labels or {}
   local body = result and result.body or ''
 
@@ -1282,7 +1283,7 @@ local function open_issue_compose_buffer(f, result)
         table.insert(content_lines, l)
       end
       local issue_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
-      if issue_title == '' then
+      if issue_title == '' or normalize_body(issue_title) == normalize_body(template_title) then
         require('forge.logger').warn('aborting: empty title')
         vim.bo[buf].modified = false
         vim.api.nvim_buf_delete(buf, { force = true })
