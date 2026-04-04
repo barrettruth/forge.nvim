@@ -1702,4 +1702,8 @@ function M.create_issue(opts)
   })
 end
 
+M._discover_templates = discover_templates
+M._load_template = load_template
+M._normalize_body = normalize_body
+
 return M
