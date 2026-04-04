@@ -233,6 +233,12 @@ end
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 
+---@param s string
+---@return string
+local function normalize_body(s)
+  return vim.trim(s):gsub('%s+', ' ')
+end
+
 ---@class forge.PRState
 ---@field state string
 ---@field mergeable string
@@ -1274,6 +1280,12 @@ local function open_issue_compose_buffer(f)
         vim.api.nvim_buf_delete(buf, { force = true })
         return
       end
+      if body ~= '' and normalize_body(issue_body) == normalize_body(body) then
+        require('forge.logger').warn('aborting: body unchanged from template')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
 
       local in_comment = false
       local issue_labels = {}
@@ -1488,6 +1500,12 @@ local function open_compose_buffer(f, branch, base, draft)
       local pr_body = vim.trim(table.concat(content_lines, '\n', 3))
       if pr_body == '' then
         require('forge.logger').warn('aborting: empty body')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+      if body ~= '' and normalize_body(pr_body) == normalize_body(body) then
+        require('forge.logger').warn('aborting: body unchanged from template')
         vim.bo[buf].modified = false
         vim.api.nvim_buf_delete(buf, { force = true })
         return
