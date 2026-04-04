@@ -1028,19 +1028,23 @@ end
 ---@field name string
 ---@field display string
 ---@field is_yaml boolean
+---@field dir string
 
 ---@param paths string[]
 ---@param repo_root string
----@param label string
----@return forge.TemplateResult?
-local function discover_template(paths, repo_root, label)
+---@return forge.TemplateResult? result
+---@return forge.TemplateEntry[]? templates
+local function discover_templates(paths, repo_root)
+  local log = require('forge.logger')
+  local t0 = vim.uv.hrtime()
   for _, p in ipairs(paths) do
     local full = repo_root .. '/' .. p
     local stat = vim.uv.fs_stat(full)
     if stat and stat.type == 'file' then
       local content = read_file(full)
       if content then
-        return make_template_result(content, is_yaml(p))
+        log.debug(('template: %s (%.1fms)'):format(p, (vim.uv.hrtime() - t0) / 1e6))
+        return make_template_result(content, is_yaml(p)), nil
       end
     elseif stat and stat.type == 'directory' then
       local handle = vim.uv.fs_scandir(full)
@@ -1062,36 +1066,48 @@ local function discover_template(paths, repo_root, label)
                 display = yaml_name(content) or name
               end
             end
-            table.insert(templates, { name = name, display = display, is_yaml = is_yml ~= nil })
+            table.insert(templates, {
+              name = name,
+              display = display,
+              is_yaml = is_yml ~= nil,
+              dir = full,
+            })
           end
         end
         if #templates == 1 then
           local content = read_file(full .. '/' .. templates[1].name)
           if content then
-            return make_template_result(content, templates[1].is_yaml)
+            return make_template_result(content, templates[1].is_yaml), nil
           end
-        elseif #templates > 1 then
+        elseif #templates > 0 then
           table.sort(templates, function(a, b)
             return a.display < b.display
           end)
-          local chosen
-          vim.ui.select(templates, {
-            prompt = label .. ' template: ',
-            format_item = function(entry)
-              return entry.display
-            end,
-          }, function(choice)
-            chosen = choice
-          end)
-          if chosen then
-            local content = read_file(full .. '/' .. chosen.name)
-            if content then
-              return make_template_result(content, chosen.is_yaml)
-            end
-          end
+          log.debug(
+            ('templates: found %d in %s (%.1fms)'):format(
+              #templates,
+              full,
+              (vim.uv.hrtime() - t0) / 1e6
+            )
+          )
+          return nil, templates
         end
       end
     end
+  end
+  return nil, nil
+end
+
+---@param entry forge.TemplateEntry
+---@return forge.TemplateResult?
+local function load_template(entry)
+  local log = require('forge.logger')
+  local t0 = vim.uv.hrtime()
+  local content = read_file(entry.dir .. '/' .. entry.name)
+  if content then
+    local result = make_template_result(content, entry.is_yaml)
+    log.debug(('template parse: %s (%.1fms)'):format(entry.name, (vim.uv.hrtime() - t0) / 1e6))
+    return result
   end
   return nil
 end
@@ -1180,17 +1196,17 @@ local function submit_issue(f, title, body, labels, assignees, buf)
   end)
 end
 
-local function open_issue_compose_buffer(f)
-  local root = git_root() or ''
-  local result = discover_template(f:issue_template_paths(), root, 'Issue')
-
+---@param f forge.Forge
+---@param result forge.TemplateResult?
+local function open_issue_compose_buffer(f, result)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, 'forge://issue/new')
   vim.bo[buf].buftype = 'acwrite'
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
 
-  local title_prefix = '# ' .. (result and result.title or '')
+  local template_title = result and result.title or ''
+  local title_prefix = '# ' .. template_title
   local template_labels = result and result.labels or {}
   local body = result and result.body or ''
 
@@ -1267,7 +1283,7 @@ local function open_issue_compose_buffer(f)
         table.insert(content_lines, l)
       end
       local issue_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
-      if issue_title == '' then
+      if issue_title == '' or normalize_body(issue_title) == normalize_body(template_title) then
         require('forge.logger').warn('aborting: empty title')
         vim.bo[buf].modified = false
         vim.api.nvim_buf_delete(buf, { force = true })
@@ -1323,11 +1339,10 @@ end
 ---@param branch string
 ---@param base string
 ---@param draft boolean
-local function open_compose_buffer(f, branch, base, draft)
-  local root = git_root() or ''
+---@param template forge.TemplateResult?
+local function open_compose_buffer(f, branch, base, draft, template)
   local title, commit_body = fill_from_commits(branch, base)
-  local result = discover_template(f:template_paths(), root, f.labels.pr_one)
-  local body = (result and result.body) or commit_body
+  local body = (template and template.body) or commit_body
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, 'forge://pr/new')
@@ -1589,7 +1604,37 @@ function M.create_pr(opts)
             local title, body = fill_from_commits(branch, base)
             push_and_create(f, branch, title, body, base, opts.draft or false)
           else
-            open_compose_buffer(f, branch, base, opts.draft or false)
+            local root = git_root() or ''
+            local draft = opts.draft or false
+            local tmpl, templates = discover_templates(f:template_paths(), root)
+            if tmpl or not templates then
+              open_compose_buffer(f, branch, base, draft, tmpl)
+            else
+              local picker = require('forge.picker')
+              local entries = {}
+              for _, t in ipairs(templates) do
+                table.insert(entries, {
+                  display = { { t.display } },
+                  value = t,
+                  ordinal = t.display,
+                })
+              end
+              picker.pick({
+                prompt = f.labels.pr_one .. ' template> ',
+                entries = entries,
+                actions = {
+                  {
+                    name = 'default',
+                    fn = function(entry)
+                      if entry then
+                        open_compose_buffer(f, branch, base, draft, load_template(entry.value))
+                      end
+                    end,
+                  },
+                },
+                picker_name = '_menu',
+              })
+            end
           end
         end)
       end)
@@ -1624,7 +1669,37 @@ function M.create_issue(opts)
     return
   end
 
-  open_issue_compose_buffer(f)
+  local root = git_root() or ''
+  local result, templates = discover_templates(f:issue_template_paths(), root)
+  if result or not templates then
+    open_issue_compose_buffer(f, result)
+    return
+  end
+
+  local picker = require('forge.picker')
+  local entries = {}
+  for _, t in ipairs(templates) do
+    table.insert(entries, {
+      display = { { t.display } },
+      value = t,
+      ordinal = t.display,
+    })
+  end
+  picker.pick({
+    prompt = 'Issue template> ',
+    entries = entries,
+    actions = {
+      {
+        name = 'default',
+        fn = function(entry)
+          if entry then
+            open_issue_compose_buffer(f, load_template(entry.value))
+          end
+        end,
+      },
+    },
+    picker_name = '_menu',
+  })
 end
 
 return M
