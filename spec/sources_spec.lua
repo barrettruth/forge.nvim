@@ -63,7 +63,7 @@ describe('github', function()
   end)
 
   it('returns correct pr_json_fields', function()
-    local f = gh:pr_json_fields()
+    local f = gh.pr_fields
     assert.equals('number', f.number)
     assert.equals('headRefName', f.branch)
     assert.equals('createdAt', f.created_at)
@@ -124,7 +124,7 @@ describe('gitlab', function()
   end)
 
   it('returns correct pr_json_fields', function()
-    local f = gl:pr_json_fields()
+    local f = gl.pr_fields
     assert.equals('iid', f.number)
     assert.equals('source_branch', f.branch)
     assert.equals('created_at', f.created_at)
@@ -176,7 +176,7 @@ describe('codeberg', function()
   end)
 
   it('returns correct pr_json_fields', function()
-    local f = cb:pr_json_fields()
+    local f = cb.pr_fields
     assert.equals('index', f.number)
     assert.equals('head', f.branch)
     assert.equals('poster', f.author)

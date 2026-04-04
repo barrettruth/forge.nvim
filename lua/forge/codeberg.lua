@@ -18,6 +18,28 @@ local M = {
     per_pr_checks = true,
     ci_json = true,
   },
+  pr_fields = {
+    number = 'index',
+    title = 'title',
+    branch = 'head',
+    state = 'state',
+    author = 'poster',
+    created_at = 'created_at',
+  },
+  issue_fields = {
+    number = 'index',
+    title = 'title',
+    state = 'state',
+    author = 'poster',
+    created_at = 'created_at',
+  },
+  release_fields = {
+    tag = 'tag_name',
+    title = 'name',
+    is_draft = 'draft',
+    is_prerelease = 'prerelease',
+    published_at = 'published_at',
+  },
 }
 
 ---@param state string
@@ -49,27 +71,6 @@ function M:list_issue_json_cmd(state)
     'json',
     '--fields',
     'index,title,state,poster,created_at',
-  }
-end
-
-function M:pr_json_fields()
-  return {
-    number = 'index',
-    title = 'title',
-    branch = 'head',
-    state = 'state',
-    author = 'poster',
-    created_at = 'created_at',
-  }
-end
-
-function M:issue_json_fields()
-  return {
-    number = 'index',
-    title = 'title',
-    state = 'state',
-    author = 'poster',
-    created_at = 'created_at',
   }
 end
 
@@ -427,16 +428,6 @@ function M:list_releases_json_cmd()
     'sh',
     '-c',
     'tea api "/repos/:owner/:repo/releases?limit=' .. limit .. '"',
-  }
-end
-
-function M:release_json_fields()
-  return {
-    tag = 'tag_name',
-    title = 'name',
-    is_draft = 'draft',
-    is_prerelease = 'prerelease',
-    published_at = 'published_at',
   }
 end
 

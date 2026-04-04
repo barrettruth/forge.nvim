@@ -483,7 +483,7 @@ function M.pr(state, f)
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('pr', state)
-  local pr_fields = f:pr_json_fields()
+  local pr_fields = f.pr_fields
   local show_state = state ~= 'open'
 
   local function open_pr_list(prs)
@@ -599,7 +599,7 @@ function M.issue(state, f)
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('issue', state)
-  local issue_fields = f:issue_json_fields()
+  local issue_fields = f.issue_fields
   local num_field = issue_fields.number
   local issue_show_state = state == 'all'
 
@@ -722,7 +722,7 @@ end
 function M.release(state, f)
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('release', state)
-  local rel_fields = f:release_json_fields()
+  local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
 
   local function open_release_list(releases)

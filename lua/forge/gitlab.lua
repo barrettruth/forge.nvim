@@ -18,6 +18,26 @@ local M = {
     per_pr_checks = true,
     ci_json = true,
   },
+  pr_fields = {
+    number = 'iid',
+    title = 'title',
+    branch = 'source_branch',
+    state = 'state',
+    author = 'author',
+    created_at = 'created_at',
+  },
+  issue_fields = {
+    number = 'iid',
+    title = 'title',
+    state = 'state',
+    author = 'author',
+    created_at = 'created_at',
+  },
+  release_fields = {
+    tag = 'tag_name',
+    title = 'name',
+    published_at = 'released_at',
+  },
 }
 
 ---@param state string
@@ -58,27 +78,6 @@ function M:list_issue_json_cmd(state)
     table.insert(cmd, '--all')
   end
   return cmd
-end
-
-function M:pr_json_fields()
-  return {
-    number = 'iid',
-    title = 'title',
-    branch = 'source_branch',
-    state = 'state',
-    author = 'author',
-    created_at = 'created_at',
-  }
-end
-
-function M:issue_json_fields()
-  return {
-    number = 'iid',
-    title = 'title',
-    state = 'state',
-    author = 'author',
-    created_at = 'created_at',
-  }
 end
 
 ---@param kind string
@@ -477,14 +476,6 @@ end
 
 function M:list_releases_json_cmd()
   return { 'glab', 'release', 'list', '--output', 'json' }
-end
-
-function M:release_json_fields()
-  return {
-    tag = 'tag_name',
-    title = 'name',
-    published_at = 'released_at',
-  }
 end
 
 ---@param tag string

@@ -136,8 +136,8 @@ local M = {}
 ---@field capabilities forge.Capabilities
 ---@field list_pr_json_cmd fun(self: forge.Forge, state: string): string[]
 ---@field list_issue_json_cmd fun(self: forge.Forge, state: string): string[]
----@field pr_json_fields fun(self: forge.Forge): { number: string, title: string, branch: string, state: string, author: string, created_at: string }
----@field issue_json_fields fun(self: forge.Forge): { number: string, title: string, state: string, author: string, created_at: string }
+---@field pr_fields { number: string, title: string, branch: string, state: string, author: string, created_at: string }
+---@field issue_fields { number: string, title: string, state: string, author: string, created_at: string }
 ---@field view_web fun(self: forge.Forge, kind: string, num: string)
 ---@field browse fun(self: forge.Forge, loc: string, branch: string)
 ---@field browse_branch fun(self: forge.Forge, branch: string)
@@ -172,7 +172,7 @@ local M = {}
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string): string[])?
 ---@field template_paths fun(self: forge.Forge): string[]
 ---@field list_releases_json_cmd fun(self: forge.Forge): string[]
----@field release_json_fields fun(self: forge.Forge): { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
+---@field release_fields { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
 ---@field browse_release fun(self: forge.Forge, tag: string)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string): string[]
 ---@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?): string[]
