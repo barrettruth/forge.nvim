@@ -270,7 +270,7 @@ local DEFAULTS = {
 local hl_defaults = {
   -- TODO: https://github.com/barrettruth/forge.nvim/issues/33
   -- ForgeComposeComment = 'Comment',
-  ForgeComposeComment = { italic = true },
+  ForgeComposeComment = 'Comment',
   ForgeComposeBranch = 'Special',
   ForgeComposeForge = 'Label',
   ForgeComposeDraft = 'DiagnosticWarn',
@@ -291,9 +291,9 @@ local hl_defaults = {
   ForgeDim = 'Comment',
   ForgeLogJob = 'Title',
   ForgeLogStep = 'Function',
-  ForgeLogError = 'DiagnosticVirtualTextError',
+  ForgeLogError = 'DiagnosticError',
   ForgeLogErrorLabel = { bold = true },
-  ForgeLogWarning = 'DiagnosticVirtualTextWarn',
+  ForgeLogWarning = 'DiagnosticWarn',
   ForgeLogWarningLabel = { bold = true },
   ForgeLogSection = 'Function',
   ForgeLogCommand = 'Special',
