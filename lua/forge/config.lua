@@ -35,6 +35,7 @@ local M = {}
 ---@field manage string|false
 ---@field edit string|false
 ---@field create string|false
+---@field close string|false
 ---@field filter string|false
 ---@field refresh string|false
 
@@ -202,6 +203,7 @@ local DEFAULTS = {
       manage = '<c-m>',
       edit = '<c-e>',
       create = '<c-a>',
+      close = '<c-s>',
       filter = '<c-o>',
       refresh = '<c-r>',
     },
@@ -378,6 +380,7 @@ function M.config()
         'manage',
         'edit',
         'create',
+        'close',
         'filter',
         'refresh',
       }) do
