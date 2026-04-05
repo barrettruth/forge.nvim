@@ -50,6 +50,18 @@ end
 
 ---@param f forge.Forge
 ---@param num string
+---@param is_open boolean
+local function pr_toggle_state(f, num, is_open)
+  local kind = f.labels.pr_one
+  if is_open then
+    run_forge_cmd(kind, num, 'closing', f:close_cmd(num), 'closed', 'close failed')
+  else
+    run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num), 'reopened', 'reopen failed')
+  end
+end
+
+---@param f forge.Forge
+---@param num string
 ---@return table<string, function>
 local function pr_action_fns(f, num)
   local kind = f.labels.pr_one
@@ -490,9 +502,13 @@ function M.pr(state, f)
   local show_state = state ~= 'open'
 
   local function open_pr_list(prs)
+    local state_field = pr_fields.state
+    local state_map = {}
     local entries = {}
     for _, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
+      local s = (pr[state_field] or ''):lower()
+      state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = forge_mod.format_pr(pr, pr_fields, show_state),
         value = num,
@@ -564,6 +580,14 @@ function M.pr(state, f)
           name = 'create',
           fn = function()
             forge_mod.create_pr()
+          end,
+        },
+        {
+          name = 'close',
+          fn = function(entry)
+            if entry then
+              pr_toggle_state(f, entry.value, state_map[entry.value] ~= false)
+            end
           end,
         },
         {
@@ -719,6 +743,20 @@ end
 ---@param num string
 function M.issue_reopen(f, num)
   run_forge_cmd('issue', num, 'reopening', f:reopen_issue_cmd(num), 'reopened', 'reopen failed')
+end
+
+---@param f forge.Forge
+---@param num string
+function M.pr_close(f, num)
+  local kind = f.labels.pr_one
+  run_forge_cmd(kind, num, 'closing', f:close_cmd(num), 'closed', 'close failed')
+end
+
+---@param f forge.Forge
+---@param num string
+function M.pr_reopen(f, num)
+  local kind = f.labels.pr_one
+  run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num), 'reopened', 'reopen failed')
 end
 
 ---@param f forge.Forge

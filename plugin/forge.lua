@@ -129,6 +129,10 @@ local function dispatch(args)
       f:view_web(f.kinds.pr, num)
     elseif action == 'manage' then
       pickers.pr_manage(f, num)
+    elseif action == 'close' then
+      pickers.pr_close(f, num)
+    elseif action == 'reopen' then
+      pickers.pr_reopen(f, num)
     else
       log.warn('unknown pr action: ' .. action)
     end
@@ -323,7 +327,7 @@ local function complete(arglead, cmdline, _)
 
   local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'review', 'clear' }
   local sub_actions = {
-    pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'edit', 'create', '--state=' },
+    pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'edit', 'create', 'close', 'reopen', '--state=' },
     issue = { 'browse', 'close', 'reopen', 'create', '--state=' },
     ci = { '--all' },
     release = { 'browse', 'delete' },
