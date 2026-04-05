@@ -814,6 +814,7 @@ end
 ---@field title string?
 ---@field in_progress boolean?
 ---@field status_cmd string[]?
+---@field json boolean?
 ---@field log_cmd_fn fun(job_id: string, failed: boolean): string[], forge.LogOpts
 
 local function parse_summary(raw_lines)
@@ -835,6 +836,76 @@ local function parse_summary(raw_lines)
   end
 
   return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
+end
+
+local json_status_icon = {
+  success = '✓',
+  failure = 'X',
+  skipped = '-',
+  cancelled = '-',
+  in_progress = '~',
+  queued = '*',
+}
+
+local json_status_hl = {
+  success = 'ForgePass',
+  failure = 'ForgeFail',
+  skipped = 'ForgeLogDim',
+  cancelled = 'ForgeLogDim',
+  in_progress = 'ForgePending',
+  queued = 'ForgePending',
+}
+
+local function parse_summary_json(data)
+  local lines = {}
+  local hls_list = {}
+  local jobs = {}
+  local job_lnums = {}
+
+  local run_status = (data.conclusion and data.conclusion ~= '') and data.conclusion or data.status
+  local icon = json_status_icon[run_status] or '*'
+  local header = ('%s %s'):format(icon, data.name or 'run')
+  lines[#lines + 1] = header
+  local hl_grp = json_status_hl[run_status] or 'ForgePending'
+  hls_list[#hls_list + 1] = { { col = 0, end_col = #icon, group = hl_grp } }
+
+  lines[#lines + 1] = ''
+  hls_list[#hls_list + 1] = {}
+
+  for _, job in ipairs(data.jobs or {}) do
+    local jstatus = (job.conclusion and job.conclusion ~= '') and job.conclusion or job.status
+    local jicon = json_status_icon[jstatus] or '*'
+    local dur = format_duration(job.startedAt, job.completedAt)
+    local line = ('%s %s'):format(jicon, job.name or 'job')
+    if dur then
+      line = line .. ('  (%s)'):format(dur)
+    end
+    if jstatus == 'in_progress' and job.steps then
+      local done, total = 0, 0
+      for _, s in ipairs(job.steps) do
+        total = total + 1
+        local sc = (s.conclusion and s.conclusion ~= '') and s.conclusion or s.status
+        if sc == 'success' or sc == 'failure' or sc == 'skipped' then
+          done = done + 1
+        end
+      end
+      if total > 0 then
+        line = line .. ('  [%d/%d]'):format(done, total)
+      end
+    end
+    lines[#lines + 1] = line
+    local jhl_grp = json_status_hl[jstatus] or 'ForgePending'
+    hls_list[#hls_list + 1] = { { col = 0, end_col = #jicon, group = jhl_grp } }
+
+    local job_id = tostring(job.databaseId or '')
+    if job_id ~= '' then
+      local failed = jstatus == 'failure'
+      jobs[#lines] = { id = job_id, failed = failed }
+      job_lnums[#job_lnums + 1] = #lines
+    end
+  end
+
+  return { lines = lines, hls = hls_list, jobs = jobs, job_lnums = job_lnums }
 end
 
 ---@param cmd string[]
@@ -902,11 +973,20 @@ function M.open_summary(cmd, opts, reuse_buf)
         return
       end
 
-      local raw_lines = vim.split(stdout, '\n', { plain = true })
-      if raw_lines[#raw_lines] == '' then
-        raw_lines[#raw_lines] = nil
+      local parsed
+      if opts.json then
+        local ok, data = pcall(vim.json.decode, stdout)
+        if ok and data then
+          parsed = parse_summary_json(data)
+        end
       end
-      local parsed = parse_summary(raw_lines)
+      if not parsed then
+        local raw_lines = vim.split(stdout, '\n', { plain = true })
+        if raw_lines[#raw_lines] == '' then
+          raw_lines[#raw_lines] = nil
+        end
+        parsed = parse_summary(raw_lines)
+      end
 
       vim.bo[buf].modifiable = true
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, parsed.lines)
@@ -1011,5 +1091,7 @@ end
 M._strip_ansi = strip_ansi
 M._parse_github = parse_github
 M._parse_gitlab = parse_gitlab
+M._parse_summary = parse_summary
+M._parse_summary_json = parse_summary_json
 
 return M
