@@ -47,8 +47,10 @@ function ComposeBuilder:apply(buf, comment_start)
   end
   for i = comment_start, #self.lines do
     vim.api.nvim_buf_set_extmark(buf, compose_ns, i - 1, 0, {
+      end_col = #self.lines[i],
+      hl_group = 'ForgeComposeComment',
       line_hl_group = 'ForgeComposeComment',
-      priority = 200,
+      priority = 150,
     })
   end
 end
