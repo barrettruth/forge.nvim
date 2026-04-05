@@ -327,7 +327,19 @@ local function complete(arglead, cmdline, _)
 
   local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'review', 'clear' }
   local sub_actions = {
-    pr = { 'checkout', 'diff', 'worktree', 'ci', 'browse', 'manage', 'edit', 'create', 'close', 'reopen', '--state=' },
+    pr = {
+      'checkout',
+      'diff',
+      'worktree',
+      'ci',
+      'browse',
+      'manage',
+      'edit',
+      'create',
+      'close',
+      'reopen',
+      '--state=',
+    },
     issue = { 'browse', 'close', 'reopen', 'create', '--state=' },
     ci = { '--all' },
     release = { 'browse', 'delete' },
