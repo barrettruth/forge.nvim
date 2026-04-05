@@ -9,7 +9,7 @@ on:
 jobs:
   publish:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, netcup, general]
 
     steps:
       - uses: actions/checkout@v4
