@@ -199,6 +199,29 @@ end
 
 ---@param id string
 ---@return string[]
+function M:summary_json_cmd(id)
+  local jq = table.concat({
+    '{name,status,conclusion,event,url,',
+    'jobs:[.jobs[]|{databaseId,name,status,conclusion,url,',
+    'startedAt,completedAt,',
+    'steps:[.steps[]|{name,status,conclusion,number}]}]}',
+  }, '')
+  return {
+    'gh',
+    'run',
+    'view',
+    id,
+    '-R',
+    nwo(),
+    '--json',
+    'name,status,conclusion,event,url,jobs',
+    '--jq',
+    jq,
+  }
+end
+
+---@param id string
+---@return string[]
 function M:watch_cmd(id)
   return { 'gh', 'run', 'watch', id, '-R', nwo() }
 end
