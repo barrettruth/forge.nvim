@@ -4,6 +4,8 @@ local log_mod = require('forge.log')
 local strip_ansi = log_mod._strip_ansi
 local parse_github = log_mod._parse_github
 local parse_gitlab = log_mod._parse_gitlab
+local parse_summary = log_mod._parse_summary
+local parse_summary_json = log_mod._parse_summary_json
 
 describe('strip_ansi', function()
   it('strips SGR codes and extracts highlights', function()
@@ -322,5 +324,131 @@ describe('parse_gitlab', function()
     assert.equals('First', result.lines[1].text)
     assert.equals('Second', result.lines[3].text)
     assert.equals(2, #result.headers)
+  end)
+end)
+
+describe('parse_summary', function()
+  it('extracts job IDs from text output', function()
+    local result = parse_summary({
+      '\027[32m✓\027[0m lint (ID 12345)',
+      '\027[31mX\027[0m test (ID 67890)',
+      '\027[32m✓\027[0m deploy (ID 11111)',
+    })
+    assert.equals(3, #result.lines)
+    assert.equals(3, #result.job_lnums)
+    assert.same({ id = '12345', failed = false }, result.jobs[1])
+    assert.same({ id = '67890', failed = true }, result.jobs[2])
+    assert.same({ id = '11111', failed = false }, result.jobs[3])
+  end)
+
+  it('handles empty output', function()
+    local result = parse_summary({})
+    assert.equals(0, #result.lines)
+    assert.equals(0, #result.job_lnums)
+  end)
+end)
+
+describe('parse_summary_json', function()
+  it('renders completed run with multiple jobs', function()
+    local result = parse_summary_json({
+      name = 'CI',
+      status = 'completed',
+      conclusion = 'success',
+      jobs = {
+        {
+          databaseId = 100,
+          name = 'lint',
+          status = 'completed',
+          conclusion = 'success',
+          startedAt = '2024-01-01T00:00:00Z',
+          completedAt = '2024-01-01T00:01:30Z',
+          steps = {},
+        },
+        {
+          databaseId = 200,
+          name = 'test',
+          status = 'completed',
+          conclusion = 'failure',
+          startedAt = '2024-01-01T00:00:00Z',
+          completedAt = '2024-01-01T00:05:00Z',
+          steps = {},
+        },
+      },
+    })
+    assert.truthy(result.lines[1]:match('^✓ CI'))
+    assert.truthy(result.lines[3]:match('^✓ lint'))
+    assert.truthy(result.lines[3]:match('1m 30s'))
+    assert.truthy(result.lines[4]:match('^X test'))
+    assert.same({ id = '100', failed = false }, result.jobs[3])
+    assert.same({ id = '200', failed = true }, result.jobs[4])
+    assert.equals(2, #result.job_lnums)
+  end)
+
+  it('shows step progress for in-progress jobs', function()
+    local result = parse_summary_json({
+      name = 'Build',
+      status = 'in_progress',
+      conclusion = '',
+      jobs = {
+        {
+          databaseId = 300,
+          name = 'compile',
+          status = 'in_progress',
+          conclusion = '',
+          steps = {
+            { name = 'Checkout', status = 'completed', conclusion = 'success', number = 1 },
+            { name = 'Setup', status = 'completed', conclusion = 'success', number = 2 },
+            { name = 'Build', status = 'in_progress', conclusion = '', number = 3 },
+            { name = 'Test', status = 'queued', conclusion = '', number = 4 },
+          },
+        },
+      },
+    })
+    assert.truthy(result.lines[1]:match('^~ Build'))
+    assert.truthy(result.lines[3]:match('%[2/4%]'))
+  end)
+
+  it('renders header with run name and status icon', function()
+    local result = parse_summary_json({
+      name = 'Deploy',
+      status = 'completed',
+      conclusion = 'failure',
+      jobs = {},
+    })
+    assert.equals('X Deploy', result.lines[1])
+    assert.equals(1, #result.hls[1])
+    assert.equals('ForgeFail', result.hls[1][1].group)
+  end)
+
+  it('handles empty jobs list', function()
+    local result = parse_summary_json({
+      name = 'Empty',
+      status = 'completed',
+      conclusion = 'success',
+      jobs = {},
+    })
+    assert.equals(2, #result.lines)
+    assert.equals(0, #result.job_lnums)
+  end)
+
+  it('uses correct icons for queued and in_progress status', function()
+    local result = parse_summary_json({
+      name = 'Pipeline',
+      status = 'queued',
+      conclusion = '',
+      jobs = {
+        {
+          databaseId = 400,
+          name = 'waiting',
+          status = 'queued',
+          conclusion = '',
+          steps = {},
+        },
+      },
+    })
+    assert.truthy(result.lines[1]:match('^%* Pipeline'))
+    assert.truthy(result.lines[3]:match('^%* waiting'))
+    assert.equals('ForgePending', result.hls[1][1].group)
+    assert.equals('ForgePending', result.hls[3][1].group)
   end)
 end)

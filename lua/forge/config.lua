@@ -151,6 +151,7 @@ local M = {}
 ---@field check_log_cmd fun(self: forge.Forge, run_id: string, failed_only: boolean, job_id: string?): string[]
 ---@field steps_cmd (fun(self: forge.Forge, run_id: string): string[])?
 ---@field view_cmd (fun(self: forge.Forge, id: string, opts?: { job_id?: string, log?: boolean, failed?: boolean }): string[])?
+---@field summary_json_cmd (fun(self: forge.Forge, id: string): string[])?
 ---@field watch_cmd (fun(self: forge.Forge, id: string): string[])?
 ---@field run_status_cmd (fun(self: forge.Forge, id: string): string[])?
 ---@field live_tail_cmd (fun(self: forge.Forge, run_id: string, job_id: string?): string[])?
