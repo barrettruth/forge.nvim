@@ -81,13 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
-      - run:
-          SYSTEM=$(nix eval --impure --raw --expr builtins.currentSystem) &&
-          FORGE_TEST_RTP=$(nix eval --impure --raw --expr "let flake =
-          builtins.getFlake \"$PWD\"; pkgs =
-          flake.inputs.nixpkgs.legacyPackages.${SYSTEM}; in toString
-          pkgs.vimPlugins.nvim-treesitter-parsers.yaml") nix develop .#ci
-          --command busted
+      - run: nix develop .#ci --command busted
 
   vimdoc-check:
     name: Vimdoc Check

@@ -1,5 +1,12 @@
 set -eu
 
+if command -v nix >/dev/null 2>&1; then
+  SYSTEM=$(nix eval --impure --raw --expr builtins.currentSystem 2>/dev/null || true)
+  if [ -n "${SYSTEM}" ]; then
+    FORGE_TEST_RTP=$(nix eval --impure --raw --expr "let flake = builtins.getFlake \"$PWD\"; pkgs = flake.inputs.nixpkgs.legacyPackages.${SYSTEM}; in toString pkgs.vimPlugins.nvim-treesitter-parsers.yaml" 2>/dev/null || true)
+  fi
+fi
+
 if [ -n "${FORGE_TEST_RTP:-}" ]; then
   exec nvim --clean --headless --cmd "set runtimepath^=${FORGE_TEST_RTP}" -l "$@"
 fi
