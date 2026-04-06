@@ -69,6 +69,10 @@ function M.selected(entry)
   return entry
 end
 
+function M.closes(def)
+  return rawget(def, 'close') ~= false
+end
+
 ---@param opts forge.PickerOpts
 function M.pick(opts)
   local name = detect()

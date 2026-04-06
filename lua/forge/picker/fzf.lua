@@ -90,13 +90,18 @@ function M.pick(opts)
   for _, def in ipairs(opts.actions) do
     local key = def.name == 'default' and '<cr>' or bindings[def.name]
     if key then
-      fzf_actions[to_fzf_key(key)] = function(selected)
+      local action_fn = function(selected)
         if not selected[1] then
           def.fn(nil)
           return
         end
         local idx = tonumber(selected[1]:match('^(%d+)'))
         def.fn(picker_mod.selected(idx and opts.entries[idx] or nil))
+      end
+      if picker_mod.closes(def) then
+        fzf_actions[to_fzf_key(key)] = action_fn
+      else
+        fzf_actions[to_fzf_key(key)] = { fn = action_fn, noclose = true }
       end
     end
   end

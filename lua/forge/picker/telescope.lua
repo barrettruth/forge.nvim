@@ -49,7 +49,9 @@ function M.pick(opts)
           if key then
             local function action_fn()
               local entry = action_state.get_selected_entry()
-              actions.close(prompt_bufnr)
+              if picker_mod.closes(def) then
+                actions.close(prompt_bufnr)
+              end
               def.fn(picker_mod.selected(entry and entry.value or nil))
             end
             if key == '<cr>' then

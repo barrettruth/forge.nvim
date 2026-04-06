@@ -24,14 +24,20 @@ end
 ---@param cmd string[]
 ---@param success_msg string
 ---@param fail_msg string
-local function run_forge_cmd(kind, num, label, cmd, success_msg, fail_msg)
+local function run_forge_cmd(kind, num, label, cmd, success_msg, fail_msg, on_success, on_failure)
   log.info(label .. ' ' .. kind .. ' #' .. num .. '...')
   vim.system(cmd, { text = true }, function(result)
     vim.schedule(function()
       if result.code == 0 then
         log.info(('%s %s #%s'):format(success_msg, kind, num))
+        if on_success then
+          on_success()
+        end
       else
         log.error(cmd_error(result, fail_msg))
+        if on_failure then
+          on_failure()
+        end
       end
     end)
   end)
@@ -68,23 +74,59 @@ end
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
-local function issue_toggle_state(f, num, is_open)
+local function issue_toggle_state(f, num, is_open, on_success)
   if is_open then
-    run_forge_cmd('issue', num, 'closing', f:close_issue_cmd(num), 'closed', 'close failed')
+    run_forge_cmd(
+      'issue',
+      num,
+      'closing',
+      f:close_issue_cmd(num),
+      'closed',
+      'close failed',
+      on_success,
+      on_success
+    )
   else
-    run_forge_cmd('issue', num, 'reopening', f:reopen_issue_cmd(num), 'reopened', 'reopen failed')
+    run_forge_cmd(
+      'issue',
+      num,
+      'reopening',
+      f:reopen_issue_cmd(num),
+      'reopened',
+      'reopen failed',
+      on_success,
+      on_success
+    )
   end
 end
 
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
-local function pr_toggle_state(f, num, is_open)
+local function pr_toggle_state(f, num, is_open, on_success)
   local kind = f.labels.pr_one
   if is_open then
-    run_forge_cmd(kind, num, 'closing', f:close_cmd(num), 'closed', 'close failed')
+    run_forge_cmd(
+      kind,
+      num,
+      'closing',
+      f:close_cmd(num),
+      'closed',
+      'close failed',
+      on_success,
+      on_success
+    )
   else
-    run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num), 'reopened', 'reopen failed')
+    run_forge_cmd(
+      kind,
+      num,
+      'reopening',
+      f:reopen_cmd(num),
+      'reopened',
+      'reopen failed',
+      on_success,
+      on_success
+    )
   end
 end
 
@@ -178,7 +220,7 @@ end
 
 ---@param f forge.Forge
 ---@param num string
-local function pr_manage_picker(f, num)
+local function pr_manage_picker(f, num, parent_refresh)
   local forge_mod = require('forge')
   local kind = f.labels.pr_one
   log.info('loading more for ' .. kind .. ' #' .. num .. '...')
@@ -192,6 +234,9 @@ local function pr_manage_picker(f, num)
 
   local entries = {}
   local action_map = {}
+  local function reopen_self()
+    pr_manage_picker(f, num, parent_refresh)
+  end
 
   local function add(label, fn)
     table.insert(entries, {
@@ -207,7 +252,16 @@ local function pr_manage_picker(f, num)
 
   if can_write and is_open then
     add('Approve', function()
-      run_forge_cmd(kind, num, 'approving', f:approve_cmd(num), 'approved', 'approve failed')
+      run_forge_cmd(
+        kind,
+        num,
+        'approving',
+        f:approve_cmd(num),
+        'approved',
+        'approve failed',
+        reopen_self,
+        reopen_self
+      )
     end)
   end
 
@@ -220,7 +274,9 @@ local function pr_manage_picker(f, num)
           'merging (' .. method .. ')',
           f:merge_cmd(num, method),
           'merged (' .. method .. ')',
-          'merge failed'
+          'merge failed',
+          parent_refresh or reopen_self,
+          reopen_self
         )
       end)
     end
@@ -228,11 +284,29 @@ local function pr_manage_picker(f, num)
 
   if is_open then
     add('Close', function()
-      run_forge_cmd(kind, num, 'closing', f:close_cmd(num), 'closed', 'close failed')
+      run_forge_cmd(
+        kind,
+        num,
+        'closing',
+        f:close_cmd(num),
+        'closed',
+        'close failed',
+        parent_refresh or reopen_self,
+        reopen_self
+      )
     end)
   else
     add('Reopen', function()
-      run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num), 'reopened', 'reopen failed')
+      run_forge_cmd(
+        kind,
+        num,
+        'reopening',
+        f:reopen_cmd(num),
+        'reopened',
+        'reopen failed',
+        parent_refresh or reopen_self,
+        reopen_self
+      )
     end)
   end
 
@@ -241,7 +315,16 @@ local function pr_manage_picker(f, num)
     local draft_label = pr_state.is_draft and 'Mark as ready' or 'Mark as draft'
     local draft_done = pr_state.is_draft and 'marked as ready' or 'marked as draft'
     add(draft_label, function()
-      run_forge_cmd(kind, num, 'toggling draft', draft_cmd, draft_done, 'draft toggle failed')
+      run_forge_cmd(
+        kind,
+        num,
+        'toggling draft',
+        draft_cmd,
+        draft_done,
+        'draft toggle failed',
+        reopen_self,
+        reopen_self
+      )
     end)
   end
 
@@ -340,6 +423,7 @@ function M.checks(f, num, filter, cached_checks)
         {
           name = 'browse',
           label = 'web',
+          close = false,
           fn = function(entry)
             if entry and entry.value.link then
               vim.ui.open(entry.value.link)
@@ -551,6 +635,7 @@ function M.ci(f, branch, filter)
         {
           name = 'browse',
           label = 'web',
+          close = false,
           fn = function(entry)
             if entry and entry.value.url ~= '' then
               vim.ui.open(entry.value.url)
@@ -631,6 +716,10 @@ function M.pr(state, f)
     local state_field = pr_fields.state
     local state_map = {}
     local entries = {}
+    local function reopen_list()
+      forge_mod.clear_list(cache_key)
+      M.pr(state, f)
+    end
     for _, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
       local s = (pr[state_field] or ''):lower()
@@ -670,6 +759,7 @@ function M.pr(state, f)
         },
         {
           name = 'worktree',
+          close = false,
           fn = function(entry)
             if entry then
               pr_action_fns(f, entry.value).worktree()
@@ -688,6 +778,7 @@ function M.pr(state, f)
         {
           name = 'browse',
           label = 'web',
+          close = false,
           fn = function(entry)
             if entry then
               f:view_web(cli_kind, entry.value)
@@ -699,7 +790,7 @@ function M.pr(state, f)
           label = 'more',
           fn = function(entry)
             if entry then
-              pr_action_fns(f, entry.value).manage()
+              pr_manage_picker(f, entry.value, reopen_list)
             end
           end,
         },
@@ -721,7 +812,7 @@ function M.pr(state, f)
           name = 'close',
           fn = function(entry)
             if entry then
-              pr_toggle_state(f, entry.value, state_map[entry.value] ~= false)
+              pr_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
             end
           end,
         },
@@ -780,6 +871,10 @@ function M.issue(state, f)
     local state_field = issue_fields.state
     local state_map = {}
     local entries = {}
+    local function reopen_list()
+      forge_mod.clear_list(cache_key)
+      M.issue(state, f)
+    end
     for _, issue in ipairs(issues) do
       local n = tostring(issue[num_field] or '')
       local s = (issue[state_field] or ''):lower()
@@ -802,6 +897,7 @@ function M.issue(state, f)
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             if entry then
               f:view_web(cli_kind, entry.value)
@@ -810,6 +906,7 @@ function M.issue(state, f)
         },
         {
           name = 'browse',
+          close = false,
           fn = function(entry)
             if entry then
               f:view_web(cli_kind, entry.value)
@@ -821,7 +918,7 @@ function M.issue(state, f)
           label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
           fn = function(entry)
             if entry then
-              issue_toggle_state(f, entry.value, state_map[entry.value] ~= false)
+              issue_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
             end
           end,
         },
@@ -949,6 +1046,7 @@ function M.release(state, f)
         {
           name = 'browse',
           label = 'open',
+          close = false,
           fn = function(entry)
             if entry then
               f:browse_release(entry.value.tag)
@@ -958,6 +1056,7 @@ function M.release(state, f)
         {
           name = 'yank',
           label = 'copy',
+          close = false,
           fn = function(entry)
             if entry then
               local base = forge_mod.remote_web_url()
@@ -985,9 +1084,17 @@ function M.release(state, f)
                   'deleting',
                   f:delete_release_cmd(tag),
                   'deleted',
-                  'delete failed'
+                  'delete failed',
+                  function()
+                    forge_mod.clear_list(cache_key)
+                    M.release(state, f)
+                  end,
+                  function()
+                    M.release(state, f)
+                  end
                 )
-                forge_mod.clear_list(cache_key)
+              else
+                M.release(state, f)
               end
             end)
           end,

@@ -44,6 +44,68 @@ local function fake_forge()
   }
 end
 
+local function fake_issue_forge()
+  return {
+    labels = { issue = 'Issues' },
+    kinds = { issue = 'issue' },
+    issue_fields = {
+      number = 'number',
+      title = 'title',
+      state = 'state',
+      author = 'author',
+      created_at = 'created_at',
+    },
+    view_web = function() end,
+    close_issue_cmd = function(_, num)
+      return { 'close', num }
+    end,
+    reopen_issue_cmd = function(_, num)
+      return { 'reopen', num }
+    end,
+  }
+end
+
+local function fake_ci_forge()
+  return {
+    labels = { ci = 'CI', pr_one = 'PR' },
+    check_log_cmd = function(_, run_id)
+      return { 'log', run_id }
+    end,
+    list_runs_json_cmd = function(_, branch)
+      return { 'runs', branch or '' }
+    end,
+    normalize_run = function(_, run)
+      return run
+    end,
+  }
+end
+
+local function fake_release_forge()
+  return {
+    release_fields = {
+      tag = 'tag',
+      title = 'title',
+      is_draft = 'is_draft',
+      is_prerelease = 'is_prerelease',
+    },
+    browse_release = function() end,
+    delete_release_cmd = function(_, tag)
+      return { 'delete', tag }
+    end,
+    list_releases_json_cmd = function()
+      return { 'releases' }
+    end,
+  }
+end
+
+local function action_by_name(name)
+  for _, def in ipairs(captured.actions) do
+    if def.name == name then
+      return def
+    end
+  end
+end
+
 describe('pickers', function()
   local old_preload
 
@@ -106,6 +168,37 @@ describe('pickers', function()
             { ' ' .. (pr.title or '') },
           }
         end,
+        format_issue = function(issue)
+          return {
+            { '#' .. tostring(issue.number) },
+            { ' ' .. (issue.title or '') },
+          }
+        end,
+        format_check = function(check)
+          return {
+            { check.name or '' },
+          }
+        end,
+        filter_checks = function(checks)
+          return checks
+        end,
+        format_run = function(run)
+          return {
+            { run.name or '' },
+          }
+        end,
+        filter_runs = function(runs)
+          return runs
+        end,
+        format_release = function(rel)
+          return {
+            { tostring(rel.tag or '') },
+            { ' ' .. (rel.title or '') },
+          }
+        end,
+        remote_web_url = function()
+          return 'https://example.com/repo'
+        end,
         repo_info = function(f)
           return f:repo_info()
         end,
@@ -156,6 +249,17 @@ describe('pickers', function()
     assert.is_nil(labels.refresh)
   end)
 
+  it('keeps auxiliary PR actions open', function()
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_false(rawget(action_by_name('worktree'), 'close'))
+    assert.is_nil(rawget(action_by_name('checkout'), 'close'))
+    assert.is_nil(rawget(action_by_name('manage'), 'close'))
+  end)
+
   it('shows edit inside the more picker', function()
     local pickers = require('forge.pickers')
     pickers.pr_manage(fake_forge(), '42')
@@ -181,6 +285,20 @@ describe('pickers', function()
     assert.equals('PRs (open · 0)> ', captured.prompt)
     assert.equals('No open PRs', captured.entries[1].display[1][1])
     assert.is_true(captured.entries[1].placeholder)
+  end)
+
+  it('keeps issue web actions open', function()
+    cache['issue:all'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('all', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(rawget(action_by_name('default'), 'close'))
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('close'), 'close'))
   end)
 
   it('keeps the issue header affordance on the default open action only', function()
@@ -250,5 +368,62 @@ describe('pickers', function()
     assert.is_nil(labels.create)
     assert.is_nil(labels.filter)
     assert.is_nil(labels.refresh)
+  end)
+
+  it('keeps check and CI web actions open', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all', {
+      { name = 'lint', link = 'https://example.com/check', bucket = 'pass' },
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('log'), 'close'))
+
+    local old_system = vim.system
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            id = '1',
+            name = 'CI',
+            branch = 'main',
+            status = 'success',
+            url = 'https://example.com',
+          },
+        }),
+      })
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+    vim.wait(100, function()
+      return captured and captured.prompt == 'CI (main, all · 1)> '
+    end)
+    vim.system = old_system
+
+    assert.is_not_nil(captured)
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_nil(rawget(action_by_name('watch'), 'close'))
+  end)
+
+  it('keeps release browse and copy actions open', function()
+    cache['release:all'] = {
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_false(rawget(action_by_name('yank'), 'close'))
+    assert.is_nil(rawget(action_by_name('delete'), 'close'))
   end)
 end)
