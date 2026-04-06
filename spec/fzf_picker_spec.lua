@@ -2,7 +2,10 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 package.preload['fzf-lua.utils'] = function()
   return {
-    ansi_from_hl = function(_, text)
+    ansi_from_hl = function(group, text)
+      if group == 'FzfLuaHeaderBind' or group == 'FzfLuaHeaderText' then
+        return ('[%s:%s]'):format(group, text)
+      end
       return text, '\27[38;2;1;2;3m'
     end,
   }
@@ -47,5 +50,54 @@ describe('fzf picker', function()
     assert.is_not_nil(captured)
     assert.same({ '1\t#42 fix api drift alice  1h' }, captured.lines)
     assert.equals('PRs> ', captured.opts.prompt)
+  end)
+
+  it('renders headers with <cr> and ^X style key labels without to text', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = {
+            { '#42', 'ForgeNumber' },
+            { ' fix api drift ' },
+          },
+          value = '42',
+        },
+      },
+      actions = {
+        { name = 'checkout', label = 'checkout', fn = function() end },
+        { name = 'browse', label = 'browse', fn = function() end },
+        { name = 'filter', label = 'filter', fn = function() end },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals(
+      ':: [FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:checkout]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^O] [FzfLuaHeaderText:filter]',
+      captured.opts.fzf_opts['--header']
+    )
+    assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
+  end)
+
+  it('suppresses headers for single-action pickers', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Issue template> ',
+      entries = {
+        {
+          display = { { 'Bug report' } },
+          value = 'bug',
+        },
+      },
+      actions = {
+        { name = 'default', label = 'use', fn = function() end },
+      },
+      picker_name = '_menu',
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_nil(captured.opts.fzf_opts['--header'])
   end)
 end)

@@ -16,6 +16,19 @@ local function to_fzf_key(key)
   return result
 end
 
+---@param key string
+---@return string
+local function to_header_key(key)
+  if key == '<cr>' then
+    return '<cr>'
+  end
+  local ctrl = key:match('^<c%-(.)>$')
+  if ctrl then
+    return '^' .. ctrl:upper()
+  end
+  return key
+end
+
 ---@param segments forge.Segment[]
 ---@return string
 local function render(segments)
@@ -29,6 +42,33 @@ local function render(segments)
     end
   end
   return table.concat(parts)
+end
+
+---@param actions forge.PickerActionDef[]
+---@param bindings table<string, string|false>
+---@return string?
+local function render_header(actions, bindings)
+  local utils = require('fzf-lua.utils')
+  local parts = {}
+  local seen_keys = {}
+  for _, def in ipairs(actions) do
+    local key = def.name == 'default' and '<cr>' or bindings[def.name]
+    local header_key = key and to_header_key(key) or nil
+    if header_key and def.label and not seen_keys[header_key] then
+      seen_keys[header_key] = true
+      table.insert(
+        parts,
+        ('%s %s'):format(
+          utils.ansi_from_hl('FzfLuaHeaderBind', header_key),
+          utils.ansi_from_hl('FzfLuaHeaderText', def.label)
+        )
+      )
+    end
+  end
+  if #parts < 2 then
+    return nil
+  end
+  return ':: ' .. table.concat(parts, '|')
 end
 
 ---@param opts forge.PickerOpts
@@ -65,6 +105,7 @@ function M.pick(opts)
     prompt = opts.prompt or '',
     fzf_opts = {
       ['--ansi'] = '',
+      ['--header'] = render_header(opts.actions, bindings),
       ['--no-multi'] = '',
       ['--with-nth'] = '2..',
       ['--delimiter'] = '\t',

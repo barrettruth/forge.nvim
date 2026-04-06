@@ -214,6 +214,7 @@ M.format_check = format_mod.format_check
 M.format_run = format_mod.format_run
 M.format_release = format_mod.format_release
 M.filter_checks = format_mod.filter_checks
+M.filter_runs = format_mod.filter_runs
 
 ---@class forge.CreatePROpts
 ---@field draft boolean?
@@ -303,6 +304,7 @@ function M.create_pr(opts)
                 actions = {
                   {
                     name = 'default',
+                    label = 'use',
                     fn = function(entry)
                       if entry then
                         compose_mod.open_pr(f, branch, base, draft, template_mod.load(entry.value))
@@ -434,6 +436,7 @@ function M.create_issue(opts)
     actions = {
       {
         name = 'default',
+        label = 'use',
         fn = function(entry)
           if entry then
             compose_mod.open_issue(f, template_mod.load(entry.value))

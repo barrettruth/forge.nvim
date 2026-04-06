@@ -37,6 +37,13 @@ local function run_forge_cmd(kind, num, label, cmd, success_msg, fail_msg)
   end)
 end
 
+local next_ci_filter = {
+  all = 'fail',
+  fail = 'pass',
+  pass = 'pending',
+  pending = 'all',
+}
+
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
@@ -153,7 +160,7 @@ end
 local function pr_manage_picker(f, num)
   local forge_mod = require('forge')
   local kind = f.labels.pr_one
-  log.info('loading actions for ' .. kind .. ' #' .. num .. '...')
+  log.info('loading more for ' .. kind .. ' #' .. num .. '...')
 
   local info = forge_mod.repo_info(f)
   local can_write = info.permission == 'ADMIN'
@@ -172,6 +179,10 @@ local function pr_manage_picker(f, num)
     })
     action_map[label] = fn
   end
+
+  add('Edit', function()
+    require('forge').edit_pr(num)
+  end)
 
   if can_write and is_open then
     add('Approve', function()
@@ -214,11 +225,12 @@ local function pr_manage_picker(f, num)
   end
 
   picker.pick({
-    prompt = ('%s #%s Actions> '):format(kind, num),
+    prompt = ('%s #%s More> '):format(kind, num),
     entries = entries,
     actions = {
       {
         name = 'default',
+        label = 'run',
         fn = function(entry)
           if entry and action_map[entry.value] then
             action_map[entry.value]()
@@ -262,6 +274,7 @@ function M.checks(f, num, filter, cached_checks)
       actions = {
         {
           name = 'log',
+          label = 'log',
           fn = function(entry)
             if not entry then
               return
@@ -300,10 +313,18 @@ function M.checks(f, num, filter, cached_checks)
         },
         {
           name = 'browse',
+          label = 'web',
           fn = function(entry)
             if entry and entry.value.link then
               vim.ui.open(entry.value.link)
             end
+          end,
+        },
+        {
+          name = 'filter',
+          label = 'filter',
+          fn = function()
+            M.checks(f, num, next_ci_filter[filter] or 'all', checks)
           end,
         },
         {
@@ -367,7 +388,9 @@ end
 
 ---@param f forge.Forge
 ---@param branch string?
-function M.ci(f, branch)
+---@param filter string?
+function M.ci(f, branch, filter)
+  filter = filter or 'all'
   local forge_mod = require('forge')
 
   local function open_ci_picker(runs)
@@ -375,9 +398,17 @@ function M.ci(f, branch)
     for _, entry in ipairs(runs) do
       table.insert(normalized, f:normalize_run(entry))
     end
+    local filtered = forge_mod.filter_runs(normalized, filter)
+
+    local labels = {
+      all = 'all',
+      fail = 'failed',
+      pass = 'passed',
+      pending = 'running',
+    }
 
     local entries = {}
-    for _, run in ipairs(normalized) do
+    for _, run in ipairs(filtered) do
       table.insert(entries, {
         display = forge_mod.format_run(run),
         value = run,
@@ -386,11 +417,12 @@ function M.ci(f, branch)
     end
 
     picker.pick({
-      prompt = ('%s (%s)> '):format(f.labels.ci, branch or 'all'),
+      prompt = ('%s (%s, %s)> '):format(f.labels.ci, branch or 'all', labels[filter] or filter),
       entries = entries,
       actions = {
         {
           name = 'log',
+          label = 'log',
           fn = function(entry)
             if not entry then
               return
@@ -464,6 +496,7 @@ function M.ci(f, branch)
         },
         {
           name = 'watch',
+          label = 'watch',
           fn = function(entry)
             if not entry then
               return
@@ -478,6 +511,7 @@ function M.ci(f, branch)
         },
         {
           name = 'browse',
+          label = 'web',
           fn = function(entry)
             if entry and entry.value.url ~= '' then
               vim.ui.open(entry.value.url)
@@ -485,10 +519,41 @@ function M.ci(f, branch)
           end,
         },
         {
+          name = 'filter',
+          label = 'filter',
+          fn = function()
+            M.ci(f, branch, next_ci_filter[filter] or 'all')
+          end,
+        },
+        {
+          name = 'failed',
+          fn = function()
+            M.ci(f, branch, 'fail')
+          end,
+        },
+        {
+          name = 'passed',
+          fn = function()
+            M.ci(f, branch, 'pass')
+          end,
+        },
+        {
+          name = 'running',
+          fn = function()
+            M.ci(f, branch, 'pending')
+          end,
+        },
+        {
+          name = 'all',
+          fn = function()
+            M.ci(f, branch, 'all')
+          end,
+        },
+        {
           name = 'refresh',
           fn = function()
             log.info('refreshing CI runs...')
-            M.ci(f, branch)
+            M.ci(f, branch, filter)
           end,
         },
       },
@@ -544,6 +609,7 @@ function M.pr(state, f)
       actions = {
         {
           name = 'checkout',
+          label = 'checkout',
           fn = function(entry)
             if entry then
               pr_action_fns(f, entry.value).checkout()
@@ -552,6 +618,7 @@ function M.pr(state, f)
         },
         {
           name = 'diff',
+          label = 'diff',
           fn = function(entry)
             if entry then
               pr_action_fns(f, entry.value).diff()
@@ -568,6 +635,7 @@ function M.pr(state, f)
         },
         {
           name = 'ci',
+          label = 'checks',
           fn = function(entry)
             if entry then
               pr_action_fns(f, entry.value).ci()
@@ -576,6 +644,7 @@ function M.pr(state, f)
         },
         {
           name = 'browse',
+          label = 'web',
           fn = function(entry)
             if entry then
               f:view_web(cli_kind, entry.value)
@@ -584,6 +653,7 @@ function M.pr(state, f)
         },
         {
           name = 'manage',
+          label = 'more',
           fn = function(entry)
             if entry then
               pr_action_fns(f, entry.value).manage()
@@ -684,6 +754,7 @@ function M.issue(state, f)
       actions = {
         {
           name = 'default',
+          label = 'open',
           fn = function(entry)
             if entry then
               f:view_web(cli_kind, entry.value)
@@ -700,6 +771,7 @@ function M.issue(state, f)
         },
         {
           name = 'close',
+          label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
           fn = function(entry)
             if entry then
               issue_toggle_state(f, entry.value, state_map[entry.value] ~= false)
@@ -824,6 +896,7 @@ function M.release(state, f)
       actions = {
         {
           name = 'browse',
+          label = 'open',
           fn = function(entry)
             if entry then
               f:browse_release(entry.value.tag)
@@ -832,6 +905,7 @@ function M.release(state, f)
         },
         {
           name = 'yank',
+          label = 'copy',
           fn = function(entry)
             if entry then
               local base = forge_mod.remote_web_url()
@@ -971,6 +1045,7 @@ function M.git()
     actions = {
       {
         name = 'default',
+        label = 'open',
         fn = function(entry)
           if entry and action_map[entry.value] then
             action_map[entry.value]()
