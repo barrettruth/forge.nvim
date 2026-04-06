@@ -24,6 +24,7 @@
       devShells = forEachSystem (
         pkgs:
         let
+          yamlParser = pkgs.vimPlugins.nvim-treesitter-parsers.yaml;
           commonPackages = [
             pkgs.prettier
             pkgs.stylua
@@ -38,7 +39,13 @@
         in
         {
           default = pkgs.mkShell { packages = commonPackages; };
-          ci = pkgs.mkShell { packages = commonPackages ++ [ pkgs.neovim ]; };
+          ci = pkgs.mkShell {
+            packages = commonPackages ++ [
+              pkgs.neovim
+              yamlParser
+            ];
+            FORGE_TEST_RTP = "${yamlParser}";
+          };
         }
       );
     };

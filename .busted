@@ -1,6 +1,6 @@
 return {
   _all = {
-    lua = 'nvim -l',
+    lua = 'sh ./scripts/busted',
     ROOT = { './spec/' },
   },
   default = {

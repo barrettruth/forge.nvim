@@ -1,4 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
+dofile(vim.fn.getcwd() .. '/spec/yaml_parser.lua')
 
 local yaml = require('forge.yaml')
 
