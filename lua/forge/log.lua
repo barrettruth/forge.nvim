@@ -684,7 +684,9 @@ function M.open(cmd, opts, reuse_buf)
   local buf
   local saved_cursor
   local old_line_count
+  local reusing = false
   if reuse_buf and vim.api.nvim_buf_is_valid(reuse_buf) then
+    reusing = true
     buf = reuse_buf
     old_line_count = vim.api.nvim_buf_line_count(buf)
     local wins = vim.fn.win_findbuf(buf)
@@ -717,9 +719,11 @@ function M.open(cmd, opts, reuse_buf)
       end,
     })
   end
-  vim.bo[buf].modifiable = true
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
-  vim.bo[buf].modifiable = false
+  if not reusing then
+    vim.bo[buf].modifiable = true
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
+    vim.bo[buf].modifiable = false
+  end
 
   local log_result, steps
   local pending = opts.steps_cmd and 2 or 1
@@ -915,7 +919,9 @@ function M.open_summary(cmd, opts, reuse_buf)
   local buf
   local saved_cursor
   local old_line_count
+  local reusing = false
   if reuse_buf and vim.api.nvim_buf_is_valid(reuse_buf) then
+    reusing = true
     buf = reuse_buf
     old_line_count = vim.api.nvim_buf_line_count(buf)
     local wins = vim.fn.win_findbuf(buf)
@@ -951,9 +957,11 @@ function M.open_summary(cmd, opts, reuse_buf)
     })
   end
 
-  vim.bo[buf].modifiable = true
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
-  vim.bo[buf].modifiable = false
+  if not reusing then
+    vim.bo[buf].modifiable = true
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
+    vim.bo[buf].modifiable = false
+  end
 
   local proc = vim.system(cmd, { text = true }, function(result)
     vim.schedule(function()
@@ -1008,7 +1016,7 @@ function M.open_summary(cmd, opts, reuse_buf)
         jobs = parsed.jobs,
       }
 
-      if not reuse_buf then
+      if not reusing then
         local cfg = require('forge').config()
         if cfg.keys ~= false then
           local keys = cfg.keys.log or {}

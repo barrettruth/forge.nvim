@@ -452,3 +452,59 @@ describe('parse_summary_json', function()
     assert.equals('ForgePending', result.hls[3][1].group)
   end)
 end)
+
+describe('buffer reuse refreshes', function()
+  local original_system
+
+  before_each(function()
+    original_system = vim.system
+  end)
+
+  after_each(function()
+    vim.system = original_system
+  end)
+
+  local function stub_pending_system()
+    local calls = {}
+    vim.system = function(cmd, opts, cb)
+      calls[#calls + 1] = {
+        cmd = cmd,
+        opts = opts,
+        cb = cb,
+      }
+      return {
+        kill = function() end,
+      }
+    end
+    return calls
+  end
+
+  it('keeps existing log lines visible while a reused log buffer refreshes', function()
+    local calls = stub_pending_system()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'old log line' })
+
+    log_mod.open({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      title = 'ci',
+    }, buf)
+
+    assert.equals(1, #calls)
+    assert.same({ 'old log line' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it('keeps existing summary lines visible while a reused summary buffer refreshes', function()
+    local calls = stub_pending_system()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'old summary line' })
+
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      run_id = '123',
+      title = 'summary',
+    }, buf)
+
+    assert.equals(1, #calls)
+    assert.same({ 'old summary line' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+end)
