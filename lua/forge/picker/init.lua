@@ -6,6 +6,7 @@ local M = {}
 ---@field display forge.Segment[]
 ---@field value any
 ---@field ordinal string?
+---@field placeholder boolean?
 
 ---@class forge.PickerActionDef
 ---@field name string
@@ -57,6 +58,15 @@ end
 ---@return string
 function M.backend()
   return detect()
+end
+
+---@param entry forge.PickerEntry?
+---@return forge.PickerEntry?
+function M.selected(entry)
+  if entry and entry.placeholder then
+    return nil
+  end
+  return entry
 end
 
 ---@param opts forge.PickerOpts

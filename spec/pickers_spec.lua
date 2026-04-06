@@ -144,6 +144,7 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
+    assert.equals('PRs (open · 1)> ', captured.prompt)
     local labels = {}
     for _, def in ipairs(captured.actions) do
       labels[def.name] = def.label
@@ -168,6 +169,18 @@ describe('pickers', function()
       labels[#labels + 1] = entry.display[1][1]
     end
     assert.same({ 'Edit', 'Approve', 'Merge (merge)', 'Close', 'Mark as draft' }, labels)
+  end)
+
+  it('shows an explicit empty PR row instead of a blank picker', function()
+    cache['pr:open'] = {}
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.equals('PRs (open · 0)> ', captured.prompt)
+    assert.equals('No open PRs', captured.entries[1].display[1][1])
+    assert.is_true(captured.entries[1].placeholder)
   end)
 
   it('keeps the issue header affordance on the default open action only', function()

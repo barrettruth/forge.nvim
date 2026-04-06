@@ -304,6 +304,8 @@ When using fzf-lua, picker headers use fzf-lua's `FzfLuaHeaderBind` and
 `FzfLuaHeaderText` highlight groups.
 Headers emphasize primary item actions; list controls remain available but are
 not all shown.
+Prompts show the current scope and item count. Empty data pickers render a
+placeholder row instead of appearing blank.
 
                                                              *forge-picker-pr*
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.

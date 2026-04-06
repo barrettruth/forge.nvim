@@ -22,8 +22,11 @@ package.preload['fzf-lua'] = function()
 end
 
 describe('fzf picker', function()
+  local selected
+
   before_each(function()
     captured = nil
+    selected = false
     package.loaded['forge'] = nil
     package.loaded['forge.picker.fzf'] = nil
     vim.g.forge = nil
@@ -99,5 +102,33 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.is_nil(captured.opts.fzf_opts['--header'])
+  end)
+
+  it('treats placeholder rows as no selection', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs (open · 0)> ',
+      entries = {
+        {
+          display = { { 'No open PRs', 'ForgeDim' } },
+          value = nil,
+          placeholder = true,
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    captured.opts.actions.default({ '1\tNo open PRs' })
+    assert.is_nil(selected)
   end)
 end)

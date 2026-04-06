@@ -44,6 +44,27 @@ local next_ci_filter = {
   pending = 'all',
 }
 
+---@param text string
+---@return forge.PickerEntry
+local function placeholder_entry(text)
+  return {
+    display = { { text, 'ForgeDim' } },
+    value = nil,
+    ordinal = text,
+    placeholder = true,
+  }
+end
+
+---@param entries forge.PickerEntry[]
+---@param text string
+---@return forge.PickerEntry[]
+local function with_placeholder(entries, text)
+  if #entries > 0 then
+    return entries
+  end
+  return { placeholder_entry(text) }
+end
+
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
@@ -252,6 +273,7 @@ function M.checks(f, num, filter, cached_checks)
 
   local function open_picker(checks)
     local filtered = forge_mod.filter_checks(checks, filter)
+    local count = #filtered
     local entries = {}
     for _, c in ipairs(filtered) do
       table.insert(entries, {
@@ -267,9 +289,13 @@ function M.checks(f, num, filter, cached_checks)
       pass = 'passed',
       pending = 'running',
     }
+    local filter_label = labels[filter] or filter
+    local empty_text = filter == 'all' and ('No checks for #%s'):format(num)
+      or ('No %s checks for #%s'):format(filter_label, num)
+    entries = with_placeholder(entries, empty_text)
 
     picker.pick({
-      prompt = ('Checks (#%s, %s)> '):format(num, labels[filter] or filter),
+      prompt = ('Checks (#%s, %s · %d)> '):format(num, filter_label, count),
       entries = entries,
       actions = {
         {
@@ -399,6 +425,7 @@ function M.ci(f, branch, filter)
       table.insert(normalized, f:normalize_run(entry))
     end
     local filtered = forge_mod.filter_runs(normalized, filter)
+    local count = #filtered
 
     local labels = {
       all = 'all',
@@ -415,9 +442,21 @@ function M.ci(f, branch, filter)
         ordinal = run.name .. ' ' .. run.branch,
       })
     end
+    local filter_label = labels[filter] or filter
+    local empty_text
+    if branch and filter ~= 'all' then
+      empty_text = ('No %s %s runs for %s'):format(filter_label, f.labels.ci, branch)
+    elseif branch then
+      empty_text = ('No %s runs for %s'):format(f.labels.ci, branch)
+    elseif filter ~= 'all' then
+      empty_text = ('No %s %s runs'):format(filter_label, f.labels.ci)
+    else
+      empty_text = ('No %s runs'):format(f.labels.ci)
+    end
+    entries = with_placeholder(entries, empty_text)
 
     picker.pick({
-      prompt = ('%s (%s, %s)> '):format(f.labels.ci, branch or 'all', labels[filter] or filter),
+      prompt = ('%s (%s, %s · %d)> '):format(f.labels.ci, branch or 'all', filter_label, count),
       entries = entries,
       actions = {
         {
@@ -566,10 +605,10 @@ function M.ci(f, branch, filter)
     vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
       vim.schedule(function()
         local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and runs and #runs > 0 then
+        if ok and runs then
           open_ci_picker(runs)
         else
-          log.info('no CI runs found')
+          log.error('failed to fetch CI runs')
         end
       end)
     end)
@@ -602,9 +641,13 @@ function M.pr(state, f)
         ordinal = (pr[pr_fields.title] or '') .. ' #' .. num,
       })
     end
+    local count = #entries
+    local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
+      or ('No %s %s'):format(state, f.labels.pr)
+    entries = with_placeholder(entries, empty_text)
 
     picker.pick({
-      prompt = ('%s (%s)> '):format(f.labels.pr, state),
+      prompt = ('%s (%s · %d)> '):format(f.labels.pr, state, count),
       entries = entries,
       actions = {
         {
@@ -747,9 +790,13 @@ function M.issue(state, f)
         ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
       })
     end
+    local count = #entries
+    local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
+      or ('No %s %s'):format(state, f.labels.issue)
+    entries = with_placeholder(entries, empty_text)
 
     picker.pick({
-      prompt = ('%s (%s)> '):format(f.labels.issue, state),
+      prompt = ('%s (%s · %d)> '):format(f.labels.issue, state, count),
       entries = entries,
       actions = {
         {
@@ -889,9 +936,14 @@ function M.release(state, f)
         ordinal = tag .. ' ' .. (rel[rel_fields.title] or ''),
       })
     end
+    local count = #entries
+    local empty_text = state == 'all' and 'No releases'
+      or state == 'draft' and 'No draft releases'
+      or 'No prerelease releases'
+    entries = with_placeholder(entries, empty_text)
 
     picker.pick({
-      prompt = ('Releases (%s)> '):format(state),
+      prompt = ('Releases (%s · %d)> '):format(state, count),
       entries = entries,
       actions = {
         {
@@ -966,11 +1018,11 @@ function M.release(state, f)
     vim.system(f:list_releases_json_cmd(), { text = true }, function(result)
       vim.schedule(function()
         local ok, releases = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and releases and #releases > 0 then
+        if ok and releases then
           forge_mod.set_list(cache_key, releases)
           open_release_list(releases)
         else
-          log.info('no releases found')
+          log.error('failed to fetch releases')
         end
       end)
     end)
