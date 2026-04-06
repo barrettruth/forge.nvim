@@ -25,6 +25,7 @@ jobs:
               - 'lua/**'
               - 'plugin/**'
               - 'spec/**'
+              - '.github/workflows/**'
               - '*.lua'
               - '.busted'
               - '.luarc.json'
