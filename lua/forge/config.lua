@@ -190,10 +190,35 @@ local M = {}
 ---@type forge.Config
 local DEFAULTS = {
   picker = 'auto',
+  client = 'picker',
+  context = 'current',
   debug = false,
   split = 'horizontal',
   ci = { lines = 1000, refresh = 5 },
   sources = {},
+  contexts = {
+    current = true,
+  },
+  sections = {
+    prs = true,
+    issues = true,
+    ci = true,
+    browse = true,
+    releases = true,
+    branches = false,
+    commits = false,
+    worktrees = false,
+  },
+  routes = {
+    prs = 'prs.open',
+    issues = 'issues.open',
+    ci = 'ci.current_branch',
+    browse = 'browse.contextual',
+    releases = 'releases.all',
+    branches = 'branches.local',
+    commits = 'commits.current_branch',
+    worktrees = 'worktrees.list',
+  },
   keys = {
     pr = {
       diff = '<c-d>',
@@ -316,10 +341,15 @@ function M.config()
   vim.validate('forge.picker', cfg.picker, function(v)
     return v == 'auto' or picker_backends[v] ~= nil
   end, "'auto', 'fzf-lua', 'telescope', or 'snacks'")
+  vim.validate('forge.client', cfg.client, 'string')
+  vim.validate('forge.context', cfg.context, 'string')
   vim.validate('forge.debug', cfg.debug, function(v)
     return v == false or v == true or type(v) == 'string'
   end, 'boolean or string')
   vim.validate('forge.sources', cfg.sources, 'table')
+  vim.validate('forge.contexts', cfg.contexts, 'table')
+  vim.validate('forge.sections', cfg.sections, 'table')
+  vim.validate('forge.routes', cfg.routes, 'table')
   vim.validate('forge.keys', cfg.keys, function(v)
     return v == false or type(v) == 'table'
   end, 'table or false')
@@ -430,6 +460,18 @@ function M.config()
     if source.hosts ~= nil then
       vim.validate('forge.sources.' .. name .. '.hosts', source.hosts, 'table')
     end
+  end
+
+  for name, enabled in pairs(cfg.contexts) do
+    vim.validate('forge.contexts.' .. name, enabled, 'boolean')
+  end
+
+  for name, enabled in pairs(cfg.sections) do
+    vim.validate('forge.sections.' .. name, enabled, 'boolean')
+  end
+
+  for name, route in pairs(cfg.routes) do
+    vim.validate('forge.routes.' .. name, route, 'string')
   end
 
   return cfg
