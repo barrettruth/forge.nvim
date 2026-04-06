@@ -9,6 +9,7 @@ local M = {}
 
 ---@class forge.PickerActionDef
 ---@field name string
+---@field label string?
 ---@field fn fun(entry: forge.PickerEntry?)
 
 ---@class forge.PickerOpts

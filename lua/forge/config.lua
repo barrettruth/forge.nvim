@@ -50,6 +50,7 @@ local M = {}
 ---@field log string|false
 ---@field watch string|false
 ---@field browse string|false
+---@field filter string|false
 ---@field failed string|false
 ---@field passed string|false
 ---@field running string|false
@@ -200,10 +201,8 @@ local DEFAULTS = {
       worktree = '<c-w>',
       ci = '<c-t>',
       browse = '<c-x>',
-      manage = '<c-m>',
-      edit = '<c-e>',
+      manage = '<c-e>',
       create = '<c-a>',
-      close = '<c-s>',
       filter = '<c-o>',
       refresh = '<c-r>',
     },
@@ -218,10 +217,7 @@ local DEFAULTS = {
       log = '<cr>',
       watch = '<c-w>',
       browse = '<c-x>',
-      failed = '<c-f>',
-      passed = '<c-p>',
-      running = '<c-n>',
-      all = '<c-a>',
+      filter = '<c-o>',
       refresh = '<c-r>',
     },
     release = {
@@ -365,7 +361,7 @@ function M.config()
   vim.validate('forge.display.limits.releases', cfg.display.limits.releases, 'number')
 
   local key_or_false = function(v)
-    return v == false or type(v) == 'string'
+    return v == nil or v == false or type(v) == 'string'
   end
   if type(cfg.keys) == 'table' then
     local keys = cfg.keys --[[@as forge.KeysConfig]]
@@ -395,7 +391,17 @@ function M.config()
     end
     if keys.ci ~= nil then
       vim.validate('forge.keys.ci', keys.ci, 'table')
-      for _, k in ipairs({ 'log', 'browse', 'failed', 'passed', 'running', 'all', 'refresh' }) do
+      for _, k in ipairs({
+        'log',
+        'watch',
+        'browse',
+        'filter',
+        'failed',
+        'passed',
+        'running',
+        'all',
+        'refresh',
+      }) do
         vim.validate('forge.keys.ci.' .. k, keys.ci[k], key_or_false, 'string or false')
       end
     end

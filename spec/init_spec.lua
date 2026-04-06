@@ -32,6 +32,15 @@ describe('config', function()
     assert.equals(100, cfg.display.limits.pulls)
     assert.equals('+', cfg.display.icons.open)
     assert.equals('<cr>', cfg.keys.pr.checkout)
+    assert.equals('<c-e>', cfg.keys.pr.manage)
+    assert.is_nil(cfg.keys.pr.edit)
+    assert.is_nil(cfg.keys.pr.close)
+    assert.equals('<c-w>', cfg.keys.ci.watch)
+    assert.equals('<c-o>', cfg.keys.ci.filter)
+    assert.is_nil(cfg.keys.ci.failed)
+    assert.is_nil(cfg.keys.ci.passed)
+    assert.is_nil(cfg.keys.ci.running)
+    assert.is_nil(cfg.keys.ci.all)
   end)
 
   it('deep-merges partial user config', function()
@@ -336,6 +345,36 @@ describe('filter_checks', function()
   it('returns empty when no matches', function()
     local result = forge.filter_checks(vim.deepcopy(checks), 'cancel')
     assert.equals(0, #result)
+  end)
+end)
+
+describe('filter_runs', function()
+  local runs = {
+    { name = 'a', status = 'success' },
+    { name = 'b', status = 'failure' },
+    { name = 'c', status = 'in_progress' },
+    { name = 'd', status = 'cancelled' },
+  }
+
+  it('returns all runs sorted by severity when filter is nil', function()
+    local result = forge.filter_runs(vim.deepcopy(runs), nil)
+    assert.equals(4, #result)
+    assert.equals('b', result[1].name)
+    assert.equals('c', result[2].name)
+    assert.equals('a', result[3].name)
+    assert.equals('d', result[4].name)
+  end)
+
+  it('filters to failed runs', function()
+    local result = forge.filter_runs(vim.deepcopy(runs), 'fail')
+    assert.equals(1, #result)
+    assert.equals('b', result[1].name)
+  end)
+
+  it('filters to running runs', function()
+    local result = forge.filter_runs(vim.deepcopy(runs), 'pending')
+    assert.equals(1, #result)
+    assert.equals('c', result[1].name)
   end)
 end)
 
