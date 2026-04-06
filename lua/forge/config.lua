@@ -33,9 +33,9 @@ local M = {}
 ---@field ci string|false
 ---@field browse string|false
 ---@field manage string|false
----@field edit string|false
+---@field edit? string|false
 ---@field create string|false
----@field close string|false
+---@field close? string|false
 ---@field filter string|false
 ---@field refresh string|false
 
@@ -51,10 +51,10 @@ local M = {}
 ---@field watch string|false
 ---@field browse string|false
 ---@field filter string|false
----@field failed string|false
----@field passed string|false
----@field running string|false
----@field all string|false
+---@field failed? string|false
+---@field passed? string|false
+---@field running? string|false
+---@field all? string|false
 ---@field refresh string|false
 
 ---@class forge.ReleasePickerKeys
