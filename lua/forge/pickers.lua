@@ -71,6 +71,165 @@ local function with_placeholder(entries, text)
   return { placeholder_entry(text) }
 end
 
+local field_sep = string.char(31)
+local record_sep = string.char(30)
+
+local function run_git_cmd(label, cmd, success_msg, fail_msg, on_success, on_failure)
+  log.info(label .. '...')
+  vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code == 0 then
+        log.info(success_msg)
+        if on_success then
+          on_success()
+        end
+      else
+        log.error(cmd_error(result, fail_msg))
+        if on_failure then
+          on_failure()
+        end
+      end
+    end)
+  end)
+end
+
+local function split_records(text)
+  return vim.tbl_map(function(record)
+    return vim.split(record, field_sep, { plain = true })
+  end, vim.split(text or '', record_sep, { plain = true, trimempty = true }))
+end
+
+local function branch_display(item)
+  local display = {
+    { (item.current and '* ' or '  ') .. item.name },
+  }
+  local meta = {}
+  if item.upstream ~= '' then
+    meta[#meta + 1] = '→ ' .. item.upstream
+  end
+  if item.sha ~= '' then
+    meta[#meta + 1] = item.sha
+  end
+  if item.subject ~= '' then
+    meta[#meta + 1] = item.subject
+  end
+  if #meta > 0 then
+    display[#display + 1] = { ' ' .. table.concat(meta, ' · '), 'ForgeDim' }
+  end
+  return display
+end
+
+local function commit_display(item)
+  local display = {
+    { item.short_sha },
+    { ' ' .. item.subject },
+  }
+  local meta = {}
+  if item.author ~= '' then
+    meta[#meta + 1] = item.author
+  end
+  if item.relative ~= '' then
+    meta[#meta + 1] = item.relative
+  end
+  if #meta > 0 then
+    display[#display + 1] = { ' · ' .. table.concat(meta, ' · '), 'ForgeDim' }
+  end
+  return display
+end
+
+local function worktree_label(item)
+  if item.branch ~= '' then
+    return item.branch
+  end
+  if item.detached then
+    return 'detached ' .. item.short_head
+  end
+  if item.bare then
+    return 'bare'
+  end
+  return item.short_head
+end
+
+local function worktree_display(item)
+  local display = {
+    { (item.current and '* ' or '  ') .. worktree_label(item) },
+    { ' ' .. item.path, 'ForgeDim' },
+  }
+  return display
+end
+
+local function parse_branches(output)
+  local branches = {}
+  for _, fields in ipairs(split_records(output)) do
+    if #fields >= 5 then
+      branches[#branches + 1] = {
+        current = vim.trim(fields[1]) == '*',
+        name = fields[2],
+        upstream = fields[3],
+        sha = fields[4],
+        subject = fields[5],
+      }
+    end
+  end
+  return branches
+end
+
+local function parse_commits(output)
+  local commits = {}
+  for _, fields in ipairs(split_records(output)) do
+    if #fields >= 5 then
+      commits[#commits + 1] = {
+        sha = fields[1],
+        short_sha = fields[2],
+        subject = fields[3],
+        author = fields[4],
+        relative = fields[5],
+      }
+    end
+  end
+  return commits
+end
+
+local function parse_worktrees(output, current_root)
+  local worktrees = {}
+  local item
+  for _, line in ipairs(vim.split(output or '', '\n', { plain = true })) do
+    if line == '' then
+      if item then
+        item.current = item.path == current_root
+        item.short_head = item.head:sub(1, 7)
+        worktrees[#worktrees + 1] = item
+        item = nil
+      end
+    else
+      local key, value = line:match('^(%S+)%s*(.*)$')
+      if key == 'worktree' then
+        item = {
+          path = value,
+          head = '',
+          branch = '',
+          detached = false,
+          bare = false,
+        }
+      elseif item and key == 'HEAD' then
+        item.head = value
+      elseif item and key == 'branch' then
+        item.branch = value:gsub('^refs/heads/', '')
+      elseif item and key == 'detached' then
+        item.detached = true
+      elseif item and key == 'bare' then
+        item.bare = true
+      end
+    end
+  end
+  if item then
+    item.current = item.path == current_root
+    item.short_head = item.head:sub(1, 7)
+    worktrees[#worktrees + 1] = item
+  end
+  return worktrees
+end
+
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
@@ -1143,6 +1302,297 @@ function M.release(state, f)
       end)
     end)
   end
+end
+
+---@param ctx { root: string, branch: string, forge: forge.Forge? }
+function M.branches(ctx)
+  local forge_mod = require('forge')
+  local cache_key = forge_mod.list_key('branch', 'local')
+
+  local function open_branch_list(branches)
+    local entries = {}
+    for _, item in ipairs(branches) do
+      entries[#entries + 1] = {
+        display = branch_display(item),
+        value = item,
+        ordinal = item.name .. ' ' .. item.upstream .. ' ' .. item.subject,
+      }
+    end
+    local count = #entries
+    entries = with_placeholder(entries, 'No local branches')
+
+    local actions = {
+      {
+        name = 'default',
+        label = 'checkout',
+        fn = function(entry)
+          if not entry then
+            return
+          end
+          local item = entry.value
+          if item.current then
+            log.info('already on branch ' .. item.name)
+            return
+          end
+          run_git_cmd(
+            'checking out branch ' .. item.name,
+            { 'git', 'switch', item.name },
+            'checked out branch ' .. item.name,
+            'checkout failed'
+          )
+        end,
+      },
+      {
+        name = 'yank',
+        label = 'copy',
+        close = false,
+        fn = function(entry)
+          if not entry then
+            return
+          end
+          vim.fn.setreg('+', entry.value.name)
+          log.info('copied branch name')
+        end,
+      },
+      {
+        name = 'refresh',
+        fn = function()
+          forge_mod.clear_list(cache_key)
+          M.branches(ctx)
+        end,
+      },
+    }
+
+    if ctx.forge then
+      table.insert(actions, 2, {
+        name = 'browse',
+        label = 'web',
+        close = false,
+        fn = function(entry)
+          if entry then
+            ctx.forge:browse_branch(entry.value.name)
+          end
+        end,
+      })
+    end
+
+    picker.pick({
+      prompt = ('Branches (local · %d)> '):format(count),
+      entries = entries,
+      actions = actions,
+      picker_name = 'branch',
+    })
+  end
+
+  local cached = forge_mod.get_list(cache_key)
+  if cached then
+    open_branch_list(cached)
+    return
+  end
+
+  log.info('fetching local branches...')
+  vim.system({
+    'git',
+    'for-each-ref',
+    '--format=%(HEAD)%x1f%(refname:short)%x1f%(upstream:short)%x1f%(objectname:short)%x1f%(subject)%x1e',
+    'refs/heads',
+  }, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        log.error(cmd_error(result, 'failed to fetch branches'))
+        return
+      end
+      local branches = parse_branches(result.stdout or '')
+      forge_mod.set_list(cache_key, branches)
+      open_branch_list(branches)
+    end)
+  end)
+end
+
+---@param ctx { forge: forge.Forge?, branch: string }
+---@param branch string
+function M.commits(ctx, branch)
+  local forge_mod = require('forge')
+  local cache_key = forge_mod.list_key('commit', branch)
+
+  local function open_commit_list(commits)
+    local entries = {}
+    for _, item in ipairs(commits) do
+      entries[#entries + 1] = {
+        display = commit_display(item),
+        value = item,
+        ordinal = item.sha .. ' ' .. item.subject .. ' ' .. item.author,
+      }
+    end
+    local count = #entries
+    entries = with_placeholder(entries, 'No commits for ' .. branch)
+
+    local actions = {
+      {
+        name = 'default',
+        label = 'show',
+        fn = function(entry)
+          if not entry then
+            return
+          end
+          require('forge.term').open({
+            'git',
+            'show',
+            '--stat',
+            '--patch',
+            '--decorate=short',
+            entry.value.sha,
+          })
+        end,
+      },
+      {
+        name = 'yank',
+        label = 'copy',
+        close = false,
+        fn = function(entry)
+          if not entry then
+            return
+          end
+          vim.fn.setreg('+', entry.value.sha)
+          log.info('copied commit SHA')
+        end,
+      },
+      {
+        name = 'refresh',
+        fn = function()
+          forge_mod.clear_list(cache_key)
+          M.commits(ctx, branch)
+        end,
+      },
+    }
+
+    if ctx.forge then
+      table.insert(actions, 2, {
+        name = 'browse',
+        label = 'web',
+        close = false,
+        fn = function(entry)
+          if entry then
+            ctx.forge:browse_commit(entry.value.sha)
+          end
+        end,
+      })
+    end
+
+    picker.pick({
+      prompt = ('Commits (%s · %d)> '):format(branch, count),
+      entries = entries,
+      actions = actions,
+      picker_name = 'commit',
+    })
+  end
+
+  local cached = forge_mod.get_list(cache_key)
+  if cached then
+    open_commit_list(cached)
+    return
+  end
+
+  log.info('fetching commits for ' .. branch .. '...')
+  vim.system({
+    'git',
+    'log',
+    '--max-count=100',
+    '--format=%H%x1f%h%x1f%s%x1f%an%x1f%cr%x1e',
+    branch,
+  }, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        log.error(cmd_error(result, 'failed to fetch commits'))
+        return
+      end
+      local commits = parse_commits(result.stdout or '')
+      forge_mod.set_list(cache_key, commits)
+      open_commit_list(commits)
+    end)
+  end)
+end
+
+---@param ctx { root: string }
+function M.worktrees(ctx)
+  local forge_mod = require('forge')
+  local cache_key = forge_mod.list_key('worktree', 'list')
+
+  local function open_worktree_list(worktrees)
+    local entries = {}
+    for _, item in ipairs(worktrees) do
+      entries[#entries + 1] = {
+        display = worktree_display(item),
+        value = item,
+        ordinal = item.path .. ' ' .. worktree_label(item),
+      }
+    end
+    local count = #entries
+    entries = with_placeholder(entries, 'No worktrees')
+
+    picker.pick({
+      prompt = ('Worktrees (%d)> '):format(count),
+      entries = entries,
+      actions = {
+        {
+          name = 'default',
+          label = 'switch',
+          fn = function(entry)
+            if not entry then
+              return
+            end
+            local item = entry.value
+            if item.current then
+              log.info('already in worktree ' .. item.path)
+              return
+            end
+            require('forge').clear_cache()
+            vim.cmd('cd ' .. vim.fn.fnameescape(item.path))
+            log.info('changed directory to ' .. item.path)
+          end,
+        },
+        {
+          name = 'yank',
+          label = 'copy',
+          close = false,
+          fn = function(entry)
+            if not entry then
+              return
+            end
+            vim.fn.setreg('+', entry.value.path)
+            log.info('copied worktree path')
+          end,
+        },
+        {
+          name = 'refresh',
+          fn = function()
+            forge_mod.clear_list(cache_key)
+            M.worktrees(ctx)
+          end,
+        },
+      },
+      picker_name = 'worktree',
+    })
+  end
+
+  local cached = forge_mod.get_list(cache_key)
+  if cached then
+    open_worktree_list(cached)
+    return
+  end
+
+  log.info('fetching worktrees...')
+  vim.system({ 'git', 'worktree', 'list', '--porcelain' }, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        log.error(cmd_error(result, 'failed to fetch worktrees'))
+        return
+      end
+      local worktrees = parse_worktrees(result.stdout or '', ctx.root)
+      forge_mod.set_list(cache_key, worktrees)
+      open_worktree_list(worktrees)
+    end)
+  end)
 end
 
 function M.git()

@@ -205,9 +205,9 @@ local DEFAULTS = {
     ci = true,
     browse = true,
     releases = true,
-    branches = false,
-    commits = false,
-    worktrees = false,
+    branches = true,
+    commits = true,
+    worktrees = true,
   },
   routes = {
     prs = 'prs.open',

@@ -38,16 +38,19 @@ describe('routes', function()
         prs = true,
         issues = true,
         ci = true,
+        branches = true,
+        commits = true,
+        worktrees = true,
         browse = true,
         releases = true,
-        branches = false,
-        commits = false,
-        worktrees = false,
       },
       routes = {
         prs = 'prs.open',
         issues = 'issues.open',
         ci = 'ci.current_branch',
+        branches = 'branches.local',
+        commits = 'commits.current_branch',
+        worktrees = 'worktrees.list',
         browse = 'browse.contextual',
         releases = 'releases.all',
       },
@@ -130,6 +133,15 @@ describe('routes', function()
         ci = function(_, branch)
           captured.ci = branch
         end,
+        branches = function(ctx)
+          captured.branches = ctx.id
+        end,
+        commits = function(_, branch)
+          captured.commits = branch
+        end,
+        worktrees = function(ctx)
+          captured.worktrees = ctx.id
+        end,
         release = function(state)
           captured.release = state
         end,
@@ -176,11 +188,26 @@ describe('routes', function()
       labels[#labels + 1] = entry.display[1][1]
     end
 
-    assert.same({ 'PRs', 'Issues', 'CI', 'Browse', 'Releases' }, labels)
+    assert.same(
+      { 'PRs', 'Issues', 'CI', 'Branches', 'Commits', 'Worktrees', 'Browse', 'Releases' },
+      labels
+    )
 
     captured.root.actions[1].fn(captured.root.entries[2])
 
     assert.equals('open', captured.issue)
+  end)
+
+  it('opens branch, commit, and worktree routes through the route aliases', function()
+    local routes = require('forge.routes')
+
+    routes.open('branches')
+    routes.open('commits')
+    routes.open('worktrees')
+
+    assert.equals('current', captured.branches)
+    assert.equals('main', captured.commits)
+    assert.equals('current', captured.worktrees)
   end)
 
   it('uses branch browsing for contextual browse without a file buffer', function()
