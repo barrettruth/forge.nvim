@@ -1,0 +1,7 @@
+set -eu
+
+if [ -n "${FORGE_TEST_RTP:-}" ]; then
+  exec nvim --clean --headless --cmd "set runtimepath^=${FORGE_TEST_RTP}" -l "$@"
+fi
+
+exec nvim --clean --headless -l "$@"
