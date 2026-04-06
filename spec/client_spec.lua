@@ -1,13 +1,11 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 local captured
-local selected
 local old_preload
 
 describe('client', function()
   before_each(function()
     captured = nil
-    selected = nil
 
     old_preload = {
       ['forge.picker'] = package.preload['forge.picker'],
@@ -36,18 +34,25 @@ describe('client', function()
     local ok = require('forge.client').open_root('picker', {
       prompt = 'Git> ',
       entries = { entry },
-      on_select = function(item)
-        selected = item
-      end,
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(item)
+            captured.selected = item
+          end,
+        },
+      },
     })
 
     assert.is_true(ok)
     assert.equals('Git> ', captured.prompt)
     assert.same({ entry }, captured.entries)
+    assert.equals('default', captured.actions[1].name)
 
     captured.actions[1].fn(entry)
 
-    assert.same(entry, selected)
+    assert.same(entry, captured.selected)
   end)
 
   it('returns an error for unknown clients', function()

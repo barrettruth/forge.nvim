@@ -1,7 +1,10 @@
 local M = {}
 
+local action_mod = require('forge.action')
+local client_mod = require('forge.client')
 local compose_mod = require('forge.compose')
 local config_mod = require('forge.config')
+local context_mod = require('forge.context')
 local format_mod = require('forge.format')
 local template_mod = require('forge.template')
 
@@ -13,6 +16,12 @@ local sources = {}
 function M.register(name, source)
   sources[name] = source
 end
+
+M.register_source = M.register
+M.register_client = client_mod.register
+M.register_context_provider = context_mod.register
+M.register_action = action_mod.register
+M.run_action = action_mod.run
 
 ---@return table<string, forge.Forge>
 function M.registered_sources()
