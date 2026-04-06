@@ -24,11 +24,14 @@ jobs:
             lua:
               - 'lua/**'
               - 'plugin/**'
+              - 'scripts/**'
               - 'spec/**'
               - '.github/workflows/**'
               - '*.lua'
               - '.busted'
               - '.luarc.json'
+              - 'flake.nix'
+              - 'flake.lock'
               - '*.toml'
               - 'vim.yaml'
             markdown:
