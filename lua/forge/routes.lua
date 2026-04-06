@@ -88,6 +88,19 @@ local function route_handlers()
       end
       pickers.ci(ctx.forge, branch)
     end,
+    ['branches.local'] = function(ctx)
+      pickers.branches(ctx)
+    end,
+    ['commits.current_branch'] = function(ctx, opts)
+      local branch, err = branch_for(ctx, opts)
+      if not branch then
+        return false, err
+      end
+      pickers.commits(ctx, branch)
+    end,
+    ['worktrees.list'] = function(ctx)
+      pickers.worktrees(ctx)
+    end,
     ['browse.contextual'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
