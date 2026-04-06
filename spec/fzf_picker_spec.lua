@@ -131,4 +131,34 @@ describe('fzf picker', function()
     captured.opts.actions.default({ '1\tNo open PRs' })
     assert.is_nil(selected)
   end)
+
+  it('keeps close=false actions open', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { '#42' } },
+          value = '42',
+        },
+      },
+      actions = {
+        {
+          name = 'browse',
+          label = 'browse',
+          close = false,
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('table', type(captured.opts.actions['ctrl-x']))
+    assert.is_true(captured.opts.actions['ctrl-x'].noclose)
+    captured.opts.actions['ctrl-x'].fn({ '1\t#42' })
+    assert.equals('42', selected.value)
+  end)
 end)
