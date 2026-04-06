@@ -9,6 +9,9 @@ CONTENTS                                                 *forge.nvim-contents*
     `split`...............................................|forge-config-split|
     `ci`.....................................................|forge-config-ci|
     `sources`...........................................|forge-config-sources|
+    `contexts`.........................................|forge-config-contexts|
+    `sections`.........................................|forge-config-sections|
+    `routes`.............................................|forge-config-routes|
     `keys`.................................................|forge-config-keys|
     `display`...........................................|forge-config-display|
     `display.icons`...............................|forge-config-display-icons|
@@ -121,6 +124,46 @@ Top-level keys: ~
       }
 <
 
+`contexts`                                             *forge-config-contexts*
+  `table<string, boolean>`  (default `{ current = true }`)
+    Enable named context providers for the root picker. Disabled contexts are
+    hidden from route resolution.
+
+`sections`                                             *forge-config-sections*
+  `table<string, boolean>`  (default shown below)
+    Toggle root picker sections. Enabled sections appear in `:Forge`.
+
+  Defaults: >lua
+      sections = {
+        prs = true,
+        issues = true,
+        ci = true,
+        browse = true,
+        releases = true,
+        branches = true,
+        commits = true,
+        worktrees = true,
+      }
+<
+
+`routes`                                                 *forge-config-routes*
+  `table<string, string>`  (default shown below)
+    Map root picker sections to route aliases. Section names are also valid
+    arguments to `require('forge').open()`.
+
+  Defaults: >lua
+      routes = {
+        prs = 'prs.open',
+        issues = 'issues.open',
+        ci = 'ci.current_branch',
+        browse = 'browse.contextual',
+        releases = 'releases.all',
+        branches = 'branches.local',
+        commits = 'commits.current_branch',
+        worktrees = 'worktrees.list',
+      }
+<
+
 `keys`                                                     *forge-config-keys*
   `table|false`  (default shown below)
     Per-picker action bindings. Set to `false` to disable all picker-level
@@ -160,8 +203,27 @@ Top-level keys: ~
           filter = '<c-o>',
           refresh = '<c-r>',
         },
+        branch = {
+          browse = '<c-x>',
+          yank = '<c-y>',
+          refresh = '<c-r>',
+        },
+        commit = {
+          browse = '<c-x>',
+          yank = '<c-y>',
+          refresh = '<c-r>',
+        },
+        worktree = {
+          yank = '<c-y>',
+          refresh = '<c-r>',
+        },
       }
 <
+
+  Additional picker groups:
+    `keys.branch` supports `browse`, `yank`, and `refresh`.
+    `keys.commit` supports `browse`, `yank`, and `refresh`.
+    `keys.worktree` supports `yank` and `refresh`.
 
 `display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
@@ -294,9 +356,9 @@ PICKERS                                                        *forge-pickers*
 
                                                                 *forge-picker*
 FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
-current buffer. Lists: PRs/MRs, Issues, CI/CD, Releases, Open File. Items that
-require a forge are hidden when no forge is detected. "Open File" requires a
-named buffer on a branch.
+current buffer. Lists: PRs/MRs, Issues, CI/CD, Branches, Commits, Worktrees,
+Browse, Releases. Items that require a forge are hidden when no forge is
+detected. Browse file and line targets require a named buffer on a branch.
 
 When using fzf-lua, picker headers use fzf-lua's `FzfLuaHeaderBind` and
 `FzfLuaHeaderText` highlight groups.
@@ -346,6 +408,32 @@ In-progress views auto-refresh at the `ci.refresh` interval.
   `browse`      `<c-x>`          Open run/check URL in browser
   `filter`      `<c-o>`          Cycle filter: all -> failed -> passed -> running
   `refresh`     `<c-r>`          Re-fetch runs
+
+                                                         *forge-picker-branch*
+BRANCH PICKER ~ Lists local branches with upstream and tip commit summary.
+
+  Action      Default Key    Description ~
+  `checkout`    `<cr>`           Switch to the selected branch
+  `browse`      `<c-x>`          Open branch in browser
+  `yank`        `<c-y>`          Copy branch name to `+` register
+  `refresh`     `<c-r>`          Clear cache and re-fetch
+
+                                                         *forge-picker-commit*
+COMMIT PICKER ~ Lists commits for the selected branch.
+
+  Action      Default Key    Description ~
+  `show`        `<cr>`           Open `git show` in a terminal split
+  `browse`      `<c-x>`          Open commit in browser
+  `yank`        `<c-y>`          Copy commit SHA to `+` register
+  `refresh`     `<c-r>`          Clear cache and re-fetch
+
+                                                       *forge-picker-worktree*
+WORKTREE PICKER ~ Lists git worktrees for the current repository.
+
+  Action      Default Key    Description ~
+  `switch`      `<cr>`           Change Neovim's cwd to the selected worktree
+  `yank`        `<c-y>`          Copy worktree path to `+` register
+  `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                         *forge-picker-release*
 RELEASE PICKER ~ Lists releases with tag, title, and relative time. Draft and
@@ -525,6 +613,9 @@ support for features that vary:
   Issue create (assignees)     yes       yes       yes
   Issue create (milestone)     yes       yes       yes
   Issues                       yes       yes       yes
+  Branches                     yes       yes       yes
+  Commits                      yes       yes       yes
+  Worktrees                    yes       yes       yes
   Releases                     yes       yes       yes
   Release draft/prerelease     yes        -        yes
   Browse                       yes       yes       yes

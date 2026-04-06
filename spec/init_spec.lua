@@ -41,6 +41,14 @@ describe('config', function()
     assert.is_nil(cfg.keys.ci.passed)
     assert.is_nil(cfg.keys.ci.running)
     assert.is_nil(cfg.keys.ci.all)
+    assert.equals('<c-x>', cfg.keys.branch.browse)
+    assert.equals('<c-y>', cfg.keys.branch.yank)
+    assert.equals('<c-r>', cfg.keys.branch.refresh)
+    assert.equals('<c-x>', cfg.keys.commit.browse)
+    assert.equals('<c-y>', cfg.keys.commit.yank)
+    assert.equals('<c-r>', cfg.keys.commit.refresh)
+    assert.equals('<c-y>', cfg.keys.worktree.yank)
+    assert.equals('<c-r>', cfg.keys.worktree.refresh)
   end)
 
   it('deep-merges partial user config', function()
@@ -50,6 +58,25 @@ describe('config', function()
     assert.equals('>', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
     assert.equals(45, cfg.display.widths.title)
+  end)
+
+  it('deep-merges git section key bindings', function()
+    vim.g.forge = {
+      keys = {
+        branch = { browse = '<c-b>' },
+        commit = { yank = false },
+        worktree = { refresh = '<c-f>' },
+      },
+    }
+    local cfg = forge.config()
+    assert.equals('<c-b>', cfg.keys.branch.browse)
+    assert.equals('<c-y>', cfg.keys.branch.yank)
+    assert.equals('<c-r>', cfg.keys.branch.refresh)
+    assert.equals('<c-x>', cfg.keys.commit.browse)
+    assert.is_false(cfg.keys.commit.yank)
+    assert.equals('<c-r>', cfg.keys.commit.refresh)
+    assert.equals('<c-y>', cfg.keys.worktree.yank)
+    assert.equals('<c-f>', cfg.keys.worktree.refresh)
   end)
 
   it('sets keys to false when user requests it', function()
