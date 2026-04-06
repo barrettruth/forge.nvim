@@ -740,6 +740,15 @@ function M.pr(state, f)
       entries = entries,
       actions = {
         {
+          name = 'default',
+          label = 'more',
+          fn = function(entry)
+            if entry then
+              pr_manage_picker(f, entry.value, reopen_list)
+            end
+          end,
+        },
+        {
           name = 'checkout',
           label = 'checkout',
           fn = function(entry)
