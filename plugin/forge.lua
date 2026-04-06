@@ -72,12 +72,12 @@ local function dispatch(args)
     end
     local pickers = require('forge.pickers')
     if #args == 1 then
-      pickers.pr('open', f)
+      forge_mod.open('prs')
       return
     end
     local flags, pos = parse_flags(args, 2)
     if flags.state then
-      pickers.pr(flags.state, f)
+      forge_mod.open('prs.' .. flags.state)
       return
     end
     local action = pos[1]
@@ -149,12 +149,12 @@ local function dispatch(args)
     end
     local pickers = require('forge.pickers')
     if #args == 1 then
-      pickers.issue('all', f)
+      forge_mod.open('issues')
       return
     end
     local flags, pos = parse_flags(args, 2)
     if flags.state then
-      pickers.issue(flags.state, f)
+      forge_mod.open('issues.' .. flags.state)
       return
     end
     local action = pos[1]
@@ -202,7 +202,7 @@ local function dispatch(args)
     if not require_git_or_warn() then
       return
     end
-    local f = require_forge_or_warn()
+    local f, forge_mod = require_forge_or_warn()
     if not f then
       return
     end
@@ -214,7 +214,7 @@ local function dispatch(args)
         ref = nil
       end
     end
-    require('forge.pickers').ci(f, ref)
+    forge_mod.open(flags.all and 'ci.all' or 'ci.current_branch', { branch = ref })
     return
   end
 
@@ -222,13 +222,12 @@ local function dispatch(args)
     if not require_git_or_warn() then
       return
     end
-    local f = require_forge_or_warn()
+    local f, forge_mod = require_forge_or_warn()
     if not f then
       return
     end
-    local pickers = require('forge.pickers')
     if #args == 1 then
-      pickers.release('all', f)
+      forge_mod.open('releases')
       return
     end
     local _, pos = parse_flags(args, 2)
@@ -271,23 +270,17 @@ local function dispatch(args)
     if not require_git_or_warn() then
       return
     end
-    local f = require_forge_or_warn()
+    local f, forge_mod = require_forge_or_warn()
     if not f then
       return
     end
     local flags = parse_flags(args, 2)
     if flags.commit then
-      local sha = vim.trim(vim.fn.system('git rev-parse HEAD'))
-      f:browse_commit(sha)
+      forge_mod.open('browse.commit')
+    elseif flags.root then
+      forge_mod.open('browse.branch')
     else
-      local forge_mod = require('forge')
-      local loc = forge_mod.file_loc()
-      local branch = vim.trim(vim.fn.system('git branch --show-current'))
-      if branch == '' then
-        log.warn('detached HEAD')
-        return
-      end
-      f:browse(loc, branch)
+      forge_mod.open('browse.contextual')
     end
     return
   end
@@ -407,7 +400,7 @@ end
 vim.api.nvim_create_user_command('Forge', function(opts)
   local args = vim.split(vim.trim(opts.args), '%s+')
   if #args == 0 or args[1] == '' then
-    require('forge.pickers').git()
+    require('forge').open()
     return
   end
   dispatch(args)

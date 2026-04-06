@@ -470,4 +470,8 @@ M._discover_templates = template_mod.discover
 M._load_template = template_mod.load
 M._normalize_body = template_mod.normalize_body
 
+local routes_mod = require('forge.routes')
+M.current_context = routes_mod.current_context
+M.open = routes_mod.open
+
 return M
