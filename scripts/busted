@@ -8,7 +8,10 @@ if command -v nix >/dev/null 2>&1; then
 fi
 
 if [ -n "${FORGE_TEST_RTP:-}" ]; then
-  exec nvim --clean --headless --cmd "set runtimepath^=${FORGE_TEST_RTP}" -l "$@"
+  exec nvim --clean --headless \
+    --cmd "set runtimepath^=${FORGE_TEST_RTP}" \
+    --cmd "lua pcall(vim.treesitter.language.add, 'yaml', { path = [=[${FORGE_TEST_RTP}/parser/yaml.so]=] })" \
+    -l "$@"
 fi
 
 exec nvim --clean --headless -l "$@"
