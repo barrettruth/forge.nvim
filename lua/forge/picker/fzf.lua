@@ -78,6 +78,7 @@ function M.pick(opts)
   if keys == false then
     keys = {}
   end
+  local picker_mod = require('forge.picker')
   local bindings = keys[opts.picker_name] or {}
 
   local lines = {}
@@ -95,7 +96,7 @@ function M.pick(opts)
           return
         end
         local idx = tonumber(selected[1]:match('^(%d+)'))
-        def.fn(idx and opts.entries[idx] or nil)
+        def.fn(picker_mod.selected(idx and opts.entries[idx] or nil))
       end
     end
   end

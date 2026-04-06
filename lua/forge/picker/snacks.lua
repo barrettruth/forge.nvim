@@ -31,7 +31,7 @@ function M.pick(opts)
       snacks_actions[action_name] = function(picker)
         local item = picker:current()
         picker:close()
-        def.fn(item and item.value or nil)
+        def.fn(picker_mod.selected(item and item.value or nil))
       end
       if key == '<cr>' then
         snacks_actions['confirm'] = snacks_actions[action_name]
