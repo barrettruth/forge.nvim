@@ -1,5 +1,6 @@
 local M = {}
 
+local action = require('forge.action')
 local client = require('forge.client')
 local context = require('forge.context')
 local log = require('forge.logger')
@@ -227,18 +228,23 @@ local function open_root(ctx)
     return
   end
 
-  local ok, err = client.open_root(client_name, {
+  local default_action, action_err = action.bind('open', {
+    name = 'default',
+    context = ctx.id,
+  })
+  if not default_action then
+    log.error(action_err)
+    return
+  end
+
+  local ok, client_err = client.open_root(client_name, {
     context = ctx,
     prompt = prompt(ctx),
     entries = entries,
-    on_select = function(entry)
-      if entry then
-        M.open(entry.value, { context = ctx.id })
-      end
-    end,
+    actions = { default_action },
   })
-  if not ok and err then
-    log.error(err)
+  if not ok and client_err then
+    log.error(client_err)
   end
 end
 

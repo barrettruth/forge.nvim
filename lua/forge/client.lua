@@ -6,17 +6,7 @@ clients.picker = function(opts)
   require('forge.picker').pick({
     prompt = opts.prompt,
     entries = opts.entries,
-    actions = {
-      {
-        name = 'default',
-        label = 'open',
-        fn = function(entry)
-          if opts.on_select then
-            opts.on_select(entry)
-          end
-        end,
-      },
-    },
+    actions = opts.actions,
     picker_name = '_menu',
   })
 end
