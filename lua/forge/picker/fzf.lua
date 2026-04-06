@@ -101,7 +101,7 @@ function M.pick(opts)
       if picker_mod.closes(def) then
         fzf_actions[to_fzf_key(key)] = action_fn
       else
-        fzf_actions[to_fzf_key(key)] = { fn = action_fn, noclose = true }
+        fzf_actions[to_fzf_key(key)] = { fn = action_fn, reload = true }
       end
     end
   end
