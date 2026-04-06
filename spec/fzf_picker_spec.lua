@@ -69,7 +69,7 @@ describe('fzf picker', function()
         },
       },
       actions = {
-        { name = 'checkout', label = 'checkout', fn = function() end },
+        { name = 'default', label = 'more', fn = function() end },
         { name = 'browse', label = 'browse', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
       },
@@ -78,7 +78,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      ':: [FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:checkout]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^O] [FzfLuaHeaderText:filter]',
+      ':: [FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^O] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))

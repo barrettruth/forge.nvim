@@ -226,9 +226,10 @@ describe('pickers', function()
     package.loaded['forge.pickers'] = nil
   end)
 
-  it('uses more as the visible PR submenu label while keeping it on <c-e> by default', function()
+  it('uses more as the default PR action without a separate default key binding', function()
     local cfg = require('forge.config').config()
-    assert.equals('<c-e>', cfg.keys.pr.manage)
+    assert.is_nil(cfg.keys.pr.checkout)
+    assert.is_nil(cfg.keys.pr.manage)
     assert.is_nil(cfg.keys.pr.edit)
     assert.is_nil(cfg.keys.pr.close)
     assert.equals('<c-o>', cfg.keys.ci.filter)
@@ -242,6 +243,7 @@ describe('pickers', function()
     for _, def in ipairs(captured.actions) do
       labels[def.name] = def.label
     end
+    assert.equals('more', labels.default)
     assert.equals('more', labels.manage)
     assert.is_nil(labels.worktree)
     assert.is_nil(labels.create)
@@ -254,6 +256,7 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
+    assert.equals('more', action_by_name('default').label)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_false(rawget(action_by_name('worktree'), 'close'))
     assert.is_nil(rawget(action_by_name('checkout'), 'close'))

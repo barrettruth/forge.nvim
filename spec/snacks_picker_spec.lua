@@ -91,6 +91,7 @@ describe('snacks picker', function()
       display = { { '#42' } },
       value = '42',
     }
+    vim.g.forge = { keys = { pr = { checkout = '<c-k>' } } }
 
     picker.pick({
       prompt = 'PRs> ',

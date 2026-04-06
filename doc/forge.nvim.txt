@@ -131,12 +131,10 @@ Top-level keys: ~
   Defaults: >lua
       keys = {
         pr = {
-          checkout = '<cr>',
           diff = '<c-d>',
           worktree = '<c-w>',
           ci = '<c-t>',
           browse = '<c-x>',
-          manage = '<c-e>',
           create = '<c-a>',
           filter = '<c-o>',
           refresh = '<c-r>',
@@ -311,12 +309,11 @@ placeholder row instead of appearing blank.
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
-  `checkout`    `<cr>`           Check out the PR branch
+  `more`        `<cr>`           Open more picker
   `diff`        `<c-d>`          Start review (|forge-review|)
   `worktree`    `<c-w>`          Create worktree from PR
   `ci`          `<c-t>`          Open CI checks picker for this PR
   `browse`      `<c-x>`          Open PR in browser
-  `manage`      `<c-e>`          Open more picker
   `create`      `<c-a>`          Create new PR (|forge-compose|)
   `filter`      `<c-o>`          Cycle state: open -> closed -> all
   `refresh`     `<c-r>`          Clear cache and re-fetch

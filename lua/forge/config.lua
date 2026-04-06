@@ -27,12 +27,12 @@ local M = {}
 ---@field log forge.LogViewerKeys?
 
 ---@class forge.PRPickerKeys
----@field checkout string|false
+---@field checkout? string|false
 ---@field diff string|false
 ---@field worktree string|false
 ---@field ci string|false
 ---@field browse string|false
----@field manage string|false
+---@field manage? string|false
 ---@field edit? string|false
 ---@field create string|false
 ---@field close? string|false
@@ -196,12 +196,10 @@ local DEFAULTS = {
   sources = {},
   keys = {
     pr = {
-      checkout = '<cr>',
       diff = '<c-d>',
       worktree = '<c-w>',
       ci = '<c-t>',
       browse = '<c-x>',
-      manage = '<c-e>',
       create = '<c-a>',
       filter = '<c-o>',
       refresh = '<c-r>',
