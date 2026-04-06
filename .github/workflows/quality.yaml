@@ -104,7 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
-      - run: nix fmt -- --check .
+      - run: nix fmt -- --ci
 
   markdown-format:
     name: Markdown Format Check
