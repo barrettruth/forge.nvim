@@ -15,7 +15,8 @@ without leaving your editor.
 - CI/CD: view runs per-branch or repo-wide, stream logs, filter by status
 - Code review via [diffs.nvim](https://github.com/barrettruth/diffs.nvim) with
   unified/split toggle and quickfix navigation
-- Commit and branch browsing with checkout, diff, and URL generation
+- Local git sections for branches, commits, and worktrees with checkout,
+  `git show`, switching, and forge web actions
 - File/line permalink generation and yanking
 - [fzf-lua](https://github.com/ibhagwan/fzf-lua) pickers with contextual
   keybinds
@@ -57,6 +58,9 @@ Configure via `vim.g.forge` before the plugin loads. All fields are optional:
 
 ```lua
 vim.g.forge = {
+  sections = { releases = false },
+  routes = { browse = 'browse.branch' },
+  keys = { commit = { browse = '<c-x>', yank = '<c-y>', refresh = '<c-r>' } },
   sources = { gitlab = { hosts = { 'gitlab.mycompany.com' } } },
   display = { icons = { open = '', merged = '', closed = '' } },
 }
@@ -76,6 +80,12 @@ vim.g.forge = {
 `<c-g>` to open the picker, select Pull Requests, then `ctrl-a` to compose. Or
 from a fugitive buffer: `cpr` (compose), `cpd` (draft), `cpf` (instant from
 commits), `cpw` (push and open web).
+
+**Q: What does `:Forge` show by default?**
+
+The root picker shows Pull Requests, Issues, CI, Branches, Commits, Worktrees,
+Browse, and Releases. Customize the list with `vim.g.forge.sections` and change
+where a section goes with `vim.g.forge.routes`.
 
 **Q: Does review mode require diffs.nvim?**
 

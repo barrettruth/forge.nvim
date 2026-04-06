@@ -250,6 +250,20 @@ local DEFAULTS = {
       filter = '<c-o>',
       refresh = '<c-r>',
     },
+    branch = {
+      browse = '<c-x>',
+      yank = '<c-y>',
+      refresh = '<c-r>',
+    },
+    commit = {
+      browse = '<c-x>',
+      yank = '<c-y>',
+      refresh = '<c-r>',
+    },
+    worktree = {
+      yank = '<c-y>',
+      refresh = '<c-r>',
+    },
     log = {
       close = 'q',
       next_step = ']]',
@@ -437,6 +451,27 @@ function M.config()
       vim.validate('forge.keys.release', keys.release, 'table')
       for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'refresh' }) do
         vim.validate('forge.keys.release.' .. k, keys.release[k], key_or_false, 'string or false')
+      end
+    end
+    local branch_keys = rawget(keys, 'branch')
+    if branch_keys ~= nil then
+      vim.validate('forge.keys.branch', branch_keys, 'table')
+      for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
+        vim.validate('forge.keys.branch.' .. k, branch_keys[k], key_or_false, 'string or false')
+      end
+    end
+    local commit_keys = rawget(keys, 'commit')
+    if commit_keys ~= nil then
+      vim.validate('forge.keys.commit', commit_keys, 'table')
+      for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
+        vim.validate('forge.keys.commit.' .. k, commit_keys[k], key_or_false, 'string or false')
+      end
+    end
+    local worktree_keys = rawget(keys, 'worktree')
+    if worktree_keys ~= nil then
+      vim.validate('forge.keys.worktree', worktree_keys, 'table')
+      for _, k in ipairs({ 'yank', 'refresh' }) do
+        vim.validate('forge.keys.worktree.' .. k, worktree_keys[k], key_or_false, 'string or false')
       end
     end
     if keys.log ~= nil then
