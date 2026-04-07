@@ -397,6 +397,56 @@ local function complete(arglead, cmdline, _)
   return {}
 end
 
+local function set_plug(mode, lhs, rhs)
+  vim.keymap.set(mode, ('<Plug>(%s)'):format(lhs), rhs)
+end
+
+local function open_route(route)
+  return function()
+    require('forge').open(route)
+  end
+end
+
+set_plug('n', 'forge', open_route(nil))
+
+for _, spec in ipairs({
+  { 'n', 'forge-prs-open', 'prs.open' },
+  { 'n', 'forge-prs-closed', 'prs.closed' },
+  { 'n', 'forge-prs-all', 'prs.all' },
+  { 'n', 'forge-issues-open', 'issues.open' },
+  { 'n', 'forge-issues-closed', 'issues.closed' },
+  { 'n', 'forge-issues-all', 'issues.all' },
+  { 'n', 'forge-ci-current-branch', 'ci.current_branch' },
+  { 'n', 'forge-ci-all', 'ci.all' },
+  { { 'n', 'x' }, 'forge-browse-contextual', 'browse.contextual' },
+  { 'n', 'forge-browse-branch', 'browse.branch' },
+  { 'n', 'forge-browse-commit', 'browse.commit' },
+  { 'n', 'forge-releases-all', 'releases.all' },
+  { 'n', 'forge-releases-draft', 'releases.draft' },
+  { 'n', 'forge-releases-prerelease', 'releases.prerelease' },
+  { 'n', 'forge-branches-local', 'branches.local' },
+  { 'n', 'forge-commits-current-branch', 'commits.current_branch' },
+  { 'n', 'forge-worktrees-list', 'worktrees.list' },
+  { 'n', 'forge-prs', 'prs' },
+  { 'n', 'forge-issues', 'issues' },
+  { 'n', 'forge-ci', 'ci' },
+  { { 'n', 'x' }, 'forge-browse', 'browse' },
+  { 'n', 'forge-releases', 'releases' },
+  { 'n', 'forge-branches', 'branches' },
+  { 'n', 'forge-commits', 'commits' },
+  { 'n', 'forge-worktrees', 'worktrees' },
+}) do
+  set_plug(spec[1], spec[2], open_route(spec[3]))
+end
+
+set_plug('n', 'forge-review-toggle', function()
+  require('forge.review').toggle()
+end)
+
+set_plug('n', 'forge-review-end', function()
+  require('forge.review').stop()
+end)
+
 vim.api.nvim_create_user_command('Forge', function(opts)
   local args = vim.split(vim.trim(opts.args), '%s+')
   if #args == 0 or args[1] == '' then
