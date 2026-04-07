@@ -40,6 +40,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge review end`....................................|:Forge-review-end|
     `:Forge review toggle`..............................|:Forge-review-toggle|
     `:Forge clear`..............................................|:Forge-clear|
+    PLUG MAPPINGS.............................................|forge-plug|
     PICKERS....................................................|forge-pickers|
     REVIEW......................................................|forge-review|
     COMPOSE BUFFER.............................................|forge-compose|
@@ -350,6 +351,84 @@ COMMANDS                                                              *:Forge*
     Clear all internal caches (forge detection, repo info, list data).
 
 All subcommands support tab completion.
+
+==============================================================================
+PLUG MAPPINGS                                                    *forge-plug*
+
+forge.nvim exposes stateless |<Plug>| mappings for root launchers, exact
+routes, configurable section aliases, and review actions. They are intended
+for user-defined mappings and do not add any additional Ex commands.
+
+Examples: >lua
+    vim.keymap.set('n', '<leader>gf', '<Plug>(forge)')
+    vim.keymap.set('n', '<leader>gP', '<Plug>(forge-prs-open)')
+    vim.keymap.set({'n', 'x'}, '<leader>gb', '<Plug>(forge-browse-contextual)')
+    vim.keymap.set('n', '<leader>gr', '<Plug>(forge-review-toggle)')
+<
+
+Alias plugs call `require('forge').open()` with the section name (`"prs"`,
+`"issues"`, etc.), so they respect `vim.g.forge.routes`. Exact route plugs
+call `require('forge').open()` with the full route name and ignore route
+aliases.
+
+`<Plug>(forge-browse)` and `<Plug>(forge-browse-contextual)` are available in
+normal and visual mode. When invoked in visual mode, contextual browse targets
+include the selected line range just like |:Forge-browse|.
+
+Alias plugs: ~
+                                                          *forge-plug-alias*
+  Mapping                          Modes      Action ~
+  `<Plug>(forge)`                    `n`        Open the root picker
+  `<Plug>(forge-prs)`                `n`        Open the configured `prs`
+                                              section route
+  `<Plug>(forge-issues)`             `n`        Open the configured `issues`
+                                              section route
+  `<Plug>(forge-ci)`                 `n`        Open the configured `ci`
+                                              section route
+  `<Plug>(forge-browse)`             `n`, `x`   Open the configured `browse`
+                                              section route
+  `<Plug>(forge-releases)`           `n`        Open the configured `releases`
+                                              section route
+  `<Plug>(forge-branches)`           `n`        Open the configured `branches`
+                                              section route
+  `<Plug>(forge-commits)`            `n`        Open the configured `commits`
+                                              section route
+  `<Plug>(forge-worktrees)`          `n`        Open the configured `worktrees`
+                                              section route
+
+Exact route plugs: ~
+                                                          *forge-plug-routes*
+  Mapping                                    Modes      Action ~
+  `<Plug>(forge-prs-open)`                     `n`        Open open PRs
+  `<Plug>(forge-prs-closed)`                   `n`        Open closed PRs
+  `<Plug>(forge-prs-all)`                      `n`        Open all PRs
+  `<Plug>(forge-issues-open)`                  `n`        Open open issues
+  `<Plug>(forge-issues-closed)`                `n`        Open closed issues
+  `<Plug>(forge-issues-all)`                   `n`        Open all issues
+  `<Plug>(forge-ci-current-branch)`            `n`        Open CI for the
+                                                        current branch
+  `<Plug>(forge-ci-all)`                       `n`        Open CI for all
+                                                        branches
+  `<Plug>(forge-browse-contextual)`            `n`, `x`   Open the current
+                                                        file, line, or selected
+                                                        range on the forge
+  `<Plug>(forge-browse-branch)`                `n`        Open the current
+                                                        branch on the forge
+  `<Plug>(forge-browse-commit)`                `n`        Open the current
+                                                        commit on the forge
+  `<Plug>(forge-releases-all)`                 `n`        Open all releases
+  `<Plug>(forge-releases-draft)`               `n`        Open draft releases
+  `<Plug>(forge-releases-prerelease)`          `n`        Open prereleases
+  `<Plug>(forge-branches-local)`               `n`        Open local branches
+  `<Plug>(forge-commits-current-branch)`       `n`        Open commits for the
+                                                        current branch
+  `<Plug>(forge-worktrees-list)`               `n`        Open worktrees
+
+Review plugs: ~
+                                                          *forge-plug-review*
+  Mapping                                  Modes      Action ~
+  `<Plug>(forge-review-toggle)`             `n`        Toggle review mode
+  `<Plug>(forge-review-end)`                `n`        End review mode
 
 ==============================================================================
 PICKERS                                                        *forge-pickers*
