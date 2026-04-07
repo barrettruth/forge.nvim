@@ -23,7 +23,7 @@ describe('review session', function()
         base_ref = 'origin/main',
         head_ref = 'pr-42',
       },
-      mode = 'unified',
+      mode = 'patch',
       files = {
         { path = 'lua/forge/review.lua' },
       },
@@ -39,6 +39,7 @@ describe('review session', function()
     assert.equals('PR #42', review.current().subject.label)
     assert.equals('origin/main', review.current().subject.base_ref)
     assert.equals('pr-42', review.current().subject.head_ref)
+    assert.equals('patch', review.current().mode)
     assert.equals('lua/forge/review.lua', review.current().current_file)
     assert.equals('checkout', review.current().materialization)
     assert.equals('/repo', review.current().repo_root)
@@ -51,6 +52,7 @@ describe('review session', function()
     assert.equals('unified', review.state.mode)
     assert.equals('ref', review.current().subject.kind)
     assert.equals('origin/main', review.current().subject.base_ref)
+    assert.equals('patch', review.current().mode)
   end)
 
   it('clears session state on stop', function()
@@ -113,7 +115,8 @@ describe('review index', function()
     end
 
     vim.cmd = function(cmd)
-      captured.cmd = cmd
+      captured.cmds = captured.cmds or {}
+      captured.cmds[#captured.cmds + 1] = cmd
     end
 
     vim.fn.filereadable = function()
@@ -194,7 +197,7 @@ describe('review index', function()
       '--no-ext-diff',
       'origin/main',
     }, captured.system)
-    assert.equals('PR #42 Review (2)> ', captured.picker.prompt)
+    assert.equals('PR #42 Review (patch · 2)> ', captured.picker.prompt)
     assert.equals('M', captured.picker.entries[1].display[1][1])
     assert.equals('lua/forge/review.lua', captured.picker.entries[1].value.path)
     assert.equals('lua/forge/new.lua', captured.picker.entries[2].value.path)
@@ -202,7 +205,31 @@ describe('review index', function()
 
     captured.picker.actions[1].fn(captured.picker.entries[1])
 
-    assert.equals('edit /repo/lua/forge/review.lua', captured.cmd)
+    assert.equals('diffoff!', captured.cmds[1])
+    assert.equals('edit /repo/lua/forge/review.lua', captured.cmds[2])
     assert.equals('origin/main', captured.gdiff)
+  end)
+
+  it('toggles the active file between patch and context modes', function()
+    review.start_session({
+      subject = {
+        kind = 'pr',
+        id = '42',
+        label = 'PR #42',
+        base_ref = 'origin/main',
+        head_ref = 'pr-42',
+      },
+      mode = 'patch',
+      current_file = 'lua/forge/review.lua',
+      repo_root = '/repo',
+    })
+
+    review.toggle()
+
+    assert.equals('split', review.state.mode)
+    assert.equals('context', review.current().mode)
+    assert.equals('diffoff!', captured.cmds[1])
+    assert.equals('edit /repo/lua/forge/review.lua', captured.cmds[2])
+    assert.equals('Gvdiffsplit origin/main', captured.cmds[3])
   end)
 end)

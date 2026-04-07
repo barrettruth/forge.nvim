@@ -322,7 +322,7 @@ local function pr_action_fns(f, num)
               base_ref = range,
               head_ref = head,
             },
-            mode = 'unified',
+            mode = 'patch',
             files = {},
             current_file = nil,
             materialization = co_result.code == 0 and 'checkout' or 'current',

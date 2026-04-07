@@ -12,6 +12,20 @@ local function repo_root()
   return vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
 end
 
+local function normalize_mode(mode)
+  if mode == 'split' or mode == 'context' then
+    return 'context'
+  end
+  return 'patch'
+end
+
+local function state_mode(mode)
+  if normalize_mode(mode) == 'context' then
+    return 'split'
+  end
+  return 'unified'
+end
+
 local function base_ref()
   if active_session and active_session.subject then
     return active_session.subject.base_ref
@@ -133,7 +147,7 @@ function M.open_file(path)
     vim.api.nvim_buf_set_lines(0, 0, -1, false, {})
   end
 
-  if M.state.mode == 'split' then
+  if normalize_mode(session.mode) == 'context' then
     pcall(vim.cmd, 'Gvdiffsplit ' .. base)
     return
   end
@@ -168,7 +182,11 @@ function M.open_index()
     end
 
     picker.pick({
-      prompt = ('%s Review (%d)> '):format(session.subject.label, #files),
+      prompt = ('%s Review (%s · %d)> '):format(
+        session.subject.label,
+        normalize_mode(session.mode),
+        #files
+      ),
       entries = entries,
       actions = {
         {
@@ -217,15 +235,19 @@ function M.toggle()
   if not base then
     return
   end
-  if session and session.current_file then
-    if M.state.mode == 'unified' then
-      session.mode = 'split'
+  if session then
+    if normalize_mode(session.mode) == 'patch' then
+      session.mode = 'context'
       M.state.mode = 'split'
     else
-      session.mode = 'unified'
+      session.mode = 'patch'
       M.state.mode = 'unified'
     end
-    M.open_file(session.current_file)
+    if session.current_file then
+      M.open_file(session.current_file)
+    else
+      M.open_index()
+    end
     return
   end
   if M.state.mode == 'unified' then
@@ -241,7 +263,7 @@ function M.toggle()
     if session then
       session.current_file = file
       current_file = file
-      session.mode = 'split'
+      session.mode = 'context'
     end
     M.state.mode = 'split'
     if file then
@@ -257,7 +279,7 @@ function M.toggle()
     end
     close_view()
     if session then
-      session.mode = 'unified'
+      session.mode = 'patch'
     end
     M.state.mode = 'unified'
     if session and session.current_file then
@@ -276,7 +298,7 @@ function M.start_session(session)
   M.stop()
   session = vim.deepcopy(session)
   session.files = session.files or {}
-  session.mode = session.mode or 'unified'
+  session.mode = normalize_mode(session.mode)
   session.current_file = session.current_file or nil
   session.materialization = session.materialization or 'current'
   session.repo_root = session.repo_root or repo_root()
@@ -287,7 +309,7 @@ function M.start_session(session)
   else
     M.state.base = nil
   end
-  M.state.mode = session.mode
+  M.state.mode = state_mode(session.mode)
   vim.api.nvim_clear_autocmds({ group = review_augroup })
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = review_augroup,
@@ -307,7 +329,7 @@ function M.start(base, mode)
       base_ref = base,
       head_ref = vim.trim(vim.fn.system('git rev-parse --show-current')),
     },
-    mode = mode or 'unified',
+    mode = mode or 'patch',
     files = {},
     current_file = nil,
     materialization = 'current',
