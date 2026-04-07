@@ -586,10 +586,9 @@ rebase, merge), Close/Reopen, Mark as draft/Mark as ready.
 ==============================================================================
 WORKFLOW SURFACE                                              *forge-workflow*
 
-`:Forge` is a workflow surface, not just a route list. Root entries include a
-section label plus a short category, scope, and action summary before the
-nested picker opens. Local git sections stay visible as first-class workflows
-next to forge-backed sections.
+`:Forge` is a workflow surface, not just a route list. The root picker uses
+label-only entries so the top level stays compact, while the nested pickers and
+help docs carry the workflow detail.
 
 Architecture: ~
 - Root `:Forge` entries go through `require('forge.client').open_root()`.

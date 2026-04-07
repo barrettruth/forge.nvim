@@ -64,7 +64,7 @@ describe('extensibility', function()
     forge.open()
 
     assert.is_not_nil(captured)
-    assert.equals('Github workflow (main)> ', captured.prompt)
+    assert.equals('Forge (main)> ', captured.prompt)
     assert.equals('default', captured.actions[1].name)
     assert.is_true(#captured.entries > 0)
   end)
