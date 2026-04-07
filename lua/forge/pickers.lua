@@ -294,6 +294,35 @@ end
 ---@return table<string, function>
 local function pr_action_fns(f, num)
   local kind = f.labels.pr_one
+  local function review_pr()
+    local review = require('forge.review')
+    local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
+
+    log.info(('reviewing %s #%s...'):format(kind, num))
+    vim.system(f:checkout_cmd(num), { text = true }, function(co_result)
+      if co_result.code ~= 0 then
+        vim.schedule(function()
+          log.debug('checkout skipped, proceeding with review')
+        end)
+      end
+
+      vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
+        vim.schedule(function()
+          local base = vim.trim(base_result.stdout or '')
+          if base == '' or base_result.code ~= 0 then
+            base = 'main'
+          end
+          local range = 'origin/' .. base
+          review.start(range)
+          local ok, commands = pcall(require, 'diffs.commands')
+          if ok then
+            commands.greview(range, { repo_root = repo_root })
+          end
+          log.debug(('review ready for %s #%s against %s'):format(kind, num, base))
+        end)
+      end)
+    end)
+  end
   return {
     checkout = function()
       log.info(('checking out %s #%s...'):format(kind, num))
@@ -331,35 +360,8 @@ local function pr_action_fns(f, num)
         end)
       end)
     end,
-    diff = function()
-      local review = require('forge.review')
-      local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-
-      log.info(('reviewing %s #%s...'):format(kind, num))
-      vim.system(f:checkout_cmd(num), { text = true }, function(co_result)
-        if co_result.code ~= 0 then
-          vim.schedule(function()
-            log.debug('checkout skipped, proceeding with diff')
-          end)
-        end
-
-        vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
-          vim.schedule(function()
-            local base = vim.trim(base_result.stdout or '')
-            if base == '' or base_result.code ~= 0 then
-              base = 'main'
-            end
-            local range = 'origin/' .. base
-            review.start(range)
-            local ok, commands = pcall(require, 'diffs.commands')
-            if ok then
-              commands.greview(range, { repo_root = repo_root })
-            end
-            log.debug(('review ready for %s #%s against %s'):format(kind, num, base))
-          end)
-        end)
-      end)
-    end,
+    review = review_pr,
+    diff = review_pr,
     ci = function()
       if f.capabilities.per_pr_checks then
         M.checks(f, num)
@@ -917,11 +919,11 @@ function M.pr(state, f)
           end,
         },
         {
-          name = 'diff',
-          label = 'diff',
+          name = 'review',
+          label = 'review',
           fn = function(entry)
             if entry then
-              pr_action_fns(f, entry.value).diff()
+              pr_action_fns(f, entry.value).review()
             end
           end,
         },

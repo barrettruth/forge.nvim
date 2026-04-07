@@ -22,7 +22,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr` [{flags}]..........................................|:Forge-pr|
     `:Forge pr create` [{flags}]............................|:Forge-pr-create|
     `:Forge pr checkout` {num}............................|:Forge-pr-checkout|
-    `:Forge pr diff` {num}....................................|:Forge-pr-diff|
+    `:Forge pr review` {num}................................|:Forge-pr-review|
     `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
     `:Forge pr ci` {num}........................................|:Forge-pr-ci|
     `:Forge pr browse` {num}................................|:Forge-pr-browse|
@@ -175,7 +175,7 @@ Top-level keys: ~
   Defaults: >lua
       keys = {
         pr = {
-          diff = '<c-d>',
+          review = '<c-d>',
           worktree = '<c-w>',
           ci = '<c-t>',
           browse = '<c-x>',
@@ -220,6 +220,9 @@ Top-level keys: ~
         },
       }
 <
+
+  `keys.pr.review` is the canonical PR review binding. `keys.pr.diff` is
+  still accepted as a legacy alias.
 
   Additional picker groups:
     `keys.branch` supports `browse`, `yank`, and `refresh`.
@@ -284,8 +287,11 @@ COMMANDS                                                              *:Forge*
 `:Forge pr checkout` {num}                                *:Forge-pr-checkout*
     Check out the branch for PR `{num}`.
 
-`:Forge pr diff` {num}                                        *:Forge-pr-diff*
+`:Forge pr review` {num}                                    *:Forge-pr-review*
     Start a review for PR `{num}` (|forge-review|).
+
+`:Forge pr diff` {num}                                        *:Forge-pr-diff*
+    Legacy alias for `:Forge pr review {num}`.
 
 `:Forge pr worktree` {num}                                *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
@@ -451,7 +457,7 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
   `more`        `<cr>`           Open more picker
-  `diff`        `<c-d>`          Start review (|forge-review|)
+  `review`      `<c-d>`          Start review (|forge-review|)
   `worktree`    `<c-w>`          Create worktree from PR
   `ci`          `<c-t>`          Open CI checks picker for this PR
   `browse`      `<c-x>`          Open PR in browser
@@ -538,7 +544,7 @@ Requires diffs.nvim for unified view and vim-fugitive for split view.
 
 Starting a review: ~
 - `<c-d>` on a PR in the PR picker
-- `:Forge pr diff {num}`
+- `:Forge pr review {num}`
 
 Unified view (default): ~
   diffs.nvim renders a combined diff in a `diffs://review:*` buffer with
@@ -1004,8 +1010,9 @@ PUBLIC API: `require('forge.pickers')` ~
                                                *forge.pickers.pr_action_fns()*
 `pr_action_fns(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
-    keyed by action name (`"checkout"`, `"diff"`, `"worktree"`,
-    `"browse"`, `"ci"`, `"manage"`, `"edit"`).
+    keyed by action name (`"checkout"`, `"review"`, `"worktree"`,
+    `"browse"`, `"ci"`, `"manage"`, `"edit"`). `"diff"` remains
+    available as a legacy alias.
 
                                                  *forge.pickers.issue_close()*
 `issue_close(f, num)`

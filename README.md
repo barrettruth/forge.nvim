@@ -9,8 +9,8 @@ without leaving your editor.
 
 - Automatic forge detection from git remote (`gh`, `glab`, `tea`)
 - PR lifecycle: list, create (compose buffer with template discovery, diff stat,
-  reviewers), checkout, worktree, review diff, merge, approve, close/reopen,
-  draft toggle
+  reviewers), checkout, worktree, review, merge, approve, close/reopen, draft
+  toggle
 - Issue management: list, browse, close/reopen, state filtering
 - CI/CD: view runs per-branch or repo-wide, stream logs, filter by status
 - Code review via [diffs.nvim](https://github.com/barrettruth/diffs.nvim) with
