@@ -112,8 +112,8 @@ local function dispatch(args)
     end
     if action == 'checkout' then
       pickers.pr_actions(f, num).checkout()
-    elseif action == 'diff' then
-      pickers.pr_actions(f, num).diff()
+    elseif action == 'review' or action == 'diff' then
+      pickers.pr_actions(f, num).review()
     elseif action == 'worktree' then
       pickers.pr_actions(f, num).worktree()
     elseif action == 'ci' then
@@ -322,7 +322,7 @@ local function complete(arglead, cmdline, _)
   local sub_actions = {
     pr = {
       'checkout',
-      'diff',
+      'review',
       'worktree',
       'ci',
       'browse',

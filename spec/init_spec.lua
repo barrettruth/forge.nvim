@@ -508,6 +508,20 @@ describe('config validation', function()
     assert.is_false(cfg.keys.pr.checkout)
   end)
 
+  it('accepts review key binding and keeps the diff alias available', function()
+    vim.g.forge = { keys = { pr = { review = '<leader>r' } } }
+    local cfg = forge.config()
+    assert.equals('<leader>r', cfg.keys.pr.review)
+    assert.equals('<leader>r', cfg.keys.pr.diff)
+  end)
+
+  it('maps the legacy diff key binding onto review', function()
+    vim.g.forge = { keys = { pr = { diff = '<leader>d' } } }
+    local cfg = forge.config()
+    assert.equals('<leader>d', cfg.keys.pr.review)
+    assert.equals('<leader>d', cfg.keys.pr.diff)
+  end)
+
   it('rejects keys as a string', function()
     vim.g.forge = { keys = 'none' }
     assert.has_error(function()
