@@ -328,10 +328,7 @@ local function pr_action_fns(f, num)
             materialization = co_result.code == 0 and 'checkout' or 'current',
             repo_root = repo_root,
           })
-          local ok, commands = pcall(require, 'diffs.commands')
-          if ok then
-            commands.greview(range, { repo_root = repo_root })
-          end
+          review.open_index()
           log.debug(('review ready for %s #%s against %s'):format(kind, num, base))
         end)
       end)

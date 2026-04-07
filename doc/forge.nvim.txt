@@ -546,16 +546,19 @@ Starting a review: ~
 - `<c-d>` on a PR in the PR picker
 - `:Forge pr review {num}`
 
-Unified view (default): ~
-  diffs.nvim renders a combined diff in a `diffs://review:*` buffer with
-  a quickfix list of changed files.
+Changed-files index: ~
+  Starting review opens a picker-backed changed-files index for the active
+  review session. Selecting a file opens it in the current review mode.
+
+Unified view (default file view): ~
+  diffs.nvim renders a file-scoped unified diff against the review base.
 
 Split view: ~
-  `:Forge review toggle` switches to a side-by-side fugitive split
-  (`:Gvdiffsplit`). Run again to return to unified.
+  `:Forge review toggle` switches the current file to a side-by-side
+  fugitive split (`:Gvdiffsplit`). Run again to return to unified.
 
 Ending a review: ~
-  `:Forge review end` or wipe the `diffs://review:*` buffer.
+  `:Forge review end`.
 
 State: ~
   `require('forge.review').state` holds: >lua
