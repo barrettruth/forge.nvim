@@ -37,6 +37,21 @@ describe('<Plug> mappings', function()
         stop = function()
           captured.review[#captured.review + 1] = 'end'
         end,
+        files = function()
+          captured.review[#captured.review + 1] = 'files'
+        end,
+        next_file = function()
+          captured.review[#captured.review + 1] = 'next-file'
+        end,
+        prev_file = function()
+          captured.review[#captured.review + 1] = 'prev-file'
+        end,
+        next_hunk = function()
+          captured.review[#captured.review + 1] = 'next-hunk'
+        end,
+        prev_hunk = function()
+          captured.review[#captured.review + 1] = 'prev-hunk'
+        end,
       }
     end
     package.loaded['forge.review'] = nil
@@ -130,14 +145,32 @@ describe('<Plug> mappings', function()
 
     local toggle = mapping('<Plug>(forge-review-toggle)', 'n')
     local stop = mapping('<Plug>(forge-review-end)', 'n')
+    local files = mapping('<Plug>(forge-review-files)', 'n')
+    local next_file = mapping('<Plug>(forge-review-next-file)', 'n')
+    local prev_file = mapping('<Plug>(forge-review-prev-file)', 'n')
+    local next_hunk = mapping('<Plug>(forge-review-next-hunk)', 'n')
+    local prev_hunk = mapping('<Plug>(forge-review-prev-hunk)', 'n')
 
     assert.is_function(toggle.callback)
     assert.is_function(stop.callback)
+    assert.is_function(files.callback)
+    assert.is_function(next_file.callback)
+    assert.is_function(prev_file.callback)
+    assert.is_function(next_hunk.callback)
+    assert.is_function(prev_hunk.callback)
 
     toggle.callback()
     stop.callback()
+    files.callback()
+    next_file.callback()
+    prev_file.callback()
+    next_hunk.callback()
+    prev_hunk.callback()
 
-    assert.same({ 'toggle', 'end' }, captured.review)
+    assert.same(
+      { 'toggle', 'end', 'files', 'next-file', 'prev-file', 'next-hunk', 'prev-hunk' },
+      captured.review
+    )
   end)
 
   it('runs contextual browse plugs while visual mode is active', function()

@@ -341,6 +341,92 @@ function M.files()
   M.open_index()
 end
 
+local function jump_file(step)
+  local session = active_session
+  if not session then
+    return
+  end
+  local files = session.files or {}
+  if #files == 0 then
+    M.open_index()
+    return
+  end
+
+  local index = step > 0 and 1 or #files
+  if session.current_file then
+    for i, item in ipairs(files) do
+      if item.path == session.current_file then
+        index = i + step
+        break
+      end
+    end
+  end
+
+  if index < 1 then
+    index = #files
+  elseif index > #files then
+    index = 1
+  end
+
+  M.open_file(files[index].path)
+end
+
+function M.next_file()
+  jump_file(1)
+end
+
+function M.prev_file()
+  jump_file(-1)
+end
+
+local function jump_hunk(step)
+  if M.state.mode == 'split' then
+    pcall(vim.cmd, step > 0 and 'normal ]c' or 'normal [c')
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local hunks = {}
+  for i, line in ipairs(lines) do
+    if line:match('^@@') then
+      hunks[#hunks + 1] = i
+    end
+  end
+  if #hunks == 0 then
+    return
+  end
+
+  local cursor = vim.api.nvim_win_get_cursor(0)[1]
+  local target
+  if step > 0 then
+    for _, hunk in ipairs(hunks) do
+      if hunk > cursor then
+        target = hunk
+        break
+      end
+    end
+    target = target or hunks[1]
+  else
+    for i = #hunks, 1, -1 do
+      if hunks[i] < cursor then
+        target = hunks[i]
+        break
+      end
+    end
+    target = target or hunks[#hunks]
+  end
+
+  vim.api.nvim_win_set_cursor(0, { target, 0 })
+end
+
+function M.next_hunk()
+  jump_hunk(1)
+end
+
+function M.prev_hunk()
+  jump_hunk(-1)
+end
+
 ---@param nav_cmd string
 ---@return function
 function M.nav(nav_cmd)
