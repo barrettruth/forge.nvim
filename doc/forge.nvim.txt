@@ -562,6 +562,22 @@ State: ~
     { base = 'origin/main', mode = 'unified' }
 <
   `base` is `nil` when no review is active.
+  `require('forge.review').current()` returns the active session: >lua
+    {
+      subject = {
+        kind = 'pr',
+        id = '42',
+        label = 'PR #42',
+        base_ref = 'origin/main',
+        head_ref = 'pr-42',
+      },
+      mode = 'unified',
+      files = {},
+      current_file = nil,
+      materialization = 'checkout',
+      repo_root = '/path/to/repo',
+    }
+<
 
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*
@@ -1028,6 +1044,10 @@ PUBLIC API: `require('forge.review')` ~
     Starts a review session. `base` is the diff range (e.g.
     `"origin/main"`, `"abc123^..abc123"`). `mode`: `"unified"` (default)
     or `"split"`.
+
+                                                      *forge.review.current()*
+`current()`
+    Returns the active review session, or `nil` if no review is active.
 
                                                          *forge.review.stop()*
 `stop()`

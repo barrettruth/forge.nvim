@@ -313,7 +313,21 @@ local function pr_action_fns(f, num)
             base = 'main'
           end
           local range = 'origin/' .. base
-          review.start(range)
+          local head = vim.trim(vim.fn.system('git branch --show-current'))
+          review.start_session({
+            subject = {
+              kind = 'pr',
+              id = num,
+              label = ('%s #%s'):format(kind, num),
+              base_ref = range,
+              head_ref = head,
+            },
+            mode = 'unified',
+            files = {},
+            current_file = nil,
+            materialization = co_result.code == 0 and 'checkout' or 'current',
+            repo_root = repo_root,
+          })
           local ok, commands = pcall(require, 'diffs.commands')
           if ok then
             commands.greview(range, { repo_root = repo_root })
