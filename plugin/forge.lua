@@ -289,7 +289,7 @@ local function dispatch(args)
     local review = require('forge.review')
     if #args < 2 then
       log.warn(
-        'missing review action (end, toggle, files, next-file, prev-file, next-hunk, prev-hunk)'
+        'missing review action (end, toggle, files, next-file, prev-file, next-hunk, prev-hunk, branch, commit)'
       )
       return
     end
@@ -308,6 +308,28 @@ local function dispatch(args)
       review.next_hunk()
     elseif action == 'prev-hunk' then
       review.prev_hunk()
+    elseif action == 'branch' then
+      if not require_git_or_warn() then
+        return
+      end
+      local forge_mod = require('forge')
+      local ctx, err = forge_mod.current_context()
+      if not ctx then
+        log.warn(err or 'failed to resolve review context')
+        return
+      end
+      review.start_branch(ctx, args[3] or ctx.branch)
+    elseif action == 'commit' then
+      if not require_git_or_warn() then
+        return
+      end
+      local forge_mod = require('forge')
+      local ctx, err = forge_mod.current_context()
+      if not ctx then
+        log.warn(err or 'failed to resolve review context')
+        return
+      end
+      review.start_commit(ctx, args[3] or ctx.head)
     else
       log.warn('unknown review action: ' .. action)
     end
@@ -348,7 +370,17 @@ local function complete(arglead, cmdline, _)
     issue = { 'browse', 'close', 'reopen', 'create', '--state=' },
     ci = { '--all' },
     release = { 'browse', 'delete' },
-    review = { 'end', 'toggle', 'files', 'next-file', 'prev-file', 'next-hunk', 'prev-hunk' },
+    review = {
+      'end',
+      'toggle',
+      'files',
+      'next-file',
+      'prev-file',
+      'next-hunk',
+      'prev-hunk',
+      'branch',
+      'commit',
+    },
     browse = { '--root', '--commit' },
   }
   local flag_values = {
@@ -404,6 +436,12 @@ local function complete(arglead, cmdline, _)
 
   if sub == 'issue' and words[3] == 'create' then
     return filter(issue_create_flags)
+  end
+
+  if sub == 'review' and words[3] == 'branch' and arg_idx == 3 then
+    return filter(
+      vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags')
+    )
   end
 
   return {}

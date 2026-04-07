@@ -70,6 +70,7 @@ describe('git sections', function()
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['forge.term'] = package.preload['forge.term'],
+      ['forge.review'] = package.preload['forge.review'],
     }
 
     package.preload['forge.logger'] = function()
@@ -103,6 +104,17 @@ describe('git sections', function()
       }
     end
 
+    package.preload['forge.review'] = function()
+      return {
+        start_branch = function(_, name)
+          captured.review_branch = name
+        end,
+        start_commit = function(_, sha)
+          captured.review_commit = sha
+        end,
+      }
+    end
+
     package.preload['forge'] = function()
       return {
         list_key = function(kind, state)
@@ -127,6 +139,7 @@ describe('git sections', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.term'] = nil
+    package.loaded['forge.review'] = nil
     package.loaded['forge.pickers'] = nil
   end)
 
@@ -137,10 +150,12 @@ describe('git sections', function()
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['forge.term'] = old_preload['forge.term']
+    package.preload['forge.review'] = old_preload['forge.review']
     package.loaded['forge'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.term'] = nil
+    package.loaded['forge.review'] = nil
     package.loaded['forge.pickers'] = nil
   end)
 
@@ -163,7 +178,8 @@ describe('git sections', function()
     assert.equals('Branches (local · 2)> ', captured.picker.prompt)
     assert.equals('default', captured.picker.actions[1].name)
     assert.equals('browse', captured.picker.actions[2].name)
-    assert.equals('yank', captured.picker.actions[3].name)
+    assert.equals('review', captured.picker.actions[3].name)
+    assert.equals('yank', captured.picker.actions[4].name)
 
     local entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(entry)
@@ -175,6 +191,9 @@ describe('git sections', function()
 
     captured.picker.actions[2].fn(entry)
     assert.equals('feature', captured.browse_branch)
+
+    captured.picker.actions[3].fn(entry)
+    assert.equals('feature', captured.review_branch)
   end)
 
   it('lists current branch commits and shows commit output', function()
@@ -193,6 +212,8 @@ describe('git sections', function()
 
     assert.equals('Commits (main · 2)> ', captured.picker.prompt)
     assert.equals('show', captured.picker.actions[1].label)
+    assert.equals('web', captured.picker.actions[2].label)
+    assert.equals('review', captured.picker.actions[3].label)
 
     local entry = captured.picker.entries[1]
     captured.picker.actions[1].fn(entry)
@@ -207,6 +228,9 @@ describe('git sections', function()
 
     captured.picker.actions[2].fn(entry)
     assert.equals('abc123456789', captured.browse_commit)
+
+    captured.picker.actions[3].fn(entry)
+    assert.equals('abc123456789', captured.review_commit)
   end)
 
   it('lists worktrees and switches directories', function()

@@ -81,13 +81,15 @@ describe('review index', function()
   local old_system
   local old_cmd
   local old_filereadable
+  local old_tempname
   local old_preload
 
   before_each(function()
-    captured = {}
+    captured = { systems = {} }
     old_system = vim.system
     old_cmd = vim.cmd
     old_filereadable = vim.fn.filereadable
+    old_tempname = vim.fn.tempname
     old_preload = {
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
@@ -96,14 +98,31 @@ describe('review index', function()
 
     vim.system = function(cmd, _, cb)
       captured.system = cmd
+      captured.systems[#captured.systems + 1] = cmd
+      local key = table.concat(cmd, ' ')
       local result = {
         code = 0,
-        stdout = table.concat({
-          'M\tlua/forge/review.lua',
-          'R100\tlua/forge/old.lua\tlua/forge/new.lua',
-        }, '\n'),
+        stdout = '',
         stderr = '',
       }
+      if
+        key
+        == 'git -C /repo diff --name-status --find-renames --find-copies --no-ext-diff origin/main'
+      then
+        result.stdout = table.concat({
+          'M\tlua/forge/review.lua',
+          'R100\tlua/forge/old.lua\tlua/forge/new.lua',
+        }, '\n')
+      elseif key == 'sh -c echo main' then
+        result.stdout = 'main\n'
+      elseif
+        key
+        == 'git -C /tmp/forge-review diff --name-status --find-renames --find-copies --no-ext-diff def456'
+      then
+        result.stdout = 'M\tlua/forge/review.lua\n'
+      elseif key == 'git -C /repo rev-list --parents -n 1 abc123' then
+        result.stdout = 'abc123 def456\n'
+      end
       if cb then
         cb(result)
       end
@@ -121,6 +140,10 @@ describe('review index', function()
 
     vim.fn.filereadable = function()
       return 1
+    end
+
+    vim.fn.tempname = function()
+      return '/tmp/forge-review'
     end
 
     package.preload['forge.logger'] = function()
@@ -159,6 +182,7 @@ describe('review index', function()
     vim.system = old_system
     vim.cmd = old_cmd
     vim.fn.filereadable = old_filereadable
+    vim.fn.tempname = old_tempname
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['diffs.commands'] = old_preload['diffs.commands']
@@ -289,5 +313,49 @@ describe('review index', function()
 
     review.next_hunk()
     assert.same({ 2, 0 }, vim.api.nvim_win_get_cursor(0))
+  end)
+
+  it('starts branch review against the detected default base', function()
+    review.start_branch({
+      root = '/repo',
+      branch = 'feature',
+      forge = {
+        default_branch_cmd = function()
+          return { 'sh', '-c', 'echo main' }
+        end,
+      },
+    }, 'feature')
+
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals('branch', review.current().subject.kind)
+    assert.equals('origin/main', review.current().subject.base_ref)
+    assert.equals('current', review.current().materialization)
+    assert.equals('Branch feature Review (patch · 2)> ', captured.picker.prompt)
+  end)
+
+  it('starts commit review in a detached worktree and cleans it up on stop', function()
+    review.start_commit({
+      root = '/repo',
+      head = 'abc123',
+    }, 'abc123')
+
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals('commit', review.current().subject.kind)
+    assert.equals('def456', review.current().subject.base_ref)
+    assert.equals('worktree', review.current().materialization)
+    assert.equals('/tmp/forge-review', review.current().worktree_path)
+
+    review.stop()
+
+    assert.same(
+      { 'git', '-C', '/repo', 'worktree', 'remove', '--force', '/tmp/forge-review' },
+      captured.systems[#captured.systems]
+    )
   end)
 end)

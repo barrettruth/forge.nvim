@@ -44,6 +44,13 @@ describe(':Forge command', function()
             },
           }
         end,
+        current_context = function()
+          return {
+            root = '/repo',
+            branch = 'main',
+            head = 'abc123',
+          }
+        end,
         open = function() end,
       }
     end
@@ -88,6 +95,12 @@ describe(':Forge command', function()
         end,
         prev_hunk = function()
           table.insert(captured.review_actions, 'prev-hunk')
+        end,
+        start_branch = function(_, branch)
+          table.insert(captured.review_actions, 'branch:' .. branch)
+        end,
+        start_commit = function(_, sha)
+          table.insert(captured.review_actions, 'commit:' .. sha)
         end,
       }
     end
@@ -143,5 +156,12 @@ describe(':Forge command', function()
       { 'files', 'next-file', 'prev-file', 'next-hunk', 'prev-hunk' },
       captured.review_actions
     )
+  end)
+
+  it('dispatches branch and commit review launchers', function()
+    vim.cmd('Forge review branch feature')
+    vim.cmd('Forge review commit deadbeef')
+
+    assert.same({ 'branch:feature', 'commit:deadbeef' }, captured.review_actions)
   end)
 end)

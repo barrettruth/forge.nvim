@@ -37,6 +37,8 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge release browse` {tag}......................|:Forge-release-browse|
     `:Forge release delete` {tag}......................|:Forge-release-delete|
     `:Forge browse` [{flags}]..................................|:Forge-browse|
+    `:Forge review branch` [{branch}]......................|:Forge-review-branch|
+    `:Forge review commit` [{sha}]..........................|:Forge-review-commit|
     `:Forge review files`..................................|:Forge-review-files|
     `:Forge review end`....................................|:Forge-review-end|
     `:Forge review next-file`..........................|:Forge-review-next-file|
@@ -210,11 +212,13 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         branch = {
+          review = '<c-d>',
           browse = '<c-x>',
           yank = '<c-y>',
           refresh = '<c-r>',
         },
         commit = {
+          review = '<c-d>',
           browse = '<c-x>',
           yank = '<c-y>',
           refresh = '<c-r>',
@@ -230,8 +234,8 @@ Top-level keys: ~
   still accepted as a legacy alias.
 
   Additional picker groups:
-    `keys.branch` supports `browse`, `yank`, and `refresh`.
-    `keys.commit` supports `browse`, `yank`, and `refresh`.
+    `keys.branch` supports `review`, `browse`, `yank`, and `refresh`.
+    `keys.commit` supports `review`, `browse`, `yank`, and `refresh`.
     `keys.worktree` supports `yank` and `refresh`.
 
 `display`                                               *forge-config-display*
@@ -351,6 +355,14 @@ COMMANDS                                                              *:Forge*
     (no flags)         Open the current file and line(s) on the current
                        branch. In visual mode, the selected line range is
                        included.
+
+`:Forge review branch` [{branch}]                        *:Forge-review-branch*
+    Start a branch review session. Defaults to the current branch and
+    compares it against the detected default base branch.
+
+`:Forge review commit` [{sha}]                            *:Forge-review-commit*
+    Start a commit review session. Defaults to the current `HEAD` commit
+    and compares it against its first parent.
 
 `:Forge review end`                                        *:Forge-review-end*
     End the current review session.
@@ -528,6 +540,7 @@ BRANCH PICKER ~ Lists local branches with upstream and tip commit summary.
 
   Action      Default Key    Description ~
   `checkout`    `<cr>`           Switch to the selected branch
+  `review`      `<c-d>`          Start branch review
   `browse`      `<c-x>`          Open branch in browser
   `yank`        `<c-y>`          Copy branch name to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -537,6 +550,7 @@ COMMIT PICKER ~ Lists commits for the selected branch.
 
   Action      Default Key    Description ~
   `show`        `<cr>`           Open `git show` in a terminal split
+  `review`      `<c-d>`          Start commit review
   `browse`      `<c-x>`          Open commit in browser
   `yank`        `<c-y>`          Copy commit SHA to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -574,7 +588,10 @@ view.
 
 Starting a review: ~
 - `<c-d>` on a PR in the PR picker
+- `<c-d>` on a branch or commit in the corresponding picker
 - `:Forge pr review {num}`
+- `:Forge review branch {branch}`
+- `:Forge review commit {sha}`
 
 Changed-files index: ~
   Starting review opens a picker-backed changed-files index for the active
