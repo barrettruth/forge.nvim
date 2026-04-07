@@ -159,7 +159,7 @@ describe('git sections', function()
     package.loaded['forge.pickers'] = nil
   end)
 
-  it('lists local branches and supports checkout and browse actions', function()
+  it('lists local branches and supports switch and browse actions', function()
     local ctx = {
       id = 'current',
       root = '/repo',
@@ -175,18 +175,31 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Branches (local · 2)> ', captured.picker.prompt)
+    assert.equals('Branches (local refs · switch/review · 2)> ', captured.picker.prompt)
     assert.equals('default', captured.picker.actions[1].name)
+    assert.equals('switch', captured.picker.actions[1].label)
     assert.equals('browse', captured.picker.actions[2].name)
     assert.equals('review', captured.picker.actions[3].name)
     assert.equals('yank', captured.picker.actions[4].name)
+    assert.same({
+      { '* ', 'Identifier' },
+      { 'main', 'ForgeBranch' },
+      { ' · current · → origin/main · abc1234', 'ForgeDim' },
+      { ' · Main branch' },
+    }, captured.picker.entries[1].display)
+    assert.same({
+      { '  ', 'ForgeDim' },
+      { 'feature', 'ForgeBranch' },
+      { ' · → origin/feature · def5678', 'ForgeDim' },
+      { ' · Feature branch' },
+    }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(entry)
     vim.wait(100, function()
-      return captured.info == 'checked out branch feature'
+      return captured.info == 'switched to branch feature'
     end)
-    assert.equals('checked out branch feature', captured.info)
+    assert.equals('switched to branch feature', captured.info)
     assert.equals('git switch feature', captured.last_system)
 
     captured.picker.actions[2].fn(entry)
@@ -210,10 +223,15 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Commits (main · 2)> ', captured.picker.prompt)
+    assert.equals('Commits (main history · git show/review · 2)> ', captured.picker.prompt)
     assert.equals('show', captured.picker.actions[1].label)
     assert.equals('web', captured.picker.actions[2].label)
     assert.equals('review', captured.picker.actions[3].label)
+    assert.same({
+      { 'abc1234', 'Identifier' },
+      { ' Add routes' },
+      { ' · Barrett · 2 hours ago', 'ForgeDim' },
+    }, captured.picker.entries[1].display)
 
     local entry = captured.picker.entries[1]
     captured.picker.actions[1].fn(entry)
@@ -243,7 +261,20 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Worktrees (2)> ', captured.picker.prompt)
+    assert.equals('Worktrees (repo worktrees · switch cwd · 2)> ', captured.picker.prompt)
+    assert.equals('switch cwd', captured.picker.actions[1].label)
+    assert.same({
+      { '* ', 'Identifier' },
+      { 'main', 'ForgeBranch' },
+      { ' · current · abc1234', 'ForgeDim' },
+      { ' /repo', 'ForgeDim' },
+    }, captured.picker.entries[1].display)
+    assert.same({
+      { '  ', 'ForgeDim' },
+      { 'feature', 'ForgeBranch' },
+      { ' · def5678', 'ForgeDim' },
+      { ' /repo-feature', 'ForgeDim' },
+    }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(entry)

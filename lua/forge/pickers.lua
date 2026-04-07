@@ -101,29 +101,35 @@ end
 
 local function branch_display(item)
   local display = {
-    { (item.current and '* ' or '  ') .. item.name },
+    { item.current and '* ' or '  ', item.current and 'Identifier' or 'ForgeDim' },
+    { item.name, 'ForgeBranch' },
   }
   local meta = {}
+  if item.current then
+    meta[#meta + 1] = 'current'
+  end
   if item.upstream ~= '' then
     meta[#meta + 1] = '→ ' .. item.upstream
   end
   if item.sha ~= '' then
     meta[#meta + 1] = item.sha
   end
-  if item.subject ~= '' then
-    meta[#meta + 1] = item.subject
-  end
   if #meta > 0 then
-    display[#display + 1] = { ' ' .. table.concat(meta, ' · '), 'ForgeDim' }
+    display[#display + 1] = { ' · ' .. table.concat(meta, ' · '), 'ForgeDim' }
+  end
+  if item.subject ~= '' then
+    display[#display + 1] = { ' · ' .. item.subject }
   end
   return display
 end
 
 local function commit_display(item)
   local display = {
-    { item.short_sha },
-    { ' ' .. item.subject },
+    { item.short_sha, 'Identifier' },
   }
+  if item.subject ~= '' then
+    display[#display + 1] = { ' ' .. item.subject }
+  end
   local meta = {}
   if item.author ~= '' then
     meta[#meta + 1] = item.author
@@ -152,9 +158,26 @@ end
 
 local function worktree_display(item)
   local display = {
-    { (item.current and '* ' or '  ') .. worktree_label(item) },
-    { ' ' .. item.path, 'ForgeDim' },
+    { item.current and '* ' or '  ', item.current and 'Identifier' or 'ForgeDim' },
+    { worktree_label(item), item.branch ~= '' and 'ForgeBranch' or nil },
   }
+  local meta = {}
+  if item.current then
+    meta[#meta + 1] = 'current'
+  end
+  if item.detached then
+    meta[#meta + 1] = 'detached'
+  end
+  if item.bare then
+    meta[#meta + 1] = 'bare'
+  end
+  if item.short_head ~= '' and not item.detached then
+    meta[#meta + 1] = item.short_head
+  end
+  if #meta > 0 then
+    display[#display + 1] = { ' · ' .. table.concat(meta, ' · '), 'ForgeDim' }
+  end
+  display[#display + 1] = { ' ' .. item.path, 'ForgeDim' }
   return display
 end
 
@@ -1332,12 +1355,12 @@ function M.branches(ctx)
       }
     end
     local count = #entries
-    entries = with_placeholder(entries, 'No local branches')
+    entries = with_placeholder(entries, 'No local branches in repo')
 
     local actions = {
       {
         name = 'default',
-        label = 'checkout',
+        label = 'switch',
         fn = function(entry)
           if not entry then
             return
@@ -1348,10 +1371,10 @@ function M.branches(ctx)
             return
           end
           run_git_cmd(
-            'checking out branch ' .. item.name,
+            'switching to branch ' .. item.name,
             { 'git', 'switch', item.name },
-            'checked out branch ' .. item.name,
-            'checkout failed'
+            'switched to branch ' .. item.name,
+            'switch failed'
           )
         end,
       },
@@ -1399,7 +1422,7 @@ function M.branches(ctx)
     end
 
     picker.pick({
-      prompt = ('Branches (local · %d)> '):format(count),
+      prompt = ('Branches (local refs · switch/review · %d)> '):format(count),
       entries = entries,
       actions = actions,
       picker_name = 'branch',
@@ -1447,7 +1470,7 @@ function M.commits(ctx, branch)
       }
     end
     local count = #entries
-    entries = with_placeholder(entries, 'No commits for ' .. branch)
+    entries = with_placeholder(entries, 'No commits in ' .. branch .. ' history')
 
     local actions = {
       {
@@ -1511,7 +1534,7 @@ function M.commits(ctx, branch)
     end
 
     picker.pick({
-      prompt = ('Commits (%s · %d)> '):format(branch, count),
+      prompt = ('Commits (%s history · git show/review · %d)> '):format(branch, count),
       entries = entries,
       actions = actions,
       picker_name = 'commit',
@@ -1559,15 +1582,15 @@ function M.worktrees(ctx)
       }
     end
     local count = #entries
-    entries = with_placeholder(entries, 'No worktrees')
+    entries = with_placeholder(entries, 'No linked worktrees')
 
     picker.pick({
-      prompt = ('Worktrees (%d)> '):format(count),
+      prompt = ('Worktrees (repo worktrees · switch cwd · %d)> '):format(count),
       entries = entries,
       actions = {
         {
           name = 'default',
-          label = 'switch',
+          label = 'switch cwd',
           fn = function(entry)
             if not entry then
               return

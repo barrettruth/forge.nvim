@@ -18,7 +18,11 @@ local section_order = {
 
 local function prompt(ctx)
   local name = ctx.forge and ctx.forge.name or 'forge'
-  return name:sub(1, 1):upper() .. name:sub(2) .. '> '
+  local label = name:sub(1, 1):upper() .. name:sub(2) .. ' workflow'
+  if ctx.branch ~= '' then
+    return ('%s (%s)> '):format(label, ctx.branch)
+  end
+  return label .. '> '
 end
 
 local function branch_for(ctx, opts)
@@ -187,6 +191,82 @@ local function section_label(section, ctx)
   return section
 end
 
+local function section_meta(section, ctx)
+  local label = section_label(section, ctx)
+
+  if section == 'prs' then
+    return {
+      label = label,
+      category = 'forge',
+      scope = 'open reviews',
+      actions = 'review, worktree, ci',
+    }
+  end
+  if section == 'issues' then
+    return {
+      label = label,
+      category = 'forge',
+      scope = 'issue tracker',
+      actions = 'browse, close, create',
+    }
+  end
+  if section == 'ci' then
+    return {
+      label = label,
+      category = 'forge',
+      scope = ctx.branch ~= '' and 'current branch runs' or 'repo runs',
+      actions = 'logs, watch, browse',
+    }
+  end
+  if section == 'branches' then
+    return {
+      label = label,
+      category = 'git',
+      scope = 'local refs',
+      actions = 'switch, review, browse',
+    }
+  end
+  if section == 'commits' then
+    return {
+      label = label,
+      category = 'git',
+      scope = ctx.branch ~= '' and (ctx.branch .. ' history') or 'branch history',
+      actions = 'git show, review, browse',
+    }
+  end
+  if section == 'worktrees' then
+    return {
+      label = label,
+      category = 'git',
+      scope = 'repo worktrees',
+      actions = 'switch cwd, copy path',
+    }
+  end
+  if section == 'browse' then
+    return {
+      label = label,
+      category = 'mixed',
+      scope = ctx.has_file and ctx.loc and 'file or selection' or 'current branch',
+      actions = 'open browser target',
+    }
+  end
+  if section == 'releases' then
+    return {
+      label = label,
+      category = 'forge',
+      scope = 'repo releases',
+      actions = 'browse, yank, delete',
+    }
+  end
+
+  return {
+    label = label,
+    category = 'route',
+    scope = 'workflow section',
+    actions = 'open',
+  }
+end
+
 local function section_available(section, ctx)
   if section == 'browse' then
     return ctx.forge ~= nil and ctx.branch ~= ''
@@ -222,11 +302,17 @@ local function open_root(ctx)
     if sections[section] ~= false then
       local route = routes[section]
       if route and handlers[route] and section_available(section, ctx) then
-        local label = section_label(section, ctx)
+        local meta = section_meta(section, ctx)
         entries[#entries + 1] = {
-          display = { { label } },
+          display = {
+            { meta.label },
+            {
+              (' · %s · %s · %s'):format(meta.category, meta.scope, meta.actions),
+              'ForgeDim',
+            },
+          },
           value = route,
-          ordinal = label,
+          ordinal = table.concat({ meta.label, meta.category, meta.scope, meta.actions }, ' '),
         }
       end
     end
