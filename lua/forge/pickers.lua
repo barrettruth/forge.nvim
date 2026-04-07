@@ -183,14 +183,15 @@ end
 
 local function parse_branches(output)
   local branches = {}
-  for _, fields in ipairs(split_records(output)) do
+  for _, line in ipairs(vim.split(output or '', '\n', { plain = true, trimempty = true })) do
+    local fields = vim.split(line, '\t', { plain = true })
     if #fields >= 5 then
       branches[#branches + 1] = {
         current = vim.trim(fields[1]) == '*',
         name = fields[2],
         upstream = fields[3],
         sha = fields[4],
-        subject = fields[5],
+        subject = table.concat(vim.list_slice(fields, 5), '\t'),
       }
     end
   end
@@ -1343,7 +1344,7 @@ end
 ---@param ctx { root: string, branch: string, forge: forge.Forge? }
 function M.branches(ctx)
   local forge_mod = require('forge')
-  local cache_key = forge_mod.list_key('branch', 'local')
+  local cache_key = forge_mod.list_key('branch', 'local-refs')
 
   local function open_branch_list(branches)
     local entries = {}
@@ -1439,7 +1440,7 @@ function M.branches(ctx)
   vim.system({
     'git',
     'for-each-ref',
-    '--format=%(HEAD)%x1f%(refname:short)%x1f%(upstream:short)%x1f%(objectname:short)%x1f%(subject)%x1e',
+    '--format=%(HEAD)\t%(refname:short)\t%(upstream:short)\t%(objectname:short)\t%(subject)',
     'refs/heads',
   }, { text = true }, function(result)
     vim.schedule(function()

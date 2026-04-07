@@ -30,8 +30,10 @@ describe('git sections', function()
       }
 
       if key:match('^git for%-each%-ref ') then
-        result.stdout = record({ '*', 'main', 'origin/main', 'abc1234', 'Main branch' })
-          .. record({ ' ', 'feature', 'origin/feature', 'def5678', 'Feature branch' })
+        result.stdout = table.concat({
+          '*\tmain\torigin/main\tabc1234\tMain branch',
+          ' \tfeature\torigin/feature\tdef5678\tFeature branch',
+        }, '\n')
       elseif key:match('^git log ') then
         result.stdout = record({ 'abc123456789', 'abc1234', 'Add routes', 'Barrett', '2 hours ago' })
           .. record({ 'def567890123', 'def5678', 'Add sections', 'Barrett', '1 hour ago' })
