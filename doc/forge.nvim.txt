@@ -37,7 +37,12 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge release browse` {tag}......................|:Forge-release-browse|
     `:Forge release delete` {tag}......................|:Forge-release-delete|
     `:Forge browse` [{flags}]..................................|:Forge-browse|
+    `:Forge review files`..................................|:Forge-review-files|
     `:Forge review end`....................................|:Forge-review-end|
+    `:Forge review next-file`..........................|:Forge-review-next-file|
+    `:Forge review prev-file`..........................|:Forge-review-prev-file|
+    `:Forge review next-hunk`..........................|:Forge-review-next-hunk|
+    `:Forge review prev-hunk`..........................|:Forge-review-prev-hunk|
     `:Forge review toggle`..............................|:Forge-review-toggle|
     `:Forge clear`..............................................|:Forge-clear|
     PLUG MAPPINGS.............................................|forge-plug|
@@ -350,6 +355,22 @@ COMMANDS                                                              *:Forge*
 `:Forge review end`                                        *:Forge-review-end*
     End the current review session.
 
+`:Forge review files`                                    *:Forge-review-files*
+    Open the changed-files review index for the active review session.
+
+`:Forge review next-file`                            *:Forge-review-next-file*
+    Open the next file in the active review session, wrapping at the end.
+
+`:Forge review prev-file`                            *:Forge-review-prev-file*
+    Open the previous file in the active review session, wrapping at the
+    beginning.
+
+`:Forge review next-hunk`                            *:Forge-review-next-hunk*
+    Jump to the next hunk in the active review view.
+
+`:Forge review prev-hunk`                            *:Forge-review-prev-hunk*
+    Jump to the previous hunk in the active review view.
+
 `:Forge review toggle`                                  *:Forge-review-toggle*
     Toggle between patch and file-context view (|forge-review|).
 
@@ -433,6 +454,14 @@ Exact route plugs: ~
 Review plugs: ~
                                                           *forge-plug-review*
   Mapping                                  Modes      Action ~
+  `<Plug>(forge-review-files)`              `n`        Open the review index
+  `<Plug>(forge-review-next-file)`          `n`        Open the next review
+                                                       file
+  `<Plug>(forge-review-prev-file)`          `n`        Open the previous
+                                                       review file
+  `<Plug>(forge-review-next-hunk)`          `n`        Jump to the next hunk
+  `<Plug>(forge-review-prev-hunk)`          `n`        Jump to the previous
+                                                       hunk
   `<Plug>(forge-review-toggle)`             `n`        Toggle review mode
   `<Plug>(forge-review-end)`                `n`        End review mode
 
@@ -550,6 +579,7 @@ Starting a review: ~
 Changed-files index: ~
   Starting review opens a picker-backed changed-files index for the active
   review session. Selecting a file opens it in the current review mode.
+  `:Forge review files` returns to this index.
 
 Patch view (default file view): ~
   diffs.nvim renders a file-scoped unified diff against the review base.
@@ -557,6 +587,13 @@ Patch view (default file view): ~
 File-context view: ~
   `:Forge review toggle` switches the current file to a side-by-side
   fugitive split (`:Gvdiffsplit`). Run again to return to patch view.
+
+Navigation: ~
+  `:Forge review next-file` / `:Forge review prev-file` move through the
+  active review session's files and reopen the target in the current review
+  mode.
+  `:Forge review next-hunk` / `:Forge review prev-hunk` move through hunks
+  in the active review view.
 
 Ending a review: ~
   `:Forge review end`.

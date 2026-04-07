@@ -232,4 +232,62 @@ describe('review index', function()
     assert.equals('edit /repo/lua/forge/review.lua', captured.cmds[2])
     assert.equals('Gvdiffsplit origin/main', captured.cmds[3])
   end)
+
+  it('moves to the next review file in session order', function()
+    review.start_session({
+      subject = {
+        kind = 'pr',
+        id = '42',
+        label = 'PR #42',
+        base_ref = 'origin/main',
+        head_ref = 'pr-42',
+      },
+      mode = 'patch',
+      files = {
+        { path = 'lua/forge/review.lua' },
+        { path = 'lua/forge/new.lua' },
+      },
+      current_file = 'lua/forge/review.lua',
+      repo_root = '/repo',
+    })
+
+    review.next_file()
+
+    assert.equals('lua/forge/new.lua', review.current().current_file)
+    assert.equals('edit /repo/lua/forge/new.lua', captured.cmds[2])
+  end)
+
+  it('wraps patch hunk navigation inside the current diff buffer', function()
+    review.start_session({
+      subject = {
+        kind = 'pr',
+        id = '42',
+        label = 'PR #42',
+        base_ref = 'origin/main',
+        head_ref = 'pr-42',
+      },
+      mode = 'patch',
+      repo_root = '/repo',
+    })
+
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+      'diff --git a/file b/file',
+      '@@ -1,1 +1,1 @@',
+      '-old',
+      '+new',
+      '@@ -10,1 +10,1 @@',
+      '-old2',
+      '+new2',
+    })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+    review.next_hunk()
+    assert.same({ 2, 0 }, vim.api.nvim_win_get_cursor(0))
+
+    review.next_hunk()
+    assert.same({ 5, 0 }, vim.api.nvim_win_get_cursor(0))
+
+    review.next_hunk()
+    assert.same({ 2, 0 }, vim.api.nvim_win_get_cursor(0))
+  end)
 end)

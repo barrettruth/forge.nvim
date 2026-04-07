@@ -288,7 +288,9 @@ local function dispatch(args)
   if sub == 'review' then
     local review = require('forge.review')
     if #args < 2 then
-      log.warn('missing review action (end, toggle)')
+      log.warn(
+        'missing review action (end, toggle, files, next-file, prev-file, next-hunk, prev-hunk)'
+      )
       return
     end
     local action = args[2]
@@ -296,6 +298,16 @@ local function dispatch(args)
       review.stop()
     elseif action == 'toggle' then
       review.toggle()
+    elseif action == 'files' then
+      review.files()
+    elseif action == 'next-file' then
+      review.next_file()
+    elseif action == 'prev-file' then
+      review.prev_file()
+    elseif action == 'next-hunk' then
+      review.next_hunk()
+    elseif action == 'prev-hunk' then
+      review.prev_hunk()
     else
       log.warn('unknown review action: ' .. action)
     end
@@ -336,7 +348,7 @@ local function complete(arglead, cmdline, _)
     issue = { 'browse', 'close', 'reopen', 'create', '--state=' },
     ci = { '--all' },
     release = { 'browse', 'delete' },
-    review = { 'end', 'toggle' },
+    review = { 'end', 'toggle', 'files', 'next-file', 'prev-file', 'next-hunk', 'prev-hunk' },
     browse = { '--root', '--commit' },
   }
   local flag_values = {
@@ -445,6 +457,26 @@ end)
 
 set_plug('n', 'forge-review-end', function()
   require('forge.review').stop()
+end)
+
+set_plug('n', 'forge-review-files', function()
+  require('forge.review').files()
+end)
+
+set_plug('n', 'forge-review-next-file', function()
+  require('forge.review').next_file()
+end)
+
+set_plug('n', 'forge-review-prev-file', function()
+  require('forge.review').prev_file()
+end)
+
+set_plug('n', 'forge-review-next-hunk', function()
+  require('forge.review').next_hunk()
+end)
+
+set_plug('n', 'forge-review-prev-hunk', function()
+  require('forge.review').prev_hunk()
 end)
 
 vim.api.nvim_create_user_command('Forge', function(opts)
