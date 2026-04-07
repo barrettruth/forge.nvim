@@ -182,6 +182,7 @@ describe('routes', function()
     require('forge.routes').open()
 
     assert.is_not_nil(captured.root)
+    assert.equals('Github workflow (main)> ', captured.root.prompt)
 
     local labels = {}
     for _, entry in ipairs(captured.root.entries) do
@@ -191,6 +192,22 @@ describe('routes', function()
     assert.same(
       { 'PRs', 'Issues', 'CI', 'Branches', 'Commits', 'Worktrees', 'Browse', 'Releases' },
       labels
+    )
+    assert.equals(
+      ' · forge · open reviews · review, worktree, ci',
+      captured.root.entries[1].display[2][1]
+    )
+    assert.equals(
+      ' · git · local refs · switch, review, browse',
+      captured.root.entries[4].display[2][1]
+    )
+    assert.equals(
+      ' · git · main history · git show, review, browse',
+      captured.root.entries[5].display[2][1]
+    )
+    assert.equals(
+      ' · git · repo worktrees · switch cwd, copy path',
+      captured.root.entries[6].display[2][1]
     )
 
     captured.root.actions[1].fn(captured.root.entries[2])

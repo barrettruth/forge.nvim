@@ -8,6 +8,8 @@ without leaving your editor.
 ## Features
 
 - Automatic forge detection from git remote (`gh`, `glab`, `tea`)
+- Legible `:Forge` root workflow with route descriptions for forge and local git
+  sections
 - PR lifecycle: list, create (compose buffer with template discovery, diff stat,
   reviewers), checkout, worktree, review, merge, approve, close/reopen, draft
   toggle
@@ -15,8 +17,8 @@ without leaving your editor.
 - CI/CD: view runs per-branch or repo-wide, stream logs, filter by status
 - Code review via [diffs.nvim](https://github.com/barrettruth/diffs.nvim) with
   unified/split toggle and quickfix navigation
-- Local git sections for branches, commits, and worktrees with checkout,
-  `git show`, switching, and forge web actions
+- Local git sections for branches, commits, and worktrees with branch/commit
+  review, `git show`, switching, and forge web actions
 - File/line permalink generation and yanking
 - [fzf-lua](https://github.com/ibhagwan/fzf-lua) pickers with contextual
   keybinds
@@ -49,6 +51,12 @@ luarocks install forge.nvim
 ```vim
 :help forge.nvim
 ```
+
+## Root workflow
+
+`:Forge` opens a workflow surface, not just a route list. Root entries describe
+whether a section is forge-backed, git-backed, or mixed, and summarize the
+primary scope and actions before the nested picker opens.
 
 ## `<Plug>` mappings
 
@@ -102,8 +110,10 @@ commits), `cpw` (push and open web).
 **Q: What does `:Forge` show by default?**
 
 The root picker shows Pull Requests, Issues, CI, Branches, Commits, Worktrees,
-Browse, and Releases. Customize the list with `vim.g.forge.sections` and change
-where a section goes with `vim.g.forge.routes`.
+Browse, and Releases. Each root row includes its scope and primary actions so
+the local git sections read as first-class workflows. Customize the list with
+`vim.g.forge.sections` and change where a section goes with
+`vim.g.forge.routes`.
 
 **Q: Does review mode require diffs.nvim?**
 
