@@ -351,7 +351,7 @@ COMMANDS                                                              *:Forge*
     End the current review session.
 
 `:Forge review toggle`                                  *:Forge-review-toggle*
-    Toggle between unified and split view (|forge-review|).
+    Toggle between patch and file-context view (|forge-review|).
 
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
@@ -539,8 +539,9 @@ rebase, merge), Close/Reopen, Mark as draft/Mark as ready.
 ==============================================================================
 REVIEW                                                          *forge-review*
 
-Review mode provides unified and split diff viewing for PRs and commits.
-Requires diffs.nvim for unified view and vim-fugitive for split view.
+Review mode provides explicit patch and file-context views for PRs and
+commits. diffs.nvim powers patch view and vim-fugitive powers file-context
+view.
 
 Starting a review: ~
 - `<c-d>` on a PR in the PR picker
@@ -550,12 +551,12 @@ Changed-files index: ~
   Starting review opens a picker-backed changed-files index for the active
   review session. Selecting a file opens it in the current review mode.
 
-Unified view (default file view): ~
+Patch view (default file view): ~
   diffs.nvim renders a file-scoped unified diff against the review base.
 
-Split view: ~
+File-context view: ~
   `:Forge review toggle` switches the current file to a side-by-side
-  fugitive split (`:Gvdiffsplit`). Run again to return to unified.
+  fugitive split (`:Gvdiffsplit`). Run again to return to patch view.
 
 Ending a review: ~
   `:Forge review end`.
@@ -574,7 +575,7 @@ State: ~
         base_ref = 'origin/main',
         head_ref = 'pr-42',
       },
-      mode = 'unified',
+      mode = 'patch',
       files = {},
       current_file = nil,
       materialization = 'checkout',
@@ -1045,8 +1046,13 @@ PUBLIC API: `require('forge.review')` ~
                                                         *forge.review.start()*
 `start(base, mode?)`
     Starts a review session. `base` is the diff range (e.g.
-    `"origin/main"`, `"abc123^..abc123"`). `mode`: `"unified"` (default)
-    or `"split"`.
+    `"origin/main"`, `"abc123^..abc123"`). `mode`: `"patch"` (default)
+    or `"context"`. Legacy `"unified"` and `"split"` values still map to
+    the same views.
+
+                                                      *forge.review.current()*
+`current()`
+    Returns the active review session, or `nil` if no review is active.
 
                                                       *forge.review.current()*
 `current()`
@@ -1058,7 +1064,7 @@ PUBLIC API: `require('forge.review')` ~
 
                                                        *forge.review.toggle()*
 `toggle()`
-    Toggles between unified and split view. No-op if no review is
+    Toggles between patch and file-context view. No-op if no review is
     active.
 
                                                           *forge.review.nav()*
