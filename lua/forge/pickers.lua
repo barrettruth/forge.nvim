@@ -1356,6 +1356,15 @@ function M.branches(ctx)
         end,
       },
       {
+        name = 'review',
+        label = 'review',
+        fn = function(entry)
+          if entry then
+            require('forge.review').start_branch(ctx, entry.value.name)
+          end
+        end,
+      },
+      {
         name = 'yank',
         label = 'copy',
         close = false,
@@ -1456,6 +1465,15 @@ function M.commits(ctx, branch)
             '--decorate=short',
             entry.value.sha,
           })
+        end,
+      },
+      {
+        name = 'review',
+        label = 'review',
+        fn = function(entry)
+          if entry then
+            require('forge.review').start_commit(ctx, entry.value.sha)
+          end
         end,
       },
       {

@@ -12,6 +12,14 @@ local function repo_root()
   return vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
 end
 
+local function git_output(cmd)
+  local result = vim.system(cmd, { text = true }):wait()
+  if result.code ~= 0 then
+    return nil
+  end
+  return vim.trim(result.stdout or '')
+end
+
 local function normalize_mode(mode)
   if mode == 'split' or mode == 'context' then
     return 'context'
@@ -38,6 +46,70 @@ local function open_unified(base, root)
   if ok then
     commands.greview(base, { repo_root = root })
   end
+end
+
+local function normalize_base(base)
+  if not base or base == '' then
+    return nil
+  end
+  base = base:gsub('^refs/remotes/', '')
+  if not base:match('^origin/') then
+    base = 'origin/' .. base
+  end
+  return base
+end
+
+local function default_base(ctx)
+  if ctx.forge and ctx.forge.default_branch_cmd then
+    local branch = git_output(ctx.forge:default_branch_cmd())
+    branch = normalize_base(branch)
+    if branch then
+      return branch
+    end
+  end
+  local branch = git_output({ 'git', '-C', ctx.root, 'symbolic-ref', 'refs/remotes/origin/HEAD' })
+  branch = normalize_base(branch)
+  if branch then
+    return branch
+  end
+  for _, fallback in ipairs({ 'origin/main', 'origin/master' }) do
+    local ok = git_output({ 'git', '-C', ctx.root, 'rev-parse', '--verify', fallback })
+    if ok then
+      return fallback
+    end
+  end
+  return nil
+end
+
+local function temp_worktree(root, ref)
+  local path = vim.fn.tempname()
+  local result = vim
+    .system({ 'git', '-C', root, 'worktree', 'add', '--detach', path, ref }, { text = true })
+    :wait()
+  if result.code ~= 0 then
+    return nil
+  end
+  return path
+end
+
+local function empty_tree(root)
+  return git_output({
+    'sh',
+    '-c',
+    ('git -C %s hash-object -t tree /dev/null'):format(vim.fn.shellescape(root)),
+  })
+end
+
+local function commit_base(root, sha)
+  local line = git_output({ 'git', '-C', root, 'rev-list', '--parents', '-n', '1', sha })
+  if not line then
+    return nil
+  end
+  local parts = vim.split(line, ' ', { plain = true, trimempty = true })
+  if #parts > 1 then
+    return parts[2]
+  end
+  return empty_tree(root)
 end
 
 local function review_root()
@@ -114,6 +186,21 @@ local function close_view()
 end
 
 function M.stop()
+  if
+    active_session
+    and active_session.materialization == 'worktree'
+    and active_session.worktree_path
+  then
+    vim.system({
+      'git',
+      '-C',
+      active_session.repo_root,
+      'worktree',
+      'remove',
+      '--force',
+      active_session.worktree_path,
+    }, { text = true })
+  end
   active_session = nil
   current_file = nil
   M.state.base = nil
@@ -338,6 +425,82 @@ function M.start(base, mode)
 end
 
 function M.files()
+  M.open_index()
+end
+
+function M.start_branch(ctx, branch)
+  branch = branch or ctx.branch
+  if not branch or branch == '' then
+    log.warn('missing branch')
+    return
+  end
+  local base = default_base(ctx)
+  if not base then
+    log.warn('failed to resolve branch review base')
+    return
+  end
+
+  local session = {
+    subject = {
+      kind = 'branch',
+      id = branch,
+      label = 'Branch ' .. branch,
+      base_ref = base,
+      head_ref = branch,
+    },
+    mode = 'patch',
+    files = {},
+    current_file = nil,
+    materialization = 'current',
+    repo_root = ctx.root,
+  }
+
+  if ctx.branch ~= branch then
+    local worktree = temp_worktree(ctx.root, branch)
+    if not worktree then
+      log.error('failed to materialize branch review')
+      return
+    end
+    session.materialization = 'worktree'
+    session.worktree_path = worktree
+  end
+
+  M.start_session(session)
+  M.open_index()
+end
+
+function M.start_commit(ctx, sha)
+  sha = sha or ctx.head
+  if not sha or sha == '' then
+    log.warn('missing commit')
+    return
+  end
+  local base = commit_base(ctx.root, sha)
+  if not base then
+    log.error('failed to resolve commit review base')
+    return
+  end
+  local worktree = temp_worktree(ctx.root, sha)
+  if not worktree then
+    log.error('failed to materialize commit review')
+    return
+  end
+
+  M.start_session({
+    subject = {
+      kind = 'commit',
+      id = sha,
+      label = 'Commit ' .. sha:sub(1, 7),
+      base_ref = base,
+      head_ref = sha,
+    },
+    mode = 'patch',
+    files = {},
+    current_file = nil,
+    materialization = 'worktree',
+    repo_root = ctx.root,
+    worktree_path = worktree,
+  })
   M.open_index()
 end
 

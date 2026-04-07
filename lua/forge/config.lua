@@ -252,11 +252,13 @@ local DEFAULTS = {
       refresh = '<c-r>',
     },
     branch = {
+      review = '<c-d>',
       browse = '<c-x>',
       yank = '<c-y>',
       refresh = '<c-r>',
     },
     commit = {
+      review = '<c-d>',
       browse = '<c-x>',
       yank = '<c-y>',
       refresh = '<c-r>',
@@ -458,14 +460,14 @@ function M.config()
     local branch_keys = rawget(keys, 'branch')
     if branch_keys ~= nil then
       vim.validate('forge.keys.branch', branch_keys, 'table')
-      for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
+      for _, k in ipairs({ 'review', 'browse', 'yank', 'refresh' }) do
         vim.validate('forge.keys.branch.' .. k, branch_keys[k], key_or_false, 'string or false')
       end
     end
     local commit_keys = rawget(keys, 'commit')
     if commit_keys ~= nil then
       vim.validate('forge.keys.commit', commit_keys, 'table')
-      for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
+      for _, k in ipairs({ 'review', 'browse', 'yank', 'refresh' }) do
         vim.validate('forge.keys.commit.' .. k, commit_keys[k], key_or_false, 'string or false')
       end
     end
