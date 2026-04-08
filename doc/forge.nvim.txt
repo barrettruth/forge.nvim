@@ -229,6 +229,8 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         worktree = {
+          add = '<c-a>',
+          delete = '<c-s>',
           yank = '<c-y>',
           refresh = '<c-r>',
         },
@@ -241,7 +243,7 @@ Top-level keys: ~
   Additional picker groups:
     `keys.branch` supports `review`, `delete`, `browse`, `yank`, and `refresh`.
     `keys.commit` supports `review`, `browse`, `yank`, and `refresh`.
-    `keys.worktree` supports `yank` and `refresh`.
+    `keys.worktree` supports `add`, `delete`, `yank`, and `refresh`.
 
 `display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
@@ -578,10 +580,13 @@ subject, and `<author>`, with light alignment to keep history lines readable.
 
                                                        *forge-picker-worktree*
 WORKTREE PICKER ~ Lists git worktrees as path-first rows with branch or
-detached state and HEAD.
+detached state and HEAD. Paths render with `~` for `$HOME` and use shortened
+path segments when needed to preserve the distinguishing tail.
 
   Action      Default Key    Description ~
   `switch cwd`  `<cr>`           Change Neovim's cwd to the selected worktree
+  `add`         `<c-a>`          Add a sibling worktree for a branch name
+  `delete`      `<c-s>`          Delete a non-current worktree after confirmation
   `yank`        `<c-y>`          Copy worktree path to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
