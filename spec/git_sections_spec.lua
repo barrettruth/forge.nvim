@@ -392,13 +392,23 @@ describe('git sections', function()
       return current_system(cmd, opts, cb)
     end
 
-    require('forge.pickers').worktrees({ root = '/home/barrett/dev/forge.nvim' })
+    local home = vim.env.HOME or '/home/barrett'
+    local current_path = home .. '/dev/forge.nvim'
+    local nested_path = home .. '/dev/forge.nvim/.claude/worktrees/agent-a43cb846'
+
+    require('forge.pickers').worktrees({ root = current_path })
     vim.wait(100, function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('~/dev/forge.nvim', vim.trim(captured.picker.entries[1].display[2][1]))
-    assert.equals('~/d/f/.c/w/agent-a43cb846', vim.trim(captured.picker.entries[2].display[2][1]))
+    assert.equals(
+      vim.fn.fnamemodify(current_path, ':~'),
+      vim.trim(captured.picker.entries[1].display[2][1])
+    )
+    assert.equals(
+      vim.fn.pathshorten(vim.fn.fnamemodify(nested_path, ':~')),
+      vim.trim(captured.picker.entries[2].display[2][1])
+    )
   end)
 
   it('warns for worktree-backed branch deletion and deletes ordinary branches', function()
