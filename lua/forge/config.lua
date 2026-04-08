@@ -137,8 +137,8 @@ local M = {}
 ---@field kinds { issue: string, pr: string }
 ---@field labels { issue: string, pr: string, pr_one: string, pr_full: string, ci: string }
 ---@field capabilities forge.Capabilities
----@field list_pr_json_cmd fun(self: forge.Forge, state: string): string[]
----@field list_issue_json_cmd fun(self: forge.Forge, state: string): string[]
+---@field list_pr_json_cmd fun(self: forge.Forge, state: string, limit?: integer): string[]
+---@field list_issue_json_cmd fun(self: forge.Forge, state: string, limit?: integer): string[]
 ---@field pr_fields { number: string, title: string, branch: string, state: string, author: string, created_at: string }
 ---@field issue_fields { number: string, title: string, state: string, author: string, created_at: string }
 ---@field view_web fun(self: forge.Forge, kind: string, num: string)
