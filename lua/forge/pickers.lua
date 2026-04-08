@@ -1128,20 +1128,19 @@ function M.pr(state, f)
   local cache_key = forge_mod.list_key('pr', state)
   local pr_fields = f.pr_fields
   local show_state = state ~= 'open'
+  local state_map = {}
 
-  local function open_pr_list(prs)
-    local state_field = pr_fields.state
-    local state_map = {}
+  local function build_pr_entries(prs)
+    for key in pairs(state_map) do
+      state_map[key] = nil
+    end
+
     local entries = {}
     local displays =
       forge_mod.format_prs(prs, pr_fields, show_state, { width = layout.picker_width() })
-    local function reopen_list()
-      forge_mod.clear_list(cache_key)
-      M.pr(state, f)
-    end
     for i, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
-      local s = (pr[state_field] or ''):lower()
+      local s = (pr[pr_fields.state] or ''):lower()
       state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
@@ -1152,119 +1151,160 @@ function M.pr(state, f)
     local count = #entries
     local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
       or ('No %s %s'):format(state, f.labels.pr)
-    entries = with_placeholder(entries, empty_text)
+    return with_placeholder(entries, empty_text), count
+  end
+
+  local function reopen_list()
+    forge_mod.clear_list(cache_key)
+    M.pr(state, f)
+  end
+
+  local actions = {
+    {
+      name = 'default',
+      label = 'more',
+      fn = function(entry)
+        if entry then
+          pr_manage_picker(f, entry.value, reopen_list)
+        end
+      end,
+    },
+    {
+      name = 'checkout',
+      label = 'checkout',
+      fn = function(entry)
+        if entry then
+          pr_action_fns(f, entry.value).checkout()
+        end
+      end,
+    },
+    {
+      name = 'review',
+      label = 'review',
+      fn = function(entry)
+        if entry then
+          pr_action_fns(f, entry.value).review()
+        end
+      end,
+    },
+    {
+      name = 'worktree',
+      close = false,
+      fn = function(entry)
+        if entry then
+          pr_action_fns(f, entry.value).worktree()
+        end
+      end,
+    },
+    {
+      name = 'ci',
+      label = 'checks',
+      fn = function(entry)
+        if entry then
+          pr_action_fns(f, entry.value).ci()
+        end
+      end,
+    },
+    {
+      name = 'browse',
+      label = 'web',
+      close = false,
+      fn = function(entry)
+        if entry then
+          f:view_web(cli_kind, entry.value)
+        end
+      end,
+    },
+    {
+      name = 'manage',
+      label = 'more',
+      fn = function(entry)
+        if entry then
+          pr_manage_picker(f, entry.value, reopen_list)
+        end
+      end,
+    },
+    {
+      name = 'edit',
+      fn = function(entry)
+        if entry then
+          pr_action_fns(f, entry.value).edit()
+        end
+      end,
+    },
+    {
+      name = 'create',
+      fn = function()
+        forge_mod.create_pr()
+      end,
+    },
+    {
+      name = 'close',
+      fn = function(entry)
+        if entry then
+          pr_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
+        end
+      end,
+    },
+    {
+      name = 'filter',
+      fn = function()
+        M.pr(next_state, f)
+      end,
+    },
+    {
+      name = 'refresh',
+      fn = function()
+        forge_mod.clear_list(cache_key)
+        M.pr(state, f)
+      end,
+    },
+  }
+
+  local function open_pr_list(prs)
+    local entries, count = build_pr_entries(prs)
 
     picker.pick({
       prompt = ('%s (%s · %d)> '):format(f.labels.pr, state, count),
       entries = entries,
-      actions = {
-        {
-          name = 'default',
-          label = 'more',
-          fn = function(entry)
-            if entry then
-              pr_manage_picker(f, entry.value, reopen_list)
-            end
-          end,
-        },
-        {
-          name = 'checkout',
-          label = 'checkout',
-          fn = function(entry)
-            if entry then
-              pr_action_fns(f, entry.value).checkout()
-            end
-          end,
-        },
-        {
-          name = 'review',
-          label = 'review',
-          fn = function(entry)
-            if entry then
-              pr_action_fns(f, entry.value).review()
-            end
-          end,
-        },
-        {
-          name = 'worktree',
-          close = false,
-          fn = function(entry)
-            if entry then
-              pr_action_fns(f, entry.value).worktree()
-            end
-          end,
-        },
-        {
-          name = 'ci',
-          label = 'checks',
-          fn = function(entry)
-            if entry then
-              pr_action_fns(f, entry.value).ci()
-            end
-          end,
-        },
-        {
-          name = 'browse',
-          label = 'web',
-          close = false,
-          fn = function(entry)
-            if entry then
-              f:view_web(cli_kind, entry.value)
-            end
-          end,
-        },
-        {
-          name = 'manage',
-          label = 'more',
-          fn = function(entry)
-            if entry then
-              pr_manage_picker(f, entry.value, reopen_list)
-            end
-          end,
-        },
-        {
-          name = 'edit',
-          fn = function(entry)
-            if entry then
-              pr_action_fns(f, entry.value).edit()
-            end
-          end,
-        },
-        {
-          name = 'create',
-          fn = function()
-            forge_mod.create_pr()
-          end,
-        },
-        {
-          name = 'close',
-          fn = function(entry)
-            if entry then
-              pr_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
-            end
-          end,
-        },
-        {
-          name = 'filter',
-          fn = function()
-            M.pr(next_state, f)
-          end,
-        },
-        {
-          name = 'refresh',
-          fn = function()
-            forge_mod.clear_list(cache_key)
-            M.pr(state, f)
-          end,
-        },
-      },
+      actions = actions,
       picker_name = 'pr',
+    })
+  end
+
+  local function open_pr_stream()
+    picker.pick({
+      prompt = ('%s (%s)> '):format(f.labels.pr, state),
+      entries = {},
+      actions = actions,
+      picker_name = 'pr',
+      stream = function(emit)
+        log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
+        vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
+          vim.schedule(function()
+            local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
+            if ok and prs then
+              forge_mod.set_list(cache_key, prs)
+              local entries = build_pr_entries(prs)
+              for _, entry in ipairs(entries) do
+                emit(entry)
+              end
+            else
+              log.error('failed to fetch ' .. f.labels.pr)
+              emit(placeholder_entry('Failed to fetch ' .. f.labels.pr))
+            end
+            emit(nil)
+          end)
+        end)
+      end,
     })
   end
 
   local cached = forge_mod.get_list(cache_key)
   if cached then
     open_pr_list(cached)
+  elseif picker.backend() == 'fzf-lua' then
+    open_pr_stream()
   else
     log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
     vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
