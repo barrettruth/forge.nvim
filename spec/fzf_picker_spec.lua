@@ -187,4 +187,53 @@ describe('fzf picker', function()
     captured.opts.actions['ctrl-x'].fn({ '1\t#42' })
     assert.equals('42', selected.value)
   end)
+
+  it('streams entries and resolves streamed selections', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = {
+        {
+          display = { { '#1' } },
+          value = '1',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = 'issue',
+      stream = function(emit)
+        emit({
+          display = { { '#2' } },
+          value = '2',
+        })
+        emit(nil)
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('function', type(captured.lines))
+
+    local lines = {}
+    local done = false
+    captured.lines(function(line)
+      if line == nil then
+        done = true
+        return
+      end
+      lines[#lines + 1] = line
+    end)
+
+    assert.same({ '1\t#1', '2\t#2' }, lines)
+    assert.is_true(done)
+
+    captured.opts.actions.default({ '2\t#2' })
+    assert.equals('2', selected.value)
+  end)
 end)

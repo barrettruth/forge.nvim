@@ -34,7 +34,8 @@ end
 
 ---@param iso string?
 ---@return string
-local function relative_time_from_timestamp(ts)
+local function relative_time_from_timestamp(iso)
+  local ts = tonumber(iso)
   if not ts then
     return ''
   end
@@ -60,13 +61,20 @@ end
 ---@param iso string?
 ---@return string
 function M.relative_time(iso)
-  return relative_time_from_timestamp(M.parse_iso(iso))
+  local ts = M.parse_iso(iso)
+  return relative_time_from_timestamp(ts and tostring(ts) or nil)
 end
 
 ---@param unix string|number?
 ---@return string
 function M.relative_time_from_unix(unix)
-  return relative_time_from_timestamp(tonumber(unix))
+  local iso
+  if type(unix) == 'number' then
+    iso = tostring(unix)
+  elseif type(unix) == 'string' then
+    iso = unix
+  end
+  return relative_time_from_timestamp(iso)
 end
 
 local event_map = {
