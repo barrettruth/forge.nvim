@@ -963,8 +963,14 @@ end
 function M.ci(f, branch, filter)
   filter = filter or 'all'
   local forge_mod = require('forge')
+  local labels = {
+    all = 'all',
+    fail = 'failed',
+    pass = 'passed',
+    pending = 'running',
+  }
 
-  local function open_ci_picker(runs)
+  local function build_ci_entries(runs)
     local normalized = {}
     for _, entry in ipairs(runs) do
       table.insert(normalized, f:normalize_run(entry))
@@ -972,13 +978,6 @@ function M.ci(f, branch, filter)
     local filtered = forge_mod.filter_runs(normalized, filter)
     local count = #filtered
     local displays = forge_mod.format_runs(filtered, { width = layout.picker_width() })
-
-    local labels = {
-      all = 'all',
-      fail = 'failed',
-      pass = 'passed',
-      pending = 'running',
-    }
 
     local entries = {}
     for i, run in ipairs(filtered) do
@@ -999,166 +998,201 @@ function M.ci(f, branch, filter)
     else
       empty_text = ('No %s runs'):format(f.labels.ci)
     end
-    entries = with_placeholder(entries, empty_text)
+    return with_placeholder(entries, empty_text), count, filter_label
+  end
+
+  local actions = {
+    {
+      name = 'log',
+      label = 'log',
+      fn = function(entry)
+        if not entry then
+          return
+        end
+        local run = entry.value
+        local s = run.status:lower()
+        local in_progress = s == 'in_progress' or s == 'queued' or s == 'pending' or s == 'running'
+        local url = run.url ~= '' and run.url or nil
+        local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id) or nil
+        if f.summary_json_cmd then
+          require('forge.log').open_summary(f:summary_json_cmd(run.id), {
+            forge_name = f.name,
+            run_id = run.id,
+            url = url,
+            title = run.name or run.id,
+            in_progress = in_progress,
+            status_cmd = status_cmd,
+            json = true,
+            log_cmd_fn = function(job_id, failed)
+              return f:check_log_cmd(run.id, failed, job_id),
+                {
+                  forge_name = f.name,
+                  url = url,
+                  title = (run.name or run.id) .. ' / ' .. (job_id or ''),
+                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
+                  job_id = job_id,
+                  in_progress = in_progress,
+                  status_cmd = status_cmd,
+                }
+            end,
+          })
+        elseif f.view_cmd then
+          require('forge.log').open_summary(f:view_cmd(run.id), {
+            forge_name = f.name,
+            run_id = run.id,
+            url = url,
+            title = run.name or run.id,
+            in_progress = in_progress,
+            status_cmd = status_cmd,
+            log_cmd_fn = function(job_id, failed)
+              return f:check_log_cmd(run.id, failed, job_id),
+                {
+                  forge_name = f.name,
+                  url = url,
+                  title = (run.name or run.id) .. ' / ' .. (job_id or ''),
+                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
+                  job_id = job_id,
+                  in_progress = in_progress,
+                  status_cmd = status_cmd,
+                }
+            end,
+          })
+        else
+          log.info('fetching CI/CD logs...')
+          local failed = s == 'failure' or s == 'failed'
+          local cmd = f:run_log_cmd(run.id, failed)
+          local steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil
+          require('forge.log').open(cmd, {
+            forge_name = f.name,
+            url = url,
+            title = run.name or run.id,
+            steps_cmd = steps_cmd,
+            in_progress = in_progress,
+            status_cmd = status_cmd,
+          })
+        end
+      end,
+    },
+    {
+      name = 'watch',
+      label = 'watch',
+      fn = function(entry)
+        if not entry then
+          return
+        end
+        if f.watch_cmd then
+          local run = entry.value
+          require('forge.term').open(f:watch_cmd(run.id), {
+            url = run.url ~= '' and run.url or nil,
+          })
+        end
+      end,
+    },
+    {
+      name = 'browse',
+      label = 'web',
+      close = false,
+      fn = function(entry)
+        if entry and entry.value.url ~= '' then
+          vim.ui.open(entry.value.url)
+        end
+      end,
+    },
+    {
+      name = 'filter',
+      label = 'filter',
+      fn = function()
+        M.ci(f, branch, next_ci_filter[filter] or 'all')
+      end,
+    },
+    {
+      name = 'failed',
+      fn = function()
+        M.ci(f, branch, 'fail')
+      end,
+    },
+    {
+      name = 'passed',
+      fn = function()
+        M.ci(f, branch, 'pass')
+      end,
+    },
+    {
+      name = 'running',
+      fn = function()
+        M.ci(f, branch, 'pending')
+      end,
+    },
+    {
+      name = 'all',
+      fn = function()
+        M.ci(f, branch, 'all')
+      end,
+    },
+    {
+      name = 'refresh',
+      fn = function()
+        log.info('refreshing CI runs...')
+        M.ci(f, branch, filter)
+      end,
+    },
+  }
+
+  local function open_ci_picker(runs)
+    local entries, count, filter_label = build_ci_entries(runs)
 
     picker.pick({
       prompt = ('%s (%s, %s · %d)> '):format(f.labels.ci, branch or 'all', filter_label, count),
       entries = entries,
-      actions = {
-        {
-          name = 'log',
-          label = 'log',
-          fn = function(entry)
-            if not entry then
-              return
-            end
-            local run = entry.value
-            local s = run.status:lower()
-            local in_progress = s == 'in_progress'
-              or s == 'queued'
-              or s == 'pending'
-              or s == 'running'
-            local url = run.url ~= '' and run.url or nil
-            local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id) or nil
-            if f.summary_json_cmd then
-              require('forge.log').open_summary(f:summary_json_cmd(run.id), {
-                forge_name = f.name,
-                run_id = run.id,
-                url = url,
-                title = run.name or run.id,
-                in_progress = in_progress,
-                status_cmd = status_cmd,
-                json = true,
-                log_cmd_fn = function(job_id, failed)
-                  return f:check_log_cmd(run.id, failed, job_id),
-                    {
-                      forge_name = f.name,
-                      url = url,
-                      title = (run.name or run.id) .. ' / ' .. (job_id or ''),
-                      steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
-                      job_id = job_id,
-                      in_progress = in_progress,
-                      status_cmd = status_cmd,
-                    }
-                end,
-              })
-            elseif f.view_cmd then
-              require('forge.log').open_summary(f:view_cmd(run.id), {
-                forge_name = f.name,
-                run_id = run.id,
-                url = url,
-                title = run.name or run.id,
-                in_progress = in_progress,
-                status_cmd = status_cmd,
-                log_cmd_fn = function(job_id, failed)
-                  return f:check_log_cmd(run.id, failed, job_id),
-                    {
-                      forge_name = f.name,
-                      url = url,
-                      title = (run.name or run.id) .. ' / ' .. (job_id or ''),
-                      steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
-                      job_id = job_id,
-                      in_progress = in_progress,
-                      status_cmd = status_cmd,
-                    }
-                end,
-              })
-            else
-              log.info('fetching CI/CD logs...')
-              local failed = s == 'failure' or s == 'failed'
-              local cmd = f:run_log_cmd(run.id, failed)
-              local steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil
-              require('forge.log').open(cmd, {
-                forge_name = f.name,
-                url = url,
-                title = run.name or run.id,
-                steps_cmd = steps_cmd,
-                in_progress = in_progress,
-                status_cmd = status_cmd,
-              })
-            end
-          end,
-        },
-        {
-          name = 'watch',
-          label = 'watch',
-          fn = function(entry)
-            if not entry then
-              return
-            end
-            if f.watch_cmd then
-              local run = entry.value
-              require('forge.term').open(f:watch_cmd(run.id), {
-                url = run.url ~= '' and run.url or nil,
-              })
-            end
-          end,
-        },
-        {
-          name = 'browse',
-          label = 'web',
-          close = false,
-          fn = function(entry)
-            if entry and entry.value.url ~= '' then
-              vim.ui.open(entry.value.url)
-            end
-          end,
-        },
-        {
-          name = 'filter',
-          label = 'filter',
-          fn = function()
-            M.ci(f, branch, next_ci_filter[filter] or 'all')
-          end,
-        },
-        {
-          name = 'failed',
-          fn = function()
-            M.ci(f, branch, 'fail')
-          end,
-        },
-        {
-          name = 'passed',
-          fn = function()
-            M.ci(f, branch, 'pass')
-          end,
-        },
-        {
-          name = 'running',
-          fn = function()
-            M.ci(f, branch, 'pending')
-          end,
-        },
-        {
-          name = 'all',
-          fn = function()
-            M.ci(f, branch, 'all')
-          end,
-        },
-        {
-          name = 'refresh',
-          fn = function()
-            log.info('refreshing CI runs...')
-            M.ci(f, branch, filter)
-          end,
-        },
-      },
+      actions = actions,
       picker_name = 'ci',
     })
   end
 
+  local function open_ci_stream()
+    local filter_label = labels[filter] or filter
+    picker.pick({
+      prompt = ('%s (%s, %s)> '):format(f.labels.ci, branch or 'all', filter_label),
+      entries = {},
+      actions = actions,
+      picker_name = 'ci',
+      stream = function(emit)
+        log.info('fetching CI runs...')
+        vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
+          vim.schedule(function()
+            local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
+            if result.code == 0 and ok and runs then
+              local entries = build_ci_entries(runs)
+              for _, entry in ipairs(entries) do
+                emit(entry)
+              end
+            else
+              log.error('failed to fetch CI runs')
+              emit(placeholder_entry('Failed to fetch CI runs'))
+            end
+            emit(nil)
+          end)
+        end)
+      end,
+    })
+  end
+
   if f.list_runs_json_cmd then
-    log.info('fetching CI runs...')
-    vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
-      vim.schedule(function()
-        local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and runs then
-          open_ci_picker(runs)
-        else
-          log.error('failed to fetch CI runs')
-        end
+    if picker.backend() == 'fzf-lua' then
+      open_ci_stream()
+    else
+      log.info('fetching CI runs...')
+      vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
+        vim.schedule(function()
+          local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
+          if result.code == 0 and ok and runs then
+            open_ci_picker(runs)
+          else
+            log.error('failed to fetch CI runs')
+          end
+        end)
       end)
-    end)
+    end
   elseif f.list_runs_cmd then
     log.info('structured CI data not available for this forge')
   end
