@@ -4,6 +4,7 @@ local captured
 local cache
 local issue_create_calls
 local pr_create_calls
+local default_system
 
 local function fake_forge()
   return {
@@ -121,6 +122,17 @@ describe('pickers', function()
     captured = nil
     issue_create_calls = 0
     pr_create_calls = 0
+    default_system = vim.system
+    vim.system = function(_, _, cb)
+      if cb then
+        cb({ code = 0, stdout = '[]' })
+      end
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
     cache = {
       ['pr:open'] = {
         { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
@@ -271,6 +283,7 @@ describe('pickers', function()
   end)
 
   after_each(function()
+    vim.system = default_system
     package.preload['fzf-lua.utils'] = old_preload['fzf-lua.utils']
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
@@ -396,6 +409,82 @@ describe('pickers', function()
     assert.equals('42', streamed[1].value)
     assert.equals('#42', streamed[1].display[1][1])
     assert.same(42, cache['pr:open'][1].number)
+  end)
+
+  it('warms the next PR state after opening a cached list', function()
+    cache['pr:closed'] = nil
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.equals('PRs (open · 1)> ', captured.prompt)
+    assert.same({ 'prs', 'closed' }, calls[1].cmd)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          number = 43,
+          title = 'Fix cache warmup',
+          state = 'CLOSED',
+          author = 'alice',
+          created_at = '',
+        },
+      }),
+    })
+
+    vim.wait(100, function()
+      return cache['pr:closed'] ~= nil
+    end)
+    vim.system = old_system
+
+    assert.same(43, cache['pr:closed'][1].number)
+  end)
+
+  it('clears all PR state caches on refresh before reloading', function()
+    cache['pr:closed'] = {
+      { number = 43, title = 'Old closed', state = 'CLOSED', author = 'alice', created_at = '' },
+    }
+    cache['pr:all'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 43, title = 'Old closed', state = 'CLOSED', author = 'alice', created_at = '' },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    action_by_name('refresh').fn()
+
+    vim.system = old_system
+
+    assert.is_nil(cache['pr:open'])
+    assert.is_nil(cache['pr:closed'])
+    assert.is_nil(cache['pr:all'])
+    assert.equals('PRs (open)> ', captured.prompt)
+    assert.same('function', type(captured.stream))
   end)
 
   it('keeps issue web actions open', function()
@@ -539,6 +628,45 @@ describe('pickers', function()
     assert.equals('7', streamed[1].value)
     assert.equals('#7', streamed[1].display[1][1])
     assert.same(7, cache['issue:all'][1].number)
+  end)
+
+  it('warms the next issue state after opening a cached list', function()
+    cache['issue:open'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+    cache['issue:closed'] = nil
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.issue('open', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    assert.equals('Issues (open · 1)> ', captured.prompt)
+    assert.same({ 'issues', 'closed' }, calls[1].cmd)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 8, title = 'Fixed bug', state = 'CLOSED', author = 'alice', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return cache['issue:closed'] ~= nil
+    end)
+    vim.system = old_system
+
+    assert.same(8, cache['issue:closed'][1].number)
   end)
 
   it('keeps check and CI web actions open', function()
