@@ -314,9 +314,9 @@ describe('git sections', function()
     assert.equals('add', captured.picker.actions[2].name)
     assert.equals('delete', captured.picker.actions[3].name)
     assert.same({
-      { '* ', 'Identifier' },
+      { '* ', 'ForgePass' },
       { '/repo        ', 'Directory' },
-      { ' main   ', 'ForgeBranch' },
+      { ' main   ', 'ForgeBranchCurrent' },
       { ' abc1234', 'ForgeCommitHash' },
     }, captured.picker.entries[1].display)
     assert.same({

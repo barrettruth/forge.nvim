@@ -292,13 +292,15 @@ end
 local function worktree_display(item, layout)
   local label = worktree_label(item)
   local display = {
-    { item.current and '* ' or '  ', item.current and 'Identifier' or 'ForgeDim' },
+    { item.current and '* ' or '  ', item.current and 'ForgePass' or 'ForgeDim' },
     { display_path(item.path, layout.path), 'Directory' },
   }
   if layout.label > 0 then
     display[#display + 1] = {
       ' ' .. pad_or_truncate(label, layout.label),
-      item.branch ~= '' and 'ForgeBranch' or 'ForgeDim',
+      item.current and item.branch ~= '' and 'ForgeBranchCurrent'
+        or item.branch ~= '' and 'ForgeBranch'
+        or 'ForgeDim',
     }
   end
   if layout.sha > 0 and item.short_head ~= '' then
