@@ -91,9 +91,7 @@ function M.measure(values, opts)
   local typical = widths[quantile_index(#widths, opts.typical_quantile or 0.75)] or 0
   local max = widths[quantile_index(#widths, opts.max_quantile or 0.9)] or typical
   local exact = widths[#widths] or max
-  if #widths <= 4 then
-    max = exact
-  elseif exact - max <= (opts.slack or 2) then
+  if #widths <= 4 or exact - max <= (opts.slack or 2) then
     max = exact
   end
   if max < typical then
@@ -320,10 +318,13 @@ function M.plan(opts)
       shrunk = true
     elseif drop_once(columns) then
       dropped = true
-    elseif shrink_once(columns, true) then
-      shrunk = true
     else
-      break
+      local changed = shrink_once(columns, true)
+      if changed then
+        shrunk = true
+      else
+        break
+      end
     end
   end
 
