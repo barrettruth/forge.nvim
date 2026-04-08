@@ -769,7 +769,7 @@ describe('pickers', function()
   end)
 
   it('keeps release browse and copy actions open', function()
-    cache['release:all'] = {
+    cache['release:list'] = {
       { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
     }
 
@@ -780,5 +780,87 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_false(rawget(action_by_name('yank'), 'close'))
     assert.is_nil(rawget(action_by_name('delete'), 'close'))
+  end)
+
+  it('opens the release picker immediately on fzf before the fetch completes', function()
+    cache['release:list'] = nil
+
+    local old_system = vim.system
+    local system_cb
+    vim.system = function(_, _, cb)
+      system_cb = cb
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+
+    assert.is_not_nil(captured)
+    assert.equals('Releases (all)> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    assert.is_not_nil(system_cb)
+    system_cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+      }),
+    })
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('v1.0.0', streamed[1].value.tag)
+    assert.equals('v1.0.0', streamed[1].display[1][1])
+    assert.same('v1.0.0', cache['release:list'][1].tag)
+  end)
+
+  it('reuses one fetched release list across release filters', function()
+    cache['release:list'] = {
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+      { tag = 'v1.1.0-rc1', title = 'RC', is_draft = false, is_prerelease = true },
+      { tag = 'v2.0.0-draft', title = 'Draft', is_draft = true, is_prerelease = false },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+
+    action_by_name('filter').fn()
+    assert.equals('Releases (draft · 1)> ', captured.prompt)
+    assert.equals('v2.0.0-draft', captured.entries[1].value.tag)
+
+    action_by_name('filter').fn()
+    assert.equals('Releases (prerelease · 1)> ', captured.prompt)
+    assert.equals('v1.1.0-rc1', captured.entries[1].value.tag)
+
+    vim.system = old_system
+    assert.same({}, calls)
   end)
 end)

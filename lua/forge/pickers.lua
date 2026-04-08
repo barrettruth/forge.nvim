@@ -96,6 +96,12 @@ local function clear_state_caches(forge_mod, kind)
   end
 end
 
+local function clear_list_cache(forge_mod, key)
+  forge_mod.clear_list(key)
+  list_prefetch_inflight[key] = nil
+  list_fetch_epoch[key] = (list_fetch_epoch[key] or 0) + 1
+end
+
 local function maybe_prefetch_list(forge_mod, kind, state, label, cmd)
   local key = forge_mod.list_key(kind, state)
   if forge_mod.get_list(key) or list_prefetch_inflight[key] then
@@ -1644,11 +1650,11 @@ end
 ---@param f forge.Forge
 function M.release(state, f)
   local forge_mod = require('forge')
-  local cache_key = forge_mod.list_key('release', state)
+  local cache_key = forge_mod.list_key('release', 'list')
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
 
-  local function open_release_list(releases)
+  local function build_release_entries(releases)
     local filtered = releases
     if state == 'draft' and rel_fields.is_draft then
       filtered = vim.tbl_filter(function(r)
@@ -1675,95 +1681,140 @@ function M.release(state, f)
     local empty_text = state == 'all' and 'No releases'
       or state == 'draft' and 'No draft releases'
       or 'No prerelease releases'
-    entries = with_placeholder(entries, empty_text)
+    return with_placeholder(entries, empty_text), count
+  end
+
+  local function reopen_list()
+    clear_list_cache(forge_mod, cache_key)
+    M.release(state, f)
+  end
+
+  local actions = {
+    {
+      name = 'browse',
+      label = 'open',
+      close = false,
+      fn = function(entry)
+        if entry then
+          f:browse_release(entry.value.tag)
+        end
+      end,
+    },
+    {
+      name = 'yank',
+      label = 'copy',
+      close = false,
+      fn = function(entry)
+        if entry then
+          local base = forge_mod.remote_web_url()
+          local tag = entry.value.tag
+          local url = base .. '/releases/tag/' .. tag
+          vim.fn.setreg('+', url)
+          log.info('copied release URL')
+        end
+      end,
+    },
+    {
+      name = 'delete',
+      fn = function(entry)
+        if not entry then
+          return
+        end
+        local tag = entry.value.tag
+        vim.ui.select({ 'Yes', 'No' }, {
+          prompt = 'Delete release ' .. tag .. '? ',
+        }, function(choice)
+          if choice == 'Yes' then
+            run_forge_cmd(
+              'release',
+              tag,
+              'deleting',
+              f:delete_release_cmd(tag),
+              'deleted',
+              'delete failed',
+              reopen_list,
+              reopen_list
+            )
+          else
+            M.release(state, f)
+          end
+        end)
+      end,
+    },
+    {
+      name = 'filter',
+      fn = function()
+        M.release(next_state, f)
+      end,
+    },
+    {
+      name = 'refresh',
+      fn = function()
+        clear_list_cache(forge_mod, cache_key)
+        M.release(state, f)
+      end,
+    },
+  }
+
+  local function open_release_list(releases)
+    local entries, count = build_release_entries(releases)
 
     picker.pick({
       prompt = ('Releases (%s · %d)> '):format(state, count),
       entries = entries,
-      actions = {
-        {
-          name = 'browse',
-          label = 'open',
-          close = false,
-          fn = function(entry)
-            if entry then
-              f:browse_release(entry.value.tag)
-            end
-          end,
-        },
-        {
-          name = 'yank',
-          label = 'copy',
-          close = false,
-          fn = function(entry)
-            if entry then
-              local base = forge_mod.remote_web_url()
-              local tag = entry.value.tag
-              local url = base .. '/releases/tag/' .. tag
-              vim.fn.setreg('+', url)
-              log.info('copied release URL')
-            end
-          end,
-        },
-        {
-          name = 'delete',
-          fn = function(entry)
-            if not entry then
+      actions = actions,
+      picker_name = 'release',
+    })
+  end
+
+  local function open_release_stream()
+    picker.pick({
+      prompt = ('Releases (%s)> '):format(state),
+      entries = {},
+      actions = actions,
+      picker_name = 'release',
+      stream = function(emit)
+        log.info('fetching releases...')
+        local token = begin_list_fetch(cache_key)
+        vim.system(f:list_releases_json_cmd(), { text = true }, function(result)
+          vim.schedule(function()
+            if not list_fetch_current(cache_key, token) then
+              emit(nil)
               return
             end
-            local tag = entry.value.tag
-            vim.ui.select({ 'Yes', 'No' }, {
-              prompt = 'Delete release ' .. tag .. '? ',
-            }, function(choice)
-              if choice == 'Yes' then
-                run_forge_cmd(
-                  'release',
-                  tag,
-                  'deleting',
-                  f:delete_release_cmd(tag),
-                  'deleted',
-                  'delete failed',
-                  function()
-                    forge_mod.clear_list(cache_key)
-                    M.release(state, f)
-                  end,
-                  function()
-                    M.release(state, f)
-                  end
-                )
-              else
-                M.release(state, f)
+            local ok, releases = pcall(vim.json.decode, result.stdout or '[]')
+            if result.code == 0 and ok and releases then
+              forge_mod.set_list(cache_key, releases)
+              local entries = build_release_entries(releases)
+              for _, entry in ipairs(entries) do
+                emit(entry)
               end
-            end)
-          end,
-        },
-        {
-          name = 'filter',
-          fn = function()
-            M.release(next_state, f)
-          end,
-        },
-        {
-          name = 'refresh',
-          fn = function()
-            forge_mod.clear_list(cache_key)
-            M.release(state, f)
-          end,
-        },
-      },
-      picker_name = 'release',
+            else
+              log.error('failed to fetch releases')
+              emit(placeholder_entry('Failed to fetch releases'))
+            end
+            emit(nil)
+          end)
+        end)
+      end,
     })
   end
 
   local cached = forge_mod.get_list(cache_key)
   if cached then
     open_release_list(cached)
+  elseif picker.backend() == 'fzf-lua' then
+    open_release_stream()
   else
     log.info('fetching releases...')
+    local token = begin_list_fetch(cache_key)
     vim.system(f:list_releases_json_cmd(), { text = true }, function(result)
       vim.schedule(function()
+        if not list_fetch_current(cache_key, token) then
+          return
+        end
         local ok, releases = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and releases then
+        if result.code == 0 and ok and releases then
           forge_mod.set_list(cache_key, releases)
           open_release_list(releases)
         else
