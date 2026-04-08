@@ -6,6 +6,7 @@ local old_preload
 local old_system
 local old_cmd
 local old_ui_select
+local old_ui_input
 
 local field_sep = string.char(31)
 local record_sep = string.char(30)
@@ -16,12 +17,13 @@ end
 
 describe('git sections', function()
   before_each(function()
-    captured = { systems = {}, select_choice = 'Yes' }
+    captured = { systems = {}, select_choice = 'Yes', input_value = 'new-tree' }
     cache = {}
 
     old_system = vim.system
     old_cmd = vim.cmd
     old_ui_select = vim.ui.select
+    old_ui_input = vim.ui.input
     vim.system = function(cmd, _, cb)
       local key = table.concat(cmd, ' ')
       captured.last_system = key
@@ -52,10 +54,16 @@ describe('git sections', function()
           'branch refs/heads/feature',
           '',
         }, '\n')
-      elseif key == 'git switch topic' then
-        result.stdout = ''
       elseif key == 'git branch --delete topic' then
         result.stdout = 'Deleted branch topic (was 789abcd).\n'
+      elseif key == 'git show-ref --verify --quiet refs/heads/new-tree' then
+        result.code = 1
+      elseif
+        key == 'git switch topic'
+        or key == 'git worktree add /new-tree -b new-tree'
+        or key == 'git worktree remove /repo-feature'
+      then
+        result.stdout = ''
       end
 
       if cb then
@@ -76,6 +84,11 @@ describe('git sections', function()
     vim.ui.select = function(_, opts, cb)
       captured.select_prompt = opts.prompt
       cb(captured.select_choice)
+    end
+
+    vim.ui.input = function(opts, cb)
+      captured.input_prompt = opts.prompt
+      cb(captured.input_value)
     end
 
     old_preload = {
@@ -160,6 +173,7 @@ describe('git sections', function()
     vim.system = old_system
     vim.cmd = old_cmd
     vim.ui.select = old_ui_select
+    vim.ui.input = old_ui_input
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
@@ -297,17 +311,19 @@ describe('git sections', function()
 
     assert.equals('Worktrees (repo worktrees · switch cwd · 2)> ', captured.picker.prompt)
     assert.equals('switch cwd', captured.picker.actions[1].label)
+    assert.equals('add', captured.picker.actions[2].name)
+    assert.equals('delete', captured.picker.actions[3].name)
     assert.same({
-      { '* ', 'Identifier' },
+      { '* ', 'ForgePass' },
       { '/repo        ', 'Directory' },
-      { ' main   ', 'ForgeBranch' },
-      { ' abc1234', 'ForgeDim' },
+      { ' main   ', 'ForgeBranchCurrent' },
+      { ' abc1234', 'ForgeCommitHash' },
     }, captured.picker.entries[1].display)
     assert.same({
       { '  ', 'ForgeDim' },
       { '/repo-feature', 'Directory' },
       { ' feature', 'ForgeBranch' },
-      { ' def5678', 'ForgeDim' },
+      { ' def5678', 'ForgeCommitHash' },
     }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[2]
@@ -315,6 +331,83 @@ describe('git sections', function()
 
     assert.equals('cd /repo-feature', captured.cmd)
     assert.is_true(captured.cleared)
+  end)
+
+  it('adds and deletes worktrees', function()
+    local ctx = {
+      root = '/repo',
+    }
+
+    require('forge.pickers').worktrees(ctx)
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    captured.picker.actions[2].fn(nil)
+    assert.equals('Add worktree branch: ', captured.input_prompt)
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.systems, 'git worktree add /new-tree -b new-tree')
+    end)
+    assert.is_true(vim.tbl_contains(captured.systems, 'git worktree add /new-tree -b new-tree'))
+
+    local entry = captured.picker.entries[2]
+    captured.picker.actions[3].fn(entry)
+    assert.equals('Delete worktree /repo-feature? ', captured.select_prompt)
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.systems, 'git worktree remove /repo-feature')
+    end)
+    assert.is_true(vim.tbl_contains(captured.systems, 'git worktree remove /repo-feature'))
+  end)
+
+  it('renders home paths with ~ and shortens long worktree paths', function()
+    local home = vim.env.HOME or '/home/barrett'
+    local current_path = home .. '/dev/forge.nvim'
+    local nested_path = home .. '/dev/forge.nvim/.claude/worktrees/agent-a43cb846'
+    local current_system = vim.system
+    vim.system = function(cmd, opts, cb)
+      local key = table.concat(cmd, ' ')
+      if key == 'git worktree list --porcelain' then
+        local result = {
+          code = 0,
+          stdout = table.concat({
+            'worktree ' .. current_path,
+            'HEAD abc123456789',
+            'branch refs/heads/main',
+            '',
+            'worktree ' .. nested_path,
+            'HEAD 9be38e312345',
+            'branch refs/heads/worktree-agent-a43cb846',
+            '',
+          }, '\n'),
+          stderr = '',
+        }
+        captured.last_system = key
+        captured.systems[#captured.systems + 1] = key
+        if cb then
+          cb(result)
+        end
+        return {
+          wait = function()
+            return result
+          end,
+        }
+      end
+      return current_system(cmd, opts, cb)
+    end
+
+    require('forge.pickers').worktrees({ root = current_path })
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals(
+      vim.fn.fnamemodify(current_path, ':~'),
+      vim.trim(captured.picker.entries[1].display[2][1])
+    )
+    assert.equals(
+      vim.fn.pathshorten(vim.fn.fnamemodify(nested_path, ':~')),
+      vim.trim(captured.picker.entries[2].display[2][1])
+    )
   end)
 
   it('warns for worktree-backed branch deletion and deletes ordinary branches', function()

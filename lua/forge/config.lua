@@ -265,6 +265,8 @@ local DEFAULTS = {
       refresh = '<c-r>',
     },
     worktree = {
+      add = '<c-a>',
+      delete = '<c-s>',
       yank = '<c-y>',
       refresh = '<c-r>',
     },
@@ -479,7 +481,7 @@ function M.config()
     local worktree_keys = rawget(keys, 'worktree')
     if worktree_keys ~= nil then
       vim.validate('forge.keys.worktree', worktree_keys, 'table')
-      for _, k in ipairs({ 'yank', 'refresh' }) do
+      for _, k in ipairs({ 'add', 'delete', 'yank', 'refresh' }) do
         vim.validate('forge.keys.worktree.' .. k, worktree_keys[k], key_or_false, 'string or false')
       end
     end

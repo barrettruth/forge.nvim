@@ -125,6 +125,14 @@ local function pad_or_truncate_tail(s, width)
   return s .. string.rep(' ', width - #s)
 end
 
+local function display_path(path, width)
+  local rendered = vim.fn.fnamemodify(path, ':~')
+  if #rendered > width then
+    rendered = vim.fn.pathshorten(rendered)
+  end
+  return pad_or_truncate_tail(rendered, width)
+end
+
 local function truncate(s, width)
   if width <= 0 or #s <= width then
     return s
@@ -284,17 +292,20 @@ end
 local function worktree_display(item, layout)
   local label = worktree_label(item)
   local display = {
-    { item.current and '* ' or '  ', item.current and 'Identifier' or 'ForgeDim' },
-    { pad_or_truncate_tail(item.path, layout.path), 'Directory' },
+    { item.current and '* ' or '  ', item.current and 'ForgePass' or 'ForgeDim' },
+    { display_path(item.path, layout.path), 'Directory' },
   }
   if layout.label > 0 then
     display[#display + 1] = {
       ' ' .. pad_or_truncate(label, layout.label),
-      item.branch ~= '' and 'ForgeBranch' or 'ForgeDim',
+      item.current and item.branch ~= '' and 'ForgeBranchCurrent'
+        or item.branch ~= '' and 'ForgeBranch'
+        or 'ForgeDim',
     }
   end
   if layout.sha > 0 and item.short_head ~= '' then
-    display[#display + 1] = { ' ' .. pad_or_truncate(item.short_head, layout.sha), 'ForgeDim' }
+    display[#display + 1] =
+      { ' ' .. pad_or_truncate(item.short_head, layout.sha), 'ForgeCommitHash' }
   end
   return display
 end
@@ -1783,6 +1794,10 @@ function M.worktrees(ctx)
     local count = #entries
     entries = with_placeholder(entries, 'No linked worktrees')
 
+    local function reopen()
+      M.worktrees(ctx)
+    end
+
     picker.pick({
       prompt = ('Worktrees (repo worktrees · switch cwd · %d)> '):format(count),
       entries = entries,
@@ -1800,6 +1815,75 @@ function M.worktrees(ctx)
               return
             end
             change_directory(item.path)
+          end,
+        },
+        {
+          name = 'add',
+          label = 'add',
+          fn = function()
+            vim.ui.input({
+              prompt = 'Add worktree branch: ',
+            }, function(input)
+              local branch = vim.trim(input or '')
+              if branch == '' then
+                reopen()
+                return
+              end
+              local wt_path = vim.fs.normalize(ctx.root .. '/../' .. branch)
+              vim.system(
+                { 'git', 'show-ref', '--verify', '--quiet', 'refs/heads/' .. branch },
+                { text = true },
+                function(result)
+                  local cmd = result.code == 0 and { 'git', 'worktree', 'add', wt_path, branch }
+                    or { 'git', 'worktree', 'add', wt_path, '-b', branch }
+                  run_git_cmd(
+                    'adding worktree ' .. wt_path,
+                    cmd,
+                    'worktree at ' .. wt_path,
+                    'worktree add failed',
+                    function()
+                      forge_mod.clear_list(cache_key)
+                      reopen()
+                    end,
+                    reopen
+                  )
+                end
+              )
+            end)
+          end,
+        },
+        {
+          name = 'delete',
+          label = 'delete',
+          fn = function(entry)
+            if not entry then
+              return
+            end
+            local item = entry.value
+            if item.current then
+              log.warn('cannot delete current worktree ' .. item.path)
+              reopen()
+              return
+            end
+            vim.ui.select({ 'Yes', 'No' }, {
+              prompt = 'Delete worktree ' .. item.path .. '? ',
+            }, function(choice)
+              if choice == 'Yes' then
+                run_git_cmd(
+                  'deleting worktree ' .. item.path,
+                  { 'git', 'worktree', 'remove', item.path },
+                  'deleted worktree ' .. item.path,
+                  'worktree delete failed',
+                  function()
+                    forge_mod.clear_list(cache_key)
+                    reopen()
+                  end,
+                  reopen
+                )
+              else
+                reopen()
+              end
+            end)
           end,
         },
         {
