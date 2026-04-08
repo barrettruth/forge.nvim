@@ -85,16 +85,17 @@ function M.pick(opts)
   local picker_mod = require('forge.picker')
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
+  local stream = rawget(opts, 'stream')
 
   local lines
-  if opts.stream then
+  if stream then
     lines = function(fzf_cb)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
         fzf_cb(render_line(i, entry))
       end
-      opts.stream(function(entry)
+      stream(function(entry)
         if not entry then
           fzf_cb(nil)
           return
