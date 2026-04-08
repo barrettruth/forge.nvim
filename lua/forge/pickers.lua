@@ -73,6 +73,51 @@ local function with_placeholder(entries, text)
   return { placeholder_entry(text) }
 end
 
+local list_states = { 'open', 'closed', 'all' }
+local list_fetch_epoch = {}
+local list_prefetch_inflight = {}
+
+local function begin_list_fetch(key)
+  local token = (list_fetch_epoch[key] or 0) + 1
+  list_fetch_epoch[key] = token
+  return token
+end
+
+local function list_fetch_current(key, token)
+  return list_fetch_epoch[key] == token
+end
+
+local function clear_state_caches(forge_mod, kind)
+  for _, state in ipairs(list_states) do
+    local key = forge_mod.list_key(kind, state)
+    forge_mod.clear_list(key)
+    list_prefetch_inflight[key] = nil
+    list_fetch_epoch[key] = (list_fetch_epoch[key] or 0) + 1
+  end
+end
+
+local function maybe_prefetch_list(forge_mod, kind, state, label, cmd)
+  local key = forge_mod.list_key(kind, state)
+  if forge_mod.get_list(key) or list_prefetch_inflight[key] then
+    return
+  end
+  list_prefetch_inflight[key] = true
+  local token = begin_list_fetch(key)
+  log.debug(('prefetching %s list (%s)...'):format(label, state))
+  vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      list_prefetch_inflight[key] = nil
+      if not list_fetch_current(key, token) then
+        return
+      end
+      local ok, data = pcall(vim.json.decode, result.stdout or '[]')
+      if result.code == 0 and ok and data then
+        forge_mod.set_list(key, data)
+      end
+    end)
+  end)
+end
+
 local field_sep = string.char(31)
 local record_sep = string.char(30)
 
@@ -1155,8 +1200,15 @@ function M.pr(state, f)
   end
 
   local function reopen_list()
-    forge_mod.clear_list(cache_key)
+    clear_state_caches(forge_mod, 'pr')
     M.pr(state, f)
+  end
+
+  local function maybe_prefetch_next()
+    if not f.list_pr_json_cmd then
+      return
+    end
+    maybe_prefetch_list(forge_mod, 'pr', next_state, f.labels.pr, f:list_pr_json_cmd(next_state))
   end
 
   local actions = {
@@ -1255,7 +1307,7 @@ function M.pr(state, f)
     {
       name = 'refresh',
       fn = function()
-        forge_mod.clear_list(cache_key)
+        clear_state_caches(forge_mod, 'pr')
         M.pr(state, f)
       end,
     },
@@ -1270,6 +1322,7 @@ function M.pr(state, f)
       actions = actions,
       picker_name = 'pr',
     })
+    maybe_prefetch_next()
   end
 
   local function open_pr_stream()
@@ -1280,11 +1333,17 @@ function M.pr(state, f)
       picker_name = 'pr',
       stream = function(emit)
         log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
+        local token = begin_list_fetch(cache_key)
         vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
           vim.schedule(function()
+            if not list_fetch_current(cache_key, token) then
+              emit(nil)
+              return
+            end
             local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
-            if ok and prs then
+            if result.code == 0 and ok and prs then
               forge_mod.set_list(cache_key, prs)
+              maybe_prefetch_next()
               local entries = build_pr_entries(prs)
               for _, entry in ipairs(entries) do
                 emit(entry)
@@ -1307,10 +1366,14 @@ function M.pr(state, f)
     open_pr_stream()
   else
     log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
+    local token = begin_list_fetch(cache_key)
     vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
       vim.schedule(function()
+        if not list_fetch_current(cache_key, token) then
+          return
+        end
         local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and prs then
+        if result.code == 0 and ok and prs then
           forge_mod.set_list(cache_key, prs)
           open_pr_list(prs)
         else
@@ -1366,8 +1429,21 @@ function M.issue(state, f)
   end
 
   local function reopen_list()
-    forge_mod.clear_list(cache_key)
+    clear_state_caches(forge_mod, 'issue')
     M.issue(state, f)
+  end
+
+  local function maybe_prefetch_next()
+    if not f.list_issue_json_cmd then
+      return
+    end
+    maybe_prefetch_list(
+      forge_mod,
+      'issue',
+      next_state,
+      f.labels.issue,
+      f:list_issue_json_cmd(next_state)
+    )
   end
 
   local actions = {
@@ -1414,7 +1490,7 @@ function M.issue(state, f)
     {
       name = 'refresh',
       fn = function()
-        forge_mod.clear_list(cache_key)
+        clear_state_caches(forge_mod, 'issue')
         M.issue(state, f)
       end,
     },
@@ -1429,6 +1505,7 @@ function M.issue(state, f)
       actions = actions,
       picker_name = 'issue',
     })
+    maybe_prefetch_next()
   end
 
   local function open_issue_stream()
@@ -1439,11 +1516,17 @@ function M.issue(state, f)
       picker_name = 'issue',
       stream = function(emit)
         log.info('fetching issue list (' .. state .. ')...')
+        local token = begin_list_fetch(cache_key)
         vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
           vim.schedule(function()
+            if not list_fetch_current(cache_key, token) then
+              emit(nil)
+              return
+            end
             local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
-            if ok and issues then
+            if result.code == 0 and ok and issues then
               forge_mod.set_list(cache_key, issues)
+              maybe_prefetch_next()
               local entries = build_issue_entries(issues)
               for _, entry in ipairs(entries) do
                 emit(entry)
@@ -1466,10 +1549,14 @@ function M.issue(state, f)
     open_issue_stream()
   else
     log.info('fetching issue list (' .. state .. ')...')
+    local token = begin_list_fetch(cache_key)
     vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
       vim.schedule(function()
+        if not list_fetch_current(cache_key, token) then
+          return
+        end
         local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and issues then
+        if result.code == 0 and ok and issues then
           forge_mod.set_list(cache_key, issues)
           open_issue_list(issues)
         else
