@@ -148,6 +148,41 @@ local function branch_layout(branches)
   }
 end
 
+local function commit_layout(commits)
+  local title_limit = 45
+  local author_limit = 15
+  local ok, forge = pcall(require, 'forge')
+  if ok and forge.config then
+    local widths = forge.config().display.widths
+    title_limit = widths.title or title_limit
+    author_limit = widths.author or author_limit
+  end
+
+  local sha_width = 7
+  local time_width = 0
+  local subject_width = 0
+  local author_width = 0
+  for _, item in ipairs(commits) do
+    sha_width = math.max(sha_width, #item.short_sha)
+    if item.relative ~= '' then
+      time_width = math.max(time_width, #item.relative + 2)
+    end
+    if item.subject ~= '' then
+      subject_width = math.max(subject_width, #item.subject)
+    end
+    if item.author ~= '' then
+      author_width = math.max(author_width, #item.author + 2)
+    end
+  end
+
+  return {
+    sha = sha_width,
+    time = time_width,
+    subject = math.min(subject_width, title_limit),
+    author = math.min(author_width, author_limit + 2),
+  }
+end
+
 local function branch_display(item, layout)
   local marker = '  '
   local marker_hl = 'ForgeDim'
@@ -179,22 +214,20 @@ local function branch_display(item, layout)
   return display
 end
 
-local function commit_display(item)
+local function commit_display(item, layout)
+  local time = item.relative ~= '' and ('(' .. item.relative .. ')') or ''
+  local author = item.author ~= '' and ('<' .. item.author .. '>') or ''
   local display = {
-    { item.short_sha, 'Identifier' },
+    { pad_or_truncate(item.short_sha, layout.sha), 'ForgeCommitHash' },
   }
-  if item.subject ~= '' then
-    display[#display + 1] = { ' ' .. item.subject }
+  if layout.time > 0 then
+    display[#display + 1] = { ' ' .. pad_or_truncate(time, layout.time), 'ForgeCommitTime' }
   end
-  local meta = {}
-  if item.author ~= '' then
-    meta[#meta + 1] = item.author
+  if layout.subject > 0 then
+    display[#display + 1] = { ' ' .. pad_or_truncate(item.subject, layout.subject) }
   end
-  if item.relative ~= '' then
-    meta[#meta + 1] = item.relative
-  end
-  if #meta > 0 then
-    display[#display + 1] = { ' · ' .. table.concat(meta, ' · '), 'ForgeDim' }
+  if layout.author > 0 then
+    display[#display + 1] = { ' ' .. pad_or_truncate(author, layout.author), 'ForgeCommitAuthor' }
   end
   return display
 end
@@ -1596,10 +1629,11 @@ function M.commits(ctx, branch)
   local cache_key = forge_mod.list_key('commit', branch)
 
   local function open_commit_list(commits)
+    local layout = commit_layout(commits)
     local entries = {}
     for _, item in ipairs(commits) do
       entries[#entries + 1] = {
-        display = commit_display(item),
+        display = commit_display(item, layout),
         value = item,
         ordinal = item.sha .. ' ' .. item.subject .. ' ' .. item.author,
       }

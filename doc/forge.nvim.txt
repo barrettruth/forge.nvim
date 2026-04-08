@@ -565,8 +565,9 @@ markers, upstream, and tip commit summary. `*` marks the current branch and
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                          *forge-picker-commit*
-COMMIT PICKER ~ Lists commits for the selected branch with `git show` as the
-primary action.
+COMMIT PICKER ~ Lists commits for the selected branch as hash, relative time,
+subject, and `<author>`, with light alignment to keep history lines readable.
+`git show` is the primary action.
 
   Action      Default Key    Description ~
   `show`        `<cr>`           Open `git show` in a terminal split
@@ -816,6 +817,9 @@ Picker lines: ~
   `ForgeSkip`                `Comment`            Skipped/cancelled CI icon
   `ForgeBranch`              `Special`            Branch names and git refs
   `ForgeBranchCurrent`       custom               Current branch label
+  `ForgeCommitHash`          `Number`             Commit hash text
+  `ForgeCommitTime`          `DiagnosticWarn`     Commit relative time
+  `ForgeCommitAuthor`        `Directory`          Commit author token
   `ForgeDim`                 `Comment`            Secondary picker metadata
 
 ==============================================================================
