@@ -819,8 +819,15 @@ end
 function M.checks(f, num, filter, cached_checks)
   filter = filter or 'all'
   local forge_mod = require('forge')
+  local current_checks = cached_checks
+  local labels = {
+    all = 'all',
+    fail = 'failed',
+    pass = 'passed',
+    pending = 'running',
+  }
 
-  local function open_picker(checks)
+  local function build_check_entries(checks)
     local filtered = forge_mod.filter_checks(checks, filter)
     local count = #filtered
     local displays = forge_mod.format_checks(filtered, { width = layout.picker_width() })
@@ -832,110 +839,110 @@ function M.checks(f, num, filter, cached_checks)
         ordinal = c.name or '',
       })
     end
-
-    local labels = {
-      all = 'all',
-      fail = 'failed',
-      pass = 'passed',
-      pending = 'running',
-    }
     local filter_label = labels[filter] or filter
     local empty_text = filter == 'all' and ('No checks for #%s'):format(num)
       or ('No %s checks for #%s'):format(filter_label, num)
-    entries = with_placeholder(entries, empty_text)
+    return with_placeholder(entries, empty_text), count, filter_label
+  end
+
+  local actions = {
+    {
+      name = 'log',
+      label = 'log',
+      fn = function(entry)
+        if not entry then
+          return
+        end
+        local c = entry.value
+        local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
+        if not run_id then
+          log.info('logs not available, use browse to view')
+          return
+        end
+        local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
+        local bucket = (c.bucket or ''):lower()
+        if bucket == 'skipping' then
+          log.info('no log available — job was not started')
+          return
+        end
+        local in_progress = bucket == 'pending'
+        if in_progress and f.live_tail_cmd then
+          require('forge.term').open(f:live_tail_cmd(run_id, job_id), { url = c.link })
+        else
+          log.info('fetching check logs...')
+          local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
+          local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
+          local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id) or nil
+          require('forge.log').open(cmd, {
+            forge_name = f.name,
+            url = c.link,
+            title = c.name or run_id,
+            steps_cmd = steps_cmd,
+            job_id = job_id,
+            in_progress = in_progress,
+            status_cmd = status_cmd,
+          })
+        end
+      end,
+    },
+    {
+      name = 'browse',
+      label = 'web',
+      close = false,
+      fn = function(entry)
+        if entry and entry.value.link then
+          vim.ui.open(entry.value.link)
+        end
+      end,
+    },
+    {
+      name = 'filter',
+      label = 'filter',
+      fn = function()
+        M.checks(f, num, next_ci_filter[filter] or 'all', current_checks)
+      end,
+    },
+    {
+      name = 'failed',
+      fn = function()
+        M.checks(f, num, 'fail', current_checks)
+      end,
+    },
+    {
+      name = 'passed',
+      fn = function()
+        M.checks(f, num, 'pass', current_checks)
+      end,
+    },
+    {
+      name = 'running',
+      fn = function()
+        M.checks(f, num, 'pending', current_checks)
+      end,
+    },
+    {
+      name = 'all',
+      fn = function()
+        M.checks(f, num, 'all', current_checks)
+      end,
+    },
+    {
+      name = 'refresh',
+      fn = function()
+        log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
+        M.checks(f, num, filter)
+      end,
+    },
+  }
+
+  local function open_picker(checks)
+    current_checks = checks
+    local entries, count, filter_label = build_check_entries(checks)
 
     picker.pick({
       prompt = ('Checks (#%s, %s · %d)> '):format(num, filter_label, count),
       entries = entries,
-      actions = {
-        {
-          name = 'log',
-          label = 'log',
-          fn = function(entry)
-            if not entry then
-              return
-            end
-            local c = entry.value
-            local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
-            if not run_id then
-              log.info('logs not available, use browse to view')
-              return
-            end
-            local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
-            local bucket = (c.bucket or ''):lower()
-            if bucket == 'skipping' then
-              log.info('no log available — job was not started')
-              return
-            end
-            local in_progress = bucket == 'pending'
-            if in_progress and f.live_tail_cmd then
-              require('forge.term').open(f:live_tail_cmd(run_id, job_id), { url = c.link })
-            else
-              log.info('fetching check logs...')
-              local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
-              local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
-              local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id) or nil
-              require('forge.log').open(cmd, {
-                forge_name = f.name,
-                url = c.link,
-                title = c.name or run_id,
-                steps_cmd = steps_cmd,
-                job_id = job_id,
-                in_progress = in_progress,
-                status_cmd = status_cmd,
-              })
-            end
-          end,
-        },
-        {
-          name = 'browse',
-          label = 'web',
-          close = false,
-          fn = function(entry)
-            if entry and entry.value.link then
-              vim.ui.open(entry.value.link)
-            end
-          end,
-        },
-        {
-          name = 'filter',
-          label = 'filter',
-          fn = function()
-            M.checks(f, num, next_ci_filter[filter] or 'all', checks)
-          end,
-        },
-        {
-          name = 'failed',
-          fn = function()
-            M.checks(f, num, 'fail', checks)
-          end,
-        },
-        {
-          name = 'passed',
-          fn = function()
-            M.checks(f, num, 'pass', checks)
-          end,
-        },
-        {
-          name = 'running',
-          fn = function()
-            M.checks(f, num, 'pending', checks)
-          end,
-        },
-        {
-          name = 'all',
-          fn = function()
-            M.checks(f, num, 'all', checks)
-          end,
-        },
-        {
-          name = 'refresh',
-          fn = function()
-            log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
-            M.checks(f, num, filter)
-          end,
-        },
-      },
+      actions = actions,
       picker_name = 'ci',
     })
   end
@@ -947,17 +954,46 @@ function M.checks(f, num, filter, cached_checks)
   end
 
   if f.checks_json_cmd then
-    log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
-    vim.system(f:checks_json_cmd(num), { text = true }, function(result)
-      vim.schedule(function()
-        local ok, checks = pcall(vim.json.decode, result.stdout or '[]')
-        if ok and checks then
-          open_picker(checks)
-        else
-          log.info('no checks found')
-        end
+    if picker.backend() == 'fzf-lua' then
+      local filter_label = labels[filter] or filter
+      picker.pick({
+        prompt = ('Checks (#%s, %s)> '):format(num, filter_label),
+        entries = {},
+        actions = actions,
+        picker_name = 'ci',
+        stream = function(emit)
+          log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
+          vim.system(f:checks_json_cmd(num), { text = true }, function(result)
+            vim.schedule(function()
+              local ok, checks = pcall(vim.json.decode, result.stdout or '[]')
+              if result.code == 0 and ok and checks then
+                current_checks = checks
+                local entries = build_check_entries(checks)
+                for _, entry in ipairs(entries) do
+                  emit(entry)
+                end
+              else
+                log.info('no checks found')
+                emit(placeholder_entry(('No checks for #%s'):format(num)))
+              end
+              emit(nil)
+            end)
+          end)
+        end,
+      })
+    else
+      log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
+      vim.system(f:checks_json_cmd(num), { text = true }, function(result)
+        vim.schedule(function()
+          local ok, checks = pcall(vim.json.decode, result.stdout or '[]')
+          if result.code == 0 and ok and checks then
+            open_picker(checks)
+          else
+            log.info('no checks found')
+          end
+        end)
       end)
-    end)
+    end
   else
     log.info('structured checks not available for this forge')
   end
