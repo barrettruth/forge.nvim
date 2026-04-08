@@ -414,6 +414,25 @@ describe('pickers', function()
     assert.same(42, cache['pr:open'][1].number)
   end)
 
+  it('sorts PR entries by descending number', function()
+    cache['pr:open'] = {
+      { number = 7, title = 'Older', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 42, title = 'Newer', state = 'OPEN', author = 'bob', created_at = '' },
+      { number = 13, title = 'Middle', state = 'OPEN', author = 'cora', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.same(
+      { '42', '13', '7' },
+      vim.tbl_map(function(entry)
+        return entry.value
+      end, captured.entries)
+    )
+  end)
+
   it('warms the next PR state after opening a cached list', function()
     cache['pr:closed'] = nil
 
