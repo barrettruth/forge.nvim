@@ -7,6 +7,7 @@ local old_system
 local old_cmd
 local old_ui_select
 local old_ui_input
+local old_win_get_width
 
 local field_sep = string.char(31)
 local record_sep = string.char(30)
@@ -24,6 +25,7 @@ describe('git sections', function()
     old_cmd = vim.cmd
     old_ui_select = vim.ui.select
     old_ui_input = vim.ui.input
+    old_win_get_width = vim.api.nvim_win_get_width
     vim.system = function(cmd, _, cb)
       local key = table.concat(cmd, ' ')
       captured.last_system = key
@@ -174,6 +176,7 @@ describe('git sections', function()
     vim.cmd = old_cmd
     vim.ui.select = old_ui_select
     vim.ui.input = old_ui_input
+    vim.api.nvim_win_get_width = old_win_get_width
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
@@ -357,6 +360,50 @@ describe('git sections', function()
       return vim.tbl_contains(captured.systems, 'git worktree remove /repo-feature')
     end)
     assert.is_true(vim.tbl_contains(captured.systems, 'git worktree remove /repo-feature'))
+  end)
+
+  it('expands worktree branch labels when the picker has space', function()
+    vim.api.nvim_win_get_width = function()
+      return 120
+    end
+
+    local current_system = vim.system
+    vim.system = function(cmd, opts, cb)
+      local key = table.concat(cmd, ' ')
+      if key == 'git worktree list --porcelain' then
+        local result = {
+          code = 0,
+          stdout = table.concat({
+            'worktree /repo',
+            'HEAD abc123456789',
+            'branch refs/heads/feature/some-long-worktree-branch-name',
+            '',
+          }, '\n'),
+          stderr = '',
+        }
+        captured.last_system = key
+        captured.systems[#captured.systems + 1] = key
+        if cb then
+          cb(result)
+        end
+        return {
+          wait = function()
+            return result
+          end,
+        }
+      end
+      return current_system(cmd, opts, cb)
+    end
+
+    require('forge.pickers').worktrees({ root = '/repo' })
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals(
+      ' feature/some-long-worktree-branch-name',
+      captured.picker.entries[1].display[3][1]
+    )
   end)
 
   it('renders home paths with ~ and shortens long worktree paths', function()
