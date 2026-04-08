@@ -93,6 +93,12 @@ local function run_git_cmd(label, cmd, success_msg, fail_msg, on_success, on_fai
   end)
 end
 
+local function change_directory(path)
+  require('forge').clear_cache()
+  vim.cmd('cd ' .. vim.fn.fnameescape(path))
+  log.info('changed directory to ' .. path)
+end
+
 local function split_records(text)
   return vim.tbl_map(function(record)
     return vim.split(record, field_sep, { plain = true })
@@ -1449,6 +1455,10 @@ function M.branches(ctx)
             log.info('already on branch ' .. item.name)
             return
           end
+          if item.worktree_path then
+            change_directory(item.worktree_path)
+            return
+          end
           run_git_cmd(
             'switching to branch ' .. item.name,
             { 'git', 'switch', item.name },
@@ -1681,9 +1691,7 @@ function M.worktrees(ctx)
               log.info('already in worktree ' .. item.path)
               return
             end
-            require('forge').clear_cache()
-            vim.cmd('cd ' .. vim.fn.fnameescape(item.path))
-            log.info('changed directory to ' .. item.path)
+            change_directory(item.path)
           end,
         },
         {

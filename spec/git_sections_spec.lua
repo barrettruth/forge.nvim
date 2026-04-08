@@ -33,6 +33,7 @@ describe('git sections', function()
         result.stdout = table.concat({
           '*\tmain\torigin/main\tabc1234\tMain branch',
           ' \tfeature\torigin/feature\tdef5678\tFeature branch',
+          ' \ttopic\t\t789abcd\tTopic branch',
         }, '\n')
       elseif key:match('^git log ') then
         result.stdout = record({ 'abc123456789', 'abc1234', 'Add routes', 'Barrett', '2 hours ago' })
@@ -48,7 +49,7 @@ describe('git sections', function()
           'branch refs/heads/feature',
           '',
         }, '\n')
-      elseif key == 'git switch feature' then
+      elseif key == 'git switch topic' then
         result.stdout = ''
       end
 
@@ -177,7 +178,7 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Branches (local refs · switch/review · 2)> ', captured.picker.prompt)
+    assert.equals('Branches (local refs · switch/review · 3)> ', captured.picker.prompt)
     assert.equals('default', captured.picker.actions[1].name)
     assert.equals('switch', captured.picker.actions[1].label)
     assert.equals('browse', captured.picker.actions[2].name)
@@ -195,19 +196,31 @@ describe('git sections', function()
       { ' [origin/feature]', 'Directory' },
       { ' Feature branch', 'ForgeDim' },
     }, captured.picker.entries[2].display)
+    assert.same({
+      { '  ', 'ForgeDim' },
+      { 'topic  ' },
+      { '                 ' },
+      { ' Topic branch', 'ForgeDim' },
+    }, captured.picker.entries[3].display)
 
-    local entry = captured.picker.entries[2]
-    captured.picker.actions[1].fn(entry)
+    local worktree_entry = captured.picker.entries[2]
+    captured.picker.actions[1].fn(worktree_entry)
+    assert.equals('cd /repo-feature', captured.cmd)
+    assert.is_true(captured.cleared)
+    assert.equals('changed directory to /repo-feature', captured.info)
+
+    local switch_entry = captured.picker.entries[3]
+    captured.picker.actions[1].fn(switch_entry)
     vim.wait(100, function()
-      return captured.info == 'switched to branch feature'
+      return captured.info == 'switched to branch topic'
     end)
-    assert.equals('switched to branch feature', captured.info)
-    assert.equals('git switch feature', captured.last_system)
+    assert.equals('switched to branch topic', captured.info)
+    assert.equals('git switch topic', captured.last_system)
 
-    captured.picker.actions[2].fn(entry)
+    captured.picker.actions[2].fn(worktree_entry)
     assert.equals('feature', captured.browse_branch)
 
-    captured.picker.actions[3].fn(entry)
+    captured.picker.actions[3].fn(worktree_entry)
     assert.equals('feature', captured.review_branch)
   end)
 

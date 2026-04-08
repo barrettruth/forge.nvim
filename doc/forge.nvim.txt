@@ -542,7 +542,8 @@ markers, upstream, and tip commit summary. `*` marks the current branch and
 `+` marks a branch checked out in another worktree.
 
   Action      Default Key    Description ~
-  `switch`      `<cr>`           Switch to the selected branch
+  `switch`      `<cr>`           Switch to the selected branch, or jump to its
+                                worktree when the row is marked `+`
   `review`      `<c-d>`          Start branch review
   `browse`      `<c-x>`          Open branch in browser
   `yank`        `<c-y>`          Copy branch name to `+` register
