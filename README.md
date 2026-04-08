@@ -58,24 +58,6 @@ luarocks install forge.nvim
 the top-level sections with label-only rows while keeping the nested picker
 behavior and workflow details in the help docs.
 
-## `<Plug>` mappings
-
-forge.nvim exposes stateless `<Plug>` launchers for the root picker, exact
-routes, section aliases, and review actions. Section alias plugs respect
-`vim.g.forge.routes`; exact route plugs always open the named route.
-`<Plug>(forge-browse)` and `<Plug>(forge-browse-contextual)` are available in
-normal and visual mode, so visual selections include the selected line range for
-contextual browse targets.
-
-```lua
-vim.keymap.set('n', '<leader>gf', '<Plug>(forge)')
-vim.keymap.set('n', '<leader>gP', '<Plug>(forge-prs-open)')
-vim.keymap.set({ 'n', 'x' }, '<leader>gb', '<Plug>(forge-browse-contextual)')
-vim.keymap.set('n', '<leader>gr', '<Plug>(forge-review-toggle)')
-```
-
-See `:help forge-plug` for the full list.
-
 ## FAQ
 
 **Q: How do I configure forge.nvim?**
