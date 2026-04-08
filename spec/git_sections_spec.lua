@@ -20,6 +20,7 @@ describe('git sections', function()
   before_each(function()
     captured = { systems = {}, select_choice = 'Yes', input_value = 'new-tree' }
     cache = {}
+    local now = os.time()
 
     old_system = vim.system
     old_cmd = vim.cmd
@@ -43,8 +44,19 @@ describe('git sections', function()
           ' \ttopic\t\t789abcd\tTopic branch',
         }, '\n')
       elseif key:match('^git log ') then
-        result.stdout = record({ 'abc123456789', 'abc1234', 'Add routes', 'Barrett', '2 hours ago' })
-          .. record({ 'def567890123', 'def5678', 'Add sections', 'B', '1 hour ago' })
+        result.stdout = record({
+          'abc123456789',
+          'abc1234',
+          'Add routes',
+          'Barrett',
+          tostring(now - 7200),
+        }) .. record({
+          'def567890123',
+          'def5678',
+          'Add sections',
+          'B',
+          tostring(now - 3600),
+        })
       elseif key == 'git worktree list --porcelain' then
         result.stdout = table.concat({
           'worktree /repo',
@@ -274,15 +286,15 @@ describe('git sections', function()
     assert.equals('review', captured.picker.actions[3].label)
     assert.same({
       { 'abc1234', 'ForgeCommitHash' },
-      { ' (2 hours ago)', 'ForgeCommitTime' },
       { ' Add routes  ' },
-      { ' <Barrett>', 'ForgeCommitAuthor' },
+      { ' Barrett ', 'ForgeCommitAuthor' },
+      { ' 2h', 'ForgeCommitTime' },
     }, captured.picker.entries[1].display)
     assert.same({
       { 'def5678', 'ForgeCommitHash' },
-      { ' (1 hour ago) ', 'ForgeCommitTime' },
       { ' Add sections' },
-      { ' <B>      ', 'ForgeCommitAuthor' },
+      { ' B       ', 'ForgeCommitAuthor' },
+      { ' 1h', 'ForgeCommitTime' },
     }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[1]

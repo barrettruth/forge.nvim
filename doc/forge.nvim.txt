@@ -825,8 +825,8 @@ Picker lines: ~
   `ForgeBranch`              `Special`            Branch names and git refs
   `ForgeBranchCurrent`       custom               Current branch label
   `ForgeCommitHash`          `Number`             Commit hash text
-  `ForgeCommitTime`          `DiagnosticWarn`     Commit relative time
-  `ForgeCommitAuthor`        `Directory`          Commit author token
+  `ForgeCommitTime`          `Comment`            Commit age metadata
+  `ForgeCommitAuthor`        `Comment`            Commit author metadata
   `ForgeDim`                 `Comment`            Secondary picker metadata
 
 ==============================================================================

@@ -1,5 +1,6 @@
 local M = {}
 
+local format = require('forge.format')
 local layout = require('forge.layout')
 local log = require('forge.logger')
 local picker = require('forge.picker')
@@ -200,29 +201,21 @@ local function commit_layout(commits)
   end
 
   local shas = {}
-  local times = {}
   local subjects = {}
   local authors = {}
+  local ages = {}
   for _, item in ipairs(commits) do
     shas[#shas + 1] = item.short_sha
-    times[#times + 1] = item.relative ~= '' and ('(' .. item.relative .. ')') or ''
     subjects[#subjects + 1] = item.subject or ''
-    authors[#authors + 1] = item.author ~= '' and ('<' .. item.author .. '>') or ''
+    authors[#authors + 1] = item.author or ''
+    ages[#ages + 1] = item.relative or ''
   end
   local subject_pref, subject_max = elastic_width(title_limit, subjects, 12)
-  local author_pref, author_max = elastic_width(author_limit + 2, authors, 8, { max_quantile = 1 })
+  local author_pref, author_max = elastic_width(author_limit, authors, 8, { max_quantile = 1 })
   return layout.plan({
     width = layout.picker_width(),
     columns = {
       { key = 'sha', fixed = math.max(7, layout.max_width(shas)) },
-      {
-        key = 'time',
-        gap = ' ',
-        fixed = layout.max_width(times),
-        optional = true,
-        drop = 2,
-        hide_if_empty = true,
-      },
       {
         key = 'subject',
         gap = ' ',
@@ -245,6 +238,14 @@ local function commit_layout(commits)
         shrink = 1,
         grow = 2,
         overflow = 'tail',
+        hide_if_empty = true,
+      },
+      {
+        key = 'age',
+        gap = ' ',
+        fixed = layout.max_width(ages),
+        optional = true,
+        drop = 1,
         hide_if_empty = true,
       },
     },
@@ -274,13 +275,11 @@ local function branch_display(item, plan)
 end
 
 local function commit_display(item, plan)
-  local time = item.relative ~= '' and ('(' .. item.relative .. ')') or ''
-  local author = item.author ~= '' and ('<' .. item.author .. '>') or ''
   return layout.render(plan, {
     sha = { item.short_sha, 'ForgeCommitHash' },
-    time = { time, 'ForgeCommitTime' },
     subject = item.subject,
-    author = { author, 'ForgeCommitAuthor' },
+    author = { item.author, 'ForgeCommitAuthor' },
+    age = { item.relative, 'ForgeCommitTime' },
   })
 end
 
@@ -405,7 +404,7 @@ local function parse_commits(output)
         short_sha = fields[2],
         subject = fields[3],
         author = fields[4],
-        relative = fields[5],
+        relative = format.relative_time_from_unix(fields[5]),
       }
     end
   end
@@ -1842,7 +1841,7 @@ function M.commits(ctx, branch)
     'git',
     'log',
     '--max-count=100',
-    '--format=%H%x1f%h%x1f%s%x1f%an%x1f%cr%x1e',
+    '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
     branch,
   }, { text = true }, function(result)
     vim.schedule(function()

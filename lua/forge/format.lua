@@ -34,8 +34,7 @@ end
 
 ---@param iso string?
 ---@return string
-function M.relative_time(iso)
-  local ts = M.parse_iso(iso)
+local function relative_time_from_timestamp(ts)
   if not ts then
     return ''
   end
@@ -56,6 +55,18 @@ function M.relative_time(iso)
     return ('%dmo'):format(math.floor(diff / 2592000))
   end
   return ('%dy'):format(math.floor(diff / 31536000))
+end
+
+---@param iso string?
+---@return string
+function M.relative_time(iso)
+  return relative_time_from_timestamp(M.parse_iso(iso))
+end
+
+---@param unix string|number?
+---@return string
+function M.relative_time_from_unix(unix)
+  return relative_time_from_timestamp(tonumber(unix))
 end
 
 local event_map = {
