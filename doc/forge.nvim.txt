@@ -263,7 +263,9 @@ Top-level keys: ~
     `unknown`     `"?"`       Unknown status
 
   `display.widths`                               *forge-config-display-widths*
-    `table`  Preferred column widths (characters) for picker formatting.
+    `table`  Preferred starting widths (characters) for adaptive picker
+             columns. Forge expands useful columns when space allows and
+             compacts or hides lower-priority metadata in narrower layouts.
 
     Key         Default ~
     `title`       `45`

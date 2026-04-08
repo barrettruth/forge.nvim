@@ -218,10 +218,15 @@ end
 M.config = config_mod.config
 
 M.format_pr = format_mod.format_pr
+M.format_prs = format_mod.format_prs
 M.format_issue = format_mod.format_issue
+M.format_issues = format_mod.format_issues
 M.format_check = format_mod.format_check
+M.format_checks = format_mod.format_checks
 M.format_run = format_mod.format_run
+M.format_runs = format_mod.format_runs
 M.format_release = format_mod.format_release
+M.format_releases = format_mod.format_releases
 M.filter_checks = format_mod.filter_checks
 M.filter_runs = format_mod.filter_runs
 
