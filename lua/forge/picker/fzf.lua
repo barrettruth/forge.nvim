@@ -68,7 +68,7 @@ local function render_header(actions, bindings)
   if #parts < 2 then
     return nil
   end
-  return ':: ' .. table.concat(parts, '|')
+  return table.concat(parts, '|')
 end
 
 ---@param opts forge.PickerOpts

@@ -5,6 +5,7 @@ local cache
 local old_preload
 local old_system
 local old_cmd
+local old_ui_select
 
 local field_sep = string.char(31)
 local record_sep = string.char(30)
@@ -15,14 +16,16 @@ end
 
 describe('git sections', function()
   before_each(function()
-    captured = {}
+    captured = { systems = {}, select_choice = 'Yes' }
     cache = {}
 
     old_system = vim.system
     old_cmd = vim.cmd
+    old_ui_select = vim.ui.select
     vim.system = function(cmd, _, cb)
       local key = table.concat(cmd, ' ')
       captured.last_system = key
+      captured.systems[#captured.systems + 1] = key
       local result = {
         code = 0,
         stdout = '',
@@ -30,8 +33,11 @@ describe('git sections', function()
       }
 
       if key:match('^git for%-each%-ref ') then
-        result.stdout = record({ '*', 'main', 'origin/main', 'abc1234', 'Main branch' })
-          .. record({ ' ', 'feature', 'origin/feature', 'def5678', 'Feature branch' })
+        result.stdout = table.concat({
+          '*\tmain\torigin/main\tabc1234\tMain branch',
+          ' \tfeature\torigin/feature\tdef5678\tFeature branch',
+          ' \ttopic\t\t789abcd\tTopic branch',
+        }, '\n')
       elseif key:match('^git log ') then
         result.stdout = record({ 'abc123456789', 'abc1234', 'Add routes', 'Barrett', '2 hours ago' })
           .. record({ 'def567890123', 'def5678', 'Add sections', 'Barrett', '1 hour ago' })
@@ -46,8 +52,10 @@ describe('git sections', function()
           'branch refs/heads/feature',
           '',
         }, '\n')
-      elseif key == 'git switch feature' then
+      elseif key == 'git switch topic' then
         result.stdout = ''
+      elseif key == 'git branch --delete topic' then
+        result.stdout = 'Deleted branch topic (was 789abcd).\n'
       end
 
       if cb then
@@ -63,6 +71,11 @@ describe('git sections', function()
 
     vim.cmd = function(cmd)
       captured.cmd = cmd
+    end
+
+    vim.ui.select = function(_, opts, cb)
+      captured.select_prompt = opts.prompt
+      cb(captured.select_choice)
     end
 
     old_preload = {
@@ -146,6 +159,7 @@ describe('git sections', function()
   after_each(function()
     vim.system = old_system
     vim.cmd = old_cmd
+    vim.ui.select = old_ui_select
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
@@ -175,37 +189,50 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Branches (local refs · switch/review · 2)> ', captured.picker.prompt)
+    assert.equals('Branches (local refs · switch/review · 3)> ', captured.picker.prompt)
     assert.equals('default', captured.picker.actions[1].name)
     assert.equals('switch', captured.picker.actions[1].label)
     assert.equals('browse', captured.picker.actions[2].name)
     assert.equals('review', captured.picker.actions[3].name)
-    assert.equals('yank', captured.picker.actions[4].name)
+    assert.equals('delete', captured.picker.actions[4].name)
+    assert.equals('yank', captured.picker.actions[5].name)
     assert.same({
-      { '* ', 'Identifier' },
-      { 'main', 'ForgeBranch' },
-      { ' · current · → origin/main · abc1234', 'ForgeDim' },
-      { ' · Main branch' },
+      { '* ', 'ForgePass' },
+      { 'main   ', 'ForgeBranchCurrent' },
+      { ' [origin/main]   ', 'Directory' },
+      { ' Main branch', 'ForgeDim' },
     }, captured.picker.entries[1].display)
     assert.same({
-      { '  ', 'ForgeDim' },
+      { '+ ', 'ForgeBranch' },
       { 'feature', 'ForgeBranch' },
-      { ' · → origin/feature · def5678', 'ForgeDim' },
-      { ' · Feature branch' },
+      { ' [origin/feature]', 'Directory' },
+      { ' Feature branch', 'ForgeDim' },
     }, captured.picker.entries[2].display)
+    assert.same({
+      { '  ', 'ForgeDim' },
+      { 'topic  ' },
+      { '                 ' },
+      { ' Topic branch', 'ForgeDim' },
+    }, captured.picker.entries[3].display)
 
-    local entry = captured.picker.entries[2]
-    captured.picker.actions[1].fn(entry)
+    local worktree_entry = captured.picker.entries[2]
+    captured.picker.actions[1].fn(worktree_entry)
+    assert.equals('cd /repo-feature', captured.cmd)
+    assert.is_true(captured.cleared)
+    assert.equals('changed directory to /repo-feature', captured.info)
+
+    local switch_entry = captured.picker.entries[3]
+    captured.picker.actions[1].fn(switch_entry)
     vim.wait(100, function()
-      return captured.info == 'switched to branch feature'
+      return captured.info == 'switched to branch topic'
     end)
-    assert.equals('switched to branch feature', captured.info)
-    assert.equals('git switch feature', captured.last_system)
+    assert.equals('switched to branch topic', captured.info)
+    assert.equals('git switch topic', captured.last_system)
 
-    captured.picker.actions[2].fn(entry)
+    captured.picker.actions[2].fn(worktree_entry)
     assert.equals('feature', captured.browse_branch)
 
-    captured.picker.actions[3].fn(entry)
+    captured.picker.actions[3].fn(worktree_entry)
     assert.equals('feature', captured.review_branch)
   end)
 
@@ -281,5 +308,41 @@ describe('git sections', function()
 
     assert.equals('cd /repo-feature', captured.cmd)
     assert.is_true(captured.cleared)
+  end)
+
+  it('warns for worktree-backed branch deletion and deletes ordinary branches', function()
+    local ctx = {
+      id = 'current',
+      root = '/repo',
+    }
+
+    require('forge.pickers').branches(ctx)
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    local delete_action
+    for _, action in ipairs(captured.picker.actions) do
+      if action.name == 'delete' then
+        delete_action = action
+        break
+      end
+    end
+    assert.is_not_nil(delete_action)
+
+    local worktree_entry = captured.picker.entries[2]
+    delete_action.fn(worktree_entry)
+    assert.equals(
+      'branch feature is checked out in worktree /repo-feature; use Worktrees to remove it first',
+      captured.warn
+    )
+
+    local delete_entry = captured.picker.entries[3]
+    delete_action.fn(delete_entry)
+    assert.equals('Delete branch topic? ', captured.select_prompt)
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.systems, 'git branch --delete topic')
+    end)
+    assert.is_true(vim.tbl_contains(captured.systems, 'git branch --delete topic'))
   end)
 end)

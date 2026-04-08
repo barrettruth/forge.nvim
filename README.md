@@ -55,8 +55,8 @@ luarocks install forge.nvim
 ## Root workflow
 
 `:Forge` opens a workflow surface, not just a route list. Root entries describe
-whether a section is forge-backed, git-backed, or mixed, and summarize the
-primary scope and actions before the nested picker opens.
+the top-level sections with label-only rows while keeping the nested picker
+behavior and workflow details in the help docs.
 
 ## `<Plug>` mappings
 

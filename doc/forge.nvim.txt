@@ -214,6 +214,7 @@ Top-level keys: ~
         },
         branch = {
           review = '<c-d>',
+          delete = '<c-s>',
           browse = '<c-x>',
           yank = '<c-y>',
           refresh = '<c-r>',
@@ -235,7 +236,7 @@ Top-level keys: ~
   still accepted as a legacy alias.
 
   Additional picker groups:
-    `keys.branch` supports `review`, `browse`, `yank`, and `refresh`.
+    `keys.branch` supports `review`, `delete`, `browse`, `yank`, and `refresh`.
     `keys.commit` supports `review`, `browse`, `yank`, and `refresh`.
     `keys.worktree` supports `yank` and `refresh`.
 
@@ -537,12 +538,15 @@ In-progress views auto-refresh at the `ci.refresh` interval.
   `refresh`     `<c-r>`          Re-fetch runs
 
                                                          *forge-picker-branch*
-BRANCH PICKER ~ Lists local refs with current-branch emphasis, upstream, tip
-SHA, and tip commit summary.
+BRANCH PICKER ~ Lists local refs with current-branch emphasis, worktree-aware
+markers, upstream, and tip commit summary. `*` marks the current branch and
+`+` marks a branch checked out in another worktree.
 
   Action      Default Key    Description ~
-  `switch`      `<cr>`           Switch to the selected branch
+  `switch`      `<cr>`           Switch to the selected branch, or jump to its
+                                worktree when the row is marked `+`
   `review`      `<c-d>`          Start branch review
+  `delete`      `<c-s>`          Delete a non-current branch after confirmation
   `browse`      `<c-x>`          Open branch in browser
   `yank`        `<c-y>`          Copy branch name to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -586,10 +590,9 @@ rebase, merge), Close/Reopen, Mark as draft/Mark as ready.
 ==============================================================================
 WORKFLOW SURFACE                                              *forge-workflow*
 
-`:Forge` is a workflow surface, not just a route list. Root entries include a
-section label plus a short category, scope, and action summary before the
-nested picker opens. Local git sections stay visible as first-class workflows
-next to forge-backed sections.
+`:Forge` is a workflow surface, not just a route list. The root picker uses
+label-only entries so the top level stays compact, while the nested pickers and
+help docs carry the workflow detail.
 
 Architecture: ~
 - Root `:Forge` entries go through `require('forge.client').open_root()`.
@@ -799,6 +802,7 @@ Picker lines: ~
   `ForgePending`             `DiagnosticWarn`     In-progress CI status icon
   `ForgeSkip`                `Comment`            Skipped/cancelled CI icon
   `ForgeBranch`              `Special`            Branch names and git refs
+  `ForgeBranchCurrent`       custom               Current branch label
   `ForgeDim`                 `Comment`            Secondary picker metadata
 
 ==============================================================================

@@ -93,32 +93,88 @@ local function run_git_cmd(label, cmd, success_msg, fail_msg, on_success, on_fai
   end)
 end
 
+local function change_directory(path)
+  require('forge').clear_cache()
+  vim.cmd('cd ' .. vim.fn.fnameescape(path))
+  log.info('changed directory to ' .. path)
+end
+
 local function split_records(text)
   return vim.tbl_map(function(record)
     return vim.split(record, field_sep, { plain = true })
   end, vim.split(text or '', record_sep, { plain = true, trimempty = true }))
 end
 
-local function branch_display(item)
-  local display = {
-    { item.current and '* ' or '  ', item.current and 'Identifier' or 'ForgeDim' },
-    { item.name, 'ForgeBranch' },
+local function pad_or_truncate(s, width)
+  if width <= 0 then
+    return ''
+  end
+  if #s > width then
+    return s:sub(1, width - 1) .. '…'
+  end
+  return s .. string.rep(' ', width - #s)
+end
+
+local function truncate(s, width)
+  if width <= 0 or #s <= width then
+    return s
+  end
+  return s:sub(1, width - 1) .. '…'
+end
+
+local function branch_layout(branches)
+  local branch_limit = 25
+  local subject_limit = 45
+  local ok, forge = pcall(require, 'forge')
+  if ok and forge.config then
+    local widths = forge.config().display.widths
+    branch_limit = widths.branch or branch_limit
+    subject_limit = widths.title or subject_limit
+  end
+
+  local name_width = 1
+  local upstream_width = 0
+  for _, item in ipairs(branches) do
+    name_width = math.max(name_width, #item.name)
+    if item.upstream ~= '' then
+      upstream_width = math.max(upstream_width, #item.upstream + 2)
+    end
+  end
+
+  return {
+    name = math.min(name_width, branch_limit),
+    upstream = math.min(upstream_width, branch_limit),
+    subject = subject_limit,
   }
-  local meta = {}
+end
+
+local function branch_display(item, layout)
+  local marker = '  '
+  local marker_hl = 'ForgeDim'
+  local name_hl = nil
   if item.current then
-    meta[#meta + 1] = 'current'
+    marker = '* '
+    marker_hl = 'ForgePass'
+    name_hl = 'ForgeBranchCurrent'
+  elseif item.worktree_path then
+    marker = '+ '
+    marker_hl = 'ForgeBranch'
+    name_hl = 'ForgeBranch'
   end
-  if item.upstream ~= '' then
-    meta[#meta + 1] = '→ ' .. item.upstream
-  end
-  if item.sha ~= '' then
-    meta[#meta + 1] = item.sha
-  end
-  if #meta > 0 then
-    display[#display + 1] = { ' · ' .. table.concat(meta, ' · '), 'ForgeDim' }
+
+  local display = {
+    { marker, marker_hl },
+    { pad_or_truncate(item.name, layout.name), name_hl },
+  }
+  if layout.upstream > 0 then
+    local upstream = item.upstream ~= '' and ('[' .. item.upstream .. ']') or ''
+    display[#display + 1] = {
+      ' ' .. pad_or_truncate(upstream, layout.upstream),
+      upstream ~= '' and 'Directory' or nil,
+    }
   end
   if item.subject ~= '' then
-    display[#display + 1] = { ' · ' .. item.subject }
+    display[#display + 1] = { ' ' .. truncate(item.subject, layout.subject), 'ForgeDim' }
   end
   return display
 end
@@ -183,14 +239,15 @@ end
 
 local function parse_branches(output)
   local branches = {}
-  for _, fields in ipairs(split_records(output)) do
+  for _, line in ipairs(vim.split(output or '', '\n', { plain = true, trimempty = true })) do
+    local fields = vim.split(line, '\t', { plain = true })
     if #fields >= 5 then
       branches[#branches + 1] = {
         current = vim.trim(fields[1]) == '*',
         name = fields[2],
         upstream = fields[3],
         sha = fields[4],
-        subject = fields[5],
+        subject = table.concat(vim.list_slice(fields, 5), '\t'),
       }
     end
   end
@@ -251,6 +308,28 @@ local function parse_worktrees(output, current_root)
     worktrees[#worktrees + 1] = item
   end
   return worktrees
+end
+
+local function annotate_branches_with_worktrees(ctx, branches, on_done)
+  vim.system({ 'git', 'worktree', 'list', '--porcelain' }, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        on_done(branches)
+        return
+      end
+      local worktrees = parse_worktrees(result.stdout or '', ctx.root)
+      local worktree_paths = {}
+      for _, item in ipairs(worktrees) do
+        if item.branch ~= '' and not item.current then
+          worktree_paths[item.branch] = item.path
+        end
+      end
+      for _, item in ipairs(branches) do
+        item.worktree_path = worktree_paths[item.name]
+      end
+      on_done(branches)
+    end)
+  end)
 end
 
 ---@param f forge.Forge
@@ -1343,15 +1422,21 @@ end
 ---@param ctx { root: string, branch: string, forge: forge.Forge? }
 function M.branches(ctx)
   local forge_mod = require('forge')
-  local cache_key = forge_mod.list_key('branch', 'local')
+  local cache_key = forge_mod.list_key('branch', 'local-refs-v2')
 
   local function open_branch_list(branches)
+    local layout = branch_layout(branches)
     local entries = {}
     for _, item in ipairs(branches) do
       entries[#entries + 1] = {
-        display = branch_display(item),
+        display = branch_display(item, layout),
         value = item,
-        ordinal = item.name .. ' ' .. item.upstream .. ' ' .. item.subject,
+        ordinal = table.concat({
+          item.name,
+          item.upstream,
+          item.subject,
+          item.worktree_path or '',
+        }, ' '),
       }
     end
     local count = #entries
@@ -1370,6 +1455,10 @@ function M.branches(ctx)
             log.info('already on branch ' .. item.name)
             return
           end
+          if item.worktree_path then
+            change_directory(item.worktree_path)
+            return
+          end
           run_git_cmd(
             'switching to branch ' .. item.name,
             { 'git', 'switch', item.name },
@@ -1385,6 +1474,50 @@ function M.branches(ctx)
           if entry then
             require('forge.review').start_branch(ctx, entry.value.name)
           end
+        end,
+      },
+      {
+        name = 'delete',
+        label = 'delete',
+        fn = function(entry)
+          if not entry then
+            return
+          end
+          local item = entry.value
+          if item.current then
+            log.warn('cannot delete active branch ' .. item.name)
+            return
+          end
+          if item.worktree_path then
+            log.warn(
+              ('branch %s is checked out in worktree %s; use Worktrees to remove it first'):format(
+                item.name,
+                item.worktree_path
+              )
+            )
+            return
+          end
+          vim.ui.select({ 'Yes', 'No' }, {
+            prompt = 'Delete branch ' .. item.name .. '? ',
+          }, function(choice)
+            if choice == 'Yes' then
+              run_git_cmd(
+                'deleting branch ' .. item.name,
+                { 'git', 'branch', '--delete', item.name },
+                'deleted branch ' .. item.name,
+                'delete failed',
+                function()
+                  forge_mod.clear_list(cache_key)
+                  M.branches(ctx)
+                end,
+                function()
+                  M.branches(ctx)
+                end
+              )
+            else
+              M.branches(ctx)
+            end
+          end)
         end,
       },
       {
@@ -1439,7 +1572,7 @@ function M.branches(ctx)
   vim.system({
     'git',
     'for-each-ref',
-    '--format=%(HEAD)%x1f%(refname:short)%x1f%(upstream:short)%x1f%(objectname:short)%x1f%(subject)%x1e',
+    '--format=%(HEAD)\t%(refname:short)\t%(upstream:short)\t%(objectname:short)\t%(subject)',
     'refs/heads',
   }, { text = true }, function(result)
     vim.schedule(function()
@@ -1448,8 +1581,10 @@ function M.branches(ctx)
         return
       end
       local branches = parse_branches(result.stdout or '')
-      forge_mod.set_list(cache_key, branches)
-      open_branch_list(branches)
+      annotate_branches_with_worktrees(ctx, branches, function(items)
+        forge_mod.set_list(cache_key, items)
+        open_branch_list(items)
+      end)
     end)
   end)
 end
@@ -1600,9 +1735,7 @@ function M.worktrees(ctx)
               log.info('already in worktree ' .. item.path)
               return
             end
-            require('forge').clear_cache()
-            vim.cmd('cd ' .. vim.fn.fnameescape(item.path))
-            log.info('changed directory to ' .. item.path)
+            change_directory(item.path)
           end,
         },
         {
