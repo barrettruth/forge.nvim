@@ -537,8 +537,9 @@ In-progress views auto-refresh at the `ci.refresh` interval.
   `refresh`     `<c-r>`          Re-fetch runs
 
                                                          *forge-picker-branch*
-BRANCH PICKER ~ Lists local refs with current-branch emphasis, upstream, tip
-SHA, and tip commit summary.
+BRANCH PICKER ~ Lists local refs with current-branch emphasis, worktree-aware
+markers, upstream, and tip commit summary. `*` marks the current branch and
+`+` marks a branch checked out in another worktree.
 
   Action      Default Key    Description ~
   `switch`      `<cr>`           Switch to the selected branch
@@ -798,6 +799,7 @@ Picker lines: ~
   `ForgePending`             `DiagnosticWarn`     In-progress CI status icon
   `ForgeSkip`                `Comment`            Skipped/cancelled CI icon
   `ForgeBranch`              `Special`            Branch names and git refs
+  `ForgeBranchCurrent`       custom               Current branch label
   `ForgeDim`                 `Comment`            Secondary picker metadata
 
 ==============================================================================

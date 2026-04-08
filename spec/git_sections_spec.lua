@@ -184,16 +184,16 @@ describe('git sections', function()
     assert.equals('review', captured.picker.actions[3].name)
     assert.equals('yank', captured.picker.actions[4].name)
     assert.same({
-      { '* ', 'Identifier' },
-      { 'main', 'ForgeBranch' },
-      { ' · current · → origin/main · abc1234', 'ForgeDim' },
-      { ' · Main branch' },
+      { '* ', 'ForgePass' },
+      { 'main   ', 'ForgeBranchCurrent' },
+      { ' [origin/main]   ', 'Directory' },
+      { ' Main branch', 'ForgeDim' },
     }, captured.picker.entries[1].display)
     assert.same({
-      { '  ', 'ForgeDim' },
+      { '+ ', 'ForgeBranch' },
       { 'feature', 'ForgeBranch' },
-      { ' · → origin/feature · def5678', 'ForgeDim' },
-      { ' · Feature branch' },
+      { ' [origin/feature]', 'Directory' },
+      { ' Feature branch', 'ForgeDim' },
     }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[2]

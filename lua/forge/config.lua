@@ -324,6 +324,7 @@ local hl_defaults = {
   ForgePending = 'DiagnosticWarn',
   ForgeSkip = 'Comment',
   ForgeBranch = 'Special',
+  ForgeBranchCurrent = { bold = true },
   ForgeDim = 'Comment',
   ForgeLogJob = 'Title',
   ForgeLogStep = 'Function',
