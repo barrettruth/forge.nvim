@@ -125,8 +125,54 @@ local function pad_or_truncate_tail(s, width)
   return s .. string.rep(' ', width - #s)
 end
 
+local function home_path(path)
+  return vim.fn.fnamemodify(path, ':~')
+end
+
+local function picker_width()
+  local ok, width = pcall(vim.api.nvim_win_get_width, 0)
+  if ok and type(width) == 'number' and width > 0 then
+    return width
+  end
+  if vim.o.columns > 0 then
+    return vim.o.columns
+  end
+  return 80
+end
+
+local function flex_widths(
+  primary,
+  secondary,
+  primary_floor,
+  secondary_floor,
+  primary_wanted,
+  secondary_wanted,
+  budget
+)
+  while primary + secondary > budget and primary > primary_floor do
+    primary = primary - 1
+  end
+  while primary + secondary > budget and secondary > secondary_floor do
+    secondary = secondary - 1
+  end
+  while primary + secondary > budget and (primary > 1 or secondary > 0) do
+    if secondary > 0 and (primary <= 1 or primary < secondary) then
+      secondary = secondary - 1
+    else
+      primary = primary - 1
+    end
+  end
+  while primary + secondary < budget and secondary < secondary_wanted do
+    secondary = secondary + 1
+  end
+  while primary + secondary < budget and primary < primary_wanted do
+    primary = primary + 1
+  end
+  return primary, secondary
+end
+
 local function display_path(path, width)
-  local rendered = vim.fn.fnamemodify(path, ':~')
+  local rendered = home_path(path)
   if #rendered > width then
     rendered = vim.fn.pathshorten(rendered)
   end
@@ -277,14 +323,30 @@ local function worktree_layout(worktrees)
   local label_width = 0
   local sha_width = 0
   for _, item in ipairs(worktrees) do
-    path_width = math.max(path_width, #item.path)
+    path_width = math.max(path_width, #home_path(item.path))
     label_width = math.max(label_width, #worktree_label(item))
     sha_width = math.max(sha_width, #item.short_head)
   end
 
+  local path = math.min(path_width, path_limit)
+  local label = math.min(label_width, label_limit)
+  local budget = math.max(
+    1,
+    picker_width() - 8 - 2 - sha_width - (label_width > 0 and 1 or 0) - (sha_width > 0 and 1 or 0)
+  )
+  path, label = flex_widths(
+    path,
+    label,
+    math.min(path, math.max(12, math.floor(path_limit / 2))),
+    math.min(label, math.max(8, math.floor(label_limit / 2))),
+    path_width,
+    label_width,
+    budget
+  )
+
   return {
-    path = math.min(path_width, path_limit),
-    label = math.min(label_width, label_limit),
+    path = path,
+    label = label,
     sha = sha_width,
   }
 end
