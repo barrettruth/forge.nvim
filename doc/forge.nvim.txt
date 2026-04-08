@@ -577,8 +577,8 @@ subject, and `<author>`, with light alignment to keep history lines readable.
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                        *forge-picker-worktree*
-WORKTREE PICKER ~ Lists git worktrees with branch/detached state and repo
-path.
+WORKTREE PICKER ~ Lists git worktrees as path-first rows with branch or
+detached state and HEAD.
 
   Action      Default Key    Description ~
   `switch cwd`  `<cr>`           Change Neovim's cwd to the selected worktree

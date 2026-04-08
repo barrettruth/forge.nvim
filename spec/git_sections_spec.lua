@@ -299,15 +299,15 @@ describe('git sections', function()
     assert.equals('switch cwd', captured.picker.actions[1].label)
     assert.same({
       { '* ', 'Identifier' },
-      { 'main', 'ForgeBranch' },
-      { ' · current · abc1234', 'ForgeDim' },
-      { ' /repo', 'ForgeDim' },
+      { '/repo        ', 'Directory' },
+      { ' main   ', 'ForgeBranch' },
+      { ' abc1234', 'ForgeDim' },
     }, captured.picker.entries[1].display)
     assert.same({
       { '  ', 'ForgeDim' },
-      { 'feature', 'ForgeBranch' },
-      { ' · def5678', 'ForgeDim' },
-      { ' /repo-feature', 'ForgeDim' },
+      { '/repo-feature', 'Directory' },
+      { ' feature', 'ForgeBranch' },
+      { ' def5678', 'ForgeDim' },
     }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[2]

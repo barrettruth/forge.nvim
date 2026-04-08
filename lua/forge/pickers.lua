@@ -115,6 +115,16 @@ local function pad_or_truncate(s, width)
   return s .. string.rep(' ', width - #s)
 end
 
+local function pad_or_truncate_tail(s, width)
+  if width <= 0 then
+    return ''
+  end
+  if #s > width then
+    return '…' .. s:sub(#s - width + 2)
+  end
+  return s .. string.rep(' ', width - #s)
+end
+
 local function truncate(s, width)
   if width <= 0 or #s <= width then
     return s
@@ -237,36 +247,55 @@ local function worktree_label(item)
     return item.branch
   end
   if item.detached then
-    return 'detached ' .. item.short_head
+    return 'detached'
   end
   if item.bare then
     return 'bare'
   end
-  return item.short_head
+  return ''
 end
 
-local function worktree_display(item)
+local function worktree_layout(worktrees)
+  local path_limit = 35
+  local label_limit = 25
+  local ok, forge = pcall(require, 'forge')
+  if ok and forge.config then
+    local widths = forge.config().display.widths
+    path_limit = widths.name or path_limit
+    label_limit = widths.branch or label_limit
+  end
+
+  local path_width = 1
+  local label_width = 0
+  local sha_width = 0
+  for _, item in ipairs(worktrees) do
+    path_width = math.max(path_width, #item.path)
+    label_width = math.max(label_width, #worktree_label(item))
+    sha_width = math.max(sha_width, #item.short_head)
+  end
+
+  return {
+    path = math.min(path_width, path_limit),
+    label = math.min(label_width, label_limit),
+    sha = sha_width,
+  }
+end
+
+local function worktree_display(item, layout)
+  local label = worktree_label(item)
   local display = {
     { item.current and '* ' or '  ', item.current and 'Identifier' or 'ForgeDim' },
-    { worktree_label(item), item.branch ~= '' and 'ForgeBranch' or nil },
+    { pad_or_truncate_tail(item.path, layout.path), 'Directory' },
   }
-  local meta = {}
-  if item.current then
-    meta[#meta + 1] = 'current'
+  if layout.label > 0 then
+    display[#display + 1] = {
+      ' ' .. pad_or_truncate(label, layout.label),
+      item.branch ~= '' and 'ForgeBranch' or 'ForgeDim',
+    }
   end
-  if item.detached then
-    meta[#meta + 1] = 'detached'
+  if layout.sha > 0 and item.short_head ~= '' then
+    display[#display + 1] = { ' ' .. pad_or_truncate(item.short_head, layout.sha), 'ForgeDim' }
   end
-  if item.bare then
-    meta[#meta + 1] = 'bare'
-  end
-  if item.short_head ~= '' and not item.detached then
-    meta[#meta + 1] = item.short_head
-  end
-  if #meta > 0 then
-    display[#display + 1] = { ' · ' .. table.concat(meta, ' · '), 'ForgeDim' }
-  end
-  display[#display + 1] = { ' ' .. item.path, 'ForgeDim' }
   return display
 end
 
@@ -1742,12 +1771,13 @@ function M.worktrees(ctx)
   local cache_key = forge_mod.list_key('worktree', 'list')
 
   local function open_worktree_list(worktrees)
+    local layout = worktree_layout(worktrees)
     local entries = {}
     for _, item in ipairs(worktrees) do
       entries[#entries + 1] = {
-        display = worktree_display(item),
+        display = worktree_display(item, layout),
         value = item,
-        ordinal = item.path .. ' ' .. worktree_label(item),
+        ordinal = item.path .. ' ' .. worktree_label(item) .. ' ' .. item.short_head,
       }
     end
     local count = #entries
