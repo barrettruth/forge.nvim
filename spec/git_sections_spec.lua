@@ -360,6 +360,9 @@ describe('git sections', function()
   end)
 
   it('renders home paths with ~ and shortens long worktree paths', function()
+    local home = vim.env.HOME or '/home/barrett'
+    local current_path = home .. '/dev/forge.nvim'
+    local nested_path = home .. '/dev/forge.nvim/.claude/worktrees/agent-a43cb846'
     local current_system = vim.system
     vim.system = function(cmd, opts, cb)
       local key = table.concat(cmd, ' ')
@@ -367,11 +370,11 @@ describe('git sections', function()
         local result = {
           code = 0,
           stdout = table.concat({
-            'worktree /home/barrett/dev/forge.nvim',
+            'worktree ' .. current_path,
             'HEAD abc123456789',
             'branch refs/heads/main',
             '',
-            'worktree /home/barrett/dev/forge.nvim/.claude/worktrees/agent-a43cb846',
+            'worktree ' .. nested_path,
             'HEAD 9be38e312345',
             'branch refs/heads/worktree-agent-a43cb846',
             '',
@@ -391,10 +394,6 @@ describe('git sections', function()
       end
       return current_system(cmd, opts, cb)
     end
-
-    local home = vim.env.HOME or '/home/barrett'
-    local current_path = home .. '/dev/forge.nvim'
-    local nested_path = home .. '/dev/forge.nvim/.claude/worktrees/agent-a43cb846'
 
     require('forge.pickers').worktrees({ root = current_path })
     vim.wait(100, function()
