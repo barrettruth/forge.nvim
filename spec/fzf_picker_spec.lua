@@ -78,7 +78,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      ':: [FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^O] [FzfLuaHeaderText:filter]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^O] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
@@ -104,7 +104,7 @@ describe('fzf picker', function()
     assert.is_nil(captured.opts.fzf_opts['--header'])
   end)
 
-  it('suppresses headers for git-local pickers', function()
+  it('renders headers for git-local pickers without the legacy prefix', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'Branches> ',
@@ -123,7 +123,10 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.is_nil(captured.opts.fzf_opts['--header'])
+    assert.equals(
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:switch]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:delete]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]',
+      captured.opts.fzf_opts['--header']
+    )
   end)
 
   it('treats placeholder rows as no selection', function()
