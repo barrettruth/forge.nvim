@@ -1,5 +1,11 @@
 local M = {}
 
+local function normalize_text(text)
+  text = text or ''
+  text = text:gsub('\r\n', ' ')
+  return (text:gsub('[\r\n\t]', ' '))
+end
+
 local function current_window_width()
   local ok, width = pcall(vim.api.nvim_win_get_width, 0)
   if ok and type(width) == 'number' and width > 0 then
@@ -60,7 +66,7 @@ function M.picker_width()
 end
 
 function M.display_width(text)
-  return vim.fn.strdisplaywidth(text or '')
+  return vim.fn.strdisplaywidth(normalize_text(text))
 end
 
 function M.max_width(values)
@@ -173,7 +179,7 @@ end
 
 function M.fit(text, width, opts)
   opts = opts or {}
-  text = text or ''
+  text = normalize_text(text)
   if width <= 0 then
     return ''
   end

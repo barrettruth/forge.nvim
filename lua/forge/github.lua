@@ -1,4 +1,5 @@
 local forge = require('forge')
+local log = require('forge.logger')
 
 ---@class forge.GitHub: forge.Forge
 local M = {
@@ -48,15 +49,35 @@ local function nwo()
   return url:match('github%.com/(.+)$') or ''
 end
 
+local function open_browse_url(cmd)
+  local browse_cmd = vim.deepcopy(cmd)
+  table.insert(browse_cmd, '--no-browser')
+  vim.system(browse_cmd, { text = true }, function(result)
+    vim.schedule(function()
+      local url = vim.trim(result.stdout or '')
+      if result.code ~= 0 or url == '' then
+        local err = vim.trim(result.stderr or '')
+        log.error(err ~= '' and err or 'browse failed')
+        return
+      end
+      local _, err = vim.ui.open(url)
+      if err then
+        log.error(err)
+      end
+    end)
+  end)
+end
+
 ---@param state string
+---@param limit integer?
 ---@return string[]
-function M:list_pr_json_cmd(state)
+function M:list_pr_json_cmd(state, limit)
   return {
     'gh',
     'pr',
     'list',
     '--limit',
-    tostring(forge.config().display.limits.pulls),
+    tostring(limit or forge.config().display.limits.pulls),
     '--state',
     state,
     '--json',
@@ -65,14 +86,15 @@ function M:list_pr_json_cmd(state)
 end
 
 ---@param state string
+---@param limit integer?
 ---@return string[]
-function M:list_issue_json_cmd(state)
+function M:list_issue_json_cmd(state, limit)
   return {
     'gh',
     'issue',
     'list',
     '--limit',
-    tostring(forge.config().display.limits.issues),
+    tostring(limit or forge.config().display.limits.issues),
     '--state',
     state,
     '--json',
@@ -89,15 +111,15 @@ end
 ---@param loc string
 ---@param branch string
 function M:browse(loc, branch)
-  vim.system({ 'gh', 'browse', loc, '--branch', branch })
+  open_browse_url({ 'gh', 'browse', loc, '--branch', branch })
 end
 
 function M:browse_branch(branch)
-  vim.system({ 'gh', 'browse', '--branch', branch })
+  open_browse_url({ 'gh', 'browse', '--branch', branch })
 end
 
 function M:browse_commit(sha)
-  vim.system({ 'gh', 'browse', sha })
+  open_browse_url({ 'gh', 'browse', sha })
 end
 
 function M:checkout_cmd(num)

@@ -148,7 +148,22 @@ function M.pick(opts)
           return
         end
         local idx = tonumber(selected[1]:match('^(%d+)'))
-        def.fn(picker_mod.selected(idx and entries[idx] or nil))
+        local entry = picker_mod.selected(idx and entries[idx] or nil)
+        if picker_mod.closes(def, entry) and not picker_mod.closes(def) then
+          local utils = require('fzf-lua.utils')
+          local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
+          if win and type(win.close) == 'function' then
+            win:close()
+          end
+          if type(utils.clear_CTX) == 'function' then
+            utils.clear_CTX()
+          end
+          vim.schedule(function()
+            def.fn(entry)
+          end)
+          return
+        end
+        def.fn(entry)
       end
       if picker_mod.closes(def) then
         fzf_actions[to_fzf_key(key)] = action_fn

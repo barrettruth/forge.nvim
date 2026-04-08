@@ -26,6 +26,12 @@ describe('github', function()
     assert.truthy(vim.tbl_contains(cmd, '--json'))
   end)
 
+  it('respects explicit PR list limits', function()
+    local cmd = gh:list_pr_json_cmd('open', 55)
+    assert.truthy(vim.tbl_contains(cmd, '--limit'))
+    assert.truthy(vim.tbl_contains(cmd, '55'))
+  end)
+
   it('builds merge_cmd with method flag', function()
     assert.same({ 'gh', 'pr', 'merge', '42', '--squash' }, gh:merge_cmd('42', 'squash'))
     assert.same({ 'gh', 'pr', 'merge', '10', '--rebase' }, gh:merge_cmd('10', 'rebase'))
@@ -93,6 +99,110 @@ describe('github', function()
   end)
 end)
 
+describe('github browse', function()
+  local captured
+  local old_preload
+  local old_system
+  local old_ui_open
+  local gh
+
+  before_each(function()
+    captured = {}
+    old_system = vim.system
+    old_ui_open = vim.ui.open
+    old_preload = {
+      ['forge.logger'] = package.preload['forge.logger'],
+    }
+
+    package.preload['forge.logger'] = function()
+      return {
+        error = function(msg)
+          captured.error = msg
+        end,
+        warn = function() end,
+        info = function() end,
+        debug = function() end,
+      }
+    end
+
+    vim.system = function(cmd, _, cb)
+      captured.cmd = cmd
+      if cb then
+        cb({
+          code = 0,
+          stdout = 'https://example.com/repo/blob/main/lua/forge/init.lua#L10\n',
+          stderr = '',
+        })
+      end
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    vim.ui.open = function(url)
+      captured.url = url
+      return {}, nil
+    end
+
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.github'] = nil
+    gh = require('forge.github')
+  end)
+
+  after_each(function()
+    vim.system = old_system
+    vim.ui.open = old_ui_open
+    package.preload['forge.logger'] = old_preload['forge.logger']
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.github'] = nil
+  end)
+
+  it('opens GitHub browse targets through vim.ui.open', function()
+    gh:browse('lua/forge/init.lua:10', 'main')
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.same(
+      { 'gh', 'browse', 'lua/forge/init.lua:10', '--branch', 'main', '--no-browser' },
+      captured.cmd
+    )
+    assert.equals('https://example.com/repo/blob/main/lua/forge/init.lua#L10', captured.url)
+    assert.is_nil(captured.error)
+  end)
+
+  it('logs browse resolution failures from gh', function()
+    vim.system = function(cmd, _, cb)
+      captured.cmd = cmd
+      if cb then
+        cb({
+          code = 1,
+          stdout = '',
+          stderr = 'exit status 1',
+        })
+      end
+      return {
+        wait = function()
+          return { code = 1 }
+        end,
+      }
+    end
+
+    gh:browse_branch('main')
+
+    vim.wait(100, function()
+      return captured.error ~= nil
+    end)
+
+    assert.same({ 'gh', 'browse', '--branch', 'main', '--no-browser' }, captured.cmd)
+    assert.equals('exit status 1', captured.error)
+    assert.is_nil(captured.url)
+  end)
+end)
+
 describe('gitlab', function()
   local gl = require('forge.gitlab')
 
@@ -108,6 +218,12 @@ describe('gitlab', function()
     assert.equals('mr', cmd[2])
     assert.truthy(vim.tbl_contains(gl:list_pr_json_cmd('closed'), '--closed'))
     assert.truthy(vim.tbl_contains(gl:list_pr_json_cmd('all'), '--all'))
+  end)
+
+  it('respects explicit issue list limits', function()
+    local cmd = gl:list_issue_json_cmd('open', 44)
+    assert.truthy(vim.tbl_contains(cmd, '--per-page'))
+    assert.truthy(vim.tbl_contains(cmd, '44'))
   end)
 
   it('builds merge_cmd with method flags', function()
@@ -162,6 +278,12 @@ describe('codeberg', function()
     local cmd = cb:list_pr_json_cmd('open')
     assert.equals('tea', cmd[1])
     assert.truthy(vim.tbl_contains(cmd, '--fields'))
+  end)
+
+  it('respects explicit issue list limits', function()
+    local cmd = cb:list_issue_json_cmd('open', 66)
+    assert.truthy(vim.tbl_contains(cmd, '--limit'))
+    assert.truthy(vim.tbl_contains(cmd, '66'))
   end)
 
   it('builds merge_cmd with --style', function()
