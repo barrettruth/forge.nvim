@@ -214,6 +214,7 @@ Top-level keys: ~
         },
         branch = {
           review = '<c-d>',
+          delete = '<c-s>',
           browse = '<c-x>',
           yank = '<c-y>',
           refresh = '<c-r>',
@@ -235,7 +236,7 @@ Top-level keys: ~
   still accepted as a legacy alias.
 
   Additional picker groups:
-    `keys.branch` supports `review`, `browse`, `yank`, and `refresh`.
+    `keys.branch` supports `review`, `delete`, `browse`, `yank`, and `refresh`.
     `keys.commit` supports `review`, `browse`, `yank`, and `refresh`.
     `keys.worktree` supports `yank` and `refresh`.
 
@@ -491,6 +492,8 @@ When using fzf-lua, picker headers use fzf-lua's `FzfLuaHeaderBind` and
 `FzfLuaHeaderText` highlight groups.
 Headers emphasize primary item actions; list controls remain available but are
 not all shown.
+Git-local pickers (`Branches`, `Commits`, `Worktrees`) suppress the header to
+keep those rows compact.
 Prompts show workflow context, primary action, and item count. Empty data
 pickers render a placeholder row instead of appearing blank.
 
@@ -545,6 +548,7 @@ markers, upstream, and tip commit summary. `*` marks the current branch and
   `switch`      `<cr>`           Switch to the selected branch, or jump to its
                                 worktree when the row is marked `+`
   `review`      `<c-d>`          Start branch review
+  `delete`      `<c-s>`          Delete a non-current branch after confirmation
   `browse`      `<c-x>`          Open branch in browser
   `yank`        `<c-y>`          Copy branch name to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch

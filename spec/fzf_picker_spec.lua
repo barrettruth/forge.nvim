@@ -104,6 +104,28 @@ describe('fzf picker', function()
     assert.is_nil(captured.opts.fzf_opts['--header'])
   end)
 
+  it('suppresses headers for git-local pickers', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Branches> ',
+      entries = {
+        {
+          display = { { 'main' } },
+          value = 'main',
+        },
+      },
+      actions = {
+        { name = 'default', label = 'switch', fn = function() end },
+        { name = 'delete', label = 'delete', fn = function() end },
+        { name = 'browse', label = 'browse', fn = function() end },
+      },
+      picker_name = 'branch',
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_nil(captured.opts.fzf_opts['--header'])
+  end)
+
   it('treats placeholder rows as no selection', function()
     local picker = require('forge.picker.fzf')
     picker.pick({

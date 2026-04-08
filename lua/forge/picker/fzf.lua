@@ -44,10 +44,18 @@ local function render(segments)
   return table.concat(parts)
 end
 
+local function suppress_header(picker_name)
+  return picker_name == 'branch' or picker_name == 'commit' or picker_name == 'worktree'
+end
+
 ---@param actions forge.PickerActionDef[]
 ---@param bindings table<string, string|false>
+---@param picker_name string
 ---@return string?
-local function render_header(actions, bindings)
+local function render_header(actions, bindings, picker_name)
+  if suppress_header(picker_name) then
+    return nil
+  end
   local utils = require('fzf-lua.utils')
   local parts = {}
   local seen_keys = {}
@@ -111,7 +119,7 @@ function M.pick(opts)
     prompt = opts.prompt or '',
     fzf_opts = {
       ['--ansi'] = '',
-      ['--header'] = render_header(opts.actions, bindings),
+      ['--header'] = render_header(opts.actions, bindings, opts.picker_name),
       ['--no-multi'] = '',
       ['--with-nth'] = '2..',
       ['--delimiter'] = '\t',

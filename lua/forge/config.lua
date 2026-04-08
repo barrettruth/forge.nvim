@@ -253,6 +253,7 @@ local DEFAULTS = {
     },
     branch = {
       review = '<c-d>',
+      delete = '<c-s>',
       browse = '<c-x>',
       yank = '<c-y>',
       refresh = '<c-r>',
@@ -461,7 +462,7 @@ function M.config()
     local branch_keys = rawget(keys, 'branch')
     if branch_keys ~= nil then
       vim.validate('forge.keys.branch', branch_keys, 'table')
-      for _, k in ipairs({ 'review', 'browse', 'yank', 'refresh' }) do
+      for _, k in ipairs({ 'review', 'delete', 'browse', 'yank', 'refresh' }) do
         vim.validate('forge.keys.branch.' .. k, branch_keys[k], key_or_false, 'string or false')
       end
     end

@@ -1477,6 +1477,50 @@ function M.branches(ctx)
         end,
       },
       {
+        name = 'delete',
+        label = 'delete',
+        fn = function(entry)
+          if not entry then
+            return
+          end
+          local item = entry.value
+          if item.current then
+            log.warn('cannot delete active branch ' .. item.name)
+            return
+          end
+          if item.worktree_path then
+            log.warn(
+              ('branch %s is checked out in worktree %s; use Worktrees to remove it first'):format(
+                item.name,
+                item.worktree_path
+              )
+            )
+            return
+          end
+          vim.ui.select({ 'Yes', 'No' }, {
+            prompt = 'Delete branch ' .. item.name .. '? ',
+          }, function(choice)
+            if choice == 'Yes' then
+              run_git_cmd(
+                'deleting branch ' .. item.name,
+                { 'git', 'branch', '--delete', item.name },
+                'deleted branch ' .. item.name,
+                'delete failed',
+                function()
+                  forge_mod.clear_list(cache_key)
+                  M.branches(ctx)
+                end,
+                function()
+                  M.branches(ctx)
+                end
+              )
+            else
+              M.branches(ctx)
+            end
+          end)
+        end,
+      },
+      {
         name = 'yank',
         label = 'copy',
         close = false,
