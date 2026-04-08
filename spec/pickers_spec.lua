@@ -80,6 +80,9 @@ local function fake_ci_forge()
     check_log_cmd = function(_, run_id)
       return { 'log', run_id }
     end,
+    checks_json_cmd = function(_, num)
+      return { 'checks', num }
+    end,
     list_runs_json_cmd = function(_, branch)
       return { 'runs', branch or '' }
     end,
@@ -710,6 +713,59 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('log'), 'close'))
     assert.is_nil(rawget(action_by_name('watch'), 'close'))
+  end)
+
+  it('opens the checks picker immediately on fzf before the fetch completes', function()
+    local old_system = vim.system
+    local system_cb
+    vim.system = function(_, _, cb)
+      system_cb = cb
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all')
+
+    assert.is_not_nil(captured)
+    assert.equals('Checks (#42, all)> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('log'), 'close'))
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    assert.is_not_nil(system_cb)
+    system_cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          name = 'lint',
+          bucket = 'pass',
+          link = 'https://example.com/check',
+          run_id = '123',
+        },
+      }),
+    })
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('lint', streamed[1].value.name)
+    assert.equals('lint', streamed[1].display[1][1])
   end)
 
   it('opens the CI picker immediately on fzf before the fetch completes', function()
