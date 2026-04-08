@@ -44,6 +44,10 @@ local function render(segments)
   return table.concat(parts)
 end
 
+local function render_line(index, entry)
+  return ('%d\t%s'):format(index, render(entry.display))
+end
+
 ---@param actions forge.PickerActionDef[]
 ---@param bindings table<string, string|false>
 ---@return string?
@@ -80,10 +84,31 @@ function M.pick(opts)
   end
   local picker_mod = require('forge.picker')
   local bindings = keys[opts.picker_name] or {}
+  local entries = opts.entries or {}
 
-  local lines = {}
-  for i, entry in ipairs(opts.entries) do
-    lines[i] = ('%d\t%s'):format(i, render(entry.display))
+  local lines
+  if opts.stream then
+    lines = function(fzf_cb)
+      local next_index = 0
+      for i, entry in ipairs(entries) do
+        next_index = i
+        fzf_cb(render_line(i, entry))
+      end
+      opts.stream(function(entry)
+        if not entry then
+          fzf_cb(nil)
+          return
+        end
+        next_index = next_index + 1
+        entries[next_index] = entry
+        fzf_cb(render_line(next_index, entry))
+      end)
+    end
+  else
+    lines = {}
+    for i, entry in ipairs(entries) do
+      lines[i] = render_line(i, entry)
+    end
   end
 
   local fzf_actions = {}
@@ -96,7 +121,7 @@ function M.pick(opts)
           return
         end
         local idx = tonumber(selected[1]:match('^(%d+)'))
-        def.fn(picker_mod.selected(idx and opts.entries[idx] or nil))
+        def.fn(picker_mod.selected(idx and entries[idx] or nil))
       end
       if picker_mod.closes(def) then
         fzf_actions[to_fzf_key(key)] = action_fn

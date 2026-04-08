@@ -2,6 +2,7 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 local captured
 local cache
+local issue_create_calls
 
 local function fake_forge()
   return {
@@ -56,6 +57,9 @@ local function fake_issue_forge()
       created_at = 'created_at',
     },
     view_web = function() end,
+    list_issue_json_cmd = function(_, state)
+      return { 'issues', state }
+    end,
     close_issue_cmd = function(_, num)
       return { 'close', num }
     end,
@@ -111,6 +115,7 @@ describe('pickers', function()
 
   before_each(function()
     captured = nil
+    issue_create_calls = 0
     cache = {
       ['pr:open'] = {
         { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
@@ -140,6 +145,9 @@ describe('pickers', function()
     package.preload['forge.picker'] = function()
       return {
         backends = { ['fzf-lua'] = 'forge.picker.fzf' },
+        backend = function()
+          return 'fzf-lua'
+        end,
         pick = function(opts)
           captured = opts
         end,
@@ -239,6 +247,9 @@ describe('pickers', function()
         end,
         repo_info = function(f)
           return f:repo_info()
+        end,
+        create_issue = function()
+          issue_create_calls = issue_create_calls + 1
         end,
         create_pr = function() end,
         edit_pr = function() end,
@@ -417,6 +428,58 @@ describe('pickers', function()
     assert.is_nil(labels.create)
     assert.is_nil(labels.filter)
     assert.is_nil(labels.refresh)
+  end)
+
+  it('opens the issue picker immediately on fzf before the fetch completes', function()
+    cache['issue:all'] = nil
+
+    local old_system = vim.system
+    local system_cb
+    vim.system = function(_, _, cb)
+      system_cb = cb
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.issue('all', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    assert.equals('Issues (all)> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+
+    action_by_name('create').fn()
+    assert.equals(1, issue_create_calls)
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    assert.is_not_nil(system_cb)
+    system_cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('7', streamed[1].value)
+    assert.equals('#7', streamed[1].display[1][1])
+    assert.same(7, cache['issue:all'][1].number)
   end)
 
   it('keeps check and CI web actions open', function()

@@ -1291,13 +1291,17 @@ function M.issue(state, f)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
   local issue_show_state = state == 'all'
+  local state_map = {}
 
-  local function open_issue_list(issues)
+  local function build_issue_entries(issues)
+    for key in pairs(state_map) do
+      state_map[key] = nil
+    end
+
     table.sort(issues, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
     end)
     local state_field = issue_fields.state
-    local state_map = {}
     local entries = {}
     local displays = forge_mod.format_issues(
       issues,
@@ -1305,10 +1309,6 @@ function M.issue(state, f)
       issue_show_state,
       { width = layout.picker_width() }
     )
-    local function reopen_list()
-      forge_mod.clear_list(cache_key)
-      M.issue(state, f)
-    end
     for i, issue in ipairs(issues) do
       local n = tostring(issue[num_field] or '')
       local s = (issue[state_field] or ''):lower()
@@ -1322,67 +1322,108 @@ function M.issue(state, f)
     local count = #entries
     local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
       or ('No %s %s'):format(state, f.labels.issue)
-    entries = with_placeholder(entries, empty_text)
+    return with_placeholder(entries, empty_text), count
+  end
+
+  local function reopen_list()
+    forge_mod.clear_list(cache_key)
+    M.issue(state, f)
+  end
+
+  local actions = {
+    {
+      name = 'default',
+      label = 'open',
+      close = false,
+      fn = function(entry)
+        if entry then
+          f:view_web(cli_kind, entry.value)
+        end
+      end,
+    },
+    {
+      name = 'browse',
+      close = false,
+      fn = function(entry)
+        if entry then
+          f:view_web(cli_kind, entry.value)
+        end
+      end,
+    },
+    {
+      name = 'close',
+      label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
+      fn = function(entry)
+        if entry then
+          issue_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
+        end
+      end,
+    },
+    {
+      name = 'create',
+      fn = function()
+        forge_mod.create_issue()
+      end,
+    },
+    {
+      name = 'filter',
+      fn = function()
+        M.issue(next_state, f)
+      end,
+    },
+    {
+      name = 'refresh',
+      fn = function()
+        forge_mod.clear_list(cache_key)
+        M.issue(state, f)
+      end,
+    },
+  }
+
+  local function open_issue_list(issues)
+    local entries, count = build_issue_entries(issues)
 
     picker.pick({
       prompt = ('%s (%s · %d)> '):format(f.labels.issue, state, count),
       entries = entries,
-      actions = {
-        {
-          name = 'default',
-          label = 'open',
-          close = false,
-          fn = function(entry)
-            if entry then
-              f:view_web(cli_kind, entry.value)
-            end
-          end,
-        },
-        {
-          name = 'browse',
-          close = false,
-          fn = function(entry)
-            if entry then
-              f:view_web(cli_kind, entry.value)
-            end
-          end,
-        },
-        {
-          name = 'close',
-          label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
-          fn = function(entry)
-            if entry then
-              issue_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
-            end
-          end,
-        },
-        {
-          name = 'create',
-          fn = function()
-            forge_mod.create_issue()
-          end,
-        },
-        {
-          name = 'filter',
-          fn = function()
-            M.issue(next_state, f)
-          end,
-        },
-        {
-          name = 'refresh',
-          fn = function()
-            forge_mod.clear_list(cache_key)
-            M.issue(state, f)
-          end,
-        },
-      },
+      actions = actions,
       picker_name = 'issue',
+    })
+  end
+
+  local function open_issue_stream()
+    picker.pick({
+      prompt = ('%s (%s)> '):format(f.labels.issue, state),
+      entries = {},
+      actions = actions,
+      picker_name = 'issue',
+      stream = function(emit)
+        log.info('fetching issue list (' .. state .. ')...')
+        vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
+          vim.schedule(function()
+            local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
+            if ok and issues then
+              forge_mod.set_list(cache_key, issues)
+              local entries = build_issue_entries(issues)
+              for _, entry in ipairs(entries) do
+                emit(entry)
+              end
+            else
+              log.error('failed to fetch issues')
+              emit(placeholder_entry('Failed to fetch issues'))
+            end
+            emit(nil)
+          end)
+        end)
+      end,
     })
   end
 
   local cached = forge_mod.get_list(cache_key)
   if cached then
     open_issue_list(cached)
+  elseif picker.backend() == 'fzf-lua' then
+    open_issue_stream()
   else
     log.info('fetching issue list (' .. state .. ')...')
     vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
