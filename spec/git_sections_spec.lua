@@ -40,7 +40,7 @@ describe('git sections', function()
         }, '\n')
       elseif key:match('^git log ') then
         result.stdout = record({ 'abc123456789', 'abc1234', 'Add routes', 'Barrett', '2 hours ago' })
-          .. record({ 'def567890123', 'def5678', 'Add sections', 'Barrett', '1 hour ago' })
+          .. record({ 'def567890123', 'def5678', 'Add sections', 'B', '1 hour ago' })
       elseif key == 'git worktree list --porcelain' then
         result.stdout = table.concat({
           'worktree /repo',
@@ -255,10 +255,17 @@ describe('git sections', function()
     assert.equals('web', captured.picker.actions[2].label)
     assert.equals('review', captured.picker.actions[3].label)
     assert.same({
-      { 'abc1234', 'Identifier' },
-      { ' Add routes' },
-      { ' · Barrett · 2 hours ago', 'ForgeDim' },
+      { 'abc1234', 'ForgeCommitHash' },
+      { ' (2 hours ago)', 'ForgeCommitTime' },
+      { ' Add routes  ' },
+      { ' <Barrett>', 'ForgeCommitAuthor' },
     }, captured.picker.entries[1].display)
+    assert.same({
+      { 'def5678', 'ForgeCommitHash' },
+      { ' (1 hour ago) ', 'ForgeCommitTime' },
+      { ' Add sections' },
+      { ' <B>      ', 'ForgeCommitAuthor' },
+    }, captured.picker.entries[2].display)
 
     local entry = captured.picker.entries[1]
     captured.picker.actions[1].fn(entry)
