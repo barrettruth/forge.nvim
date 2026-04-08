@@ -213,24 +213,25 @@ describe('git sections', function()
     assert.equals('review', captured.picker.actions[3].name)
     assert.equals('delete', captured.picker.actions[4].name)
     assert.equals('yank', captured.picker.actions[5].name)
-    assert.same({
-      { '* ', 'ForgePass' },
-      { 'main   ', 'ForgeBranchCurrent' },
-      { ' [origin/main]   ', 'Directory' },
-      { ' Main branch', 'ForgeDim' },
-    }, captured.picker.entries[1].display)
-    assert.same({
-      { '+ ', 'ForgeBranch' },
-      { 'feature', 'ForgeBranch' },
-      { ' [origin/feature]', 'Directory' },
-      { ' Feature branch', 'ForgeDim' },
-    }, captured.picker.entries[2].display)
-    assert.same({
-      { '  ', 'ForgeDim' },
-      { 'topic  ' },
-      { '                 ' },
-      { ' Topic branch', 'ForgeDim' },
-    }, captured.picker.entries[3].display)
+    assert.same({ '* ', 'ForgePass' }, captured.picker.entries[1].display[1])
+    assert.same({ 'main   ', 'ForgeBranchCurrent' }, captured.picker.entries[1].display[2])
+    assert.equals('[origin/main]', vim.trim(captured.picker.entries[1].display[3][1]))
+    assert.equals('Directory', captured.picker.entries[1].display[3][2])
+    assert.equals('Main branch', vim.trim(captured.picker.entries[1].display[4][1]))
+    assert.equals('ForgeDim', captured.picker.entries[1].display[4][2])
+
+    assert.same({ '+ ', 'ForgeBranch' }, captured.picker.entries[2].display[1])
+    assert.same({ 'feature', 'ForgeBranch' }, captured.picker.entries[2].display[2])
+    assert.equals('[origin/feature]', vim.trim(captured.picker.entries[2].display[3][1]))
+    assert.equals('Directory', captured.picker.entries[2].display[3][2])
+    assert.equals('Feature branch', vim.trim(captured.picker.entries[2].display[4][1]))
+    assert.equals('ForgeDim', captured.picker.entries[2].display[4][2])
+
+    assert.same({ '  ', 'ForgeDim' }, captured.picker.entries[3].display[1])
+    assert.same({ 'topic  ' }, captured.picker.entries[3].display[2])
+    assert.equals('', vim.trim(captured.picker.entries[3].display[3][1]))
+    assert.equals('Topic branch', vim.trim(captured.picker.entries[3].display[4][1]))
+    assert.equals('ForgeDim', captured.picker.entries[3].display[4][2])
 
     local worktree_entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(worktree_entry)
@@ -316,18 +317,17 @@ describe('git sections', function()
     assert.equals('switch cwd', captured.picker.actions[1].label)
     assert.equals('add', captured.picker.actions[2].name)
     assert.equals('delete', captured.picker.actions[3].name)
-    assert.same({
-      { '* ', 'ForgePass' },
-      { '/repo        ', 'Directory' },
-      { ' main   ', 'ForgeBranchCurrent' },
-      { ' abc1234', 'ForgeCommitHash' },
-    }, captured.picker.entries[1].display)
-    assert.same({
-      { '  ', 'ForgeDim' },
-      { '/repo-feature', 'Directory' },
-      { ' feature', 'ForgeBranch' },
-      { ' def5678', 'ForgeCommitHash' },
-    }, captured.picker.entries[2].display)
+    assert.same({ '* ', 'ForgePass' }, captured.picker.entries[1].display[1])
+    assert.same({ '/repo        ', 'Directory' }, captured.picker.entries[1].display[2])
+    assert.equals('main', vim.trim(captured.picker.entries[1].display[3][1]))
+    assert.equals('ForgeBranchCurrent', captured.picker.entries[1].display[3][2])
+    assert.same({ ' abc1234', 'ForgeCommitHash' }, captured.picker.entries[1].display[4])
+
+    assert.same({ '  ', 'ForgeDim' }, captured.picker.entries[2].display[1])
+    assert.same({ '/repo-feature', 'Directory' }, captured.picker.entries[2].display[2])
+    assert.equals('feature', vim.trim(captured.picker.entries[2].display[3][1]))
+    assert.equals('ForgeBranch', captured.picker.entries[2].display[3][2])
+    assert.same({ ' def5678', 'ForgeCommitHash' }, captured.picker.entries[2].display[4])
 
     local entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(entry)

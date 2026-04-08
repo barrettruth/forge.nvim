@@ -150,6 +150,37 @@ describe('format_pr', function()
   end)
 end)
 
+describe('format_prs', function()
+  local fields = {
+    number = 'number',
+    title = 'title',
+    state = 'state',
+    author = 'author',
+    created_at = 'created_at',
+  }
+
+  it('drops secondary metadata before the primary title in narrow layouts', function()
+    local rows = forge.format_prs({
+      { number = 1, title = 'short', state = 'OPEN', author = 'alice', created_at = '' },
+      {
+        number = 2,
+        title = 'a much longer title that should truncate',
+        state = 'OPEN',
+        author = 'bob',
+        created_at = '',
+      },
+    }, fields, false, { width = 18 })
+
+    assert.same({
+      { '#1', 'ForgeNumber' },
+      { ' short' },
+    }, rows[1])
+    assert.same({ '#2', 'ForgeNumber' }, rows[2][1])
+    assert.truthy(rows[2][2][1]:find(' a much longer ', 1, true))
+    assert.truthy(rows[2][2][1]:find('…', 1, true))
+  end)
+end)
+
 describe('format_issue', function()
   local fields = {
     number = 'number',
@@ -254,6 +285,39 @@ describe('format_run', function()
     local run = { name = 'Old', branch = '', status = 'cancelled', event = 'push', created_at = '' }
     local result = flatten(forge.format_run(run))
     assert.truthy(result:find('%-'))
+  end)
+end)
+
+describe('format_runs', function()
+  it('drops event metadata before branch names in narrow layouts', function()
+    local rows = forge.format_runs({
+      {
+        name = 'CI',
+        branch = 'feature/very-long-branch',
+        status = 'success',
+        event = 'workflow_dispatch',
+        created_at = '',
+      },
+      {
+        name = 'Lint',
+        branch = 'main',
+        status = 'failure',
+        event = 'push',
+        created_at = '',
+      },
+    }, { width = 24 })
+
+    assert.same({ '*', 'ForgePass' }, rows[1][1])
+    assert.same({ '  CI' }, rows[1][2])
+    assert.equals('ForgeBranch', rows[1][3][2])
+    assert.truthy(rows[1][3][1]:find('feature', 1, true))
+    assert.equals(3, #rows[1])
+
+    assert.same({ 'x', 'ForgeFail' }, rows[2][1])
+    assert.same({ '  Lint' }, rows[2][2])
+    assert.equals(' main', rows[2][3][1])
+    assert.equals('ForgeBranch', rows[2][3][2])
+    assert.equals(3, #rows[2])
   end)
 end)
 

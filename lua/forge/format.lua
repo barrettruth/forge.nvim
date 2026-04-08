@@ -1,14 +1,11 @@
 local M = {}
+local layout = require('forge.layout')
 
 ---@param s string
 ---@param width integer
 ---@return string
 function M.pad_or_truncate(s, width)
-  local len = #s
-  if len > width then
-    return s:sub(1, width - 1) .. '…'
-  end
-  return s .. string.rep(' ', width - len)
+  return layout.fit(s, width)
 end
 
 ---@param iso string?
@@ -106,186 +103,402 @@ function M.format_duration(secs)
   return ('%ds'):format(secs)
 end
 
----@param entry table
----@param fields table
----@param show_state boolean
----@return forge.Segment[]
-function M.format_pr(entry, fields, show_state)
+local function elastic_width(preferred, values, min, opts)
+  return layout.elastic(preferred, layout.measure(values, opts), min)
+end
+
+local function pr_state_icon(icons, state)
+  state = (state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return icons.open, 'ForgeOpen'
+  end
+  if state == 'merged' then
+    return icons.merged, 'ForgeMerged'
+  end
+  return icons.closed, 'ForgeClosed'
+end
+
+local function issue_state_icon(icons, state)
+  state = (state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return icons.open, 'ForgeOpen'
+  end
+  return icons.closed, 'ForgeClosed'
+end
+
+local function check_bucket_icon(icons, bucket)
+  bucket = (bucket or 'pending'):lower()
+  if bucket == 'pass' then
+    return icons.pass, 'ForgePass'
+  end
+  if bucket == 'fail' then
+    return icons.fail, 'ForgeFail'
+  end
+  if bucket == 'pending' then
+    return icons.pending, 'ForgePending'
+  end
+  if bucket == 'skipping' or bucket == 'cancel' then
+    return icons.skip, 'ForgeSkip'
+  end
+  return icons.unknown, 'ForgeSkip'
+end
+
+local function run_status_icon(icons, status)
+  status = (status or ''):lower()
+  if status == 'success' then
+    return icons.pass, 'ForgePass'
+  end
+  if status == 'failure' or status == 'failed' then
+    return icons.fail, 'ForgeFail'
+  end
+  if
+    status == 'in_progress'
+    or status == 'running'
+    or status == 'pending'
+    or status == 'queued'
+  then
+    return icons.pending, 'ForgePending'
+  end
+  if status == 'cancelled' or status == 'canceled' or status == 'skipped' then
+    return icons.skip, 'ForgeSkip'
+  end
+  return icons.unknown, 'ForgeSkip'
+end
+
+local function release_state_icon(icons, is_draft, is_pre, is_latest)
+  if is_draft then
+    return icons.pending, 'ForgePending'
+  end
+  if is_pre then
+    return icons.skip, 'ForgeSkip'
+  end
+  if is_latest then
+    return icons.pass, 'ForgePass'
+  end
+  return icons.open, 'ForgeOpen'
+end
+
+local function elapsed_for(check)
+  local ts = M.parse_iso(check.startedAt)
+  local te = M.parse_iso(check.completedAt)
+  if ts and te then
+    return M.format_duration(te - ts)
+  end
+  return ''
+end
+
+local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
   local display = require('forge.config').config().display
   local icons = display.icons
   local widths = display.widths
-  local num = tostring(entry[fields.number] or '')
-  local title = entry[fields.title] or ''
-  local author = M.extract_author(entry, fields.author)
-  local age = M.relative_time(entry[fields.created_at])
-  local segments = {}
-  if show_state then
-    local state = (entry[fields.state] or ''):lower()
-    local icon, group
-    if state == 'open' or state == 'opened' then
-      icon, group = icons.open, 'ForgeOpen'
-    elseif state == 'merged' then
-      icon, group = icons.merged, 'ForgeMerged'
-    else
-      icon, group = icons.closed, 'ForgeClosed'
-    end
-    table.insert(segments, { icon, group })
-    table.insert(segments, { '  ' })
+  local numbers = {}
+  local titles = {}
+  local authors = {}
+  local ages = {}
+  for _, entry in ipairs(entries) do
+    numbers[#numbers + 1] = '#' .. tostring(entry[fields.number] or '')
+    titles[#titles + 1] = entry[fields.title] or ''
+    authors[#authors + 1] = M.extract_author(entry, fields.author)
+    ages[#ages + 1] = M.relative_time(entry[fields.created_at])
   end
-  table.insert(segments, { ('#%-5s'):format(num), 'ForgeNumber' })
-  table.insert(segments, { ' ' .. M.pad_or_truncate(title, widths.title) .. ' ' })
-  table.insert(segments, {
-    M.pad_or_truncate(author, widths.author) .. (' %3s'):format(age),
-    'ForgeDim',
+  local title_pref, title_max = elastic_width(widths.title, titles, 12)
+  local author_pref, author_max = elastic_width(widths.author, authors, 6)
+  local plan = layout.plan({
+    width = opts and opts.width or layout.picker_width(),
+    columns = {
+      { key = 'state', fixed = show_state and 1 or 0 },
+      {
+        key = 'number',
+        gap = show_state and '  ' or '',
+        fixed = math.max(2, layout.max_width(numbers)),
+      },
+      {
+        key = 'title',
+        gap = ' ',
+        min = 12,
+        preferred = title_pref,
+        max = title_max,
+        shrink = 2,
+        grow = 1,
+        overflow = 'tail',
+        pack_on = 'compact',
+      },
+      {
+        key = 'author',
+        gap = ' ',
+        min = 6,
+        preferred = author_pref,
+        max = author_max,
+        optional = true,
+        drop = 2,
+        shrink = 1,
+        grow = 2,
+        overflow = 'tail',
+        hide_if_empty = true,
+      },
+      {
+        key = 'age',
+        gap = ' ',
+        fixed = layout.max_width(ages),
+        optional = true,
+        drop = 1,
+        hide_if_empty = true,
+      },
+    },
   })
-  return segments
+  local rows = {}
+  for i, entry in ipairs(entries) do
+    local icon, group = icon_fn(icons, entry[fields.state])
+    rows[i] = layout.render(plan, {
+      state = { icon, group },
+      number = { numbers[i], 'ForgeNumber' },
+      title = titles[i],
+      author = { authors[i], 'ForgeDim' },
+      age = { ages[i], 'ForgeDim' },
+    })
+  end
+  return rows
+end
+
+function M.format_prs(entries, fields, show_state, opts)
+  return pr_issue_rows(entries, fields, show_state, opts, pr_state_icon)
+end
+
+function M.format_issues(entries, fields, show_state, opts)
+  return pr_issue_rows(entries, fields, show_state, opts, issue_state_icon)
+end
+
+function M.format_checks(checks, opts)
+  local display = require('forge.config').config().display
+  local icons = display.icons
+  local widths = display.widths
+  local names = {}
+  local elapsed = {}
+  for _, check in ipairs(checks) do
+    names[#names + 1] = check.name or ''
+    elapsed[#elapsed + 1] = elapsed_for(check)
+  end
+  local name_pref, name_max = elastic_width(widths.name, names, 10)
+  local plan = layout.plan({
+    width = opts and opts.width or layout.picker_width(),
+    columns = {
+      { key = 'state', fixed = 1 },
+      {
+        key = 'name',
+        gap = '  ',
+        min = 10,
+        preferred = name_pref,
+        max = name_max,
+        shrink = 2,
+        grow = 1,
+        overflow = 'tail',
+        pack_on = 'compact',
+      },
+      {
+        key = 'elapsed',
+        gap = ' ',
+        fixed = layout.max_width(elapsed),
+        optional = true,
+        drop = 1,
+        hide_if_empty = true,
+      },
+    },
+  })
+  local rows = {}
+  for i, check in ipairs(checks) do
+    local icon, group = check_bucket_icon(icons, check.bucket)
+    rows[i] = layout.render(plan, {
+      state = { icon, group },
+      name = names[i],
+      elapsed = { elapsed[i], 'ForgeDim' },
+    })
+  end
+  return rows
+end
+
+function M.format_runs(runs, opts)
+  local display = require('forge.config').config().display
+  local icons = display.icons
+  local widths = display.widths
+  local names = {}
+  local branches = {}
+  local events = {}
+  local ages = {}
+  for _, run in ipairs(runs) do
+    names[#names + 1] = run.name or ''
+    branches[#branches + 1] = run.branch or ''
+    events[#events + 1] = M.abbreviate_event(run.event)
+    ages[#ages + 1] = M.relative_time(run.created_at)
+  end
+  local name_pref, name_max = elastic_width(widths.name, names, 10)
+  local branch_pref, branch_max = elastic_width(widths.branch, branches, 8)
+  local plan = layout.plan({
+    width = opts and opts.width or layout.picker_width(),
+    columns = {
+      { key = 'state', fixed = 1 },
+      {
+        key = 'name',
+        gap = '  ',
+        min = 10,
+        preferred = name_pref,
+        max = name_max,
+        shrink = 3,
+        grow = 1,
+        overflow = 'tail',
+        pack_on = 'compact',
+      },
+      {
+        key = 'branch',
+        gap = ' ',
+        min = 8,
+        preferred = branch_pref,
+        max = branch_max,
+        optional = true,
+        drop = 3,
+        shrink = 2,
+        grow = 2,
+        overflow = 'tail',
+        pack_on = 'compact',
+        hide_if_empty = true,
+      },
+      {
+        key = 'event',
+        gap = ' ',
+        fixed = layout.max_width(events),
+        optional = true,
+        drop = 1,
+        hide_if_empty = true,
+      },
+      {
+        key = 'age',
+        gap = ' ',
+        fixed = layout.max_width(ages),
+        optional = true,
+        drop = 2,
+        hide_if_empty = true,
+      },
+    },
+  })
+  local rows = {}
+  for i, run in ipairs(runs) do
+    local icon, group = run_status_icon(icons, run.status)
+    rows[i] = layout.render(plan, {
+      state = { icon, group },
+      name = names[i],
+      branch = { branches[i], 'ForgeBranch' },
+      event = { events[i], 'ForgeDim' },
+      age = { ages[i], 'ForgeDim' },
+    })
+  end
+  return rows
+end
+
+function M.format_releases(entries, fields, opts)
+  local display = require('forge.config').config().display
+  local icons = display.icons
+  local widths = display.widths
+  local tags = {}
+  local titles = {}
+  local ages = {}
+  local states = {}
+  for _, entry in ipairs(entries) do
+    local tag = entry[fields.tag] or ''
+    local title = entry[fields.title] or ''
+    tags[#tags + 1] = tag
+    titles[#titles + 1] = title ~= '' and title ~= tag and title or ''
+    ages[#ages + 1] = M.relative_time(entry[fields.published_at])
+    states[#states + 1] = {
+      entry[fields.is_draft],
+      entry[fields.is_prerelease],
+      entry[fields.is_latest],
+    }
+  end
+  local tag_pref, tag_max = elastic_width(20, tags, 6)
+  local title_pref, title_max = elastic_width(widths.title, titles, 10)
+  local plan = layout.plan({
+    width = opts and opts.width or layout.picker_width(),
+    columns = {
+      { key = 'state', fixed = 1 },
+      {
+        key = 'tag',
+        gap = '  ',
+        min = 6,
+        preferred = tag_pref,
+        max = tag_max,
+        shrink = 2,
+        grow = 2,
+        overflow = 'tail',
+      },
+      {
+        key = 'title',
+        gap = ' ',
+        min = 10,
+        preferred = title_pref,
+        max = title_max,
+        optional = true,
+        drop = 2,
+        shrink = 1,
+        grow = 1,
+        overflow = 'tail',
+        pack_on = 'compact',
+        hide_if_empty = true,
+      },
+      {
+        key = 'age',
+        gap = ' ',
+        fixed = layout.max_width(ages),
+        optional = true,
+        drop = 1,
+        hide_if_empty = true,
+      },
+    },
+  })
+  local rows = {}
+  for i = 1, #entries do
+    local icon, group = release_state_icon(icons, states[i][1], states[i][2], states[i][3])
+    rows[i] = layout.render(plan, {
+      state = { icon, group },
+      tag = { tags[i], 'ForgeBranch' },
+      title = titles[i],
+      age = { ages[i], 'ForgeDim' },
+    })
+  end
+  return rows
 end
 
 ---@param entry table
 ---@param fields table
 ---@param show_state boolean
 ---@return forge.Segment[]
-function M.format_issue(entry, fields, show_state)
-  local display = require('forge.config').config().display
-  local icons = display.icons
-  local widths = display.widths
-  local num = tostring(entry[fields.number] or '')
-  local title = entry[fields.title] or ''
-  local author = M.extract_author(entry, fields.author)
-  local age = M.relative_time(entry[fields.created_at])
-  local segments = {}
-  if show_state then
-    local state = (entry[fields.state] or ''):lower()
-    local icon, group
-    if state == 'open' or state == 'opened' then
-      icon, group = icons.open, 'ForgeOpen'
-    else
-      icon, group = icons.closed, 'ForgeClosed'
-    end
-    table.insert(segments, { icon, group })
-    table.insert(segments, { '  ' })
-  end
-  table.insert(segments, { ('#%-5s'):format(num), 'ForgeNumber' })
-  table.insert(segments, { ' ' .. M.pad_or_truncate(title, widths.title) .. ' ' })
-  table.insert(segments, {
-    M.pad_or_truncate(author, widths.author) .. (' %3s'):format(age),
-    'ForgeDim',
-  })
-  return segments
+function M.format_pr(entry, fields, show_state, opts)
+  return M.format_prs({ entry }, fields, show_state, opts)[1]
+end
+
+---@param entry table
+---@param fields table
+---@param show_state boolean
+---@return forge.Segment[]
+function M.format_issue(entry, fields, show_state, opts)
+  return M.format_issues({ entry }, fields, show_state, opts)[1]
 end
 
 ---@param check table
 ---@return forge.Segment[]
-function M.format_check(check)
-  local display = require('forge.config').config().display
-  local icons = display.icons
-  local widths = display.widths
-  local bucket = (check.bucket or 'pending'):lower()
-  local name = check.name or ''
-  local icon, group
-  if bucket == 'pass' then
-    icon, group = icons.pass, 'ForgePass'
-  elseif bucket == 'fail' then
-    icon, group = icons.fail, 'ForgeFail'
-  elseif bucket == 'pending' then
-    icon, group = icons.pending, 'ForgePending'
-  elseif bucket == 'skipping' or bucket == 'cancel' then
-    icon, group = icons.skip, 'ForgeSkip'
-  else
-    icon, group = icons.unknown, 'ForgeSkip'
-  end
-  local elapsed = ''
-  local ts = M.parse_iso(check.startedAt)
-  local te = M.parse_iso(check.completedAt)
-  if ts and te then
-    elapsed = M.format_duration(te - ts)
-  end
-  return {
-    { icon, group },
-    { '  ' .. M.pad_or_truncate(name, widths.name) .. ' ' },
-    { elapsed, 'ForgeDim' },
-  }
+function M.format_check(check, opts)
+  return M.format_checks({ check }, opts)[1]
 end
 
 ---@param run forge.CIRun
 ---@return forge.Segment[]
-function M.format_run(run)
-  local display = require('forge.config').config().display
-  local icons = display.icons
-  local widths = display.widths
-  local icon, group
-  local s = run.status:lower()
-  if s == 'success' then
-    icon, group = icons.pass, 'ForgePass'
-  elseif s == 'failure' or s == 'failed' then
-    icon, group = icons.fail, 'ForgeFail'
-  elseif s == 'in_progress' or s == 'running' or s == 'pending' or s == 'queued' then
-    icon, group = icons.pending, 'ForgePending'
-  elseif s == 'cancelled' or s == 'canceled' or s == 'skipped' then
-    icon, group = icons.skip, 'ForgeSkip'
-  else
-    icon, group = icons.unknown, 'ForgeSkip'
-  end
-  local event = M.abbreviate_event(run.event)
-  local age = M.relative_time(run.created_at)
-  if run.branch ~= '' then
-    local name_w = widths.name - widths.branch + 10
-    return {
-      { icon, group },
-      { '  ' .. M.pad_or_truncate(run.name, name_w) .. ' ' },
-      { M.pad_or_truncate(run.branch, widths.branch), 'ForgeBranch' },
-      { ' ' .. ('%-6s'):format(event) .. ' ' .. age, 'ForgeDim' },
-    }
-  end
-  return {
-    { icon, group },
-    { '  ' .. M.pad_or_truncate(run.name, widths.name) .. ' ' },
-    { ('%-6s'):format(event) .. ' ' .. age, 'ForgeDim' },
-  }
+function M.format_run(run, opts)
+  return M.format_runs({ run }, opts)[1]
 end
 
 ---@param entry table
 ---@param fields table
 ---@return forge.Segment[]
-function M.format_release(entry, fields)
-  local display = require('forge.config').config().display
-  local icons = display.icons
-  local widths = display.widths
-  local tag = entry[fields.tag] or ''
-  local title = entry[fields.title] or ''
-  local is_draft = fields.is_draft and entry[fields.is_draft]
-  local is_pre = fields.is_prerelease and entry[fields.is_prerelease]
-  local is_latest = fields.is_latest and entry[fields.is_latest]
-  local age = M.relative_time(entry[fields.published_at])
-
-  local icon, group
-  if is_draft then
-    icon, group = icons.pending, 'ForgePending'
-  elseif is_pre then
-    icon, group = icons.skip, 'ForgeSkip'
-  elseif is_latest then
-    icon, group = icons.pass, 'ForgePass'
-  else
-    icon, group = icons.open, 'ForgeOpen'
-  end
-
-  local tag_w = 20
-  local title_w = widths.title
-  if title == '' or title == tag then
-    title_w = 0
-  end
-
-  local segments = {
-    { icon, group },
-    { '  ' .. M.pad_or_truncate(tag, tag_w), 'ForgeBranch' },
-  }
-  if title_w > 0 then
-    table.insert(segments, { ' ' .. M.pad_or_truncate(title, title_w) .. ' ' })
-  else
-    table.insert(segments, { ' ' })
-  end
-  table.insert(segments, { ('%3s'):format(age), 'ForgeDim' })
-  return segments
+function M.format_release(entry, fields, opts)
+  return M.format_releases({ entry }, fields, opts)[1]
 end
 
 ---@param checks table[]

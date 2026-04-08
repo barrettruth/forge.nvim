@@ -1,5 +1,6 @@
 local M = {}
 
+local layout = require('forge.layout')
 local log = require('forge.logger')
 local picker = require('forge.picker')
 
@@ -105,85 +106,20 @@ local function split_records(text)
   end, vim.split(text or '', record_sep, { plain = true, trimempty = true }))
 end
 
-local function pad_or_truncate(s, width)
-  if width <= 0 then
-    return ''
-  end
-  if #s > width then
-    return s:sub(1, width - 1) .. '…'
-  end
-  return s .. string.rep(' ', width - #s)
-end
-
-local function pad_or_truncate_tail(s, width)
-  if width <= 0 then
-    return ''
-  end
-  if #s > width then
-    return '…' .. s:sub(#s - width + 2)
-  end
-  return s .. string.rep(' ', width - #s)
-end
-
 local function home_path(path)
   return vim.fn.fnamemodify(path, ':~')
 end
 
-local function picker_width()
-  local ok, width = pcall(vim.api.nvim_win_get_width, 0)
-  if ok and type(width) == 'number' and width > 0 then
-    return width
-  end
-  if vim.o.columns > 0 then
-    return vim.o.columns
-  end
-  return 80
-end
-
-local function flex_widths(
-  primary,
-  secondary,
-  primary_floor,
-  secondary_floor,
-  primary_wanted,
-  secondary_wanted,
-  budget
-)
-  while primary + secondary > budget and primary > primary_floor do
-    primary = primary - 1
-  end
-  while primary + secondary > budget and secondary > secondary_floor do
-    secondary = secondary - 1
-  end
-  while primary + secondary > budget and (primary > 1 or secondary > 0) do
-    if secondary > 0 and (primary <= 1 or primary < secondary) then
-      secondary = secondary - 1
-    else
-      primary = primary - 1
-    end
-  end
-  while primary + secondary < budget and secondary < secondary_wanted do
-    secondary = secondary + 1
-  end
-  while primary + secondary < budget and primary < primary_wanted do
-    primary = primary + 1
-  end
-  return primary, secondary
+local function elastic_width(preferred, values, min, opts)
+  return layout.elastic(preferred, layout.measure(values, opts), min)
 end
 
 local function display_path(path, width)
   local rendered = home_path(path)
-  if #rendered > width then
+  if layout.display_width(rendered) > width then
     rendered = vim.fn.pathshorten(rendered)
   end
-  return pad_or_truncate_tail(rendered, width)
-end
-
-local function truncate(s, width)
-  if width <= 0 or #s <= width then
-    return s
-  end
-  return s:sub(1, width - 1) .. '…'
+  return rendered
 end
 
 local function branch_layout(branches)
@@ -196,20 +132,61 @@ local function branch_layout(branches)
     subject_limit = widths.title or subject_limit
   end
 
-  local name_width = 1
-  local upstream_width = 0
+  local names = {}
+  local upstreams = {}
+  local subjects = {}
   for _, item in ipairs(branches) do
-    name_width = math.max(name_width, #item.name)
-    if item.upstream ~= '' then
-      upstream_width = math.max(upstream_width, #item.upstream + 2)
-    end
+    names[#names + 1] = item.name
+    upstreams[#upstreams + 1] = item.upstream ~= '' and ('[' .. item.upstream .. ']') or ''
+    subjects[#subjects + 1] = item.subject or ''
   end
-
-  return {
-    name = math.min(name_width, branch_limit),
-    upstream = math.min(upstream_width, branch_limit),
-    subject = subject_limit,
-  }
+  local name_pref, name_max = elastic_width(branch_limit, names, 6)
+  local upstream_pref, upstream_max =
+    elastic_width(branch_limit, upstreams, 8, { max_quantile = 1 })
+  local subject_pref, subject_max = elastic_width(subject_limit, subjects, 12)
+  return layout.plan({
+    width = layout.picker_width(),
+    columns = {
+      { key = 'marker', fixed = 2 },
+      {
+        key = 'name',
+        gap = '',
+        min = 6,
+        preferred = name_pref,
+        max = name_max,
+        shrink = 3,
+        grow = 1,
+        overflow = 'tail',
+      },
+      {
+        key = 'upstream',
+        gap = ' ',
+        min = 8,
+        preferred = upstream_pref,
+        max = upstream_max,
+        optional = true,
+        drop = 2,
+        shrink = 2,
+        grow = 2,
+        overflow = 'tail',
+        hide_if_empty = true,
+      },
+      {
+        key = 'subject',
+        gap = ' ',
+        min = 12,
+        preferred = subject_pref,
+        max = subject_max,
+        optional = true,
+        drop = 1,
+        shrink = 1,
+        grow = 3,
+        overflow = 'tail',
+        pack_on = 'compact',
+        hide_if_empty = true,
+      },
+    },
+  })
 end
 
 local function commit_layout(commits)
@@ -222,32 +199,59 @@ local function commit_layout(commits)
     author_limit = widths.author or author_limit
   end
 
-  local sha_width = 7
-  local time_width = 0
-  local subject_width = 0
-  local author_width = 0
+  local shas = {}
+  local times = {}
+  local subjects = {}
+  local authors = {}
   for _, item in ipairs(commits) do
-    sha_width = math.max(sha_width, #item.short_sha)
-    if item.relative ~= '' then
-      time_width = math.max(time_width, #item.relative + 2)
-    end
-    if item.subject ~= '' then
-      subject_width = math.max(subject_width, #item.subject)
-    end
-    if item.author ~= '' then
-      author_width = math.max(author_width, #item.author + 2)
-    end
+    shas[#shas + 1] = item.short_sha
+    times[#times + 1] = item.relative ~= '' and ('(' .. item.relative .. ')') or ''
+    subjects[#subjects + 1] = item.subject or ''
+    authors[#authors + 1] = item.author ~= '' and ('<' .. item.author .. '>') or ''
   end
-
-  return {
-    sha = sha_width,
-    time = time_width,
-    subject = math.min(subject_width, title_limit),
-    author = math.min(author_width, author_limit + 2),
-  }
+  local subject_pref, subject_max = elastic_width(title_limit, subjects, 12)
+  local author_pref, author_max = elastic_width(author_limit + 2, authors, 8, { max_quantile = 1 })
+  return layout.plan({
+    width = layout.picker_width(),
+    columns = {
+      { key = 'sha', fixed = math.max(7, layout.max_width(shas)) },
+      {
+        key = 'time',
+        gap = ' ',
+        fixed = layout.max_width(times),
+        optional = true,
+        drop = 2,
+        hide_if_empty = true,
+      },
+      {
+        key = 'subject',
+        gap = ' ',
+        min = 12,
+        preferred = subject_pref,
+        max = subject_max,
+        shrink = 2,
+        grow = 1,
+        overflow = 'tail',
+        pack_on = 'compact',
+      },
+      {
+        key = 'author',
+        gap = ' ',
+        min = 8,
+        preferred = author_pref,
+        max = author_max,
+        optional = true,
+        drop = 1,
+        shrink = 1,
+        grow = 2,
+        overflow = 'tail',
+        hide_if_empty = true,
+      },
+    },
+  })
 end
 
-local function branch_display(item, layout)
+local function branch_display(item, plan)
   local marker = '  '
   local marker_hl = 'ForgeDim'
   local name_hl = nil
@@ -260,40 +264,24 @@ local function branch_display(item, layout)
     marker_hl = 'ForgeBranch'
     name_hl = 'ForgeBranch'
   end
-
-  local display = {
-    { marker, marker_hl },
-    { pad_or_truncate(item.name, layout.name), name_hl },
-  }
-  if layout.upstream > 0 then
-    local upstream = item.upstream ~= '' and ('[' .. item.upstream .. ']') or ''
-    display[#display + 1] = {
-      ' ' .. pad_or_truncate(upstream, layout.upstream),
-      upstream ~= '' and 'Directory' or nil,
-    }
-  end
-  if item.subject ~= '' then
-    display[#display + 1] = { ' ' .. truncate(item.subject, layout.subject), 'ForgeDim' }
-  end
-  return display
+  local upstream = item.upstream ~= '' and ('[' .. item.upstream .. ']') or ''
+  return layout.render(plan, {
+    marker = { marker, marker_hl },
+    name = { item.name, name_hl },
+    upstream = { upstream, upstream ~= '' and 'Directory' or nil },
+    subject = { item.subject, 'ForgeDim' },
+  })
 end
 
-local function commit_display(item, layout)
+local function commit_display(item, plan)
   local time = item.relative ~= '' and ('(' .. item.relative .. ')') or ''
   local author = item.author ~= '' and ('<' .. item.author .. '>') or ''
-  local display = {
-    { pad_or_truncate(item.short_sha, layout.sha), 'ForgeCommitHash' },
-  }
-  if layout.time > 0 then
-    display[#display + 1] = { ' ' .. pad_or_truncate(time, layout.time), 'ForgeCommitTime' }
-  end
-  if layout.subject > 0 then
-    display[#display + 1] = { ' ' .. pad_or_truncate(item.subject, layout.subject) }
-  end
-  if layout.author > 0 then
-    display[#display + 1] = { ' ' .. pad_or_truncate(author, layout.author), 'ForgeCommitAuthor' }
-  end
-  return display
+  return layout.render(plan, {
+    sha = { item.short_sha, 'ForgeCommitHash' },
+    time = { time, 'ForgeCommitTime' },
+    subject = item.subject,
+    author = { author, 'ForgeCommitAuthor' },
+  })
 end
 
 local function worktree_label(item)
@@ -319,57 +307,76 @@ local function worktree_layout(worktrees)
     label_limit = widths.branch or label_limit
   end
 
-  local path_width = 1
-  local label_width = 0
-  local sha_width = 0
+  local paths = {}
+  local labels = {}
+  local shas = {}
   for _, item in ipairs(worktrees) do
-    path_width = math.max(path_width, #home_path(item.path))
-    label_width = math.max(label_width, #worktree_label(item))
-    sha_width = math.max(sha_width, #item.short_head)
+    paths[#paths + 1] = vim.fn.pathshorten(home_path(item.path))
+    labels[#labels + 1] = worktree_label(item)
+    shas[#shas + 1] = item.short_head
   end
-
-  local path = math.min(path_width, path_limit)
-  local label = math.min(label_width, label_limit)
-  local budget = math.max(
-    1,
-    picker_width() - 8 - 2 - sha_width - (label_width > 0 and 1 or 0) - (sha_width > 0 and 1 or 0)
-  )
-  path, label = flex_widths(
-    path,
-    label,
-    math.min(path, math.max(12, math.floor(path_limit / 2))),
-    math.min(label, math.max(8, math.floor(label_limit / 2))),
-    path_width,
-    label_width,
-    budget
-  )
-
-  return {
-    path = path,
-    label = label,
-    sha = sha_width,
-  }
+  local path_opts = #paths <= 3 and { typical_quantile = 1, max_quantile = 1 }
+    or { typical_quantile = 0.7, max_quantile = 0.85 }
+  local path_pref, path_max = elastic_width(path_limit, paths, 12, path_opts)
+  local label_pref, label_max = elastic_width(label_limit, labels, 8)
+  return layout.plan({
+    width = layout.picker_width(),
+    columns = {
+      { key = 'marker', fixed = 2 },
+      {
+        key = 'path',
+        gap = '',
+        min = 12,
+        preferred = path_pref,
+        max = path_max,
+        shrink = 3,
+        grow = 1,
+        overflow = 'head',
+        pack_on = 'compact',
+      },
+      {
+        key = 'label',
+        gap = ' ',
+        min = 8,
+        preferred = label_pref,
+        max = label_max,
+        optional = true,
+        drop = 2,
+        shrink = 2,
+        grow = 2,
+        overflow = 'tail',
+        pack_on = 'compact',
+        hide_if_empty = true,
+      },
+      {
+        key = 'sha',
+        gap = ' ',
+        fixed = layout.max_width(shas),
+        optional = true,
+        drop = 1,
+        hide_if_empty = true,
+      },
+    },
+  })
 end
 
-local function worktree_display(item, layout)
+local function worktree_display(item, plan)
   local label = worktree_label(item)
-  local display = {
-    { item.current and '* ' or '  ', item.current and 'ForgePass' or 'ForgeDim' },
-    { display_path(item.path, layout.path), 'Directory' },
-  }
-  if layout.label > 0 then
-    display[#display + 1] = {
-      ' ' .. pad_or_truncate(label, layout.label),
+  return layout.render(plan, {
+    marker = { item.current and '* ' or '  ', item.current and 'ForgePass' or 'ForgeDim' },
+    path = {
+      render = function(width)
+        return { display_path(item.path, width), 'Directory' }
+      end,
+    },
+    label = {
+      label,
       item.current and item.branch ~= '' and 'ForgeBranchCurrent'
         or item.branch ~= '' and 'ForgeBranch'
         or 'ForgeDim',
-    }
-  end
-  if layout.sha > 0 and item.short_head ~= '' then
-    display[#display + 1] =
-      { ' ' .. pad_or_truncate(item.short_head, layout.sha), 'ForgeCommitHash' }
-  end
-  return display
+    },
+    sha = { item.short_head, 'ForgeCommitHash' },
+  })
 end
 
 local function parse_branches(output)
@@ -766,10 +773,11 @@ function M.checks(f, num, filter, cached_checks)
   local function open_picker(checks)
     local filtered = forge_mod.filter_checks(checks, filter)
     local count = #filtered
+    local displays = forge_mod.format_checks(filtered, { width = layout.picker_width() })
     local entries = {}
-    for _, c in ipairs(filtered) do
+    for i, c in ipairs(filtered) do
       table.insert(entries, {
-        display = forge_mod.format_check(c),
+        display = displays[i],
         value = c,
         ordinal = c.name or '',
       })
@@ -919,6 +927,7 @@ function M.ci(f, branch, filter)
     end
     local filtered = forge_mod.filter_runs(normalized, filter)
     local count = #filtered
+    local displays = forge_mod.format_runs(filtered, { width = layout.picker_width() })
 
     local labels = {
       all = 'all',
@@ -928,9 +937,9 @@ function M.ci(f, branch, filter)
     }
 
     local entries = {}
-    for _, run in ipairs(filtered) do
+    for i, run in ipairs(filtered) do
       table.insert(entries, {
-        display = forge_mod.format_run(run),
+        display = displays[i],
         value = run,
         ordinal = run.name .. ' ' .. run.branch,
       })
@@ -1125,16 +1134,18 @@ function M.pr(state, f)
     local state_field = pr_fields.state
     local state_map = {}
     local entries = {}
+    local displays =
+      forge_mod.format_prs(prs, pr_fields, show_state, { width = layout.picker_width() })
     local function reopen_list()
       forge_mod.clear_list(cache_key)
       M.pr(state, f)
     end
-    for _, pr in ipairs(prs) do
+    for i, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
       local s = (pr[state_field] or ''):lower()
       state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
-        display = forge_mod.format_pr(pr, pr_fields, show_state),
+        display = displays[i],
         value = num,
         ordinal = (pr[pr_fields.title] or '') .. ' #' .. num,
       })
@@ -1289,16 +1300,22 @@ function M.issue(state, f)
     local state_field = issue_fields.state
     local state_map = {}
     local entries = {}
+    local displays = forge_mod.format_issues(
+      issues,
+      issue_fields,
+      issue_show_state,
+      { width = layout.picker_width() }
+    )
     local function reopen_list()
       forge_mod.clear_list(cache_key)
       M.issue(state, f)
     end
-    for _, issue in ipairs(issues) do
+    for i, issue in ipairs(issues) do
       local n = tostring(issue[num_field] or '')
       local s = (issue[state_field] or ''):lower()
       state_map[n] = s == 'open' or s == 'opened'
       table.insert(entries, {
-        display = forge_mod.format_issue(issue, issue_fields, issue_show_state),
+        display = displays[i],
         value = n,
         ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
       })
@@ -1443,10 +1460,12 @@ function M.release(state, f)
     end
 
     local entries = {}
-    for _, rel in ipairs(filtered) do
+    local displays =
+      forge_mod.format_releases(filtered, rel_fields, { width = layout.picker_width() })
+    for i, rel in ipairs(filtered) do
       local tag = tostring(rel[rel_fields.tag] or '')
       table.insert(entries, {
-        display = forge_mod.format_release(rel, rel_fields),
+        display = displays[i],
         value = { tag = tag, rel = rel },
         ordinal = tag .. ' ' .. (rel[rel_fields.title] or ''),
       })
@@ -1560,11 +1579,11 @@ function M.branches(ctx)
   local cache_key = forge_mod.list_key('branch', 'local-refs-v2')
 
   local function open_branch_list(branches)
-    local layout = branch_layout(branches)
+    local plan = branch_layout(branches)
     local entries = {}
     for _, item in ipairs(branches) do
       entries[#entries + 1] = {
-        display = branch_display(item, layout),
+        display = branch_display(item, plan),
         value = item,
         ordinal = table.concat({
           item.name,
@@ -1731,11 +1750,11 @@ function M.commits(ctx, branch)
   local cache_key = forge_mod.list_key('commit', branch)
 
   local function open_commit_list(commits)
-    local layout = commit_layout(commits)
+    local plan = commit_layout(commits)
     local entries = {}
     for _, item in ipairs(commits) do
       entries[#entries + 1] = {
-        display = commit_display(item, layout),
+        display = commit_display(item, plan),
         value = item,
         ordinal = item.sha .. ' ' .. item.subject .. ' ' .. item.author,
       }
@@ -1844,11 +1863,11 @@ function M.worktrees(ctx)
   local cache_key = forge_mod.list_key('worktree', 'list')
 
   local function open_worktree_list(worktrees)
-    local layout = worktree_layout(worktrees)
+    local plan = worktree_layout(worktrees)
     local entries = {}
     for _, item in ipairs(worktrees) do
       entries[#entries + 1] = {
-        display = worktree_display(item, layout),
+        display = worktree_display(item, plan),
         value = item,
         ordinal = item.path .. ' ' .. worktree_label(item) .. ' ' .. item.short_head,
       }

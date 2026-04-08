@@ -162,17 +162,40 @@ describe('pickers', function()
             cache[key] = nil
           end
         end,
+        format_prs = function(prs)
+          return vim.tbl_map(function(pr)
+            return {
+              { '#' .. tostring(pr.number) },
+              { ' ' .. (pr.title or '') },
+            }
+          end, prs)
+        end,
         format_pr = function(pr)
           return {
             { '#' .. tostring(pr.number) },
             { ' ' .. (pr.title or '') },
           }
         end,
+        format_issues = function(issues)
+          return vim.tbl_map(function(issue)
+            return {
+              { '#' .. tostring(issue.number) },
+              { ' ' .. (issue.title or '') },
+            }
+          end, issues)
+        end,
         format_issue = function(issue)
           return {
             { '#' .. tostring(issue.number) },
             { ' ' .. (issue.title or '') },
           }
+        end,
+        format_checks = function(checks)
+          return vim.tbl_map(function(check)
+            return {
+              { check.name or '' },
+            }
+          end, checks)
         end,
         format_check = function(check)
           return {
@@ -182,6 +205,13 @@ describe('pickers', function()
         filter_checks = function(checks)
           return checks
         end,
+        format_runs = function(runs)
+          return vim.tbl_map(function(run)
+            return {
+              { run.name or '' },
+            }
+          end, runs)
+        end,
         format_run = function(run)
           return {
             { run.name or '' },
@@ -189,6 +219,14 @@ describe('pickers', function()
         end,
         filter_runs = function(runs)
           return runs
+        end,
+        format_releases = function(releases)
+          return vim.tbl_map(function(rel)
+            return {
+              { tostring(rel.tag or '') },
+              { ' ' .. (rel.title or '') },
+            }
+          end, releases)
         end,
         format_release = function(rel)
           return {
@@ -329,6 +367,14 @@ describe('pickers', function()
           if key then
             cache[key] = nil
           end
+        end,
+        format_issues = function(issues)
+          return vim.tbl_map(function(issue)
+            return {
+              { '#' .. tostring(issue.number) },
+              { ' ' .. (issue.title or '') },
+            }
+          end, issues)
         end,
         format_issue = function(issue)
           return {
