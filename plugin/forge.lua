@@ -218,6 +218,30 @@ local function dispatch(args)
     return
   end
 
+  if sub == 'branches' then
+    if not require_git_or_warn() then
+      return
+    end
+    require('forge').open('branches')
+    return
+  end
+
+  if sub == 'commits' then
+    if not require_git_or_warn() then
+      return
+    end
+    require('forge').open('commits', { branch = args[2] })
+    return
+  end
+
+  if sub == 'worktrees' then
+    if not require_git_or_warn() then
+      return
+    end
+    require('forge').open('worktrees')
+    return
+  end
+
   if sub == 'release' then
     if not require_git_or_warn() then
       return
@@ -352,7 +376,18 @@ local function complete(arglead, cmdline, _)
   end
   local arg_idx = arglead == '' and #words or #words - 1
 
-  local subcmds = { 'pr', 'issue', 'ci', 'release', 'browse', 'review', 'clear' }
+  local subcmds = {
+    'pr',
+    'issue',
+    'ci',
+    'branches',
+    'commits',
+    'worktrees',
+    'release',
+    'browse',
+    'review',
+    'clear',
+  }
   local sub_actions = {
     pr = {
       'checkout',
@@ -421,7 +456,7 @@ local function complete(arglead, cmdline, _)
 
   if arg_idx == 2 then
     local candidates = vim.list_extend({}, sub_actions[sub] or {})
-    if sub == 'ci' and not arglead:match('^%-') then
+    if (sub == 'ci' or sub == 'commits') and not arglead:match('^%-') then
       vim.list_extend(
         candidates,
         vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags')

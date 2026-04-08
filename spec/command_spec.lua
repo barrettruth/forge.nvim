@@ -3,9 +3,11 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 describe(':Forge command', function()
   local captured
   local old_preload
+  local old_systemlist
 
   before_each(function()
     captured = {
+      opens = {},
       pr_action_num = nil,
       reviews = {},
       review_actions = {},
@@ -17,6 +19,7 @@ describe(':Forge command', function()
       ['forge.pickers'] = package.preload['forge.pickers'],
       ['forge.review'] = package.preload['forge.review'],
     }
+    old_systemlist = vim.fn.systemlist
 
     package.preload['forge.logger'] = function()
       return {
@@ -51,7 +54,12 @@ describe(':Forge command', function()
             head = 'abc123',
           }
         end,
-        open = function() end,
+        open = function(route, opts)
+          table.insert(captured.opens, { route = route, opts = opts })
+        end,
+        template_slugs = function()
+          return {}
+        end,
       }
     end
 
@@ -105,6 +113,13 @@ describe(':Forge command', function()
       }
     end
 
+    vim.fn.systemlist = function(cmd)
+      if cmd == 'git for-each-ref --format=%(refname:short) refs/heads refs/tags' then
+        return { 'main', 'feature' }
+      end
+      return old_systemlist(cmd)
+    end
+
     if vim.api.nvim_get_commands({ builtin = false }).Forge then
       vim.api.nvim_del_user_command('Forge')
     end
@@ -118,6 +133,7 @@ describe(':Forge command', function()
   end)
 
   after_each(function()
+    vim.fn.systemlist = old_systemlist
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
@@ -163,5 +179,26 @@ describe(':Forge command', function()
     vim.cmd('Forge review commit deadbeef')
 
     assert.same({ 'branch:feature', 'commit:deadbeef' }, captured.review_actions)
+  end)
+
+  it('dispatches git-local route subcommands', function()
+    vim.cmd('Forge branches')
+    vim.cmd('Forge commits feature')
+    vim.cmd('Forge worktrees')
+
+    assert.equals('branches', captured.opens[1].route)
+    assert.is_nil(captured.opens[1].opts)
+    assert.equals('commits', captured.opens[2].route)
+    assert.same({ branch = 'feature' }, captured.opens[2].opts)
+    assert.equals('worktrees', captured.opens[3].route)
+    assert.is_nil(captured.opens[3].opts)
+  end)
+
+  it('completes git-local subcommands and commit refs', function()
+    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge br', 'cmdline'), 'branches'))
+    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge comm', 'cmdline'), 'commits'))
+    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge work', 'cmdline'), 'worktrees'))
+    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge commits ', 'cmdline'), 'main'))
+    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge commits f', 'cmdline'), 'feature'))
   end)
 end)

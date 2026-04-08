@@ -33,6 +33,9 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge issue reopen` {num}..........................|:Forge-issue-reopen|
     `:Forge issue create` [{flags}]........................|:Forge-issue-create|
     `:Forge ci` [{flags}]..........................................|:Forge-ci|
+    `:Forge branches`........................................|:Forge-branches|
+    `:Forge commits` [{branch}]..............................|:Forge-commits|
+    `:Forge worktrees`......................................|:Forge-worktrees|
     `:Forge release`..........................................|:Forge-release|
     `:Forge release browse` {tag}......................|:Forge-release-browse|
     `:Forge release delete` {tag}......................|:Forge-release-delete|
@@ -340,6 +343,16 @@ COMMANDS                                                              *:Forge*
 `:Forge ci` [{flags}]                                              *:Forge-ci*
     Open the CI runs picker. Defaults to current branch.
     `--all`            Show runs for all branches.
+
+`:Forge branches`                                        *:Forge-branches*
+    Open the local branch picker (|forge-picker-branch|).
+
+`:Forge commits` [{branch}]                              *:Forge-commits*
+    Open the commit picker for `{branch}`. Defaults to the current branch
+    when omitted (|forge-picker-commit|).
+
+`:Forge worktrees`                                      *:Forge-worktrees*
+    Open the worktree picker (|forge-picker-worktree|).
 
 `:Forge release`                                              *:Forge-release*
     Open the release list picker (|forge-picker-release|).
