@@ -712,6 +712,62 @@ describe('pickers', function()
     assert.is_nil(rawget(action_by_name('watch'), 'close'))
   end)
 
+  it('opens the CI picker immediately on fzf before the fetch completes', function()
+    local old_system = vim.system
+    local system_cb
+    vim.system = function(_, _, cb)
+      system_cb = cb
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    assert.is_not_nil(captured)
+    assert.equals('CI (main, all)> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+
+    assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_nil(rawget(action_by_name('watch'), 'close'))
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    assert.is_not_nil(system_cb)
+    system_cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          id = '1',
+          name = 'CI',
+          branch = 'main',
+          status = 'success',
+          url = 'https://example.com',
+        },
+      }),
+    })
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('1', streamed[1].value.id)
+    assert.equals('CI', streamed[1].display[1][1])
+  end)
+
   it('keeps release browse and copy actions open', function()
     cache['release:all'] = {
       { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
