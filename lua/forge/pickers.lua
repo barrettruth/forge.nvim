@@ -1248,6 +1248,7 @@ function M.pr(state, f)
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('pr', state)
   local pr_fields = f.pr_fields
+  local num_field = pr_fields.number
   local show_state = state ~= 'open'
   local state_map = {}
 
@@ -1256,6 +1257,9 @@ function M.pr(state, f)
       state_map[key] = nil
     end
 
+    table.sort(prs, function(a, b)
+      return (a[num_field] or 0) > (b[num_field] or 0)
+    end)
     local entries = {}
     local displays =
       forge_mod.format_prs(prs, pr_fields, show_state, { width = layout.picker_width() })
