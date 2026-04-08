@@ -45,7 +45,11 @@ local function render(segments)
 end
 
 local function render_line(index, entry)
-  return ('%d\t%s'):format(index, render(entry.display))
+  local text = render(entry.display)
+  if vim.trim(text) == '' then
+    return nil
+  end
+  return ('%d\t%s'):format(index, text)
 end
 
 ---@param actions forge.PickerActionDef[]
@@ -93,7 +97,10 @@ function M.pick(opts)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
-        fzf_cb(render_line(i, entry))
+        local line = render_line(i, entry)
+        if line then
+          fzf_cb(line)
+        end
       end
       stream(function(entry)
         if not entry then
@@ -102,13 +109,19 @@ function M.pick(opts)
         end
         next_index = next_index + 1
         entries[next_index] = entry
-        fzf_cb(render_line(next_index, entry))
+        local line = render_line(next_index, entry)
+        if line then
+          fzf_cb(line)
+        end
       end)
     end
   else
     lines = {}
     for i, entry in ipairs(entries) do
-      lines[i] = render_line(i, entry)
+      local line = render_line(i, entry)
+      if line then
+        lines[#lines + 1] = line
+      end
     end
   end
 

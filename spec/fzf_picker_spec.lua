@@ -236,4 +236,59 @@ describe('fzf picker', function()
     captured.opts.actions.default({ '2\t#2' })
     assert.equals('2', selected.value)
   end)
+
+  it('skips rows whose rendered display is blank', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = {
+        {
+          display = { { '' } },
+          value = 'blank',
+        },
+        {
+          display = { { '#2' } },
+          value = '2',
+        },
+      },
+      actions = {},
+      picker_name = 'issue',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same({ '2\t#2' }, captured.lines)
+  end)
+
+  it('skips streamed rows whose rendered display is blank', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = {},
+      actions = {},
+      picker_name = 'issue',
+      stream = function(emit)
+        emit({
+          display = { { '' } },
+          value = 'blank',
+        })
+        emit({
+          display = { { '#2' } },
+          value = '2',
+        })
+        emit(nil)
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('function', type(captured.lines))
+
+    local lines = {}
+    captured.lines(function(line)
+      if line ~= nil then
+        lines[#lines + 1] = line
+      end
+    end)
+
+    assert.same({ '2\t#2' }, lines)
+  end)
 end)

@@ -3,6 +3,7 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 local captured
 local cache
 local issue_create_calls
+local pr_create_calls
 
 local function fake_forge()
   return {
@@ -29,6 +30,9 @@ local function fake_forge()
     end,
     approve_cmd = function(_, num)
       return { 'approve', num }
+    end,
+    list_pr_json_cmd = function(_, state)
+      return { 'prs', state }
     end,
     merge_cmd = function(_, num, method)
       return { 'merge', num, method }
@@ -116,6 +120,7 @@ describe('pickers', function()
   before_each(function()
     captured = nil
     issue_create_calls = 0
+    pr_create_calls = 0
     cache = {
       ['pr:open'] = {
         { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
@@ -251,7 +256,9 @@ describe('pickers', function()
         create_issue = function()
           issue_create_calls = issue_create_calls + 1
         end,
-        create_pr = function() end,
+        create_pr = function()
+          pr_create_calls = pr_create_calls + 1
+        end,
         edit_pr = function() end,
       }
     end
@@ -337,6 +344,58 @@ describe('pickers', function()
     assert.equals('PRs (open · 0)> ', captured.prompt)
     assert.equals('No open PRs', captured.entries[1].display[1][1])
     assert.is_true(captured.entries[1].placeholder)
+  end)
+
+  it('opens the PR picker immediately on fzf before the fetch completes', function()
+    cache['pr:open'] = nil
+
+    local old_system = vim.system
+    local system_cb
+    vim.system = function(_, _, cb)
+      system_cb = cb
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.equals('PRs (open)> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+
+    action_by_name('create').fn()
+    assert.equals(1, pr_create_calls)
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    assert.is_not_nil(system_cb)
+    system_cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('42', streamed[1].value)
+    assert.equals('#42', streamed[1].display[1][1])
+    assert.same(42, cache['pr:open'][1].number)
   end)
 
   it('keeps issue web actions open', function()
