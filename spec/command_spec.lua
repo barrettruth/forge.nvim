@@ -194,6 +194,16 @@ describe(':Forge command', function()
     assert.is_nil(captured.opens[3].opts)
   end)
 
+  it('dispatches browse subcommands through the route aliases', function()
+    vim.cmd('Forge browse')
+    vim.cmd('Forge browse --root')
+    vim.cmd('Forge browse --commit')
+
+    assert.equals('browse.contextual', captured.opens[1].route)
+    assert.equals('browse.branch', captured.opens[2].route)
+    assert.equals('browse.commit', captured.opens[3].route)
+  end)
+
   it('completes git-local subcommands and commit refs', function()
     assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge br', 'cmdline'), 'branches'))
     assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge comm', 'cmdline'), 'commits'))

@@ -7,6 +7,7 @@ local M = {}
 ---@field value any
 ---@field ordinal string?
 ---@field placeholder boolean?
+---@field force_close boolean?
 
 ---@class forge.PickerActionDef
 ---@field name string
@@ -69,7 +70,10 @@ function M.selected(entry)
   return entry
 end
 
-function M.closes(def)
+function M.closes(def, entry)
+  if entry and entry.force_close then
+    return true
+  end
   return rawget(def, 'close') ~= false
 end
 

@@ -433,6 +433,40 @@ describe('pickers', function()
     )
   end)
 
+  it('adds a load more row when the PR list exceeds the configured limit', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          pulls = 2,
+        },
+      },
+    }
+    cache['pr:open'] = {
+      { number = 42, title = 'Newer', state = 'OPEN', author = 'bob', created_at = '' },
+      { number = 13, title = 'Middle', state = 'OPEN', author = 'cora', created_at = '' },
+      { number = 7, title = 'Older', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.same(
+      { '42', '13' },
+      vim.tbl_map(function(entry)
+        return entry.value
+      end, vim.list_slice(captured.entries, 1, 2))
+    )
+    assert.equals('Load more…', captured.entries[3].display[1][1])
+    assert.is_true(captured.entries[3].load_more)
+
+    action_by_name('default').fn(captured.entries[3])
+
+    assert.equals('PRs (open)> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+  end)
+
   it('warms the next PR state after opening a cached list', function()
     cache['pr:closed'] = nil
 
@@ -521,6 +555,34 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('default'), 'close'))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('close'), 'close'))
+  end)
+
+  it('adds a load more row when the issue list exceeds the configured limit', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          issues = 2,
+        },
+      },
+    }
+    cache['issue:all'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 12, title = 'Docs', state = 'OPEN', author = 'bob', created_at = '' },
+      { number = 3, title = 'Polish', state = 'OPEN', author = 'cora', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('all', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    assert.same(
+      { '12', '7' },
+      vim.tbl_map(function(entry)
+        return entry.value
+      end, vim.list_slice(captured.entries, 1, 2))
+    )
+    assert.equals('Load more…', captured.entries[3].display[1][1])
+    assert.is_true(captured.entries[3].load_more)
   end)
 
   it('keeps the issue header affordance on the default open action only', function()

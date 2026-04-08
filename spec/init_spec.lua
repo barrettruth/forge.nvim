@@ -210,6 +210,20 @@ describe('format_issue', function()
     local result = flatten(forge.format_issue(entry, fields, true))
     assert.truthy(result:find('+'))
   end)
+
+  it('normalizes embedded control characters in issue titles', function()
+    local entry = {
+      number = 26,
+      title = 'no highlighting on release/pr comment text\n',
+      state = 'closed',
+      author = 'bob',
+      created_at = '',
+    }
+    local result = flatten(forge.format_issue(entry, fields, true))
+    assert.is_nil(result:find('\n', 1, true))
+    assert.is_nil(result:find('\r', 1, true))
+    assert.is_nil(result:find('\t', 1, true))
+  end)
 end)
 
 describe('format_check', function()

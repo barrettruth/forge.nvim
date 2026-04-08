@@ -30,10 +30,11 @@ function M.pick(opts)
       local action_name = 'forge_' .. def.name
       snacks_actions[action_name] = function(picker)
         local item = picker:current()
-        if picker_mod.closes(def) then
+        local selected = picker_mod.selected(item and item.value or nil)
+        if picker_mod.closes(def, selected) then
           picker:close()
         end
-        def.fn(picker_mod.selected(item and item.value or nil))
+        def.fn(selected)
       end
       if key == '<cr>' then
         snacks_actions['confirm'] = snacks_actions[action_name]

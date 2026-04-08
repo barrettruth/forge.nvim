@@ -41,14 +41,15 @@ local M = {
 }
 
 ---@param state string
+---@param limit integer?
 ---@return string[]
-function M:list_pr_json_cmd(state)
+function M:list_pr_json_cmd(state, limit)
   local cmd = {
     'glab',
     'mr',
     'list',
     '--per-page',
-    tostring(forge.config().display.limits.pulls),
+    tostring(limit or forge.config().display.limits.pulls),
     '--output',
     'json',
   }
@@ -61,14 +62,15 @@ function M:list_pr_json_cmd(state)
 end
 
 ---@param state string
+---@param limit integer?
 ---@return string[]
-function M:list_issue_json_cmd(state)
+function M:list_issue_json_cmd(state, limit)
   local cmd = {
     'glab',
     'issue',
     'list',
     '--per-page',
-    tostring(forge.config().display.limits.issues),
+    tostring(limit or forge.config().display.limits.issues),
     '--output',
     'json',
   }

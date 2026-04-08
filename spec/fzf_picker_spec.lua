@@ -1,5 +1,8 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local close_calls = 0
+local ctx_clears = 0
+
 package.preload['fzf-lua.utils'] = function()
   return {
     ansi_from_hl = function(group, text)
@@ -10,6 +13,16 @@ package.preload['fzf-lua.utils'] = function()
         return ('\27[48;2;255;255;255m\27[38;2;1;2;3m%s\27[0m'):format(text)
       end
       return text, '\27[38;2;1;2;3m'
+    end,
+    fzf_winobj = function()
+      return {
+        close = function()
+          close_calls = close_calls + 1
+        end,
+      }
+    end,
+    clear_CTX = function()
+      ctx_clears = ctx_clears + 1
     end,
   }
 end
@@ -30,6 +43,8 @@ describe('fzf picker', function()
   before_each(function()
     captured = nil
     selected = false
+    close_calls = 0
+    ctx_clears = 0
     package.loaded['forge'] = nil
     package.loaded['forge.picker.fzf'] = nil
     vim.g.forge = nil
@@ -189,6 +204,44 @@ describe('fzf picker', function()
     assert.is_nil(captured.opts.actions['ctrl-x'].noclose)
     captured.opts.actions['ctrl-x'].fn({ '1\t#42' })
     assert.equals('42', selected.value)
+  end)
+
+  it('closes close=false actions when the selected row forces it', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = {
+        {
+          display = { { 'Load more…' } },
+          value = nil,
+          load_more = true,
+          force_close = true,
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          close = false,
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = 'issue',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('table', type(captured.opts.actions.default))
+    captured.opts.actions.default.fn({ '1\tLoad more…' })
+
+    vim.wait(100, function()
+      return selected ~= false
+    end)
+
+    assert.equals(1, close_calls)
+    assert.equals(1, ctx_clears)
+    assert.is_true(selected.load_more)
   end)
 
   it('streams entries and resolves streamed selections', function()

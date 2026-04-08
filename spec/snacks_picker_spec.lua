@@ -85,6 +85,45 @@ describe('snacks picker', function()
     assert.equals('42', selected.value)
   end)
 
+  it('closes close=false actions when the selected row forces it', function()
+    local picker = require('forge.picker.snacks')
+    local entry = {
+      display = { { 'Load more…' } },
+      value = nil,
+      load_more = true,
+      force_close = true,
+    }
+
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = { entry },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          close = false,
+          fn = function(item)
+            selected = item
+          end,
+        },
+      },
+      picker_name = 'issue',
+    })
+
+    local picker_obj = {
+      current = function()
+        return captured.items[1]
+      end,
+      close = function()
+        close_calls = close_calls + 1
+      end,
+    }
+
+    captured.actions.confirm(picker_obj)
+    assert.equals(1, close_calls)
+    assert.is_true(selected.load_more)
+  end)
+
   it('closes actions by default', function()
     local picker = require('forge.picker.snacks')
     local entry = {

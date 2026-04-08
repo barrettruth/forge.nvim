@@ -72,4 +72,11 @@ describe('layout', function()
     assert.equals('wide', wide.mode)
     assert.same({ { 'ab    ' }, { ' xy' } }, layout.render(wide, { left = 'ab', right = 'xy' }))
   end)
+
+  it('normalizes control characters in rendered cells', function()
+    local layout = require('forge.layout')
+
+    assert.equals(5, layout.display_width('a\nb\tc'))
+    assert.equals('a b c', layout.fit('a\nb\tc', 5, { pad = false }))
+  end)
 end)

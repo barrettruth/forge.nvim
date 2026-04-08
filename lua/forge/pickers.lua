@@ -63,6 +63,19 @@ local function placeholder_entry(text)
   }
 end
 
+---@param next_limit integer
+---@return forge.PickerEntry
+local function load_more_entry(next_limit)
+  return {
+    display = { { 'Load more…', 'ForgeDim' } },
+    value = nil,
+    ordinal = 'Load more',
+    load_more = true,
+    next_limit = next_limit,
+    force_close = true,
+  }
+end
+
 ---@param entries forge.PickerEntry[]
 ---@param text string
 ---@return forge.PickerEntry[]
@@ -1242,10 +1255,17 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
-function M.pr(state, f)
+---@param opts? { limit?: integer }
+function M.pr(state, f, opts)
+  opts = opts or {}
   local cli_kind = f.kinds.pr
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local forge_mod = require('forge')
+  local cfg = forge_mod.config()
+  local limit_step = cfg.display.limits.pulls
+  local visible_limit = opts.limit or limit_step
+  local fetch_limit = visible_limit + 1
+  local use_cache = visible_limit == limit_step
   local cache_key = forge_mod.list_key('pr', state)
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
@@ -1260,6 +1280,10 @@ function M.pr(state, f)
     table.sort(prs, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
     end)
+    local has_more = #prs > visible_limit
+    if has_more then
+      prs = vim.list_slice(prs, 1, visible_limit)
+    end
     local entries = {}
     local displays =
       forge_mod.format_prs(prs, pr_fields, show_state, { width = layout.picker_width() })
@@ -1274,6 +1298,9 @@ function M.pr(state, f)
       })
     end
     local count = #entries
+    if has_more then
+      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+    end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
       or ('No %s %s'):format(state, f.labels.pr)
     return with_placeholder(entries, empty_text), count
@@ -1281,14 +1308,20 @@ function M.pr(state, f)
 
   local function reopen_list()
     clear_state_caches(forge_mod, 'pr')
-    M.pr(state, f)
+    M.pr(state, f, { limit = visible_limit })
   end
 
   local function maybe_prefetch_next()
-    if not f.list_pr_json_cmd then
+    if not use_cache or not f.list_pr_json_cmd then
       return
     end
-    maybe_prefetch_list(forge_mod, 'pr', next_state, f.labels.pr, f:list_pr_json_cmd(next_state))
+    maybe_prefetch_list(
+      forge_mod,
+      'pr',
+      next_state,
+      f.labels.pr,
+      f:list_pr_json_cmd(next_state, fetch_limit)
+    )
   end
 
   local actions = {
@@ -1296,7 +1329,9 @@ function M.pr(state, f)
       name = 'default',
       label = 'more',
       fn = function(entry)
-        if entry then
+        if entry and entry.load_more then
+          M.pr(state, f, { limit = entry.next_limit })
+        elseif entry then
           pr_manage_picker(f, entry.value, reopen_list)
         end
       end,
@@ -1305,7 +1340,7 @@ function M.pr(state, f)
       name = 'checkout',
       label = 'checkout',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_action_fns(f, entry.value).checkout()
         end
       end,
@@ -1314,7 +1349,7 @@ function M.pr(state, f)
       name = 'review',
       label = 'review',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_action_fns(f, entry.value).review()
         end
       end,
@@ -1323,7 +1358,7 @@ function M.pr(state, f)
       name = 'worktree',
       close = false,
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_action_fns(f, entry.value).worktree()
         end
       end,
@@ -1332,7 +1367,7 @@ function M.pr(state, f)
       name = 'ci',
       label = 'checks',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_action_fns(f, entry.value).ci()
         end
       end,
@@ -1342,7 +1377,7 @@ function M.pr(state, f)
       label = 'web',
       close = false,
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           f:view_web(cli_kind, entry.value)
         end
       end,
@@ -1351,7 +1386,7 @@ function M.pr(state, f)
       name = 'manage',
       label = 'more',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_manage_picker(f, entry.value, reopen_list)
         end
       end,
@@ -1359,7 +1394,7 @@ function M.pr(state, f)
     {
       name = 'edit',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_action_fns(f, entry.value).edit()
         end
       end,
@@ -1373,7 +1408,7 @@ function M.pr(state, f)
     {
       name = 'close',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           pr_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
         end
       end,
@@ -1381,14 +1416,14 @@ function M.pr(state, f)
     {
       name = 'filter',
       fn = function()
-        M.pr(next_state, f)
+        M.pr(next_state, f, { limit = visible_limit })
       end,
     },
     {
       name = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'pr')
-        M.pr(state, f)
+        M.pr(state, f, { limit = visible_limit })
       end,
     },
   }
@@ -1414,7 +1449,7 @@ function M.pr(state, f)
       stream = function(emit)
         log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
         local token = begin_list_fetch(cache_key)
-        vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
+        vim.system(f:list_pr_json_cmd(state, fetch_limit), { text = true }, function(result)
           vim.schedule(function()
             if not list_fetch_current(cache_key, token) then
               emit(nil)
@@ -1422,7 +1457,9 @@ function M.pr(state, f)
             end
             local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
             if result.code == 0 and ok and prs then
-              forge_mod.set_list(cache_key, prs)
+              if use_cache then
+                forge_mod.set_list(cache_key, prs)
+              end
               maybe_prefetch_next()
               local entries = build_pr_entries(prs)
               for _, entry in ipairs(entries) do
@@ -1439,7 +1476,7 @@ function M.pr(state, f)
     })
   end
 
-  local cached = forge_mod.get_list(cache_key)
+  local cached = use_cache and forge_mod.get_list(cache_key) or nil
   if cached then
     open_pr_list(cached)
   elseif picker.backend() == 'fzf-lua' then
@@ -1447,14 +1484,16 @@ function M.pr(state, f)
   else
     log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
     local token = begin_list_fetch(cache_key)
-    vim.system(f:list_pr_json_cmd(state), { text = true }, function(result)
+    vim.system(f:list_pr_json_cmd(state, fetch_limit), { text = true }, function(result)
       vim.schedule(function()
         if not list_fetch_current(cache_key, token) then
           return
         end
         local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
         if result.code == 0 and ok and prs then
-          forge_mod.set_list(cache_key, prs)
+          if use_cache then
+            forge_mod.set_list(cache_key, prs)
+          end
           open_pr_list(prs)
         else
           log.error('failed to fetch ' .. f.labels.pr)
@@ -1466,10 +1505,17 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
-function M.issue(state, f)
+---@param opts? { limit?: integer }
+function M.issue(state, f, opts)
+  opts = opts or {}
   local cli_kind = f.kinds.issue
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local forge_mod = require('forge')
+  local cfg = forge_mod.config()
+  local limit_step = cfg.display.limits.issues
+  local visible_limit = opts.limit or limit_step
+  local fetch_limit = visible_limit + 1
+  local use_cache = visible_limit == limit_step
   local cache_key = forge_mod.list_key('issue', state)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
@@ -1484,6 +1530,10 @@ function M.issue(state, f)
     table.sort(issues, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
     end)
+    local has_more = #issues > visible_limit
+    if has_more then
+      issues = vim.list_slice(issues, 1, visible_limit)
+    end
     local state_field = issue_fields.state
     local entries = {}
     local displays = forge_mod.format_issues(
@@ -1503,6 +1553,9 @@ function M.issue(state, f)
       })
     end
     local count = #entries
+    if has_more then
+      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+    end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
       or ('No %s %s'):format(state, f.labels.issue)
     return with_placeholder(entries, empty_text), count
@@ -1510,11 +1563,11 @@ function M.issue(state, f)
 
   local function reopen_list()
     clear_state_caches(forge_mod, 'issue')
-    M.issue(state, f)
+    M.issue(state, f, { limit = visible_limit })
   end
 
   local function maybe_prefetch_next()
-    if not f.list_issue_json_cmd then
+    if not use_cache or not f.list_issue_json_cmd then
       return
     end
     maybe_prefetch_list(
@@ -1522,7 +1575,7 @@ function M.issue(state, f)
       'issue',
       next_state,
       f.labels.issue,
-      f:list_issue_json_cmd(next_state)
+      f:list_issue_json_cmd(next_state, fetch_limit)
     )
   end
 
@@ -1532,7 +1585,9 @@ function M.issue(state, f)
       label = 'open',
       close = false,
       fn = function(entry)
-        if entry then
+        if entry and entry.load_more then
+          M.issue(state, f, { limit = entry.next_limit })
+        elseif entry then
           f:view_web(cli_kind, entry.value)
         end
       end,
@@ -1541,7 +1596,7 @@ function M.issue(state, f)
       name = 'browse',
       close = false,
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           f:view_web(cli_kind, entry.value)
         end
       end,
@@ -1550,7 +1605,7 @@ function M.issue(state, f)
       name = 'close',
       label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           issue_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
         end
       end,
@@ -1564,14 +1619,14 @@ function M.issue(state, f)
     {
       name = 'filter',
       fn = function()
-        M.issue(next_state, f)
+        M.issue(next_state, f, { limit = visible_limit })
       end,
     },
     {
       name = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'issue')
-        M.issue(state, f)
+        M.issue(state, f, { limit = visible_limit })
       end,
     },
   }
@@ -1597,7 +1652,7 @@ function M.issue(state, f)
       stream = function(emit)
         log.info('fetching issue list (' .. state .. ')...')
         local token = begin_list_fetch(cache_key)
-        vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
+        vim.system(f:list_issue_json_cmd(state, fetch_limit), { text = true }, function(result)
           vim.schedule(function()
             if not list_fetch_current(cache_key, token) then
               emit(nil)
@@ -1605,7 +1660,9 @@ function M.issue(state, f)
             end
             local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
             if result.code == 0 and ok and issues then
-              forge_mod.set_list(cache_key, issues)
+              if use_cache then
+                forge_mod.set_list(cache_key, issues)
+              end
               maybe_prefetch_next()
               local entries = build_issue_entries(issues)
               for _, entry in ipairs(entries) do
@@ -1622,7 +1679,7 @@ function M.issue(state, f)
     })
   end
 
-  local cached = forge_mod.get_list(cache_key)
+  local cached = use_cache and forge_mod.get_list(cache_key) or nil
   if cached then
     open_issue_list(cached)
   elseif picker.backend() == 'fzf-lua' then
@@ -1630,14 +1687,16 @@ function M.issue(state, f)
   else
     log.info('fetching issue list (' .. state .. ')...')
     local token = begin_list_fetch(cache_key)
-    vim.system(f:list_issue_json_cmd(state), { text = true }, function(result)
+    vim.system(f:list_issue_json_cmd(state, fetch_limit), { text = true }, function(result)
       vim.schedule(function()
         if not list_fetch_current(cache_key, token) then
           return
         end
         local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
         if result.code == 0 and ok and issues then
-          forge_mod.set_list(cache_key, issues)
+          if use_cache then
+            forge_mod.set_list(cache_key, issues)
+          end
           open_issue_list(issues)
         else
           log.error('failed to fetch issues')
