@@ -4,6 +4,15 @@ local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
   :gsub('%-%-bind=[^%s]+', '')
   :gsub('%-%-color=[^%s]+', '')
 
+local no_bg_highlights = {
+  ForgeBranch = true,
+  ForgeBranchCurrent = true,
+}
+
+local function strip_bg_ansi(text)
+  return (text:gsub('\27%[48;2;%d+;%d+;%d+m', ''):gsub('\27%[48;5;%d+m', ''))
+end
+
 ---@param key string
 ---@return string
 local function to_fzf_key(key)
@@ -36,7 +45,11 @@ local function render(segments)
   local parts = {}
   for _, seg in ipairs(segments) do
     if seg[2] then
-      table.insert(parts, (utils.ansi_from_hl(seg[2], seg[1])))
+      local text = utils.ansi_from_hl(seg[2], seg[1])
+      if no_bg_highlights[seg[2]] then
+        text = strip_bg_ansi(text)
+      end
+      table.insert(parts, text)
     else
       table.insert(parts, seg[1])
     end
