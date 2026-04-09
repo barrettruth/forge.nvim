@@ -1,4 +1,6 @@
 local M = {}
+local yaml_template_error =
+  'tree-sitter yaml parser not found; install it to use YAML issue form templates'
 
 ---@class forge.TemplateEntry
 ---@field name string
@@ -74,9 +76,13 @@ end
 
 ---@param content string
 ---@param yaml_file boolean
----@return forge.TemplateResult
+---@return forge.TemplateResult?
+---@return string?
 function M.make_template_result(content, yaml_file)
   if yaml_file then
+    if not pcall(vim.treesitter.language.inspect, 'yaml') then
+      return nil, yaml_template_error
+    end
     local yaml = require('forge.yaml')
     return yaml.render(yaml.parse(content))
   end
@@ -103,6 +109,7 @@ end
 ---@param repo_root string
 ---@return forge.TemplateResult? result
 ---@return forge.TemplateEntry[]? templates
+---@return string? err
 function M.discover(paths, repo_root)
   local log = require('forge.logger')
   local t0 = vim.uv.hrtime()
@@ -113,7 +120,8 @@ function M.discover(paths, repo_root)
       local content = M.read_file(full)
       if content then
         log.debug(('template: %s (%.1fms)'):format(p, (vim.uv.hrtime() - t0) / 1e6))
-        return M.make_template_result(content, M.is_yaml(p)), nil
+        local result, err = M.make_template_result(content, M.is_yaml(p))
+        return result, nil, err
       end
     elseif stat and stat.type == 'directory' then
       local handle = vim.uv.fs_scandir(full)
@@ -146,7 +154,8 @@ function M.discover(paths, repo_root)
         if #templates == 1 then
           local content = M.read_file(full .. '/' .. templates[1].name)
           if content then
-            return M.make_template_result(content, templates[1].is_yaml), nil
+            local result, err = M.make_template_result(content, templates[1].is_yaml)
+            return result, nil, err
           end
         elseif #templates > 0 then
           table.sort(templates, function(a, b)
@@ -164,21 +173,28 @@ function M.discover(paths, repo_root)
       end
     end
   end
-  return nil, nil
+  return nil, nil, nil
 end
 
 ---@param entry forge.TemplateEntry
 ---@return forge.TemplateResult?
+---@return string? err
 function M.load(entry)
   local log = require('forge.logger')
   local t0 = vim.uv.hrtime()
   local content = M.read_file(entry.dir .. '/' .. entry.name)
   if content then
-    local result = M.make_template_result(content, entry.is_yaml)
-    log.debug(('template parse: %s (%.1fms)'):format(entry.name, (vim.uv.hrtime() - t0) / 1e6))
-    return result
+    local result, err = M.make_template_result(content, entry.is_yaml)
+    if result then
+      log.debug(('template parse: %s (%.1fms)'):format(entry.name, (vim.uv.hrtime() - t0) / 1e6))
+    end
+    return result, err
   end
-  return nil
+  return nil, nil
+end
+
+function M.yaml_template_error()
+  return yaml_template_error
 end
 
 return M

@@ -73,6 +73,43 @@ describe('load_template', function()
     assert.equals('feat: ', result.title)
     assert.same({ 'enhancement' }, result.labels)
   end)
+
+  it('returns an error when a direct yaml template is discovered without the parser', function()
+    local old_inspect = vim.treesitter.language.inspect
+    vim.treesitter.language.inspect = function()
+      error('missing parser')
+    end
+
+    local result, templates, err = discover({ '.github/ISSUE_TEMPLATE/bug_report.yaml' }, repo_root)
+
+    vim.treesitter.language.inspect = old_inspect
+
+    assert.is_nil(result)
+    assert.is_nil(templates)
+    assert.equals(
+      'tree-sitter yaml parser not found; install it to use YAML issue form templates',
+      err
+    )
+  end)
+
+  it('returns an error when loading a yaml template without the parser', function()
+    local _, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local bug = templates[1]
+    local old_inspect = vim.treesitter.language.inspect
+    vim.treesitter.language.inspect = function()
+      error('missing parser')
+    end
+
+    local result, err = load_template(bug)
+
+    vim.treesitter.language.inspect = old_inspect
+
+    assert.is_nil(result)
+    assert.equals(
+      'tree-sitter yaml parser not found; install it to use YAML issue form templates',
+      err
+    )
+  end)
 end)
 
 describe('normalize_body', function()
