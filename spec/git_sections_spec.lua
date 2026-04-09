@@ -244,6 +244,9 @@ describe('git sections', function()
     assert.equals('', vim.trim(captured.picker.entries[3].display[3][1]))
     assert.equals('Topic branch', vim.trim(captured.picker.entries[3].display[4][1]))
     assert.equals('ForgeDim', captured.picker.entries[3].display[4][2])
+    assert.equals('main', captured.picker.entries[1].ordinal)
+    assert.equals('feature', captured.picker.entries[2].ordinal)
+    assert.equals('topic', captured.picker.entries[3].ordinal)
 
     local worktree_entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(worktree_entry)
@@ -338,6 +341,8 @@ describe('git sections', function()
     assert.same({ '  ', 'ForgeDim' }, captured.picker.entries[2].display[1])
     assert.same({ '/repo-feature', 'Directory' }, captured.picker.entries[2].display[2])
     assert.equals('feature', vim.trim(captured.picker.entries[2].display[3][1]))
+    assert.equals('main', captured.picker.entries[1].ordinal)
+    assert.equals('feature', captured.picker.entries[2].ordinal)
     assert.equals('ForgeBranch', captured.picker.entries[2].display[3][2])
     assert.same({ ' def5678', 'ForgeCommitHash' }, captured.picker.entries[2].display[4])
 

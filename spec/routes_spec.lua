@@ -193,6 +193,9 @@ describe('routes', function()
       { 'PRs', 'Issues', 'CI', 'Branches', 'Commits', 'Worktrees', 'Browse', 'Releases' },
       labels
     )
+    assert.equals('PRs prs pull requests reviews', captured.root.entries[1].ordinal)
+    assert.equals('CI ci checks runs actions', captured.root.entries[3].ordinal)
+    assert.equals('Branches branches refs', captured.root.entries[4].ordinal)
     assert.is_nil(captured.root.entries[1].display[2])
     assert.is_nil(captured.root.entries[4].display[2])
 

@@ -62,6 +62,7 @@ describe('fzf picker', function()
             { 'alice  1h', 'ForgeDim' },
           },
           value = '42',
+          ordinal = '42 fix api drift alice',
         },
       },
       actions = {},
@@ -69,8 +70,10 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.same({ '1\t#42 fix api drift alice  1h' }, captured.lines)
+    assert.same({ '1\t42 fix api drift alice\t#42 fix api drift alice  1h' }, captured.lines)
     assert.equals('PRs> ', captured.opts.prompt)
+    assert.equals('3..', captured.opts.fzf_opts['--with-nth'])
+    assert.equals('2', captured.opts.fzf_opts['--nth'])
   end)
 
   it('renders headers with <cr> and ^X style key labels without to text', function()
@@ -171,7 +174,7 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    captured.opts.actions.default({ '1\tNo open PRs' })
+    captured.opts.actions.default({ '1\tNo open PRs\tNo open PRs' })
     assert.is_nil(selected)
   end)
 
@@ -202,7 +205,7 @@ describe('fzf picker', function()
     assert.same('table', type(captured.opts.actions['ctrl-x']))
     assert.is_true(captured.opts.actions['ctrl-x'].reload)
     assert.is_nil(captured.opts.actions['ctrl-x'].noclose)
-    captured.opts.actions['ctrl-x'].fn({ '1\t#42' })
+    captured.opts.actions['ctrl-x'].fn({ '1\t42\t#42' })
     assert.equals('42', selected.value)
   end)
 
@@ -233,7 +236,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same('table', type(captured.opts.actions.default))
-    captured.opts.actions.default.fn({ '1\tLoad more...' })
+    captured.opts.actions.default.fn({ '1\tLoad more\tLoad more...' })
 
     vim.wait(100, function()
       return selected ~= false
@@ -286,10 +289,10 @@ describe('fzf picker', function()
       lines[#lines + 1] = line
     end)
 
-    assert.same({ '1\t#1', '2\t#2' }, lines)
+    assert.same({ '1\t#1\t#1', '2\t#2\t#2' }, lines)
     assert.is_true(done)
 
-    captured.opts.actions.default({ '2\t#2' })
+    captured.opts.actions.default({ '2\t2\t#2' })
     assert.equals('2', selected.value)
   end)
 
@@ -312,7 +315,7 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.same({ '2\t#2' }, captured.lines)
+    assert.same({ '2\t#2\t#2' }, captured.lines)
   end)
 
   it('skips streamed rows whose rendered display is blank', function()
@@ -345,7 +348,7 @@ describe('fzf picker', function()
       end
     end)
 
-    assert.same({ '2\t#2' }, lines)
+    assert.same({ '2\t#2\t#2' }, lines)
   end)
 
   it('strips branch background ANSI so the selected row highlight can win', function()

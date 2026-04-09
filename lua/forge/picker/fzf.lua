@@ -58,11 +58,14 @@ local function render(segments)
 end
 
 local function render_line(index, entry)
+  local picker_mod = require('forge.picker')
   local text = render(entry.display)
   if vim.trim(text) == '' then
     return nil
   end
-  return ('%d\t%s'):format(index, text)
+  local ordinal = picker_mod.ordinal(entry)
+  ordinal = ordinal:gsub('[\r\n\t]', ' ')
+  return ('%d\t%s\t%s'):format(index, ordinal, text)
 end
 
 ---@param actions forge.PickerActionDef[]
@@ -180,7 +183,8 @@ function M.pick(opts)
       ['--ansi'] = '',
       ['--header'] = render_header(opts.actions, bindings),
       ['--no-multi'] = '',
-      ['--with-nth'] = '2..',
+      ['--with-nth'] = '3..',
+      ['--nth'] = '2',
       ['--delimiter'] = '\t',
     },
     actions = fzf_actions,

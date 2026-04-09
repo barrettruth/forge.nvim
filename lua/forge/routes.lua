@@ -16,6 +16,17 @@ local section_order = {
   'releases',
 }
 
+local section_search_terms = {
+  prs = { 'pull', 'requests', 'reviews' },
+  issues = { 'bugs', 'tickets' },
+  ci = { 'checks', 'runs', 'actions' },
+  branches = { 'refs' },
+  commits = { 'history', 'log' },
+  worktrees = { 'trees' },
+  browse = { 'web' },
+  releases = { 'tags' },
+}
+
 local function prompt(ctx)
   if ctx.branch ~= '' then
     return ('Forge (%s)> '):format(ctx.branch)
@@ -228,7 +239,10 @@ local function open_root(ctx)
         entries[#entries + 1] = {
           display = { { label } },
           value = route,
-          ordinal = label,
+          ordinal = table.concat(
+            vim.tbl_flatten({ label, section, section_search_terms[section] or {} }),
+            ' '
+          ),
         }
       end
     end
