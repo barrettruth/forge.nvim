@@ -467,14 +467,19 @@ describe('buffer reuse refreshes', function()
   local function stub_pending_system()
     local calls = {}
     vim.system = function(cmd, opts, cb)
+      local proc = {
+        killed = false,
+        kill = function(self)
+          self.killed = true
+        end,
+      }
       calls[#calls + 1] = {
         cmd = cmd,
         opts = opts,
         cb = cb,
+        proc = proc,
       }
-      return {
-        kill = function() end,
-      }
+      return proc
     end
     return calls
   end
@@ -506,5 +511,65 @@ describe('buffer reuse refreshes', function()
 
     assert.equals(1, #calls)
     assert.same({ 'old summary line' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it('ignores stale reused log results after a newer refresh completes', function()
+    local calls = stub_pending_system()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'old log line' })
+
+    log_mod.open({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      title = 'ci',
+    }, buf)
+    log_mod.open({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      title = 'ci',
+    }, buf)
+
+    assert.equals(2, #calls)
+    assert.is_true(calls[1].proc.killed)
+
+    calls[2].cb({ code = 0, stdout = 'new log line' })
+    vim.wait(100, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      return lines[1] == 'new log line'
+    end)
+
+    calls[1].cb({ code = 0, stdout = 'old log line' })
+    vim.wait(20)
+
+    assert.same({ 'new log line' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it('ignores stale reused summary results after a newer refresh completes', function()
+    local calls = stub_pending_system()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'old summary line' })
+
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      run_id = '123',
+      title = 'summary',
+    }, buf)
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      run_id = '123',
+      title = 'summary',
+    }, buf)
+
+    assert.equals(2, #calls)
+    assert.is_true(calls[1].proc.killed)
+
+    calls[2].cb({ code = 0, stdout = '✓ new job (ID 2)' })
+    vim.wait(100, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      return lines[1] == '✓ new job (ID 2)'
+    end)
+
+    calls[1].cb({ code = 0, stdout = '✓ old job (ID 1)' })
+    vim.wait(20)
+
+    assert.same({ '✓ new job (ID 2)' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 end)

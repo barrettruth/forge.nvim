@@ -4,6 +4,7 @@ local format = require('forge.format')
 local layout = require('forge.layout')
 local log = require('forge.logger')
 local picker = require('forge.picker')
+local picker_session = require('forge.picker.session')
 
 ---@param result { code: integer, stdout: string?, stderr: string? }
 ---@param fallback string
@@ -87,54 +88,35 @@ local function with_placeholder(entries, text)
 end
 
 local list_states = { 'open', 'closed', 'all' }
-local list_fetch_epoch = {}
-local list_prefetch_inflight = {}
-
-local function begin_list_fetch(key)
-  local token = (list_fetch_epoch[key] or 0) + 1
-  list_fetch_epoch[key] = token
-  return token
-end
-
-local function list_fetch_current(key, token)
-  return list_fetch_epoch[key] == token
-end
 
 local function clear_state_caches(forge_mod, kind)
   for _, state in ipairs(list_states) do
     local key = forge_mod.list_key(kind, state)
     forge_mod.clear_list(key)
-    list_prefetch_inflight[key] = nil
-    list_fetch_epoch[key] = (list_fetch_epoch[key] or 0) + 1
+    picker_session.invalidate(key)
   end
 end
 
 local function clear_list_cache(forge_mod, key)
   forge_mod.clear_list(key)
-  list_prefetch_inflight[key] = nil
-  list_fetch_epoch[key] = (list_fetch_epoch[key] or 0) + 1
+  picker_session.invalidate(key)
 end
 
 local function maybe_prefetch_list(forge_mod, kind, state, label, cmd)
   local key = forge_mod.list_key(kind, state)
-  if forge_mod.get_list(key) or list_prefetch_inflight[key] then
-    return
+  local started = picker_session.prefetch_json({
+    key = key,
+    cmd = cmd,
+    skip_if = function()
+      return forge_mod.get_list(key) ~= nil
+    end,
+    on_success = function(data)
+      forge_mod.set_list(key, data)
+    end,
+  })
+  if started then
+    log.debug(('prefetching %s list (%s)...'):format(label, state))
   end
-  list_prefetch_inflight[key] = true
-  local token = begin_list_fetch(key)
-  log.debug(('prefetching %s list (%s)...'):format(label, state))
-  vim.system(cmd, { text = true }, function(result)
-    vim.schedule(function()
-      list_prefetch_inflight[key] = nil
-      if not list_fetch_current(key, token) then
-        return
-      end
-      local ok, data = pcall(vim.json.decode, result.stdout or '[]')
-      if result.code == 0 and ok and data then
-        forge_mod.set_list(key, data)
-      end
-    end)
-  end)
 end
 
 local field_sep = string.char(31)
@@ -833,6 +815,7 @@ function M.checks(f, num, filter, cached_checks)
   filter = filter or 'all'
   local forge_mod = require('forge')
   local current_checks = cached_checks
+  local request_key = forge_mod.list_key('check', num)
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -983,45 +966,33 @@ function M.checks(f, num, filter, cached_checks)
   end
 
   if f.checks_json_cmd then
-    if picker.backend() == 'fzf-lua' then
-      picker.pick({
-        prompt = checks_prompt(),
-        entries = {},
-        actions = actions,
-        picker_name = 'ci',
-        stream = function(emit)
-          log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
-          vim.system(f:checks_json_cmd(num), { text = true }, function(result)
-            vim.schedule(function()
-              local ok, checks = pcall(vim.json.decode, result.stdout or '[]')
-              if result.code == 0 and ok and checks then
-                current_checks = checks
-                local entries = build_check_entries(checks)
-                for _, entry in ipairs(entries) do
-                  emit(entry)
-                end
-              else
-                log.info('no checks found')
-                emit(placeholder_entry(('No checks for #%s'):format(num)))
-              end
-              emit(nil)
-            end)
-          end)
-        end,
-      })
-    else
-      log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
-      vim.system(f:checks_json_cmd(num), { text = true }, function(result)
-        vim.schedule(function()
-          local ok, checks = pcall(vim.json.decode, result.stdout or '[]')
-          if result.code == 0 and ok and checks then
-            open_picker(checks)
-          else
-            log.info('no checks found')
-          end
-        end)
-      end)
-    end
+    picker_session.pick_json({
+      key = request_key,
+      loading_prompt = checks_prompt,
+      actions = actions,
+      picker_name = 'ci',
+      cmd = function()
+        return f:checks_json_cmd(num)
+      end,
+      on_fetch = function()
+        log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
+      end,
+      on_success = function(checks)
+        current_checks = checks
+      end,
+      build_entries = function(checks)
+        current_checks = checks
+        local entries = build_check_entries(checks)
+        return entries
+      end,
+      open = open_picker,
+      on_failure = function()
+        log.info('no checks found')
+      end,
+      error_entry = function()
+        return placeholder_entry(('No checks for #%s'):format(num))
+      end,
+    })
   else
     log.info('structured checks not available for this forge')
   end
@@ -1033,6 +1004,7 @@ end
 function M.ci(f, branch, filter)
   filter = filter or 'all'
   local forge_mod = require('forge')
+  local request_key = forge_mod.list_key('ci', branch or 'all')
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -1235,49 +1207,30 @@ function M.ci(f, branch, filter)
     })
   end
 
-  local function open_ci_stream()
-    picker.pick({
-      prompt = ci_prompt(),
-      entries = {},
+  if f.list_runs_json_cmd then
+    picker_session.pick_json({
+      key = request_key,
+      loading_prompt = ci_prompt,
       actions = actions,
       picker_name = 'ci',
-      stream = function(emit)
+      cmd = function()
+        return f:list_runs_json_cmd(branch)
+      end,
+      on_fetch = function()
         log.info('fetching CI runs...')
-        vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
-          vim.schedule(function()
-            local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
-            if result.code == 0 and ok and runs then
-              local entries = build_ci_entries(runs)
-              for _, entry in ipairs(entries) do
-                emit(entry)
-              end
-            else
-              log.error('failed to fetch CI runs')
-              emit(placeholder_entry('Failed to fetch CI runs'))
-            end
-            emit(nil)
-          end)
-        end)
+      end,
+      build_entries = function(runs)
+        local entries = build_ci_entries(runs)
+        return entries
+      end,
+      open = open_ci_picker,
+      on_failure = function()
+        log.error('failed to fetch CI runs')
+      end,
+      error_entry = function()
+        return placeholder_entry('Failed to fetch CI runs')
       end,
     })
-  end
-
-  if f.list_runs_json_cmd then
-    if picker.backend() == 'fzf-lua' then
-      open_ci_stream()
-    else
-      log.info('fetching CI runs...')
-      vim.system(f:list_runs_json_cmd(branch), { text = true }, function(result)
-        vim.schedule(function()
-          local ok, runs = pcall(vim.json.decode, result.stdout or '[]')
-          if result.code == 0 and ok and runs then
-            open_ci_picker(runs)
-          else
-            log.error('failed to fetch CI runs')
-          end
-        end)
-      end)
-    end
   elseif f.list_runs_cmd then
     log.info('structured CI data not available for this forge')
   end
@@ -1471,67 +1424,41 @@ function M.pr(state, f, opts)
     maybe_prefetch_next()
   end
 
-  local function open_pr_stream()
-    picker.pick({
-      prompt = ('%s %s> '):format(state_label, f.labels.pr),
-      entries = {},
-      actions = actions,
-      picker_name = 'pr',
-      stream = function(emit)
-        log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
-        local token = begin_list_fetch(cache_key)
-        vim.system(f:list_pr_json_cmd(state, fetch_limit), { text = true }, function(result)
-          vim.schedule(function()
-            if not list_fetch_current(cache_key, token) then
-              emit(nil)
-              return
-            end
-            local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
-            if result.code == 0 and ok and prs then
-              if use_cache then
-                forge_mod.set_list(cache_key, prs)
-              end
-              maybe_prefetch_next()
-              local entries = build_pr_entries(prs)
-              for _, entry in ipairs(entries) do
-                emit(entry)
-              end
-            else
-              log.error('failed to fetch ' .. f.labels.pr)
-              emit(placeholder_entry('Failed to fetch ' .. f.labels.pr))
-            end
-            emit(nil)
-          end)
-        end)
-      end,
-    })
-  end
-
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
-  if cached then
-    open_pr_list(cached)
-  elseif picker.backend() == 'fzf-lua' then
-    open_pr_stream()
-  else
-    log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
-    local token = begin_list_fetch(cache_key)
-    vim.system(f:list_pr_json_cmd(state, fetch_limit), { text = true }, function(result)
-      vim.schedule(function()
-        if not list_fetch_current(cache_key, token) then
-          return
-        end
-        local ok, prs = pcall(vim.json.decode, result.stdout or '[]')
-        if result.code == 0 and ok and prs then
-          if use_cache then
-            forge_mod.set_list(cache_key, prs)
-          end
-          open_pr_list(prs)
-        else
-          log.error('failed to fetch ' .. f.labels.pr)
-        end
-      end)
-    end)
-  end
+  picker_session.pick_json({
+    key = cache_key,
+    cached = cached,
+    loading_prompt = function()
+      return ('%s %s> '):format(state_label, f.labels.pr)
+    end,
+    actions = actions,
+    picker_name = 'pr',
+    cmd = function()
+      return f:list_pr_json_cmd(state, fetch_limit)
+    end,
+    on_fetch = function()
+      log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
+    end,
+    on_success = function(prs)
+      if use_cache then
+        forge_mod.set_list(cache_key, prs)
+      end
+      if picker.backend() == 'fzf-lua' then
+        maybe_prefetch_next()
+      end
+    end,
+    build_entries = function(prs)
+      local entries = build_pr_entries(prs)
+      return entries
+    end,
+    open = open_pr_list,
+    on_failure = function()
+      log.error('failed to fetch ' .. f.labels.pr)
+    end,
+    error_entry = function()
+      return placeholder_entry('Failed to fetch ' .. f.labels.pr)
+    end,
+  })
 end
 
 ---@param state 'all'|'open'|'closed'
@@ -1675,67 +1602,41 @@ function M.issue(state, f, opts)
     maybe_prefetch_next()
   end
 
-  local function open_issue_stream()
-    picker.pick({
-      prompt = ('%s %s> '):format(state_label, f.labels.issue),
-      entries = {},
-      actions = actions,
-      picker_name = 'issue',
-      stream = function(emit)
-        log.info('fetching issue list (' .. state .. ')...')
-        local token = begin_list_fetch(cache_key)
-        vim.system(f:list_issue_json_cmd(state, fetch_limit), { text = true }, function(result)
-          vim.schedule(function()
-            if not list_fetch_current(cache_key, token) then
-              emit(nil)
-              return
-            end
-            local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
-            if result.code == 0 and ok and issues then
-              if use_cache then
-                forge_mod.set_list(cache_key, issues)
-              end
-              maybe_prefetch_next()
-              local entries = build_issue_entries(issues)
-              for _, entry in ipairs(entries) do
-                emit(entry)
-              end
-            else
-              log.error('failed to fetch issues')
-              emit(placeholder_entry('Failed to fetch issues'))
-            end
-            emit(nil)
-          end)
-        end)
-      end,
-    })
-  end
-
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
-  if cached then
-    open_issue_list(cached)
-  elseif picker.backend() == 'fzf-lua' then
-    open_issue_stream()
-  else
-    log.info('fetching issue list (' .. state .. ')...')
-    local token = begin_list_fetch(cache_key)
-    vim.system(f:list_issue_json_cmd(state, fetch_limit), { text = true }, function(result)
-      vim.schedule(function()
-        if not list_fetch_current(cache_key, token) then
-          return
-        end
-        local ok, issues = pcall(vim.json.decode, result.stdout or '[]')
-        if result.code == 0 and ok and issues then
-          if use_cache then
-            forge_mod.set_list(cache_key, issues)
-          end
-          open_issue_list(issues)
-        else
-          log.error('failed to fetch issues')
-        end
-      end)
-    end)
-  end
+  picker_session.pick_json({
+    key = cache_key,
+    cached = cached,
+    loading_prompt = function()
+      return ('%s %s> '):format(state_label, f.labels.issue)
+    end,
+    actions = actions,
+    picker_name = 'issue',
+    cmd = function()
+      return f:list_issue_json_cmd(state, fetch_limit)
+    end,
+    on_fetch = function()
+      log.info('fetching issue list (' .. state .. ')...')
+    end,
+    on_success = function(issues)
+      if use_cache then
+        forge_mod.set_list(cache_key, issues)
+      end
+      if picker.backend() == 'fzf-lua' then
+        maybe_prefetch_next()
+      end
+    end,
+    build_entries = function(issues)
+      local entries = build_issue_entries(issues)
+      return entries
+    end,
+    open = open_issue_list,
+    on_failure = function()
+      log.error('failed to fetch issues')
+    end,
+    error_entry = function()
+      return placeholder_entry('Failed to fetch issues')
+    end,
+  })
 end
 
 ---@param f forge.Forge
@@ -1907,62 +1808,34 @@ function M.release(state, f)
     })
   end
 
-  local function open_release_stream()
-    picker.pick({
-      prompt = release_prompt(),
-      entries = {},
-      actions = actions,
-      picker_name = 'release',
-      stream = function(emit)
-        log.info('fetching releases...')
-        local token = begin_list_fetch(cache_key)
-        vim.system(f:list_releases_json_cmd(), { text = true }, function(result)
-          vim.schedule(function()
-            if not list_fetch_current(cache_key, token) then
-              emit(nil)
-              return
-            end
-            local ok, releases = pcall(vim.json.decode, result.stdout or '[]')
-            if result.code == 0 and ok and releases then
-              forge_mod.set_list(cache_key, releases)
-              local entries = build_release_entries(releases)
-              for _, entry in ipairs(entries) do
-                emit(entry)
-              end
-            else
-              log.error('failed to fetch releases')
-              emit(placeholder_entry('Failed to fetch releases'))
-            end
-            emit(nil)
-          end)
-        end)
-      end,
-    })
-  end
-
   local cached = forge_mod.get_list(cache_key)
-  if cached then
-    open_release_list(cached)
-  elseif picker.backend() == 'fzf-lua' then
-    open_release_stream()
-  else
-    log.info('fetching releases...')
-    local token = begin_list_fetch(cache_key)
-    vim.system(f:list_releases_json_cmd(), { text = true }, function(result)
-      vim.schedule(function()
-        if not list_fetch_current(cache_key, token) then
-          return
-        end
-        local ok, releases = pcall(vim.json.decode, result.stdout or '[]')
-        if result.code == 0 and ok and releases then
-          forge_mod.set_list(cache_key, releases)
-          open_release_list(releases)
-        else
-          log.error('failed to fetch releases')
-        end
-      end)
-    end)
-  end
+  picker_session.pick_json({
+    key = cache_key,
+    cached = cached,
+    loading_prompt = release_prompt,
+    actions = actions,
+    picker_name = 'release',
+    cmd = function()
+      return f:list_releases_json_cmd()
+    end,
+    on_fetch = function()
+      log.info('fetching releases...')
+    end,
+    on_success = function(releases)
+      forge_mod.set_list(cache_key, releases)
+    end,
+    build_entries = function(releases)
+      local entries = build_release_entries(releases)
+      return entries
+    end,
+    open = open_release_list,
+    on_failure = function()
+      log.error('failed to fetch releases')
+    end,
+    error_entry = function()
+      return placeholder_entry('Failed to fetch releases')
+    end,
+  })
 end
 
 ---@param ctx { root: string, branch: string, forge: forge.Forge? }

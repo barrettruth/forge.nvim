@@ -281,6 +281,7 @@ describe('pickers', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
+    package.loaded['forge.picker.session'] = nil
     package.loaded['forge.pickers'] = nil
     vim.g.forge = nil
   end)
@@ -295,6 +296,7 @@ describe('pickers', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
+    package.loaded['forge.picker.session'] = nil
     package.loaded['forge.pickers'] = nil
   end)
 
@@ -411,6 +413,68 @@ describe('pickers', function()
 
     assert.equals('42', streamed[1].value)
     assert.equals('#42', streamed[1].display[1][1])
+    assert.same(42, cache['pr:open'][1].number)
+  end)
+
+  it('ignores stale PR responses after a refresh starts a newer fetch', function()
+    cache['pr:open'] = nil
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    local first = captured
+    local first_streamed = {}
+    first.stream(function(entry)
+      if entry == nil then
+        first_streamed.done = true
+        return
+      end
+      first_streamed[#first_streamed + 1] = entry
+    end)
+
+    action_by_name('refresh').fn()
+
+    local second = captured
+    local second_streamed = {}
+    second.stream(function(entry)
+      if entry == nil then
+        second_streamed.done = true
+        return
+      end
+      second_streamed[#second_streamed + 1] = entry
+    end)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 7, title = 'Older', state = 'OPEN', author = 'alice', created_at = '' },
+      }),
+    })
+    calls[2].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 42, title = 'Newer', state = 'OPEN', author = 'bob', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return first_streamed.done == true and second_streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.is_nil(first_streamed[1])
+    assert.equals('42', second_streamed[1].value)
     assert.same(42, cache['pr:open'][1].number)
   end)
 
@@ -868,6 +932,65 @@ describe('pickers', function()
     assert.equals('lint', streamed[1].display[1][1])
   end)
 
+  it('ignores stale check responses after a refresh starts a newer fetch', function()
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all')
+
+    local first = captured
+    local first_streamed = {}
+    first.stream(function(entry)
+      if entry == nil then
+        first_streamed.done = true
+        return
+      end
+      first_streamed[#first_streamed + 1] = entry
+    end)
+
+    action_by_name('refresh').fn()
+
+    local second = captured
+    local second_streamed = {}
+    second.stream(function(entry)
+      if entry == nil then
+        second_streamed.done = true
+        return
+      end
+      second_streamed[#second_streamed + 1] = entry
+    end)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { name = 'old', bucket = 'pass', link = 'https://example.com/old', run_id = '1' },
+      }),
+    })
+    calls[2].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { name = 'new', bucket = 'fail', link = 'https://example.com/new', run_id = '2' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return first_streamed.done == true and second_streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.is_nil(first_streamed[1])
+    assert.equals('new', second_streamed[1].value.name)
+  end)
+
   it('opens the CI picker immediately on fzf before the fetch completes', function()
     local old_system = vim.system
     local system_cb
@@ -922,6 +1045,77 @@ describe('pickers', function()
 
     assert.equals('1', streamed[1].value.id)
     assert.equals('CI', streamed[1].display[1][1])
+  end)
+
+  it('ignores stale CI responses after switching filters during fetch', function()
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    local first = captured
+    local first_streamed = {}
+    first.stream(function(entry)
+      if entry == nil then
+        first_streamed.done = true
+        return
+      end
+      first_streamed[#first_streamed + 1] = entry
+    end)
+
+    action_by_name('failed').fn()
+
+    local second = captured
+    local second_streamed = {}
+    second.stream(function(entry)
+      if entry == nil then
+        second_streamed.done = true
+        return
+      end
+      second_streamed[#second_streamed + 1] = entry
+    end)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          id = '1',
+          name = 'Old',
+          branch = 'main',
+          status = 'success',
+          url = 'https://example.com/old',
+        },
+      }),
+    })
+    calls[2].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          id = '2',
+          name = 'New',
+          branch = 'main',
+          status = 'fail',
+          url = 'https://example.com/new',
+        },
+      }),
+    })
+
+    vim.wait(100, function()
+      return first_streamed.done == true and second_streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.is_nil(first_streamed[1])
+    assert.equals('2', second_streamed[1].value.id)
   end)
 
   it('keeps release browse and copy actions open', function()
