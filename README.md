@@ -8,11 +8,7 @@ without leaving your editor.
 ## Features
 
 - Automatic forge detection from git remote (`gh`, `glab`, `tea`)
-- Legible `:Forge` root workflow with route descriptions for forge and local git
-  sections
-- PR lifecycle: list, create (compose buffer with template discovery, diff stat,
-  reviewers), checkout, worktree, review, merge, approve, close/reopen, draft
-  toggle
+- PR lifecycle: list, create, checkout, worktree,, merge, approve, and more
 - Issue management: list, browse, close/reopen, state filtering
 - CI/CD: view runs per-branch or repo-wide, stream logs, filter by status
 - Code review via [diffs.nvim](https://github.com/barrettruth/diffs.nvim) with
@@ -33,8 +29,6 @@ without leaving your editor.
   [`tea`](https://gitea.com/gitea/tea)
 - (Optional) [diffs.nvim](https://github.com/barrettruth/diffs.nvim) for review
   mode
-- (Optional) [vim-fugitive](https://github.com/tpope/vim-fugitive) for split
-  diff and fugitive keymaps
 - tree-sitter `yaml` parser for YAML issue form templates
 
 ## Installation
@@ -51,12 +45,6 @@ luarocks install forge.nvim
 ```vim
 :help forge.nvim
 ```
-
-## Root workflow
-
-`:Forge` opens a workflow surface, not just a route list. Root entries describe
-the top-level sections with label-only rows while keeping the nested picker
-behavior and workflow details in the help docs.
 
 ## FAQ
 
@@ -88,22 +76,3 @@ vim.g.forge = {
 `<c-g>` to open the picker, select Pull Requests, then `ctrl-a` to compose. Or
 from a fugitive buffer: `cpr` (compose), `cpd` (draft), `cpf` (instant from
 commits), `cpw` (push and open web).
-
-**Q: What does `:Forge` show by default?**
-
-The root picker shows Pull Requests, Issues, CI, Branches, Commits, Worktrees,
-Browse, and Releases. Each root row includes its scope and primary actions so
-the local git sections read as first-class workflows. Customize the list with
-`vim.g.forge.sections` and change where a section goes with
-`vim.g.forge.routes`.
-
-**Q: Does review mode require diffs.nvim?**
-
-Yes. Without [diffs.nvim](https://github.com/barrettruth/diffs.nvim), diff
-actions and review toggling are unavailable.
-
-**Q: How does forge detection work?**
-
-forge.nvim reads the `origin` remote URL and matches against known hosts and any
-custom `sources.<name>.hosts` entries. The first match wins, and the CLI must be
-in `$PATH`.
