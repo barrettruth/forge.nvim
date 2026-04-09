@@ -40,7 +40,7 @@ function M.check()
   if has_yaml then
     vim.health.ok('tree-sitter yaml parser found')
   else
-    vim.health.info('tree-sitter yaml parser not found (YAML issue form templates disabled)')
+    vim.health.error('tree-sitter yaml parser not found (required for YAML issue form templates)')
   end
 
   local has_diffs = pcall(require, 'diffs')
