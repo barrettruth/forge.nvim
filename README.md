@@ -16,20 +16,17 @@ without leaving your editor.
 - Local git sections for branches, commits, and worktrees with branch/commit
   review, `git show`, switching, and forge web actions
 - File/line permalink generation and yanking
-- [fzf-lua](https://github.com/ibhagwan/fzf-lua) pickers with contextual
-  keybinds
-- Pluggable source registration for custom or self-hosted forges
 
 ## Requirements
 
 - Neovim 0.10.0+
+- tree-sitter `yaml` parser for YAML issue form templates
 - [fzf-lua](https://github.com/ibhagwan/fzf-lua)
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
 - (Optional) [diffs.nvim](https://github.com/barrettruth/diffs.nvim) for review
   mode
-- tree-sitter `yaml` parser for YAML issue form templates
 
 ## Installation
 
