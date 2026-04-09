@@ -310,7 +310,7 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('PRs (open · 1)> ', captured.prompt)
+    assert.equals('Open PRs (1)> ', captured.prompt)
     local labels = {}
     for _, def in ipairs(captured.actions) do
       labels[def.name] = def.label
@@ -357,7 +357,7 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('PRs (open · 0)> ', captured.prompt)
+    assert.equals('Open PRs (0)> ', captured.prompt)
     assert.equals('No open PRs', captured.entries[1].display[1][1])
     assert.is_true(captured.entries[1].placeholder)
   end)
@@ -380,7 +380,7 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('PRs (open)> ', captured.prompt)
+    assert.equals('Open PRs> ', captured.prompt)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
 
@@ -462,7 +462,7 @@ describe('pickers', function()
 
     action_by_name('default').fn(captured.entries[3])
 
-    assert.equals('PRs (open)> ', captured.prompt)
+    assert.equals('Open PRs> ', captured.prompt)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
   end)
@@ -485,7 +485,7 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('PRs (open · 1)> ', captured.prompt)
+    assert.equals('Open PRs (1)> ', captured.prompt)
     assert.same({ 'prs', 'closed' }, calls[1].cmd)
 
     calls[1].cb({
@@ -539,7 +539,7 @@ describe('pickers', function()
     assert.is_nil(cache['pr:open'])
     assert.is_nil(cache['pr:closed'])
     assert.is_nil(cache['pr:all'])
-    assert.equals('PRs (open)> ', captured.prompt)
+    assert.equals('Open PRs> ', captured.prompt)
     assert.same('function', type(captured.stream))
   end)
 
@@ -680,7 +680,7 @@ describe('pickers', function()
     pickers.issue('all', fake_issue_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('Issues (all)> ', captured.prompt)
+    assert.equals('All Issues> ', captured.prompt)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
 
@@ -735,7 +735,7 @@ describe('pickers', function()
     pickers.issue('open', fake_issue_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('Issues (open · 1)> ', captured.prompt)
+    assert.equals('Open Issues (1)> ', captured.prompt)
     assert.same({ 'issues', 'closed' }, calls[1].cmd)
 
     calls[1].cb({
@@ -760,6 +760,7 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
+    assert.equals('PR #42 Checks (1)> ', captured.prompt)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('log'), 'close'))
 
@@ -786,7 +787,7 @@ describe('pickers', function()
 
     pickers.ci(fake_ci_forge(), 'main', 'all')
     vim.wait(100, function()
-      return captured and captured.prompt == 'CI (main, all · 1)> '
+      return captured and captured.prompt == 'CI for main (1)> '
     end)
     vim.system = old_system
 
@@ -794,6 +795,24 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('log'), 'close'))
     assert.is_nil(rawget(action_by_name('watch'), 'close'))
+  end)
+
+  it('uses subject-first prompts for filtered checks', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'fail', {
+      { name = 'lint', link = 'https://example.com/check', bucket = 'fail' },
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals('PR #42 Failed Checks (1)> ', captured.prompt)
+  end)
+
+  it('uses scope-first prompts for filtered CI runs while loading', function()
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'fail')
+
+    assert.is_not_nil(captured)
+    assert.equals('Failed CI for main> ', captured.prompt)
   end)
 
   it('opens the checks picker immediately on fzf before the fetch completes', function()
@@ -812,7 +831,7 @@ describe('pickers', function()
     pickers.checks(fake_ci_forge(), '42', 'all')
 
     assert.is_not_nil(captured)
-    assert.equals('Checks (#42, all)> ', captured.prompt)
+    assert.equals('PR #42 Checks> ', captured.prompt)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
@@ -865,7 +884,7 @@ describe('pickers', function()
     pickers.ci(fake_ci_forge(), 'main', 'all')
 
     assert.is_not_nil(captured)
-    assert.equals('CI (main, all)> ', captured.prompt)
+    assert.equals('CI for main> ', captured.prompt)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
 
@@ -937,7 +956,7 @@ describe('pickers', function()
     pickers.release('all', fake_release_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('Releases (all)> ', captured.prompt)
+    assert.equals('Releases> ', captured.prompt)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
 
@@ -990,11 +1009,11 @@ describe('pickers', function()
     pickers.release('all', fake_release_forge())
 
     action_by_name('filter').fn()
-    assert.equals('Releases (draft · 1)> ', captured.prompt)
+    assert.equals('Draft Releases (1)> ', captured.prompt)
     assert.equals('v2.0.0-draft', captured.entries[1].value.tag)
 
     action_by_name('filter').fn()
-    assert.equals('Releases (prerelease · 1)> ', captured.prompt)
+    assert.equals('Pre-releases (1)> ', captured.prompt)
     assert.equals('v1.1.0-rc1', captured.entries[1].value.tag)
 
     vim.system = old_system

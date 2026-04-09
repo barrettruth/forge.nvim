@@ -210,7 +210,8 @@ describe('review index', function()
       return captured.picker ~= nil
     end)
 
-    assert.same({
+    local found = false
+    local expected = {
       'git',
       '-C',
       '/repo',
@@ -220,8 +221,15 @@ describe('review index', function()
       '--find-copies',
       '--no-ext-diff',
       'origin/main',
-    }, captured.system)
-    assert.equals('PR #42 Review (patch · 2)> ', captured.picker.prompt)
+    }
+    for _, cmd in ipairs(captured.systems) do
+      if vim.deep_equal(expected, cmd) then
+        found = true
+        break
+      end
+    end
+    assert.is_true(found)
+    assert.equals('Review Files: Patch (2)> ', captured.picker.prompt)
     assert.equals('M', captured.picker.entries[1].display[1][1])
     assert.equals('lua/forge/review.lua', captured.picker.entries[1].value.path)
     assert.equals('lua/forge/new.lua', captured.picker.entries[2].value.path)
@@ -333,7 +341,7 @@ describe('review index', function()
     assert.equals('branch', review.current().subject.kind)
     assert.equals('origin/main', review.current().subject.base_ref)
     assert.equals('current', review.current().materialization)
-    assert.equals('Branch feature Review (patch · 2)> ', captured.picker.prompt)
+    assert.equals('Review Files: Patch (2)> ', captured.picker.prompt)
   end)
 
   it('starts commit review in a detached worktree and cleans it up on stop', function()
