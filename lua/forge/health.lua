@@ -33,7 +33,7 @@ function M.check()
     end
   end
   if not found_any then
-    vim.health.error('no picker backend found (install fzf-lua, telescope.nvim, or snacks.nvim)')
+    vim.health.error('no picker backend found (install fzf-lua)')
   end
 
   local has_yaml = pcall(vim.treesitter.language.inspect, 'yaml')
