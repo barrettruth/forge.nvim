@@ -336,6 +336,9 @@ describe('parse_summary', function()
     })
     assert.equals(3, #result.lines)
     assert.equals(3, #result.job_lnums)
+    assert.equals('OK lint (ID 12345)', result.lines[1])
+    assert.equals('FAIL test (ID 67890)', result.lines[2])
+    assert.equals('OK deploy (ID 11111)', result.lines[3])
     assert.same({ id = '12345', failed = false }, result.jobs[1])
     assert.same({ id = '67890', failed = true }, result.jobs[2])
     assert.same({ id = '11111', failed = false }, result.jobs[3])
@@ -375,10 +378,10 @@ describe('parse_summary_json', function()
         },
       },
     })
-    assert.truthy(result.lines[1]:match('^✓ CI'))
-    assert.truthy(result.lines[3]:match('^✓ lint'))
+    assert.truthy(result.lines[1]:match('^OK CI'))
+    assert.truthy(result.lines[3]:match('^OK lint'))
     assert.truthy(result.lines[3]:match('1m 30s'))
-    assert.truthy(result.lines[4]:match('^X test'))
+    assert.truthy(result.lines[4]:match('^FAIL test'))
     assert.same({ id = '100', failed = false }, result.jobs[3])
     assert.same({ id = '200', failed = true }, result.jobs[4])
     assert.equals(2, #result.job_lnums)
@@ -404,7 +407,7 @@ describe('parse_summary_json', function()
         },
       },
     })
-    assert.truthy(result.lines[1]:match('^~ Build'))
+    assert.truthy(result.lines[1]:match('^RUN Build'))
     assert.truthy(result.lines[3]:match('%[2/4%]'))
   end)
 
@@ -415,7 +418,7 @@ describe('parse_summary_json', function()
       conclusion = 'failure',
       jobs = {},
     })
-    assert.equals('X Deploy', result.lines[1])
+    assert.equals('FAIL Deploy', result.lines[1])
     assert.equals(1, #result.hls[1])
     assert.equals('ForgeFail', result.hls[1][1].group)
   end)
@@ -446,8 +449,8 @@ describe('parse_summary_json', function()
         },
       },
     })
-    assert.truthy(result.lines[1]:match('^%* Pipeline'))
-    assert.truthy(result.lines[3]:match('^%* waiting'))
+    assert.truthy(result.lines[1]:match('^QUEUE Pipeline'))
+    assert.truthy(result.lines[3]:match('^QUEUE waiting'))
     assert.equals('ForgePending', result.hls[1][1].group)
     assert.equals('ForgePending', result.hls[3][1].group)
   end)
@@ -564,12 +567,12 @@ describe('buffer reuse refreshes', function()
     calls[2].cb({ code = 0, stdout = '✓ new job (ID 2)' })
     vim.wait(100, function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      return lines[1] == '✓ new job (ID 2)'
+      return lines[1] == 'OK new job (ID 2)'
     end)
 
     calls[1].cb({ code = 0, stdout = '✓ old job (ID 1)' })
     vim.wait(20)
 
-    assert.same({ '✓ new job (ID 2)' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    assert.same({ 'OK new job (ID 2)' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 end)
