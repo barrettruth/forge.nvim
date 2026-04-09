@@ -37,7 +37,11 @@ describe('git sections', function()
         stderr = '',
       }
 
-      if key:match('^git for%-each%-ref ') then
+      if key == 'git for-each-ref --format=%(upstream:short) refs/heads/main' then
+        result.stdout = 'origin/main\n'
+      elseif key == 'git for-each-ref --format=%(upstream:short) refs/heads/topic' then
+        result.stdout = '\n'
+      elseif key:match('^git for%-each%-ref ') then
         result.stdout = table.concat({
           '*\tmain\torigin/main\tabc1234\tMain branch',
           ' \tfeature\torigin/feature\tdef5678\tFeature branch',
@@ -280,10 +284,14 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Commits on main (2)> ', captured.picker.prompt)
+    assert.equals('Commits on main [origin/main] (2)> ', captured.picker.prompt)
     assert.equals('show', captured.picker.actions[1].label)
     assert.equals('web', captured.picker.actions[2].label)
     assert.equals('review', captured.picker.actions[3].label)
+    assert.equals(
+      'git log --max-count=100 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
+      captured.last_system
+    )
     assert.same({
       { 'abc1234', 'ForgeCommitHash' },
       { ' Add routes  ' },
@@ -313,6 +321,19 @@ describe('git sections', function()
 
     captured.picker.actions[3].fn(entry)
     assert.equals('abc123456789', captured.review_commit)
+  end)
+
+  it('falls back to the local branch when no upstream is configured', function()
+    require('forge.pickers').commits({}, 'topic')
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals('Commits on topic (2)> ', captured.picker.prompt)
+    assert.equals(
+      'git log --max-count=100 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e topic',
+      captured.last_system
+    )
   end)
 
   it('lists worktrees and switches directories', function()

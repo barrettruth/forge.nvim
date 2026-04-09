@@ -17,7 +17,7 @@ end
 ---@return string
 local function to_fzf_key(key)
   if key == '<cr>' then
-    return 'default'
+    return 'enter'
   end
   local result = key:gsub('<c%-(%a)>', function(ch)
     return 'ctrl-' .. ch:lower()

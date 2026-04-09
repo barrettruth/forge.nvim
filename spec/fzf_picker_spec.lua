@@ -171,7 +171,7 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    captured.opts.actions.default({ '1\tNo open PRs' })
+    captured.opts.actions.enter({ '1\tNo open PRs' })
     assert.is_nil(selected)
   end)
 
@@ -232,8 +232,9 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.same('table', type(captured.opts.actions.default))
-    captured.opts.actions.default.fn({ '1\tLoad more...' })
+    assert.same('table', type(captured.opts.actions.enter))
+    assert.is_true(captured.opts.actions.enter.reload)
+    captured.opts.actions.enter.fn({ '1\tLoad more...' })
 
     vim.wait(100, function()
       return selected ~= false
@@ -289,7 +290,7 @@ describe('fzf picker', function()
     assert.same({ '1\t#1', '2\t#2' }, lines)
     assert.is_true(done)
 
-    captured.opts.actions.default({ '2\t#2' })
+    captured.opts.actions.enter({ '2\t#2' })
     assert.equals('2', selected.value)
   end)
 
