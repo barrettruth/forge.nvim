@@ -158,7 +158,7 @@ local function tail_truncate(text, width)
     parts[#parts + 1] = ch
     used = used + ch_width
   end
-  return table.concat(parts) .. marker
+  return vim.trim(table.concat(parts), 2) .. marker
 end
 
 local function head_truncate(text, width)
@@ -189,7 +189,7 @@ local function head_truncate(text, width)
   for i = #tail, 1, -1 do
     parts[#parts + 1] = tail[i]
   end
-  return marker .. table.concat(parts)
+  return marker .. vim.trim(table.concat(parts), 1)
 end
 
 function M.fit(text, width, opts)

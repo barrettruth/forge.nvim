@@ -299,7 +299,11 @@ function M.create_pr(opts)
           else
             local root = git_root() or ''
             local draft = opts.draft or false
-            local tmpl, templates = template_mod.discover(f:template_paths(), root)
+            local tmpl, templates, err = template_mod.discover(f:template_paths(), root)
+            if err then
+              log.error(err)
+              return
+            end
             if tmpl or not templates then
               compose_mod.open_pr(f, branch, base, draft, tmpl)
             else
@@ -321,7 +325,12 @@ function M.create_pr(opts)
                     label = 'use',
                     fn = function(entry)
                       if entry then
-                        compose_mod.open_pr(f, branch, base, draft, template_mod.load(entry.value))
+                        local template, load_err = template_mod.load(entry.value)
+                        if load_err then
+                          log.error(load_err)
+                          return
+                        end
+                        compose_mod.open_pr(f, branch, base, draft, template)
                       end
                     end,
                   },
@@ -416,13 +425,22 @@ function M.create_issue(opts)
   end
 
   local root = git_root() or ''
-  local result, templates = template_mod.discover(f:issue_template_paths(), root)
+  local result, templates, err = template_mod.discover(f:issue_template_paths(), root)
+  if err then
+    log.error(err)
+    return
+  end
 
   if opts.template and templates then
     local slug = opts.template:lower()
     for _, t in ipairs(templates) do
       if t.name:gsub('%.ya?ml$', ''):gsub('%.md$', ''):lower() == slug then
-        compose_mod.open_issue(f, template_mod.load(t))
+        local template, load_err = template_mod.load(t)
+        if load_err then
+          log.error(load_err)
+          return
+        end
+        compose_mod.open_issue(f, template)
         return
       end
     end
@@ -453,7 +471,12 @@ function M.create_issue(opts)
         label = 'use',
         fn = function(entry)
           if entry then
-            compose_mod.open_issue(f, template_mod.load(entry.value))
+            local template, load_err = template_mod.load(entry.value)
+            if load_err then
+              log.error(load_err)
+              return
+            end
+            compose_mod.open_issue(f, template)
           end
         end,
       },

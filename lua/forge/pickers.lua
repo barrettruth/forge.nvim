@@ -2009,7 +2009,8 @@ function M.commits(ctx, branch)
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('commit', branch)
 
-  local function open_commit_list(commits)
+  local function open_commit_list(commits, label)
+    label = label or branch
     local plan = commit_layout(commits)
     local entries = {}
     for _, item in ipairs(commits) do
@@ -2084,35 +2085,74 @@ function M.commits(ctx, branch)
     end
 
     picker.pick({
-      prompt = ('Commits on %s (%d)> '):format(branch, count),
+      prompt = ('Commits on %s (%d)> '):format(label, count),
       entries = entries,
       actions = actions,
       picker_name = 'commit',
     })
   end
 
+  local function commit_label(ref)
+    if ref ~= branch then
+      return ('%s [%s]'):format(branch, ref)
+    end
+    return branch
+  end
+
+  local function unpack_cached(cached)
+    if type(cached) == 'table' and cached.entries then
+      return cached.entries, cached.label or branch
+    end
+    return cached, branch
+  end
+
   local cached = forge_mod.get_list(cache_key)
   if cached then
-    open_commit_list(cached)
+    local commits, label = unpack_cached(cached)
+    open_commit_list(commits, label)
     return
   end
 
-  log.info('fetching commits for ' .. branch .. '...')
+  local function fetch_commits(ref)
+    local label = commit_label(ref)
+    log.info('fetching commits for ' .. label .. '...')
+    vim.system({
+      'git',
+      'log',
+      '--max-count=100',
+      '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
+      ref,
+    }, { text = true }, function(result)
+      vim.schedule(function()
+        if result.code ~= 0 then
+          log.error(cmd_error(result, 'failed to fetch commits'))
+          return
+        end
+        local commits = parse_commits(result.stdout or '')
+        forge_mod.set_list(cache_key, {
+          entries = commits,
+          label = label,
+        })
+        open_commit_list(commits, label)
+      end)
+    end)
+  end
+
   vim.system({
     'git',
-    'log',
-    '--max-count=100',
-    '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
-    branch,
+    'for-each-ref',
+    '--format=%(upstream:short)',
+    'refs/heads/' .. branch,
   }, { text = true }, function(result)
     vim.schedule(function()
-      if result.code ~= 0 then
-        log.error(cmd_error(result, 'failed to fetch commits'))
-        return
+      if result.code == 0 then
+        local upstream = vim.trim(result.stdout or '')
+        if upstream ~= '' then
+          fetch_commits(upstream)
+          return
+        end
       end
-      local commits = parse_commits(result.stdout or '')
-      forge_mod.set_list(cache_key, commits)
-      open_commit_list(commits)
+      fetch_commits(branch)
     end)
   end)
 end
