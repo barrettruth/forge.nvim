@@ -114,10 +114,61 @@ end
 
 ---@type table<string, string>
 local step_icons = {
-  success = '✓',
-  failure = '✗',
-  skipped = '⊘',
+  success = 'OK',
+  failure = 'FAIL',
+  skipped = 'SKIP',
 }
+
+local function summary_status_word(status)
+  local labels = {
+    success = 'OK',
+    failure = 'FAIL',
+    skipped = 'SKIP',
+    cancelled = 'CANCEL',
+    canceled = 'CANCEL',
+    in_progress = 'RUN',
+    queued = 'QUEUE',
+    running = 'RUN',
+    pending = 'RUN',
+  }
+  local label = labels[status]
+  if label then
+    return label
+  end
+  status = tostring(status or '')
+  if status == '' then
+    return 'RUN'
+  end
+  return status:gsub('_', ' '):upper()
+end
+
+local function normalize_summary_line(text)
+  local prefix, rest = text:match('^(%S+)%s+(.*)$')
+  if not prefix then
+    return text, false
+  end
+  local labels = {
+    ['✓'] = 'OK',
+    ['X'] = 'FAIL',
+    ['✗'] = 'FAIL',
+    ['-'] = 'SKIP',
+    ['⊘'] = 'SKIP',
+    ['~'] = 'RUN',
+    ['●'] = 'RUN',
+    ['*'] = 'QUEUE',
+    OK = 'OK',
+    FAIL = 'FAIL',
+    SKIP = 'SKIP',
+    CANCEL = 'CANCEL',
+    RUN = 'RUN',
+    QUEUE = 'QUEUE',
+  }
+  local label = labels[prefix]
+  if not label then
+    return text, false
+  end
+  return ('%s %s'):format(label, rest), label == 'FAIL'
+end
 
 ---@param started string?
 ---@param completed string?
@@ -218,7 +269,7 @@ local function parse_github(raw_lines, steps)
     end
     se.emitted = true
     in_group = false
-    local icon = step_icons[se.conclusion] or '●'
+    local icon = step_icons[se.conclusion] or 'RUN'
     local dur = format_duration(se.started, se.completed)
     lines[#lines + 1] = {
       text = ('%s %s'):format(icon, se.name),
@@ -873,11 +924,12 @@ local function parse_summary(raw_lines)
 
   for _, raw in ipairs(raw_lines) do
     local text, h = strip_ansi(raw)
+    local failed
+    text, failed = normalize_summary_line(text)
     lines[#lines + 1] = text
     hls[#hls + 1] = h
     local job_id = text:match('%(ID (%d+)%)%s*$')
     if job_id then
-      local failed = text:match('^X ') ~= nil
       jobs[#lines] = { id = job_id, failed = failed }
       job_lnums[#job_lnums + 1] = #lines
     end
@@ -885,15 +937,6 @@ local function parse_summary(raw_lines)
 
   return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
 end
-
-local json_status_icon = {
-  success = '✓',
-  failure = 'X',
-  skipped = '-',
-  cancelled = '-',
-  in_progress = '~',
-  queued = '*',
-}
 
 local json_status_hl = {
   success = 'ForgePass',
@@ -911,7 +954,7 @@ local function parse_summary_json(data)
   local job_lnums = {}
 
   local run_status = (data.conclusion and data.conclusion ~= '') and data.conclusion or data.status
-  local icon = json_status_icon[run_status] or '*'
+  local icon = summary_status_word(run_status)
   local header = ('%s %s'):format(icon, data.name or 'run')
   lines[#lines + 1] = header
   local hl_grp = json_status_hl[run_status] or 'ForgePending'
@@ -922,7 +965,7 @@ local function parse_summary_json(data)
 
   for _, job in ipairs(data.jobs or {}) do
     local jstatus = (job.conclusion and job.conclusion ~= '') and job.conclusion or job.status
-    local jicon = json_status_icon[jstatus] or '*'
+    local jicon = summary_status_word(jstatus)
     local dur = format_duration(job.startedAt, job.completedAt)
     local line = ('%s %s'):format(jicon, job.name or 'job')
     if dur then

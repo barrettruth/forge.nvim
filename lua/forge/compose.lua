@@ -186,7 +186,7 @@ local function push_and_create(
             if url ~= '' then
               vim.fn.setreg('+', url)
             end
-            log.info(('created %s → %s'):format(f.labels.pr_one, url))
+            log.info(('created %s -> %s'):format(f.labels.pr_one, url))
             require('forge').clear_list()
             if buf and vim.api.nvim_buf_is_valid(buf) then
               vim.bo[buf].modified = false
@@ -221,7 +221,7 @@ local function submit_issue(f, title, body, labels, assignees, milestone, buf)
           if url ~= '' then
             vim.fn.setreg('+', url)
           end
-          log.info(('created issue → %s'):format(url))
+          log.info(('created issue -> %s'):format(url))
           require('forge').clear_list()
           if buf and vim.api.nvim_buf_is_valid(buf) then
             vim.bo[buf].modified = false

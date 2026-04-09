@@ -521,7 +521,7 @@ describe('pickers', function()
         return entry.value
       end, vim.list_slice(captured.entries, 1, 2))
     )
-    assert.equals('Load more…', captured.entries[3].display[1][1])
+    assert.equals('Load more...', captured.entries[3].display[1][1])
     assert.is_true(captured.entries[3].load_more)
 
     action_by_name('default').fn(captured.entries[3])
@@ -645,7 +645,7 @@ describe('pickers', function()
         return entry.value
       end, vim.list_slice(captured.entries, 1, 2))
     )
-    assert.equals('Load more…', captured.entries[3].display[1][1])
+    assert.equals('Load more...', captured.entries[3].display[1][1])
     assert.is_true(captured.entries[3].load_more)
   end)
 

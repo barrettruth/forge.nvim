@@ -176,8 +176,8 @@ describe('format_prs', function()
       { ' short' },
     }, rows[1])
     assert.same({ '#2', 'ForgeNumber' }, rows[2][1])
-    assert.truthy(rows[2][2][1]:find(' a much longer ', 1, true))
-    assert.truthy(rows[2][2][1]:find('…', 1, true))
+    assert.truthy(rows[2][2][1]:find(' a much', 1, true))
+    assert.truthy(rows[2][2][1]:find('...', 1, true))
   end)
 end)
 
