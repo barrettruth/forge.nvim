@@ -88,7 +88,7 @@ describe('snacks picker', function()
   it('closes close=false actions when the selected row forces it', function()
     local picker = require('forge.picker.snacks')
     local entry = {
-      display = { { 'Load more…' } },
+      display = { { 'Load more...' } },
       value = nil,
       load_more = true,
       force_close = true,

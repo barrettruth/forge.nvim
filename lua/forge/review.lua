@@ -151,7 +151,7 @@ local function file_display(item)
     { ' ' .. item.path },
   }
   if item.old_path and item.old_path ~= item.path then
-    display[#display + 1] = { ' ← ' .. item.old_path, 'ForgeDim' }
+    display[#display + 1] = { ' <- ' .. item.old_path, 'ForgeDim' }
   end
   return display
 end

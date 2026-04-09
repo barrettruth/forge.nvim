@@ -68,7 +68,7 @@ end
 ---@return forge.PickerEntry
 local function load_more_entry(next_limit)
   return {
-    display = { { 'Load more…', 'ForgeDim' } },
+    display = { { 'Load more...', 'ForgeDim' } },
     value = nil,
     ordinal = 'Load more',
     load_more = true,
@@ -874,7 +874,7 @@ function M.checks(f, num, filter, cached_checks)
         local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
         local bucket = (c.bucket or ''):lower()
         if bucket == 'skipping' then
-          log.info('no log available — job was not started')
+          log.info('no log available - job was not started')
           return
         end
         local in_progress = bucket == 'pending'

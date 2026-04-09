@@ -212,7 +212,7 @@ describe('fzf picker', function()
       prompt = 'Issues> ',
       entries = {
         {
-          display = { { 'Load more…' } },
+          display = { { 'Load more...' } },
           value = nil,
           load_more = true,
           force_close = true,
@@ -233,7 +233,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same('table', type(captured.opts.actions.default))
-    captured.opts.actions.default.fn({ '1\tLoad more…' })
+    captured.opts.actions.default.fn({ '1\tLoad more...' })
 
     vim.wait(100, function()
       return selected ~= false

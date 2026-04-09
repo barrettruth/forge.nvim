@@ -77,6 +77,19 @@ function M.max_width(values)
   return width
 end
 
+local function truncation_marker(width)
+  if width <= 0 then
+    return ''
+  end
+  if width == 1 then
+    return '.'
+  end
+  if width == 2 then
+    return '..'
+  end
+  return '...'
+end
+
 local function quantile_index(count, quantile)
   if count <= 1 then
     return count
@@ -128,10 +141,11 @@ local function tail_truncate(text, width)
   if M.display_width(text) <= width then
     return text
   end
-  if width == 1 then
-    return '…'
+  local marker = truncation_marker(width)
+  if M.display_width(marker) >= width then
+    return marker
   end
-  local budget = width - 1
+  local budget = width - M.display_width(marker)
   local chars = vim.fn.strchars(text)
   local parts = {}
   local used = 0
@@ -144,7 +158,7 @@ local function tail_truncate(text, width)
     parts[#parts + 1] = ch
     used = used + ch_width
   end
-  return table.concat(parts) .. '…'
+  return table.concat(parts) .. marker
 end
 
 local function head_truncate(text, width)
@@ -154,10 +168,11 @@ local function head_truncate(text, width)
   if M.display_width(text) <= width then
     return text
   end
-  if width == 1 then
-    return '…'
+  local marker = truncation_marker(width)
+  if M.display_width(marker) >= width then
+    return marker
   end
-  local budget = width - 1
+  local budget = width - M.display_width(marker)
   local chars = vim.fn.strchars(text)
   local tail = {}
   local used = 0
@@ -174,7 +189,7 @@ local function head_truncate(text, width)
   for i = #tail, 1, -1 do
     parts[#parts + 1] = tail[i]
   end
-  return '…' .. table.concat(parts)
+  return marker .. table.concat(parts)
 end
 
 function M.fit(text, width, opts)
