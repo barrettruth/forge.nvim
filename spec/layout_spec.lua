@@ -79,4 +79,18 @@ describe('layout', function()
     assert.equals(5, layout.display_width('a\nb\tc'))
     assert.equals('a b c', layout.fit('a\nb\tc', 5, { pad = false }))
   end)
+
+  it('drops a trailing space before tail truncation markers', function()
+    local layout = require('forge.layout')
+
+    assert.equals('foo...', layout.fit('foo bar baz', 6, { pad = false }))
+    assert.equals('foo...', layout.fit('foo bar baz', 7, { pad = false }))
+  end)
+
+  it('drops a leading space after head truncation markers', function()
+    local layout = require('forge.layout')
+
+    assert.equals('...baz', layout.fit('foo bar baz', 6, { pad = false, overflow = 'head' }))
+    assert.equals('...baz', layout.fit('foo bar baz', 7, { pad = false, overflow = 'head' }))
+  end)
 end)
