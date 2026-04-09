@@ -839,6 +839,22 @@ function M.checks(f, num, filter, cached_checks)
     pass = 'passed',
     pending = 'running',
   }
+  local prompt_labels = {
+    fail = 'Failed',
+    pass = 'Passed',
+    pending = 'Running',
+  }
+
+  local function checks_prompt(count)
+    local scope = ('%s #%s'):format(f.labels.pr_one, num)
+    local filter_label = prompt_labels[filter]
+    local title = filter_label and ('%s %s Checks'):format(scope, filter_label)
+      or (scope .. ' Checks')
+    if count ~= nil then
+      return ('%s (%d)> '):format(title, count)
+    end
+    return title .. '> '
+  end
 
   local function build_check_entries(checks)
     local filtered = forge_mod.filter_checks(checks, filter)
@@ -855,7 +871,7 @@ function M.checks(f, num, filter, cached_checks)
     local filter_label = labels[filter] or filter
     local empty_text = filter == 'all' and ('No checks for #%s'):format(num)
       or ('No %s checks for #%s'):format(filter_label, num)
-    return with_placeholder(entries, empty_text), count, filter_label
+    return with_placeholder(entries, empty_text), count
   end
 
   local actions = {
@@ -950,10 +966,10 @@ function M.checks(f, num, filter, cached_checks)
 
   local function open_picker(checks)
     current_checks = checks
-    local entries, count, filter_label = build_check_entries(checks)
+    local entries, count = build_check_entries(checks)
 
     picker.pick({
-      prompt = ('Checks (#%s, %s · %d)> '):format(num, filter_label, count),
+      prompt = checks_prompt(count),
       entries = entries,
       actions = actions,
       picker_name = 'ci',
@@ -968,9 +984,8 @@ function M.checks(f, num, filter, cached_checks)
 
   if f.checks_json_cmd then
     if picker.backend() == 'fzf-lua' then
-      local filter_label = labels[filter] or filter
       picker.pick({
-        prompt = ('Checks (#%s, %s)> '):format(num, filter_label),
+        prompt = checks_prompt(),
         entries = {},
         actions = actions,
         picker_name = 'ci',
@@ -1024,6 +1039,22 @@ function M.ci(f, branch, filter)
     pass = 'passed',
     pending = 'running',
   }
+  local prompt_labels = {
+    fail = 'Failed',
+    pass = 'Passed',
+    pending = 'Running',
+  }
+  local scope_label = branch or 'all branches'
+
+  local function ci_prompt(count)
+    local filter_label = prompt_labels[filter]
+    local title = filter_label and ('%s %s for %s'):format(filter_label, f.labels.ci, scope_label)
+      or ('%s for %s'):format(f.labels.ci, scope_label)
+    if count ~= nil then
+      return ('%s (%d)> '):format(title, count)
+    end
+    return title .. '> '
+  end
 
   local function build_ci_entries(runs)
     local normalized = {}
@@ -1053,7 +1084,7 @@ function M.ci(f, branch, filter)
     else
       empty_text = ('No %s runs'):format(f.labels.ci)
     end
-    return with_placeholder(entries, empty_text), count, filter_label
+    return with_placeholder(entries, empty_text), count
   end
 
   local actions = {
@@ -1194,10 +1225,10 @@ function M.ci(f, branch, filter)
   }
 
   local function open_ci_picker(runs)
-    local entries, count, filter_label = build_ci_entries(runs)
+    local entries, count = build_ci_entries(runs)
 
     picker.pick({
-      prompt = ('%s (%s, %s · %d)> '):format(f.labels.ci, branch or 'all', filter_label, count),
+      prompt = ci_prompt(count),
       entries = entries,
       actions = actions,
       picker_name = 'ci',
@@ -1205,9 +1236,8 @@ function M.ci(f, branch, filter)
   end
 
   local function open_ci_stream()
-    local filter_label = labels[filter] or filter
     picker.pick({
-      prompt = ('%s (%s, %s)> '):format(f.labels.ci, branch or 'all', filter_label),
+      prompt = ci_prompt(),
       entries = {},
       actions = actions,
       picker_name = 'ci',
@@ -1260,6 +1290,7 @@ function M.pr(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.pr
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
+  local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
   local limit_step = cfg.display.limits.pulls
@@ -1432,7 +1463,7 @@ function M.pr(state, f, opts)
     local entries, count = build_pr_entries(prs)
 
     picker.pick({
-      prompt = ('%s (%s · %d)> '):format(f.labels.pr, state, count),
+      prompt = ('%s %s (%d)> '):format(state_label, f.labels.pr, count),
       entries = entries,
       actions = actions,
       picker_name = 'pr',
@@ -1442,7 +1473,7 @@ function M.pr(state, f, opts)
 
   local function open_pr_stream()
     picker.pick({
-      prompt = ('%s (%s)> '):format(f.labels.pr, state),
+      prompt = ('%s %s> '):format(state_label, f.labels.pr),
       entries = {},
       actions = actions,
       picker_name = 'pr',
@@ -1510,6 +1541,7 @@ function M.issue(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.issue
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
+  local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
   local limit_step = cfg.display.limits.issues
@@ -1635,7 +1667,7 @@ function M.issue(state, f, opts)
     local entries, count = build_issue_entries(issues)
 
     picker.pick({
-      prompt = ('%s (%s · %d)> '):format(f.labels.issue, state, count),
+      prompt = ('%s %s (%d)> '):format(state_label, f.labels.issue, count),
       entries = entries,
       actions = actions,
       picker_name = 'issue',
@@ -1645,7 +1677,7 @@ function M.issue(state, f, opts)
 
   local function open_issue_stream()
     picker.pick({
-      prompt = ('%s (%s)> '):format(f.labels.issue, state),
+      prompt = ('%s %s> '):format(state_label, f.labels.issue),
       entries = {},
       actions = actions,
       picker_name = 'issue',
@@ -1752,6 +1784,15 @@ function M.release(state, f)
   local cache_key = forge_mod.list_key('release', 'list')
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
+  local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
+    or 'Releases'
+
+  local function release_prompt(count)
+    if count ~= nil then
+      return ('%s (%d)> '):format(title, count)
+    end
+    return title .. '> '
+  end
 
   local function build_release_entries(releases)
     local filtered = releases
@@ -1859,7 +1900,7 @@ function M.release(state, f)
     local entries, count = build_release_entries(releases)
 
     picker.pick({
-      prompt = ('Releases (%s · %d)> '):format(state, count),
+      prompt = release_prompt(count),
       entries = entries,
       actions = actions,
       picker_name = 'release',
@@ -1868,7 +1909,7 @@ function M.release(state, f)
 
   local function open_release_stream()
     picker.pick({
-      prompt = ('Releases (%s)> '):format(state),
+      prompt = release_prompt(),
       entries = {},
       actions = actions,
       picker_name = 'release',
@@ -2060,7 +2101,7 @@ function M.branches(ctx)
     end
 
     picker.pick({
-      prompt = ('Branches (local refs · switch/review · %d)> '):format(count),
+      prompt = ('Branches (%d)> '):format(count),
       entries = entries,
       actions = actions,
       picker_name = 'branch',
@@ -2175,7 +2216,7 @@ function M.commits(ctx, branch)
     end
 
     picker.pick({
-      prompt = ('Commits (%s history · git show/review · %d)> '):format(branch, count),
+      prompt = ('Commits on %s (%d)> '):format(branch, count),
       entries = entries,
       actions = actions,
       picker_name = 'commit',
@@ -2231,7 +2272,7 @@ function M.worktrees(ctx)
     end
 
     picker.pick({
-      prompt = ('Worktrees (repo worktrees · switch cwd · %d)> '):format(count),
+      prompt = ('Worktrees (%d)> '):format(count),
       entries = entries,
       actions = {
         {

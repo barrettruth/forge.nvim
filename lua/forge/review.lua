@@ -269,9 +269,8 @@ function M.open_index()
     end
 
     picker.pick({
-      prompt = ('%s Review (%s · %d)> '):format(
-        session.subject.label,
-        normalize_mode(session.mode),
+      prompt = ('Review Files: %s (%d)> '):format(
+        normalize_mode(session.mode):gsub('^%l', string.upper),
         #files
       ),
       entries = entries,

@@ -7,9 +7,9 @@ local M = {
   kinds = { issue = 'issue', pr = 'mr' },
   labels = {
     issue = 'Issues',
-    pr = 'MRs',
-    pr_one = 'MR',
-    pr_full = 'Merge Requests',
+    pr = 'PRs',
+    pr_one = 'PR',
+    pr_full = 'Pull Requests',
     ci = 'CI/CD',
   },
   capabilities = {

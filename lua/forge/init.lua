@@ -313,7 +313,7 @@ function M.create_pr(opts)
                 })
               end
               picker.pick({
-                prompt = f.labels.pr_one .. ' template> ',
+                prompt = f.labels.pr_one .. ' Template> ',
                 entries = entries,
                 actions = {
                   {
@@ -445,7 +445,7 @@ function M.create_issue(opts)
     })
   end
   picker.pick({
-    prompt = 'Issue template> ',
+    prompt = 'Issue Template> ',
     entries = entries,
     actions = {
       {

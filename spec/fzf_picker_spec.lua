@@ -105,7 +105,7 @@ describe('fzf picker', function()
   it('suppresses headers for single-action pickers', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
-      prompt = 'Issue template> ',
+      prompt = 'Issue Template> ',
       entries = {
         {
           display = { { 'Bug report' } },
@@ -150,7 +150,7 @@ describe('fzf picker', function()
   it('treats placeholder rows as no selection', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
-      prompt = 'PRs (open · 0)> ',
+      prompt = 'Open PRs (0)> ',
       entries = {
         {
           display = { { 'No open PRs', 'ForgeDim' } },

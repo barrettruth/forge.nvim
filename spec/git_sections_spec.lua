@@ -218,7 +218,7 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Branches (local refs · switch/review · 3)> ', captured.picker.prompt)
+    assert.equals('Branches (3)> ', captured.picker.prompt)
     assert.equals('default', captured.picker.actions[1].name)
     assert.equals('switch', captured.picker.actions[1].label)
     assert.equals('browse', captured.picker.actions[2].name)
@@ -280,7 +280,7 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Commits (main history · git show/review · 2)> ', captured.picker.prompt)
+    assert.equals('Commits on main (2)> ', captured.picker.prompt)
     assert.equals('show', captured.picker.actions[1].label)
     assert.equals('web', captured.picker.actions[2].label)
     assert.equals('review', captured.picker.actions[3].label)
@@ -325,7 +325,7 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Worktrees (repo worktrees · switch cwd · 2)> ', captured.picker.prompt)
+    assert.equals('Worktrees (2)> ', captured.picker.prompt)
     assert.equals('switch cwd', captured.picker.actions[1].label)
     assert.equals('add', captured.picker.actions[2].name)
     assert.equals('delete', captured.picker.actions[3].name)
