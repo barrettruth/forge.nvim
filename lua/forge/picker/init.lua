@@ -22,11 +22,9 @@ local M = {}
 
 M.backends = {
   ['fzf-lua'] = 'forge.picker.fzf',
-  telescope = 'forge.picker.telescope',
-  snacks = 'forge.picker.snacks',
 }
 
-M.detect_order = { 'fzf-lua', 'snacks', 'telescope' }
+M.detect_order = { 'fzf-lua' }
 
 ---@return string
 local function detect()

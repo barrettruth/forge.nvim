@@ -69,10 +69,7 @@ remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
-- At least one picker backend:
-  - fzf-lua
-  - telescope.nvim
-  - snacks.nvim
+- fzf-lua
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
@@ -97,9 +94,8 @@ Top-level keys: ~
 
 `picker`                                                 *forge-config-picker*
   `string`  (default `"auto"`)
-    Picker backend to use. One of `"auto"`, `"fzf-lua"`, `"telescope"`, or
-    `"snacks"`. When `"auto"`, forge.nvim tries fzf-lua, then snacks, then
-    telescope.
+    Picker backend to use. One of `"auto"` or `"fzf-lua"`. When `"auto"`,
+    forge.nvim tries fzf-lua.
 
 `debug`                                                   *forge-config-debug*
   `boolean|string`  (default `false`)
@@ -619,8 +615,7 @@ Architecture: ~
 - Root `:Forge` entries go through `require('forge.client').open_root()`.
 - Nested pickers go through `require('forge.picker').pick()`.
 - `require('forge.client').register()` can replace the root workflow surface.
-- Nested picker backends are the built-in `fzf-lua`, `snacks`, and
-  `telescope` adapters.
+- Nested pickers use the built-in `fzf-lua` adapter.
 
 Default root route inventory: ~
   `PRs` -> `prs.open`
@@ -657,16 +652,14 @@ Default root route inventory: ~
 
 Built-in picker backend capabilities: ~
 
-  Capability                     fzf-lua   snacks   telescope ~
-  Segmented row rendering          yes       yes        yes
-  Highlighted row segments         yes       yes        yes
-  Root workflow surface            yes       yes        yes
-  Non-closing actions              yes       yes        yes
-  Action header hints              yes       no         no
+  Capability                     fzf-lua ~
+  Segmented row rendering          yes
+  Highlighted row segments         yes
+  Root workflow surface            yes
+  Non-closing actions              yes
+  Action header hints              yes
 
-`fzf-lua` shows action hints in the header. `snacks` and `telescope` keep the
-same segmented rows and action mappings, but rely on the prompt and keymaps
-instead of a header line.
+`fzf-lua` shows action hints in the header and powers nested picker workflows.
 
 ==============================================================================
 REVIEW                                                          *forge-review*
@@ -1044,7 +1037,7 @@ HEALTH                                                          *forge-health*
 Reports on: ~
 - `git` availability
 - Forge CLI availability (`gh`, `glab`, `tea`)
-- Picker backends (fzf-lua, telescope, snacks) and which is active
+- Picker backend (`fzf-lua`) and whether it is active
 - `diffs.nvim` installation (review mode)
 - Custom registered sources and their CLI availability
 
