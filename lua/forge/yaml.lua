@@ -117,7 +117,7 @@ function M.parse(text)
   local ok, parser = pcall(vim.treesitter.get_string_parser, text, 'yaml')
   if not ok then
     require('forge.logger').warn(
-      'tree-sitter yaml parser not found; install it for YAML template support'
+      'tree-sitter yaml parser not found; install it to use YAML issue form templates'
     )
     return {}
   end

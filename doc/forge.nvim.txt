@@ -70,6 +70,7 @@ remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 Requirements: ~
 - Neovim 0.10.0+
 - fzf-lua
+- tree-sitter `yaml` parser
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
@@ -766,6 +767,7 @@ Template discovery: ~
   directory contains multiple files, you are prompted to choose.
   Both `.md` and `.yml`/`.yaml` issue form templates are supported.
   YAML templates are parsed and rendered as markdown sections.
+  YAML issue forms require the tree-sitter yaml parser.
   `config.yml`/`config.yaml` files are skipped.
 
   GitHub: `.github/pull_request_template.md`,
@@ -1038,6 +1040,7 @@ Reports on: ~
 - `git` availability
 - Forge CLI availability (`gh`, `glab`, `tea`)
 - Picker backend (`fzf-lua`) and whether it is active
+- tree-sitter `yaml` parser availability
 - `diffs.nvim` installation (review mode)
 - Custom registered sources and their CLI availability
 
