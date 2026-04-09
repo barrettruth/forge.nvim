@@ -3,6 +3,47 @@ local M = {}
 local ns = vim.api.nvim_create_namespace('forge_log')
 local buf_data = {}
 
+local function data_for(buf)
+  local d = buf_data[buf]
+  if not d then
+    d = { headers = {}, errors = {} }
+    buf_data[buf] = d
+  end
+  return d
+end
+
+local function set_data(buf, fields)
+  local d = data_for(buf)
+  for k, v in pairs(fields) do
+    d[k] = v
+  end
+  return d
+end
+
+local function stop_procs(buf)
+  local d = buf_data[buf]
+  if d and d.procs then
+    for _, p in ipairs(d.procs) do
+      pcall(function()
+        p:kill()
+      end)
+    end
+    d.procs = nil
+  end
+end
+
+local function begin_request(buf)
+  local d = data_for(buf)
+  d.request_id = (d.request_id or 0) + 1
+  stop_procs(buf)
+  return d.request_id
+end
+
+local function request_current(buf, request_id)
+  local d = buf_data[buf]
+  return d and d.request_id == request_id
+end
+
 local sgr_map = {
   [2] = 'ForgeLogDim',
   [31] = 'ForgeFail',
@@ -515,11 +556,11 @@ local function render(buf, parsed)
       fold_meta[i] = { duration = line.duration, conclusion = line.conclusion }
     end
   end
-  buf_data[buf] = {
+  set_data(buf, {
     headers = parsed.headers,
     errors = parsed.errors,
     fold_meta = fold_meta,
-  }
+  })
   local ranges = fold_ranges(parsed)
   local wins = vim.fn.win_findbuf(buf)
   if #wins > 0 then
@@ -638,14 +679,13 @@ local function stop_timer(buf)
   end
 end
 
-local function start_auto_refresh(buf, interval, status_cmd, refresh_fn)
+local function start_auto_refresh(buf, request_id, interval, status_cmd, refresh_fn)
   if interval <= 0 then
     return
   end
   stop_timer(buf)
   local timer = vim.uv.new_timer()
-  buf_data[buf] = buf_data[buf] or {}
-  buf_data[buf].timer = timer
+  data_for(buf).timer = timer
   timer:start(
     interval * 1000,
     interval * 1000,
@@ -654,10 +694,18 @@ local function start_auto_refresh(buf, interval, status_cmd, refresh_fn)
         stop_timer(buf)
         return
       end
+      if not request_current(buf, request_id) then
+        stop_timer(buf)
+        return
+      end
       if status_cmd then
         vim.system(status_cmd, { text = true }, function(result)
           vim.schedule(function()
             if not vim.api.nvim_buf_is_valid(buf) then
+              stop_timer(buf)
+              return
+            end
+            if not request_current(buf, request_id) then
               stop_timer(buf)
               return
             end
@@ -707,14 +755,7 @@ function M.open(cmd, opts, reuse_buf)
       buffer = buf,
       callback = function()
         stop_timer(buf)
-        local d = buf_data[buf]
-        if d and d.procs then
-          for _, p in ipairs(d.procs) do
-            pcall(function()
-              p:kill()
-            end)
-          end
-        end
+        stop_procs(buf)
         buf_data[buf] = nil
       end,
     })
@@ -724,6 +765,7 @@ function M.open(cmd, opts, reuse_buf)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
     vim.bo[buf].modifiable = false
   end
+  local request_id = begin_request(buf)
 
   local log_result, steps
   local pending = opts.steps_cmd and 2 or 1
@@ -737,6 +779,9 @@ function M.open(cmd, opts, reuse_buf)
       if not vim.api.nvim_buf_is_valid(buf) then
         return
       end
+      if not request_current(buf, request_id) then
+        return
+      end
       local stdout = (log_result.stdout or '')
       if log_result.code ~= 0 or stdout == '' then
         local msg = vim.trim(log_result.stderr or stdout)
@@ -746,7 +791,7 @@ function M.open(cmd, opts, reuse_buf)
         vim.bo[buf].modifiable = true
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(msg, '\n'))
         vim.bo[buf].modifiable = false
-        buf_data[buf] = { headers = {}, errors = {} }
+        set_data(buf, { headers = {}, errors = {}, fold_meta = {} })
         return
       end
       local raw_lines = vim.split(stdout, '\n', { plain = true })
@@ -774,7 +819,7 @@ function M.open(cmd, opts, reuse_buf)
 
       if opts.in_progress then
         local cfg = require('forge').config()
-        start_auto_refresh(buf, cfg.ci.refresh, opts.status_cmd, function(completed)
+        start_auto_refresh(buf, request_id, cfg.ci.refresh, opts.status_cmd, function(completed)
           if completed then
             opts = vim.tbl_extend('force', opts, { in_progress = false })
           end
@@ -807,8 +852,7 @@ function M.open(cmd, opts, reuse_buf)
       try_render()
     end)
   end
-  buf_data[buf] = buf_data[buf] or {}
-  buf_data[buf].procs = procs
+  set_data(buf, { procs = procs })
 end
 
 ---@class forge.SummaryOpts
@@ -944,14 +988,7 @@ function M.open_summary(cmd, opts, reuse_buf)
       buffer = buf,
       callback = function()
         stop_timer(buf)
-        local d = buf_data[buf]
-        if d and d.procs then
-          for _, p in ipairs(d.procs) do
-            pcall(function()
-              p:kill()
-            end)
-          end
-        end
+        stop_procs(buf)
         buf_data[buf] = nil
       end,
     })
@@ -962,10 +999,14 @@ function M.open_summary(cmd, opts, reuse_buf)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
     vim.bo[buf].modifiable = false
   end
+  local request_id = begin_request(buf)
 
   local proc = vim.system(cmd, { text = true }, function(result)
     vim.schedule(function()
       if not vim.api.nvim_buf_is_valid(buf) then
+        return
+      end
+      if not request_current(buf, request_id) then
         return
       end
       local stdout = result.stdout or ''
@@ -977,7 +1018,7 @@ function M.open_summary(cmd, opts, reuse_buf)
         vim.bo[buf].modifiable = true
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(msg, '\n'))
         vim.bo[buf].modifiable = false
-        buf_data[buf] = { headers = {}, errors = {} }
+        set_data(buf, { headers = {}, errors = {}, jobs = nil })
         return
       end
 
@@ -1010,11 +1051,11 @@ function M.open_summary(cmd, opts, reuse_buf)
         end
       end
 
-      buf_data[buf] = {
+      set_data(buf, {
         headers = parsed.job_lnums,
         errors = {},
         jobs = parsed.jobs,
-      }
+      })
 
       if not reusing then
         local cfg = require('forge').config()
@@ -1082,7 +1123,7 @@ function M.open_summary(cmd, opts, reuse_buf)
 
       if opts.in_progress then
         local cfg = require('forge').config()
-        start_auto_refresh(buf, cfg.ci.refresh, opts.status_cmd, function(completed)
+        start_auto_refresh(buf, request_id, cfg.ci.refresh, opts.status_cmd, function(completed)
           if completed then
             opts = vim.tbl_extend('force', opts, { in_progress = false })
           end
@@ -1092,8 +1133,7 @@ function M.open_summary(cmd, opts, reuse_buf)
     end)
   end)
 
-  buf_data[buf] = buf_data[buf] or {}
-  buf_data[buf].procs = { proc }
+  set_data(buf, { procs = { proc } })
 end
 
 M._strip_ansi = strip_ansi
