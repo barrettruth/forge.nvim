@@ -126,6 +126,35 @@ describe('fzf picker', function()
     assert.is_nil(captured.opts.fzf_opts['--header'])
   end)
 
+  it('binds a hidden back action without adding a header hint', function()
+    local picker = require('forge.picker.fzf')
+    local back_calls = 0
+    picker.pick({
+      prompt = 'PR #42 More> ',
+      entries = {
+        {
+          display = { { 'Edit' } },
+          value = 'Edit',
+        },
+      },
+      actions = {
+        { name = 'default', label = 'run', fn = function() end },
+      },
+      picker_name = '_menu',
+      back = function()
+        back_calls = back_calls + 1
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_nil(captured.opts.fzf_opts['--header'])
+    assert.is_function(captured.opts.actions['ctrl-b'])
+
+    captured.opts.actions['ctrl-b']({})
+
+    assert.equals(1, back_calls)
+  end)
+
   it('renders headers for git-local pickers without the legacy prefix', function()
     local picker = require('forge.picker.fzf')
     picker.pick({

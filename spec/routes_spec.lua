@@ -128,26 +128,33 @@ describe('routes', function()
 
     package.preload['forge.pickers'] = function()
       return {
-        pr = function(state)
+        pr = function(state, _, opts)
           captured.pr = state
+          captured.pr_back = opts and opts.back or nil
         end,
-        issue = function(state)
+        issue = function(state, _, opts)
           captured.issue = state
+          captured.issue_back = opts and opts.back or nil
         end,
-        ci = function(_, branch)
+        ci = function(_, branch, _, opts)
           captured.ci = branch
+          captured.ci_back = opts and opts.back or nil
         end,
-        branches = function(ctx)
+        branches = function(ctx, opts)
           captured.branches = ctx.id
+          captured.branches_back = opts and opts.back or nil
         end,
-        commits = function(_, branch)
+        commits = function(_, branch, opts)
           captured.commits = branch
+          captured.commits_back = opts and opts.back or nil
         end,
-        worktrees = function(ctx)
+        worktrees = function(ctx, opts)
           captured.worktrees = ctx.id
+          captured.worktrees_back = opts and opts.back or nil
         end,
-        release = function(state)
+        release = function(state, _, opts)
           captured.release = state
+          captured.release_back = opts and opts.back or nil
         end,
       }
     end
@@ -215,6 +222,7 @@ describe('routes', function()
     captured.root.actions[1].fn(captured.root.entries[2])
 
     assert.equals('open', captured.issue)
+    assert.is_function(captured.issue_back)
   end)
 
   it('opens branch, commit, and worktree routes through the route aliases', function()

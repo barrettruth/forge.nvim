@@ -666,12 +666,13 @@ local function pr_action_fns(f, num)
     end,
     review = review_pr,
     diff = review_pr,
-    ci = function()
+    ci = function(opts)
+      opts = opts or {}
       if f.capabilities.per_pr_checks then
-        M.checks(f, num)
+        M.checks(f, num, nil, nil, opts)
       else
         log.debug(('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name))
-        M.ci(f)
+        M.ci(f, nil, nil, opts)
       end
     end,
     manage = function()
@@ -685,7 +686,7 @@ end
 
 ---@param f forge.Forge
 ---@param num string
-local function pr_manage_picker(f, num, parent_refresh)
+local function pr_manage_picker(f, num, parent)
   local forge_mod = require('forge')
   local kind = f.labels.pr_one
   log.info('loading more for ' .. kind .. ' #' .. num .. '...')
@@ -700,7 +701,7 @@ local function pr_manage_picker(f, num, parent_refresh)
   local entries = {}
   local action_map = {}
   local function reopen_self()
-    pr_manage_picker(f, num, parent_refresh)
+    pr_manage_picker(f, num, parent)
   end
 
   local function add(label, fn)
@@ -740,7 +741,7 @@ local function pr_manage_picker(f, num, parent_refresh)
           f:merge_cmd(num, method),
           'merged (' .. method .. ')',
           'merge failed',
-          parent_refresh or reopen_self,
+          parent and parent.refresh or reopen_self,
           reopen_self
         )
       end)
@@ -756,7 +757,7 @@ local function pr_manage_picker(f, num, parent_refresh)
         f:close_cmd(num),
         'closed',
         'close failed',
-        parent_refresh or reopen_self,
+        parent and parent.refresh or reopen_self,
         reopen_self
       )
     end)
@@ -769,7 +770,7 @@ local function pr_manage_picker(f, num, parent_refresh)
         f:reopen_cmd(num),
         'reopened',
         'reopen failed',
-        parent_refresh or reopen_self,
+        parent and parent.refresh or reopen_self,
         reopen_self
       )
     end)
@@ -808,6 +809,7 @@ local function pr_manage_picker(f, num, parent_refresh)
       },
     },
     picker_name = '_menu',
+    back = parent and parent.back or nil,
   })
 end
 
@@ -815,7 +817,8 @@ end
 ---@param num string
 ---@param filter string?
 ---@param cached_checks table[]?
-function M.checks(f, num, filter, cached_checks)
+function M.checks(f, num, filter, cached_checks, opts)
+  opts = opts or {}
   filter = filter or 'all'
   local forge_mod = require('forge')
   local current_checks = cached_checks
@@ -915,35 +918,35 @@ function M.checks(f, num, filter, cached_checks)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.checks(f, num, next_ci_filter[filter] or 'all', current_checks)
+        M.checks(f, num, next_ci_filter[filter] or 'all', current_checks, { back = opts.back })
       end,
     },
     {
       name = 'failed',
       label = 'failed',
       fn = function()
-        M.checks(f, num, 'fail', current_checks)
+        M.checks(f, num, 'fail', current_checks, { back = opts.back })
       end,
     },
     {
       name = 'passed',
       label = 'passed',
       fn = function()
-        M.checks(f, num, 'pass', current_checks)
+        M.checks(f, num, 'pass', current_checks, { back = opts.back })
       end,
     },
     {
       name = 'running',
       label = 'running',
       fn = function()
-        M.checks(f, num, 'pending', current_checks)
+        M.checks(f, num, 'pending', current_checks, { back = opts.back })
       end,
     },
     {
       name = 'all',
       label = 'all',
       fn = function()
-        M.checks(f, num, 'all', current_checks)
+        M.checks(f, num, 'all', current_checks, { back = opts.back })
       end,
     },
     {
@@ -951,7 +954,7 @@ function M.checks(f, num, filter, cached_checks)
       label = 'refresh',
       fn = function()
         log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
-        M.checks(f, num, filter)
+        M.checks(f, num, filter, nil, { back = opts.back })
       end,
     },
   }
@@ -965,6 +968,7 @@ function M.checks(f, num, filter, cached_checks)
       entries = entries,
       actions = actions,
       picker_name = 'ci',
+      back = opts.back,
     })
   end
 
@@ -1010,7 +1014,8 @@ end
 ---@param f forge.Forge
 ---@param branch string?
 ---@param filter string?
-function M.ci(f, branch, filter)
+function M.ci(f, branch, filter, opts)
+  opts = opts or {}
   filter = filter or 'all'
   local forge_mod = require('forge')
   local request_key = forge_mod.list_key('ci', branch or 'all')
@@ -1169,35 +1174,35 @@ function M.ci(f, branch, filter)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.ci(f, branch, next_ci_filter[filter] or 'all')
+        M.ci(f, branch, next_ci_filter[filter] or 'all', { back = opts.back })
       end,
     },
     {
       name = 'failed',
       label = 'failed',
       fn = function()
-        M.ci(f, branch, 'fail')
+        M.ci(f, branch, 'fail', { back = opts.back })
       end,
     },
     {
       name = 'passed',
       label = 'passed',
       fn = function()
-        M.ci(f, branch, 'pass')
+        M.ci(f, branch, 'pass', { back = opts.back })
       end,
     },
     {
       name = 'running',
       label = 'running',
       fn = function()
-        M.ci(f, branch, 'pending')
+        M.ci(f, branch, 'pending', { back = opts.back })
       end,
     },
     {
       name = 'all',
       label = 'all',
       fn = function()
-        M.ci(f, branch, 'all')
+        M.ci(f, branch, 'all', { back = opts.back })
       end,
     },
     {
@@ -1205,7 +1210,7 @@ function M.ci(f, branch, filter)
       label = 'refresh',
       fn = function()
         log.info('refreshing CI runs...')
-        M.ci(f, branch, filter)
+        M.ci(f, branch, filter, { back = opts.back })
       end,
     },
   }
@@ -1218,6 +1223,7 @@ function M.ci(f, branch, filter)
       entries = entries,
       actions = actions,
       picker_name = 'ci',
+      back = opts.back,
     })
   end
 
@@ -1306,7 +1312,11 @@ function M.pr(state, f, opts)
 
   local function reopen_list()
     clear_state_caches(forge_mod, 'pr')
-    M.pr(state, f, { limit = visible_limit })
+    M.pr(state, f, { limit = visible_limit, back = opts.back })
+  end
+
+  local function back_to_list()
+    M.pr(state, f, { limit = visible_limit, back = opts.back })
   end
 
   local function maybe_prefetch_next()
@@ -1328,9 +1338,12 @@ function M.pr(state, f, opts)
       label = 'more',
       fn = function(entry)
         if entry and entry.load_more then
-          M.pr(state, f, { limit = entry.next_limit })
+          M.pr(state, f, { limit = entry.next_limit, back = opts.back })
         elseif entry then
-          pr_manage_picker(f, entry.value, reopen_list)
+          pr_manage_picker(f, entry.value, {
+            refresh = reopen_list,
+            back = back_to_list,
+          })
         end
       end,
     },
@@ -1367,7 +1380,7 @@ function M.pr(state, f, opts)
       label = 'checks',
       fn = function(entry)
         if entry and not entry.load_more then
-          pr_action_fns(f, entry.value).ci()
+          pr_action_fns(f, entry.value).ci({ back = back_to_list })
         end
       end,
     },
@@ -1386,7 +1399,10 @@ function M.pr(state, f, opts)
       label = 'more',
       fn = function(entry)
         if entry and not entry.load_more then
-          pr_manage_picker(f, entry.value, reopen_list)
+          pr_manage_picker(f, entry.value, {
+            refresh = reopen_list,
+            back = back_to_list,
+          })
         end
       end,
     },
@@ -1419,7 +1435,7 @@ function M.pr(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.pr(next_state, f, { limit = visible_limit })
+        M.pr(next_state, f, { limit = visible_limit, back = opts.back })
       end,
     },
     {
@@ -1427,7 +1443,7 @@ function M.pr(state, f, opts)
       label = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'pr')
-        M.pr(state, f, { limit = visible_limit })
+        M.pr(state, f, { limit = visible_limit, back = opts.back })
       end,
     },
   }
@@ -1440,6 +1456,7 @@ function M.pr(state, f, opts)
       entries = entries,
       actions = actions,
       picker_name = 'pr',
+      back = opts.back,
     })
     maybe_prefetch_next()
   end
@@ -1542,7 +1559,7 @@ function M.issue(state, f, opts)
 
   local function reopen_list()
     clear_state_caches(forge_mod, 'issue')
-    M.issue(state, f, { limit = visible_limit })
+    M.issue(state, f, { limit = visible_limit, back = opts.back })
   end
 
   local function maybe_prefetch_next()
@@ -1565,7 +1582,7 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and entry.load_more then
-          M.issue(state, f, { limit = entry.next_limit })
+          M.issue(state, f, { limit = entry.next_limit, back = opts.back })
         elseif entry then
           f:view_web(cli_kind, entry.value)
         end
@@ -1601,7 +1618,7 @@ function M.issue(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.issue(next_state, f, { limit = visible_limit })
+        M.issue(next_state, f, { limit = visible_limit, back = opts.back })
       end,
     },
     {
@@ -1609,7 +1626,7 @@ function M.issue(state, f, opts)
       label = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'issue')
-        M.issue(state, f, { limit = visible_limit })
+        M.issue(state, f, { limit = visible_limit, back = opts.back })
       end,
     },
   }
@@ -1622,6 +1639,7 @@ function M.issue(state, f, opts)
       entries = entries,
       actions = actions,
       picker_name = 'issue',
+      back = opts.back,
     })
     maybe_prefetch_next()
   end
@@ -1704,7 +1722,8 @@ end
 
 ---@param state 'all'|'draft'|'prerelease'
 ---@param f forge.Forge
-function M.release(state, f)
+function M.release(state, f, opts)
+  opts = opts or {}
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('release', 'list')
   local rel_fields = f.release_fields
@@ -1751,7 +1770,7 @@ function M.release(state, f)
 
   local function reopen_list()
     clear_list_cache(forge_mod, cache_key)
-    M.release(state, f)
+    M.release(state, f, { back = opts.back })
   end
 
   local actions = {
@@ -1802,7 +1821,7 @@ function M.release(state, f)
               reopen_list
             )
           else
-            M.release(state, f)
+            M.release(state, f, { back = opts.back })
           end
         end)
       end,
@@ -1811,7 +1830,7 @@ function M.release(state, f)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.release(next_state, f)
+        M.release(next_state, f, { back = opts.back })
       end,
     },
     {
@@ -1819,7 +1838,7 @@ function M.release(state, f)
       label = 'refresh',
       fn = function()
         clear_list_cache(forge_mod, cache_key)
-        M.release(state, f)
+        M.release(state, f, { back = opts.back })
       end,
     },
   }
@@ -1832,6 +1851,7 @@ function M.release(state, f)
       entries = entries,
       actions = actions,
       picker_name = 'release',
+      back = opts.back,
     })
   end
 
@@ -1866,7 +1886,8 @@ function M.release(state, f)
 end
 
 ---@param ctx { root: string, branch: string, forge: forge.Forge? }
-function M.branches(ctx)
+function M.branches(ctx, opts)
+  opts = opts or {}
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('branch', 'local-refs-v2')
 
@@ -1948,14 +1969,14 @@ function M.branches(ctx)
                 'delete failed',
                 function()
                   forge_mod.clear_list(cache_key)
-                  M.branches(ctx)
+                  M.branches(ctx, { back = opts.back })
                 end,
                 function()
-                  M.branches(ctx)
+                  M.branches(ctx, { back = opts.back })
                 end
               )
             else
-              M.branches(ctx)
+              M.branches(ctx, { back = opts.back })
             end
           end)
         end,
@@ -1977,7 +1998,7 @@ function M.branches(ctx)
         label = 'refresh',
         fn = function()
           forge_mod.clear_list(cache_key)
-          M.branches(ctx)
+          M.branches(ctx, { back = opts.back })
         end,
       },
     }
@@ -2000,6 +2021,7 @@ function M.branches(ctx)
       entries = entries,
       actions = actions,
       picker_name = 'branch',
+      back = opts.back,
     })
   end
 
@@ -2071,7 +2093,7 @@ function M.commits(ctx, branch, opts)
             return
           end
           if entry.load_more then
-            M.commits(ctx, branch, { limit = entry.next_limit })
+            M.commits(ctx, branch, { limit = entry.next_limit, back = opts.back })
             return
           end
           require('forge.term').open({
@@ -2110,7 +2132,7 @@ function M.commits(ctx, branch, opts)
         label = 'refresh',
         fn = function()
           forge_mod.clear_list(cache_key)
-          M.commits(ctx, branch, { limit = visible_limit })
+          M.commits(ctx, branch, { limit = visible_limit, back = opts.back })
         end,
       },
     }
@@ -2133,6 +2155,7 @@ function M.commits(ctx, branch, opts)
       entries = entries,
       actions = actions,
       picker_name = 'commit',
+      back = opts.back,
     })
   end
 
@@ -2195,7 +2218,8 @@ function M.commits(ctx, branch, opts)
 end
 
 ---@param ctx { root: string }
-function M.worktrees(ctx)
+function M.worktrees(ctx, opts)
+  opts = opts or {}
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('worktree', 'list')
 
@@ -2212,7 +2236,7 @@ function M.worktrees(ctx)
     entries = with_placeholder(entries, 'No linked worktrees')
 
     local function reopen()
-      M.worktrees(ctx)
+      M.worktrees(ctx, { back = opts.back })
     end
 
     picker.pick({
@@ -2320,11 +2344,12 @@ function M.worktrees(ctx)
           label = 'refresh',
           fn = function()
             forge_mod.clear_list(cache_key)
-            M.worktrees(ctx)
+            M.worktrees(ctx, { back = opts.back })
           end,
         },
       },
       picker_name = 'worktree',
+      back = opts.back,
     })
   end
 

@@ -38,47 +38,47 @@ local function route_handlers()
   local pickers = require('forge.pickers')
 
   return {
-    ['prs.all'] = function(ctx)
+    ['prs.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.pr('all', ctx.forge)
+      pickers.pr('all', ctx.forge, { back = opts.back })
     end,
-    ['prs.open'] = function(ctx)
+    ['prs.open'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.pr('open', ctx.forge)
+      pickers.pr('open', ctx.forge, { back = opts.back })
     end,
-    ['prs.closed'] = function(ctx)
+    ['prs.closed'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.pr('closed', ctx.forge)
+      pickers.pr('closed', ctx.forge, { back = opts.back })
     end,
-    ['issues.all'] = function(ctx)
+    ['issues.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.issue('all', ctx.forge)
+      pickers.issue('all', ctx.forge, { back = opts.back })
     end,
-    ['issues.open'] = function(ctx)
+    ['issues.open'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.issue('open', ctx.forge)
+      pickers.issue('open', ctx.forge, { back = opts.back })
     end,
-    ['issues.closed'] = function(ctx)
+    ['issues.closed'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.issue('closed', ctx.forge)
+      pickers.issue('closed', ctx.forge, { back = opts.back })
     end,
-    ['ci.all'] = function(ctx)
+    ['ci.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.ci(ctx.forge)
+      pickers.ci(ctx.forge, nil, nil, { back = opts.back })
     end,
     ['ci.current_branch'] = function(ctx, opts)
       if not ctx.forge then
@@ -88,20 +88,20 @@ local function route_handlers()
       if branch == nil or branch == '' then
         branch = ctx.branch ~= '' and ctx.branch or nil
       end
-      pickers.ci(ctx.forge, branch)
+      pickers.ci(ctx.forge, branch, nil, { back = opts.back })
     end,
-    ['branches.local'] = function(ctx)
-      pickers.branches(ctx)
+    ['branches.local'] = function(ctx, opts)
+      pickers.branches(ctx, { back = opts.back })
     end,
     ['commits.current_branch'] = function(ctx, opts)
       local branch, err = branch_for(ctx, opts)
       if not branch then
         return false, err
       end
-      pickers.commits(ctx, branch)
+      pickers.commits(ctx, branch, { back = opts.back })
     end,
-    ['worktrees.list'] = function(ctx)
-      pickers.worktrees(ctx)
+    ['worktrees.list'] = function(ctx, opts)
+      pickers.worktrees(ctx, { back = opts.back })
     end,
     ['browse.contextual'] = function(ctx, opts)
       if not ctx.forge then
@@ -140,23 +140,23 @@ local function route_handlers()
       end
       ctx.forge:browse_commit(sha)
     end,
-    ['releases.all'] = function(ctx)
+    ['releases.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.release('all', ctx.forge)
+      pickers.release('all', ctx.forge, { back = opts.back })
     end,
-    ['releases.draft'] = function(ctx)
+    ['releases.draft'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.release('draft', ctx.forge)
+      pickers.release('draft', ctx.forge, { back = opts.back })
     end,
-    ['releases.prerelease'] = function(ctx)
+    ['releases.prerelease'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.release('prerelease', ctx.forge)
+      pickers.release('prerelease', ctx.forge, { back = opts.back })
     end,
   }
 end
@@ -212,7 +212,8 @@ function M.resolve(name)
   return routes[name] or name
 end
 
-local function open_root(ctx)
+local function open_root(ctx, opts)
+  opts = opts or {}
   local cfg = require('forge').config()
   local sections = rawget(cfg, 'sections') or {}
   local routes = rawget(cfg, 'routes') or {}
@@ -245,6 +246,9 @@ local function open_root(ctx)
   local default_action, action_err = action.bind('open', {
     name = 'default',
     context = ctx.id,
+    back = function()
+      open_root(ctx)
+    end,
   })
   if not default_action then
     log.error(action_err)
@@ -256,6 +260,7 @@ local function open_root(ctx)
     prompt = prompt(ctx),
     entries = entries,
     actions = { default_action },
+    back = opts.back,
   })
   if not ok and client_err then
     log.error(client_err)
@@ -272,7 +277,7 @@ function M.open(name, opts)
   end
 
   if not name or name == '' then
-    open_root(ctx)
+    open_root(ctx, opts)
     return
   end
 

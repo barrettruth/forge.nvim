@@ -19,6 +19,7 @@ local M = {}
 ---@field entries forge.PickerEntry[]
 ---@field actions forge.PickerActionDef[]
 ---@field picker_name string
+---@field back fun()?
 
 M.backends = {
   ['fzf-lua'] = 'forge.picker.fzf',

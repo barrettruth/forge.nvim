@@ -36,6 +36,8 @@ describe('config', function()
     assert.is_nil(cfg.keys.pr.manage)
     assert.is_nil(cfg.keys.pr.edit)
     assert.is_nil(cfg.keys.pr.close)
+    assert.equals('<c-b>', cfg.keys.back)
+    assert.equals('<c-b>', cfg.keys.back)
     assert.equals('<c-w>', cfg.keys.ci.watch)
     assert.equals('<c-f>', cfg.keys.ci.filter)
     assert.is_nil(cfg.keys.ci.failed)
@@ -81,12 +83,14 @@ describe('config', function()
   it('deep-merges git section key bindings', function()
     vim.g.forge = {
       keys = {
+        back = false,
         branch = { browse = '<c-b>' },
         commit = { yank = false },
         worktree = { refresh = '<c-f>' },
       },
     }
     local cfg = forge.config()
+    assert.is_false(cfg.keys.back)
     assert.equals('<c-d>', cfg.keys.branch.review)
     assert.equals('<c-s>', cfg.keys.branch.delete)
     assert.equals('<c-b>', cfg.keys.branch.browse)

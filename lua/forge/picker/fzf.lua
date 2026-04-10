@@ -111,6 +111,16 @@ function M.pick(opts)
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
+  local actions = vim.deepcopy(opts.actions or {})
+
+  if opts.back and keys.back then
+    actions[#actions + 1] = {
+      name = 'back',
+      fn = function()
+        opts.back()
+      end,
+    }
+  end
 
   local lines
   if stream then
@@ -147,8 +157,10 @@ function M.pick(opts)
   end
 
   local fzf_actions = {}
-  for _, def in ipairs(opts.actions) do
-    local key = def.name == 'default' and '<cr>' or bindings[def.name]
+  for _, def in ipairs(actions) do
+    local key = def.name == 'default' and '<cr>'
+      or def.name == 'back' and keys.back
+      or bindings[def.name]
     if key then
       local action_fn = function(selected)
         if not selected[1] then
@@ -186,7 +198,7 @@ function M.pick(opts)
     prompt = opts.prompt or '',
     fzf_opts = {
       ['--ansi'] = '',
-      ['--header'] = render_header(opts.actions, bindings),
+      ['--header'] = render_header(actions, bindings),
       ['--no-multi'] = '',
       ['--with-nth'] = '1',
       ['--accept-nth'] = '2',

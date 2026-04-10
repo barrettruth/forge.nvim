@@ -182,6 +182,7 @@ Top-level keys: ~
 
   Defaults: >lua
       keys = {
+        back = '<c-b>',
         pr = {
           review = '<c-d>',
           worktree = '<c-w>',
@@ -233,6 +234,10 @@ Top-level keys: ~
         },
       }
 <
+
+  `keys.back`
+    Return to the parent picker when available. This action is active only on
+    nested pickers and is not shown in header hints.
 
   `keys.pr.review` is the canonical PR review binding. `keys.pr.diff` is
   still accepted as a legacy alias.

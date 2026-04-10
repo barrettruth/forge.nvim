@@ -8,6 +8,7 @@ clients.picker = function(opts)
     entries = opts.entries,
     actions = opts.actions,
     picker_name = '_menu',
+    back = opts.back,
   })
 end
 
