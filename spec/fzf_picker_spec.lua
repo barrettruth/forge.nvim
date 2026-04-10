@@ -331,6 +331,33 @@ describe('fzf picker', function()
     assert.equals('42', selected.value)
   end)
 
+  it('resolves selections when fzf-lua returns the full rendered row', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Forge> ',
+      entries = {
+        {
+          display = { { 'Branches' } },
+          value = 'branches.local',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = '_menu',
+    })
+
+    assert.is_not_nil(captured)
+    captured.opts.actions.enter({ 'Branches\t1' })
+    assert.equals('branches.local', selected.value)
+  end)
+
   it('closes close=false actions when the selected row forces it', function()
     local picker = require('forge.picker.fzf')
     picker.pick({

@@ -65,6 +65,12 @@ local function render_line(index, entry)
   return ('%s\t%d'):format(text, index)
 end
 
+---@param selected string
+---@return integer?
+local function selected_index(selected)
+  return tonumber(selected:match('^(%d+)$') or selected:match('^(%d+)%f[\t]') or selected:match('\t(%d+)$'))
+end
+
 ---@param actions forge.PickerActionDef[]
 ---@param bindings table<string, string|false>
 ---@return string?
@@ -147,7 +153,7 @@ function M.pick(opts)
           def.fn(nil)
           return
         end
-        local idx = tonumber(selected[1]:match('^(%d+)'))
+        local idx = selected_index(selected[1])
         local entry = picker_mod.selected(idx and entries[idx] or nil)
         if picker_mod.closes(def, entry) and not picker_mod.closes(def) then
           local utils = require('fzf-lua.utils')
