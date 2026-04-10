@@ -165,6 +165,7 @@ describe('git sections', function()
 
     package.preload['forge'] = function()
       return {
+        config = require('forge.config').config,
         list_key = function(kind, state)
           return kind .. ':' .. state
         end,
@@ -299,7 +300,7 @@ describe('git sections', function()
     assert.equals('web', captured.picker.actions[2].label)
     assert.equals('review', captured.picker.actions[3].label)
     assert.equals(
-      'git log --max-count=100 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
+      'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
       captured.last_system
     )
     assert.same({
@@ -341,7 +342,118 @@ describe('git sections', function()
 
     assert.equals('Commits on topic (2)> ', captured.picker.prompt)
     assert.equals(
-      'git log --max-count=100 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e topic',
+      'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e topic',
+      captured.last_system
+    )
+  end)
+
+  it('adds a load more row when the commit list exceeds the configured limit', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          commits = 2,
+        },
+      },
+    }
+
+    local old_system = vim.system
+    vim.system = function(cmd, _, cb)
+      local key = table.concat(cmd, ' ')
+      captured.last_system = key
+      captured.systems[#captured.systems + 1] = key
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+
+      if key == 'git for-each-ref --format=%(upstream:short) refs/heads/main' then
+        result.stdout = 'origin/main\n'
+      elseif
+        key == 'git log --max-count=3 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main'
+      then
+        local now = os.time()
+        result.stdout = record({
+          'abc123456789',
+          'abc1234',
+          'Add routes',
+          'Barrett',
+          tostring(now - 7200),
+        }) .. record({
+          'def567890123',
+          'def5678',
+          'Add sections',
+          'B',
+          tostring(now - 3600),
+        }) .. record({
+          'fedcba987654',
+          'fedcba9',
+          'Add tests',
+          'C',
+          tostring(now - 1800),
+        })
+      elseif
+        key == 'git log --max-count=5 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main'
+      then
+        local now = os.time()
+        result.stdout = record({
+          'abc123456789',
+          'abc1234',
+          'Add routes',
+          'Barrett',
+          tostring(now - 7200),
+        }) .. record({
+          'def567890123',
+          'def5678',
+          'Add sections',
+          'B',
+          tostring(now - 3600),
+        }) .. record({
+          'fedcba987654',
+          'fedcba9',
+          'Add tests',
+          'C',
+          tostring(now - 1800),
+        }) .. record({
+          '0123456789ab',
+          '0123456',
+          'Add docs',
+          'D',
+          tostring(now - 900),
+        })
+      end
+
+      if cb then
+        cb(result)
+      end
+
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    require('forge.pickers').commits({}, 'main')
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals(
+      'git log --max-count=3 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
+      captured.last_system
+    )
+    assert.equals('Load more...', captured.picker.entries[3].display[1][1])
+    assert.is_true(captured.picker.entries[3].load_more)
+
+    captured.picker.actions[1].fn(captured.picker.entries[3])
+    vim.wait(100, function()
+      return captured.picker and captured.picker.prompt == 'Commits on main (4)> '
+    end)
+    vim.system = old_system
+
+    assert.equals(
+      'git log --max-count=5 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
       captured.last_system
     )
   end)
