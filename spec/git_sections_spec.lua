@@ -356,7 +356,7 @@ describe('git sections', function()
       },
     }
 
-    local old_system = vim.system
+    local current_system = vim.system
     vim.system = function(cmd, _, cb)
       local key = table.concat(cmd, ' ')
       captured.last_system = key
@@ -450,7 +450,7 @@ describe('git sections', function()
     vim.wait(100, function()
       return captured.picker and captured.picker.prompt == 'Commits on main (4)> '
     end)
-    vim.system = old_system
+    vim.system = current_system
 
     assert.equals(
       'git log --max-count=5 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
