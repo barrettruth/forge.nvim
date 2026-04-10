@@ -20,6 +20,7 @@ local M = {}
 ---@field hosts string[]
 
 ---@class forge.KeysConfig
+---@field back string|false?
 ---@field pr forge.PRPickerKeys?
 ---@field issue forge.IssuePickerKeys?
 ---@field ci forge.CIPickerKeys?
@@ -221,6 +222,7 @@ local DEFAULTS = {
     worktrees = 'worktrees.list',
   },
   keys = {
+    back = '<c-b>',
     pr = {
       review = '<c-d>',
       diff = '<c-d>',
@@ -425,6 +427,7 @@ function M.config()
   end
   if type(cfg.keys) == 'table' then
     local keys = cfg.keys --[[@as forge.KeysConfig]]
+    vim.validate('forge.keys.back', keys.back, key_or_false, 'string or false')
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({

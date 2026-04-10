@@ -352,6 +352,33 @@ describe('pickers', function()
     assert.same({ 'Edit', 'Approve', 'Merge (merge)', 'Close', 'Mark as draft' }, labels)
   end)
 
+  it('passes back callbacks through nested PR menus', function()
+    local pickers = require('forge.pickers')
+    local back_calls = 0
+
+    pickers.pr('open', fake_forge(), {
+      back = function()
+        back_calls = back_calls + 1
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    action_by_name('default').fn(captured.entries[1])
+
+    assert.equals('PR #42 More> ', captured.prompt)
+    assert.equals('_menu', captured.picker_name)
+    assert.is_function(captured.back)
+
+    captured.back()
+
+    assert.equals('Open PRs (1)> ', captured.prompt)
+    assert.is_function(captured.back)
+
+    captured.back()
+
+    assert.equals(1, back_calls)
+  end)
+
   it('shows an explicit empty PR row instead of a blank picker', function()
     cache['pr:open'] = {}
 

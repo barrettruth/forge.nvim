@@ -14,7 +14,10 @@ actions.open = {
       context = context.id
     end
 
-    require('forge.routes').open(entry.value, { context = context })
+    require('forge.routes').open(entry.value, {
+      context = context,
+      back = opts.back,
+    })
   end,
 }
 
