@@ -71,10 +71,10 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.same({ '1\t42 fix api drift alice\t#42 fix api drift alice  1h' }, captured.lines)
+    assert.same({ '#42 fix api drift alice  1h\t1' }, captured.lines)
     assert.equals('PRs> ', captured.opts.prompt)
-    assert.equals('3..', captured.opts.fzf_opts['--with-nth'])
-    assert.equals('2', captured.opts.fzf_opts['--nth'])
+    assert.equals('1', captured.opts.fzf_opts['--with-nth'])
+    assert.equals('2', captured.opts.fzf_opts['--accept-nth'])
   end)
 
   it('renders headers with <cr> and ^X style key labels without to text', function()
@@ -179,7 +179,7 @@ describe('fzf picker', function()
     )
   end)
 
-  it('uses deliberate hidden search keys for root menu routes', function()
+  it('renders root menu rows with visible labels and hidden selection ids', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'Forge> ',
@@ -194,10 +194,10 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.same({ '1\tCI ci checks runs actions\tCI' }, captured.lines)
+    assert.same({ 'CI\t1' }, captured.lines)
   end)
 
-  it('uses branch names as the hidden search key for branch rows', function()
+  it('renders branch rows with visible labels and hidden selection ids', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'Branches> ',
@@ -221,12 +221,12 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same(1, #captured.lines)
-    assert.truthy(captured.lines[1]:find('1\tmain\t%* ', 1))
+    assert.truthy(captured.lines[1]:find('^%* ', 1))
     assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3mmain\27%[0m', 1))
-    assert.truthy(captured.lines[1]:find(' %[origin/main%]$', 1))
+    assert.truthy(captured.lines[1]:find(' %[origin/main%]\t1$', 1))
   end)
 
-  it('uses branch-or-tail search keys for worktree rows', function()
+  it('renders worktree rows with visible labels and hidden selection ids', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'Worktrees> ',
@@ -266,10 +266,10 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same(2, #captured.lines)
-    assert.truthy(captured.lines[1]:find('1\tfeature\t%* /repo%-feature', 1))
+    assert.truthy(captured.lines[1]:find('^%* /repo%-feature', 1))
     assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3m feature\27%[0m', 1))
-    assert.truthy(captured.lines[1]:find(' abc1234$', 1))
-    assert.equals('2\trepo-bisect def5678\t  /repo-bisect detached def5678', captured.lines[2])
+    assert.truthy(captured.lines[1]:find(' abc1234\t1$', 1))
+    assert.equals('  /repo-bisect detached def5678\t2', captured.lines[2])
   end)
 
   it('treats placeholder rows as no selection', function()
@@ -296,7 +296,7 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    captured.opts.actions.enter({ '1\tNo open PRs\tNo open PRs' })
+    captured.opts.actions.enter({ '1' })
     assert.is_nil(selected)
   end)
 
@@ -327,8 +327,35 @@ describe('fzf picker', function()
     assert.same('table', type(captured.opts.actions['ctrl-x']))
     assert.is_true(captured.opts.actions['ctrl-x'].reload)
     assert.is_nil(captured.opts.actions['ctrl-x'].noclose)
-    captured.opts.actions['ctrl-x'].fn({ '1\t42\t#42' })
+    captured.opts.actions['ctrl-x'].fn({ '1' })
     assert.equals('42', selected.value)
+  end)
+
+  it('resolves selections when fzf-lua returns the full rendered row', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Forge> ',
+      entries = {
+        {
+          display = { { 'Branches' } },
+          value = 'branches.local',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = '_menu',
+    })
+
+    assert.is_not_nil(captured)
+    captured.opts.actions.enter({ 'Branches\t1' })
+    assert.equals('branches.local', selected.value)
   end)
 
   it('closes close=false actions when the selected row forces it', function()
@@ -359,7 +386,7 @@ describe('fzf picker', function()
     assert.is_not_nil(captured)
     assert.same('table', type(captured.opts.actions.enter))
     assert.is_true(captured.opts.actions.enter.reload)
-    captured.opts.actions.enter.fn({ '1\tLoad more\tLoad more...' })
+    captured.opts.actions.enter.fn({ '1' })
 
     vim.wait(100, function()
       return selected ~= false
@@ -412,10 +439,10 @@ describe('fzf picker', function()
       lines[#lines + 1] = line
     end)
 
-    assert.same({ '1\t#1\t#1', '2\t#2\t#2' }, lines)
+    assert.same({ '#1\t1', '#2\t2' }, lines)
     assert.is_true(done)
 
-    captured.opts.actions.enter({ '2\t#2\t#2' })
+    captured.opts.actions.enter({ '2' })
     assert.equals('2', selected.value)
   end)
 
@@ -438,7 +465,7 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.same({ '2\t#2\t#2' }, captured.lines)
+    assert.same({ '#2\t2' }, captured.lines)
   end)
 
   it('skips streamed rows whose rendered display is blank', function()
@@ -471,7 +498,7 @@ describe('fzf picker', function()
       end
     end)
 
-    assert.same({ '2\t#2\t#2' }, lines)
+    assert.same({ '#2\t2' }, lines)
   end)
 
   it('strips branch background ANSI so the selected row highlight can win', function()

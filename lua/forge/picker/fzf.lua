@@ -57,15 +57,18 @@ local function render(segments)
   return table.concat(parts)
 end
 
-local function render_line(index, picker_name, entry)
-  local picker_mod = require('forge.picker')
+local function render_line(index, entry)
   local text = render(entry.display)
   if vim.trim(text) == '' then
     return nil
   end
-  local search_key = picker_mod.search_key(picker_name, entry)
-  search_key = search_key:gsub('[\r\n\t]', ' ')
-  return ('%d\t%s\t%s'):format(index, search_key, text)
+  return ('%s\t%d'):format(text, index)
+end
+
+---@param selected string
+---@return integer?
+local function selected_index(selected)
+  return tonumber(selected:match('^(%d+)$') or selected:match('^(%d+)%f[\t]') or selected:match('\t(%d+)$'))
 end
 
 ---@param actions forge.PickerActionDef[]
@@ -113,7 +116,7 @@ function M.pick(opts)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
-        local line = render_line(i, opts.picker_name, entry)
+        local line = render_line(i, entry)
         if line then
           fzf_cb(line)
         end
@@ -125,7 +128,7 @@ function M.pick(opts)
         end
         next_index = next_index + 1
         entries[next_index] = entry
-        local line = render_line(next_index, opts.picker_name, entry)
+        local line = render_line(next_index, entry)
         if line then
           fzf_cb(line)
         end
@@ -134,7 +137,7 @@ function M.pick(opts)
   else
     lines = {}
     for i, entry in ipairs(entries) do
-      local line = render_line(i, opts.picker_name, entry)
+      local line = render_line(i, entry)
       if line then
         lines[#lines + 1] = line
       end
@@ -150,7 +153,7 @@ function M.pick(opts)
           def.fn(nil)
           return
         end
-        local idx = tonumber(selected[1]:match('^(%d+)'))
+        local idx = selected_index(selected[1])
         local entry = picker_mod.selected(idx and entries[idx] or nil)
         if picker_mod.closes(def, entry) and not picker_mod.closes(def) then
           local utils = require('fzf-lua.utils')
@@ -183,8 +186,8 @@ function M.pick(opts)
       ['--ansi'] = '',
       ['--header'] = render_header(opts.actions, bindings),
       ['--no-multi'] = '',
-      ['--with-nth'] = '3..',
-      ['--nth'] = '2',
+      ['--with-nth'] = '1',
+      ['--accept-nth'] = '2',
       ['--delimiter'] = '\t',
     },
     actions = fzf_actions,
