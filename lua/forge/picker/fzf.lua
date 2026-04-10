@@ -68,7 +68,9 @@ end
 ---@param selected string
 ---@return integer?
 local function selected_index(selected)
-  return tonumber(selected:match('^(%d+)$') or selected:match('^(%d+)%f[\t]') or selected:match('\t(%d+)$'))
+  return tonumber(
+    selected:match('^(%d+)$') or selected:match('^(%d+)%f[\t]') or selected:match('\t(%d+)$')
+  )
 end
 
 ---@param actions forge.PickerActionDef[]
