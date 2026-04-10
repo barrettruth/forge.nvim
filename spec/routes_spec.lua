@@ -115,11 +115,15 @@ describe('routes', function()
     end
 
     package.preload['forge.picker'] = function()
-      return {
+      local picker = dofile(vim.fn.getcwd() .. '/lua/forge/picker/init.lua')
+      return vim.tbl_extend('force', picker, {
+        backend = function()
+          return 'fzf-lua'
+        end,
         pick = function(opts)
           captured.root = opts
         end,
-      }
+      })
     end
 
     package.preload['forge.pickers'] = function()
@@ -193,9 +197,18 @@ describe('routes', function()
       { 'PRs', 'Issues', 'CI', 'Branches', 'Commits', 'Worktrees', 'Browse', 'Releases' },
       labels
     )
-    assert.equals('PRs prs pull requests reviews', captured.root.entries[1].ordinal)
-    assert.equals('CI ci checks runs actions', captured.root.entries[3].ordinal)
-    assert.equals('Branches branches refs', captured.root.entries[4].ordinal)
+    assert.equals(
+      'PRs prs pull requests reviews',
+      require('forge.picker').search_key('_menu', captured.root.entries[1])
+    )
+    assert.equals(
+      'CI ci checks runs actions',
+      require('forge.picker').search_key('_menu', captured.root.entries[3])
+    )
+    assert.equals(
+      'Branches branches refs',
+      require('forge.picker').search_key('_menu', captured.root.entries[4])
+    )
     assert.is_nil(captured.root.entries[1].display[2])
     assert.is_nil(captured.root.entries[4].display[2])
 

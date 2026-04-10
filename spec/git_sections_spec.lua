@@ -133,11 +133,15 @@ describe('git sections', function()
     end
 
     package.preload['forge.picker'] = function()
-      return {
+      local picker = dofile(vim.fn.getcwd() .. '/lua/forge/picker/init.lua')
+      return vim.tbl_extend('force', picker, {
+        backend = function()
+          return 'fzf-lua'
+        end,
         pick = function(opts)
           captured.picker = opts
         end,
-      }
+      })
     end
 
     package.preload['forge.term'] = function()
@@ -248,9 +252,12 @@ describe('git sections', function()
     assert.equals('', vim.trim(captured.picker.entries[3].display[3][1]))
     assert.equals('Topic branch', vim.trim(captured.picker.entries[3].display[4][1]))
     assert.equals('ForgeDim', captured.picker.entries[3].display[4][2])
-    assert.equals('main', captured.picker.entries[1].ordinal)
-    assert.equals('feature', captured.picker.entries[2].ordinal)
-    assert.equals('topic', captured.picker.entries[3].ordinal)
+    assert.equals('main', require('forge.picker').search_key('branch', captured.picker.entries[1]))
+    assert.equals(
+      'feature',
+      require('forge.picker').search_key('branch', captured.picker.entries[2])
+    )
+    assert.equals('topic', require('forge.picker').search_key('branch', captured.picker.entries[3]))
 
     local worktree_entry = captured.picker.entries[2]
     captured.picker.actions[1].fn(worktree_entry)
@@ -362,8 +369,14 @@ describe('git sections', function()
     assert.same({ '  ', 'ForgeDim' }, captured.picker.entries[2].display[1])
     assert.same({ '/repo-feature', 'Directory' }, captured.picker.entries[2].display[2])
     assert.equals('feature', vim.trim(captured.picker.entries[2].display[3][1]))
-    assert.equals('main', captured.picker.entries[1].ordinal)
-    assert.equals('feature', captured.picker.entries[2].ordinal)
+    assert.equals(
+      'main',
+      require('forge.picker').search_key('worktree', captured.picker.entries[1])
+    )
+    assert.equals(
+      'feature',
+      require('forge.picker').search_key('worktree', captured.picker.entries[2])
+    )
     assert.equals('ForgeBranch', captured.picker.entries[2].display[3][2])
     assert.same({ ' def5678', 'ForgeCommitHash' }, captured.picker.entries[2].display[4])
 

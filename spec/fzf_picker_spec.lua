@@ -46,6 +46,7 @@ describe('fzf picker', function()
     close_calls = 0
     ctx_clears = 0
     package.loaded['forge'] = nil
+    package.loaded['forge.picker'] = nil
     package.loaded['forge.picker.fzf'] = nil
     vim.g.forge = nil
   end)
@@ -148,6 +149,99 @@ describe('fzf picker', function()
       '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:switch]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:delete]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]',
       captured.opts.fzf_opts['--header']
     )
+  end)
+
+  it('uses deliberate hidden search keys for root menu routes', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Forge> ',
+      entries = {
+        {
+          display = { { 'CI' } },
+          value = 'ci.current_branch',
+        },
+      },
+      actions = {},
+      picker_name = '_menu',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same({ '1\tCI ci checks runs actions\tCI' }, captured.lines)
+  end)
+
+  it('uses branch names as the hidden search key for branch rows', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Branches> ',
+      entries = {
+        {
+          display = {
+            { '* ', 'ForgePass' },
+            { 'main', 'ForgeBranchCurrent' },
+            { ' [origin/main]', 'Directory' },
+          },
+          value = {
+            name = 'main',
+            upstream = 'origin/main',
+            subject = 'Main branch',
+          },
+        },
+      },
+      actions = {},
+      picker_name = 'branch',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same(1, #captured.lines)
+    assert.truthy(captured.lines[1]:find('1\tmain\t%* ', 1))
+    assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3mmain\27%[0m', 1))
+    assert.truthy(captured.lines[1]:find(' %[origin/main%]$', 1))
+  end)
+
+  it('uses branch-or-tail search keys for worktree rows', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Worktrees> ',
+      entries = {
+        {
+          display = {
+            { '* ', 'ForgePass' },
+            { '/repo-feature', 'Directory' },
+            { ' feature', 'ForgeBranch' },
+            { ' abc1234', 'ForgeCommitHash' },
+          },
+          value = {
+            path = '/repo-feature',
+            branch = 'feature',
+            detached = false,
+            short_head = 'abc1234',
+          },
+        },
+        {
+          display = {
+            { '  ', 'ForgeDim' },
+            { '/repo-bisect', 'Directory' },
+            { ' detached', 'ForgeDim' },
+            { ' def5678', 'ForgeCommitHash' },
+          },
+          value = {
+            path = '/repo-bisect',
+            branch = '',
+            detached = true,
+            short_head = 'def5678',
+          },
+        },
+      },
+      actions = {},
+      picker_name = 'worktree',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same(2, #captured.lines)
+    assert.truthy(captured.lines[1]:find('1\tfeature\t%* /repo%-feature', 1))
+    assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3m feature\27%[0m', 1))
+    assert.truthy(captured.lines[1]:find(' abc1234$', 1))
+    assert.equals('2\trepo-bisect def5678\t  /repo-bisect detached def5678', captured.lines[2])
   end)
 
   it('treats placeholder rows as no selection', function()

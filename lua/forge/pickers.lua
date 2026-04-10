@@ -1850,7 +1850,6 @@ function M.branches(ctx)
       entries[#entries + 1] = {
         display = branch_display(item, plan),
         value = item,
-        ordinal = item.name,
       }
     end
     local count = #entries
@@ -2166,14 +2165,9 @@ function M.worktrees(ctx)
     local plan = worktree_layout(worktrees)
     local entries = {}
     for _, item in ipairs(worktrees) do
-      local ordinal = item.branch ~= '' and item.branch or vim.fs.basename(item.path)
-      if item.detached and item.short_head ~= '' then
-        ordinal = ordinal .. ' ' .. item.short_head
-      end
       entries[#entries + 1] = {
         display = worktree_display(item, plan),
         value = item,
-        ordinal = ordinal,
       }
     end
     local count = #entries
