@@ -100,7 +100,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^O] [FzfLuaHeaderText:filter]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^F] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
@@ -147,6 +147,34 @@ describe('fzf picker', function()
     assert.is_not_nil(captured)
     assert.equals(
       '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:switch]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:delete]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]',
+      captured.opts.fzf_opts['--header']
+    )
+  end)
+
+  it('renders the issue filter hint when the action is labeled', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Open Issues> ',
+      entries = {
+        {
+          display = { { '#7' }, { ' Bug' } },
+          value = '7',
+        },
+      },
+      actions = {
+        { name = 'default', label = 'open', fn = function() end },
+        { name = 'browse', fn = function() end },
+        { name = 'close', label = 'close', fn = function() end },
+        { name = 'create', fn = function() end },
+        { name = 'filter', label = 'filter', fn = function() end },
+        { name = 'refresh', fn = function() end },
+      },
+      picker_name = 'issue',
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals(
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|[FzfLuaHeaderBind:^F] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)

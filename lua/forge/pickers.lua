@@ -916,30 +916,35 @@ function M.checks(f, num, filter, cached_checks)
     },
     {
       name = 'failed',
+      label = 'failed',
       fn = function()
         M.checks(f, num, 'fail', current_checks)
       end,
     },
     {
       name = 'passed',
+      label = 'passed',
       fn = function()
         M.checks(f, num, 'pass', current_checks)
       end,
     },
     {
       name = 'running',
+      label = 'running',
       fn = function()
         M.checks(f, num, 'pending', current_checks)
       end,
     },
     {
       name = 'all',
+      label = 'all',
       fn = function()
         M.checks(f, num, 'all', current_checks)
       end,
     },
     {
       name = 'refresh',
+      label = 'refresh',
       fn = function()
         log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
         M.checks(f, num, filter)
@@ -1165,30 +1170,35 @@ function M.ci(f, branch, filter)
     },
     {
       name = 'failed',
+      label = 'failed',
       fn = function()
         M.ci(f, branch, 'fail')
       end,
     },
     {
       name = 'passed',
+      label = 'passed',
       fn = function()
         M.ci(f, branch, 'pass')
       end,
     },
     {
       name = 'running',
+      label = 'running',
       fn = function()
         M.ci(f, branch, 'pending')
       end,
     },
     {
       name = 'all',
+      label = 'all',
       fn = function()
         M.ci(f, branch, 'all')
       end,
     },
     {
       name = 'refresh',
+      label = 'refresh',
       fn = function()
         log.info('refreshing CI runs...')
         M.ci(f, branch, filter)
@@ -1340,6 +1350,7 @@ function M.pr(state, f, opts)
     },
     {
       name = 'worktree',
+      label = 'worktree',
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
@@ -1377,6 +1388,7 @@ function M.pr(state, f, opts)
     },
     {
       name = 'edit',
+      label = 'edit',
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).edit()
@@ -1385,12 +1397,14 @@ function M.pr(state, f, opts)
     },
     {
       name = 'create',
+      label = 'create',
       fn = function()
         forge_mod.create_pr()
       end,
     },
     {
       name = 'close',
+      label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
       fn = function(entry)
         if entry and not entry.load_more then
           pr_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
@@ -1399,12 +1413,14 @@ function M.pr(state, f, opts)
     },
     {
       name = 'filter',
+      label = 'filter',
       fn = function()
         M.pr(next_state, f, { limit = visible_limit })
       end,
     },
     {
       name = 'refresh',
+      label = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'pr')
         M.pr(state, f, { limit = visible_limit })
@@ -1553,6 +1569,7 @@ function M.issue(state, f, opts)
     },
     {
       name = 'browse',
+      label = 'web',
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
@@ -1571,18 +1588,21 @@ function M.issue(state, f, opts)
     },
     {
       name = 'create',
+      label = 'create',
       fn = function()
         forge_mod.create_issue()
       end,
     },
     {
       name = 'filter',
+      label = 'filter',
       fn = function()
         M.issue(next_state, f, { limit = visible_limit })
       end,
     },
     {
       name = 'refresh',
+      label = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'issue')
         M.issue(state, f, { limit = visible_limit })
@@ -1757,6 +1777,7 @@ function M.release(state, f)
     },
     {
       name = 'delete',
+      label = 'delete',
       fn = function(entry)
         if not entry then
           return
@@ -1784,12 +1805,14 @@ function M.release(state, f)
     },
     {
       name = 'filter',
+      label = 'filter',
       fn = function()
         M.release(next_state, f)
       end,
     },
     {
       name = 'refresh',
+      label = 'refresh',
       fn = function()
         clear_list_cache(forge_mod, cache_key)
         M.release(state, f)
@@ -1947,6 +1970,7 @@ function M.branches(ctx)
       },
       {
         name = 'refresh',
+        label = 'refresh',
         fn = function()
           forge_mod.clear_list(cache_key)
           M.branches(ctx)
@@ -2063,6 +2087,7 @@ function M.commits(ctx, branch)
       },
       {
         name = 'refresh',
+        label = 'refresh',
         fn = function()
           forge_mod.clear_list(cache_key)
           M.commits(ctx, branch)
@@ -2279,6 +2304,7 @@ function M.worktrees(ctx)
         },
         {
           name = 'refresh',
+          label = 'refresh',
           fn = function()
             forge_mod.clear_list(cache_key)
             M.worktrees(ctx)
