@@ -824,6 +824,7 @@ end
 ---@param num string
 ---@param filter string?
 ---@param cached_checks table[]?
+---@param opts? { back?: fun() }
 function M.checks(f, num, filter, cached_checks, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -1028,6 +1029,7 @@ end
 ---@param f forge.Forge
 ---@param branch string?
 ---@param filter string?
+---@param opts? { back?: fun() }
 function M.ci(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -1279,7 +1281,7 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer }
+---@param opts? { limit?: integer, back?: fun() }
 function M.pr(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.pr
@@ -1529,7 +1531,7 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer }
+---@param opts? { limit?: integer, back?: fun() }
 function M.issue(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.issue
@@ -1759,6 +1761,7 @@ end
 
 ---@param state 'all'|'draft'|'prerelease'
 ---@param f forge.Forge
+---@param opts? { back?: fun() }
 function M.release(state, f, opts)
   opts = opts or {}
   local forge_mod = require('forge')
