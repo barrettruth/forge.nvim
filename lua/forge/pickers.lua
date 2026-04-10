@@ -2116,16 +2116,9 @@ function M.commits(ctx, branch)
     })
   end
 
-  local function commit_label(ref)
-    if ref ~= branch then
-      return ('%s [%s]'):format(branch, ref)
-    end
-    return branch
-  end
-
   local function unpack_cached(cached)
     if type(cached) == 'table' and cached.entries then
-      return cached.entries, cached.label or branch
+      return cached.entries, branch
     end
     return cached, branch
   end
@@ -2138,8 +2131,7 @@ function M.commits(ctx, branch)
   end
 
   local function fetch_commits(ref)
-    local label = commit_label(ref)
-    log.info('fetching commits for ' .. label .. '...')
+    log.info('fetching commits for ' .. branch .. '...')
     vim.system({
       'git',
       'log',
@@ -2155,9 +2147,8 @@ function M.commits(ctx, branch)
         local commits = parse_commits(result.stdout or '')
         forge_mod.set_list(cache_key, {
           entries = commits,
-          label = label,
         })
-        open_commit_list(commits, label)
+        open_commit_list(commits, branch)
       end)
     end)
   end

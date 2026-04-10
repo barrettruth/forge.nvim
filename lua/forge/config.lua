@@ -282,7 +282,7 @@ local DEFAULTS = {
   },
   display = {
     icons = {
-      open = '+',
+      open = 'o',
       merged = 'm',
       closed = 'x',
       pass = '*',
@@ -313,21 +313,24 @@ local hl_defaults = {
   ForgeComposeBranch = 'Special',
   ForgeComposeForge = 'Label',
   ForgeComposeDraft = 'DiagnosticWarn',
-  ForgeComposeFile = 'Constant',
+  ForgeComposeFile = 'Directory',
   ForgeComposeAdded = 'Added',
   ForgeComposeRemoved = 'Removed',
   ForgeComposeHeader = 'PreProc',
   ForgeComposeLabel = 'Label',
   ForgeNumber = 'Number',
-  ForgeOpen = 'DiagnosticInfo',
-  ForgeMerged = 'Constant',
+  ForgeOpen = 'DiagnosticOk',
+  ForgeMerged = 'Special',
   ForgeClosed = 'Comment',
   ForgePass = 'DiagnosticOk',
   ForgeFail = 'DiagnosticError',
   ForgePending = 'DiagnosticWarn',
   ForgeSkip = 'Comment',
   ForgeBranch = 'Special',
-  ForgeBranchCurrent = { bold = true },
+  ForgeBranchCurrent = function()
+    local hl = vim.api.nvim_get_hl(0, { name = 'Special', link = false })
+    return vim.tbl_extend('force', hl, { bold = true })
+  end,
   ForgeCommitHash = 'Number',
   ForgeCommitTime = 'Comment',
   ForgeCommitAuthor = 'Comment',
@@ -347,6 +350,8 @@ function M.setup_highlights()
   for group, val in pairs(hl_defaults) do
     if type(val) == 'string' then
       vim.api.nvim_set_hl(0, group, { default = true, link = val })
+    elseif type(val) == 'function' then
+      vim.api.nvim_set_hl(0, group, vim.tbl_extend('keep', { default = true }, val()))
     else
       vim.api.nvim_set_hl(0, group, vim.tbl_extend('keep', { default = true }, val))
     end
