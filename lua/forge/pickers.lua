@@ -353,16 +353,19 @@ local function worktree_layout(worktrees)
   end
 
   local paths = {}
+  local full_paths = {}
   local labels = {}
   local shas = {}
   for _, item in ipairs(worktrees) do
     paths[#paths + 1] = vim.fn.pathshorten(home_path(item.path))
+    full_paths[#full_paths + 1] = home_path(item.path)
     labels[#labels + 1] = worktree_label(item)
     shas[#shas + 1] = item.short_head
   end
   local path_opts = #paths <= 3 and { typical_quantile = 1, max_quantile = 1 }
     or { typical_quantile = 0.7, max_quantile = 0.85 }
-  local path_pref, path_max = elastic_width(path_limit, paths, 12, path_opts)
+  local path_pref = elastic_width(path_limit, paths, 12, path_opts)
+  local path_max = math.max(path_pref, layout.max_width(full_paths))
   local label_pref, label_max = elastic_width(label_limit, labels, 8)
   return layout.plan({
     width = layout.picker_width(),
