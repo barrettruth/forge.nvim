@@ -366,35 +366,36 @@ local function worktree_layout(worktrees)
     or { typical_quantile = 0.7, max_quantile = 0.85 }
   local path_pref = elastic_width(path_limit, paths, 12, path_opts)
   local path_max = math.max(path_pref, layout.max_width(full_paths))
-  local label_pref, label_max = elastic_width(label_limit, labels, 8)
+  local label_pref = elastic_width(label_limit, labels, 8)
+  local label_max = math.max(label_pref, layout.max_width(labels))
   return layout.plan({
     width = layout.picker_width(),
     columns = {
       { key = 'marker', fixed = 2 },
       {
-        key = 'path',
-        gap = '',
-        min = 12,
-        preferred = path_pref,
-        max = path_max,
-        shrink = 3,
-        grow = 1,
-        overflow = 'head',
-        pack_on = 'compact',
-      },
-      {
         key = 'label',
-        gap = ' ',
+        gap = '',
         min = 8,
         preferred = label_pref,
         max = label_max,
         optional = true,
         drop = 2,
-        shrink = 2,
-        grow = 2,
+        shrink = 3,
+        grow = 1,
         overflow = 'tail',
         pack_on = 'compact',
         hide_if_empty = true,
+      },
+      {
+        key = 'path',
+        gap = ' ',
+        min = 12,
+        preferred = path_pref,
+        max = path_max,
+        shrink = 3,
+        grow = 2,
+        overflow = 'head',
+        pack_on = 'compact',
       },
       {
         key = 'sha',
@@ -412,16 +413,16 @@ local function worktree_display(item, plan)
   local label = worktree_label(item)
   return layout.render(plan, {
     marker = { item.current and '* ' or '  ', item.current and 'ForgePass' or 'ForgeDim' },
-    path = {
-      render = function(width)
-        return { display_path(item.path, width), 'Directory' }
-      end,
-    },
     label = {
       label,
       item.current and item.branch ~= '' and 'ForgeBranchCurrent'
         or item.branch ~= '' and 'ForgeBranch'
         or 'ForgeDim',
+    },
+    path = {
+      render = function(width)
+        return { display_path(item.path, width), 'Directory' }
+      end,
     },
     sha = { item.short_head, 'ForgeCommitHash' },
   })

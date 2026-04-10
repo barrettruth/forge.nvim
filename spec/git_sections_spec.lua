@@ -473,14 +473,14 @@ describe('git sections', function()
     assert.equals('add', captured.picker.actions[2].name)
     assert.equals('delete', captured.picker.actions[3].name)
     assert.same({ '* ', 'ForgePass' }, captured.picker.entries[1].display[1])
-    assert.same({ '/repo        ', 'Directory' }, captured.picker.entries[1].display[2])
-    assert.equals('main', vim.trim(captured.picker.entries[1].display[3][1]))
-    assert.equals('ForgeBranchCurrent', captured.picker.entries[1].display[3][2])
+    assert.equals('main', vim.trim(captured.picker.entries[1].display[2][1]))
+    assert.equals('ForgeBranchCurrent', captured.picker.entries[1].display[2][2])
+    assert.equals('/repo', vim.trim(captured.picker.entries[1].display[3][1]))
+    assert.equals('Directory', captured.picker.entries[1].display[3][2])
     assert.same({ ' abc1234', 'ForgeCommitHash' }, captured.picker.entries[1].display[4])
 
     assert.same({ '  ', 'ForgeDim' }, captured.picker.entries[2].display[1])
-    assert.same({ '/repo-feature', 'Directory' }, captured.picker.entries[2].display[2])
-    assert.equals('feature', vim.trim(captured.picker.entries[2].display[3][1]))
+    assert.equals('feature', vim.trim(captured.picker.entries[2].display[2][1]))
     assert.equals(
       'main',
       require('forge.picker').search_key('worktree', captured.picker.entries[1])
@@ -489,7 +489,9 @@ describe('git sections', function()
       'feature',
       require('forge.picker').search_key('worktree', captured.picker.entries[2])
     )
-    assert.equals('ForgeBranch', captured.picker.entries[2].display[3][2])
+    assert.equals('ForgeBranch', captured.picker.entries[2].display[2][2])
+    assert.equals('/repo-feature', vim.trim(captured.picker.entries[2].display[3][1]))
+    assert.equals('Directory', captured.picker.entries[2].display[3][2])
     assert.same({ ' def5678', 'ForgeCommitHash' }, captured.picker.entries[2].display[4])
 
     local entry = captured.picker.entries[2]
@@ -564,8 +566,68 @@ describe('git sections', function()
     end)
 
     assert.equals(
-      ' feature/some-long-worktree-branch-name',
-      captured.picker.entries[1].display[3][1]
+      'feature/some-long-worktree-branch-name',
+      vim.trim(captured.picker.entries[1].display[2][1])
+    )
+  end)
+
+  it('expands outlier worktree branch labels when the picker has spare width', function()
+    vim.api.nvim_win_get_width = function()
+      return 120
+    end
+
+    local current_system = vim.system
+    vim.system = function(cmd, opts, cb)
+      local key = table.concat(cmd, ' ')
+      if key == 'git worktree list --porcelain' then
+        local result = {
+          code = 0,
+          stdout = table.concat({
+            'worktree /repo',
+            'HEAD abc123456789',
+            'branch refs/heads/main',
+            '',
+            'worktree /repo-issue-117',
+            'HEAD 1c6fe7612345',
+            'branch refs/heads/fix/yaml-parser-requirement',
+            '',
+            'worktree /repo-issue-74',
+            'HEAD a73818212345',
+            'branch refs/heads/fix/github-ci-refresh-ux',
+            '',
+            'worktree /repo-issue-75',
+            'HEAD 3a4198412345',
+            'branch refs/heads/fix/commit-picker-yank-state',
+            '',
+            'worktree /repo-issues-119-113',
+            'HEAD 861293612345',
+            'branch refs/heads/fix/commit-picker-upstream-load-more',
+            '',
+          }, '\n'),
+          stderr = '',
+        }
+        captured.last_system = key
+        captured.systems[#captured.systems + 1] = key
+        if cb then
+          cb(result)
+        end
+        return {
+          wait = function()
+            return result
+          end,
+        }
+      end
+      return current_system(cmd, opts, cb)
+    end
+
+    require('forge.pickers').worktrees({ root = '/repo' })
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals(
+      'fix/commit-picker-upstream-load-more',
+      vim.trim(captured.picker.entries[5].display[2][1])
     )
   end)
 
@@ -612,11 +674,11 @@ describe('git sections', function()
 
     assert.equals(
       vim.fn.fnamemodify(current_path, ':~'),
-      vim.trim(captured.picker.entries[1].display[2][1])
+      vim.trim(captured.picker.entries[1].display[3][1])
     )
     assert.equals(
       vim.fn.pathshorten(vim.fn.fnamemodify(nested_path, ':~')),
-      vim.trim(captured.picker.entries[2].display[2][1])
+      vim.trim(captured.picker.entries[2].display[3][1])
     )
   end)
 
@@ -681,7 +743,7 @@ describe('git sections', function()
 
     assert.equals(
       vim.fn.fnamemodify(yaml_path, ':~'),
-      vim.trim(captured.picker.entries[4].display[2][1])
+      vim.trim(captured.picker.entries[4].display[3][1])
     )
   end)
 
