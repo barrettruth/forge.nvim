@@ -242,6 +242,36 @@ describe('review index', function()
     assert.equals('origin/main', captured.gdiff)
   end)
 
+  it('preserves back callbacks on the review files picker', function()
+    local back_calls = 0
+
+    review.start_session({
+      subject = {
+        kind = 'pr',
+        id = '42',
+        label = 'PR #42',
+        base_ref = 'origin/main',
+        head_ref = 'pr-42',
+      },
+      repo_root = '/repo',
+      back = function()
+        back_calls = back_calls + 1
+      end,
+    })
+
+    review.open_index()
+
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.is_function(captured.picker.back)
+
+    captured.picker.back()
+
+    assert.equals(1, back_calls)
+  end)
+
   it('toggles the active file between patch and context modes', function()
     review.start_session({
       subject = {

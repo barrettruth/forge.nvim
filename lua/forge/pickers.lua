@@ -594,7 +594,8 @@ end
 ---@return table<string, function>
 local function pr_action_fns(f, num)
   local kind = f.labels.pr_one
-  local function review_pr()
+  local function review_pr(opts)
+    opts = opts or {}
     local review = require('forge.review')
     local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
 
@@ -627,6 +628,7 @@ local function pr_action_fns(f, num)
             current_file = nil,
             materialization = co_result.code == 0 and 'checkout' or 'current',
             repo_root = repo_root,
+            back = opts.back,
           })
           review.open_index()
           log.debug(('review ready for %s #%s against %s'):format(kind, num, base))
@@ -999,6 +1001,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       loading_prompt = checks_prompt,
       actions = actions,
       picker_name = 'ci',
+      back = opts.back,
       cmd = function()
         return f:checks_json_cmd(num)
       end,
@@ -1256,6 +1259,7 @@ function M.ci(f, branch, filter, opts)
       loading_prompt = ci_prompt,
       actions = actions,
       picker_name = 'ci',
+      back = opts.back,
       cmd = function()
         return f:list_runs_json_cmd(branch)
       end,
@@ -1385,7 +1389,7 @@ function M.pr(state, f, opts)
       label = 'review',
       fn = function(entry)
         if entry and not entry.load_more then
-          pr_action_fns(f, entry.value).review()
+          pr_action_fns(f, entry.value).review({ back = opts.back })
         end
       end,
     },
@@ -1443,7 +1447,7 @@ function M.pr(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_pr()
+        forge_mod.create_pr({ back = opts.back })
       end,
     },
     {
@@ -1501,6 +1505,7 @@ function M.pr(state, f, opts)
     end,
     actions = actions,
     picker_name = 'pr',
+    back = opts.back,
     cmd = function()
       return f:list_pr_json_cmd(state, fetch_limit)
     end,
@@ -1643,7 +1648,7 @@ function M.issue(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_issue()
+        forge_mod.create_issue({ back = opts.back })
       end,
     },
     {
@@ -1692,6 +1697,7 @@ function M.issue(state, f, opts)
     end,
     actions = actions,
     picker_name = 'issue',
+    back = opts.back,
     cmd = function()
       return f:list_issue_json_cmd(state, fetch_limit)
     end,
@@ -1910,6 +1916,7 @@ function M.release(state, f, opts)
     loading_prompt = release_prompt,
     actions = actions,
     picker_name = 'release',
+    back = opts.back,
     cmd = function()
       return f:list_releases_json_cmd()
     end,
@@ -1982,7 +1989,7 @@ function M.branches(ctx, opts)
         label = 'review',
         fn = function(entry)
           if entry then
-            require('forge.review').start_branch(ctx, entry.value.name)
+            require('forge.review').start_branch(ctx, entry.value.name, { back = opts.back })
           end
         end,
       },
@@ -2160,7 +2167,7 @@ function M.commits(ctx, branch, opts)
         label = 'review',
         fn = function(entry)
           if entry and not entry.load_more then
-            require('forge.review').start_commit(ctx, entry.value.sha)
+            require('forge.review').start_commit(ctx, entry.value.sha, { back = opts.back })
           end
         end,
       },
