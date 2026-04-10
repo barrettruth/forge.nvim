@@ -1934,6 +1934,7 @@ function M.release(state, f, opts)
 end
 
 ---@param ctx { root: string, branch: string, forge: forge.Forge? }
+---@param opts? { back?: fun() }
 function M.branches(ctx, opts)
   opts = opts or {}
   local forge_mod = require('forge')
@@ -2102,7 +2103,7 @@ end
 
 ---@param ctx { forge: forge.Forge?, branch: string }
 ---@param branch string
----@param opts? { limit?: integer }
+---@param opts? { limit?: integer, back?: fun() }
 function M.commits(ctx, branch, opts)
   opts = opts or {}
   local forge_mod = require('forge')
@@ -2266,6 +2267,7 @@ function M.commits(ctx, branch, opts)
 end
 
 ---@param ctx { root: string }
+---@param opts? { back?: fun() }
 function M.worktrees(ctx, opts)
   opts = opts or {}
   local forge_mod = require('forge')
