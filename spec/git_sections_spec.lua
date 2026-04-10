@@ -508,6 +508,71 @@ describe('git sections', function()
     )
   end)
 
+  it('expands worktree paths beyond the default name width when space is available', function()
+    local home = vim.env.HOME or '/home/barrett'
+    local current_path = home .. '/dev/forge.nvim'
+    local yaml_path = home .. '/dev/forge.nvim-yaml-template-failure'
+    local nested_path = home .. '/dev/forge.nvim/.claude/worktrees/agent-a43cb846'
+
+    vim.api.nvim_win_get_width = function()
+      return 120
+    end
+
+    local current_system = vim.system
+    vim.system = function(cmd, opts, cb)
+      local key = table.concat(cmd, ' ')
+      if key == 'git worktree list --porcelain' then
+        local result = {
+          code = 0,
+          stdout = table.concat({
+            'worktree ' .. current_path,
+            'HEAD 73eb02012345',
+            'branch refs/heads/main',
+            '',
+            'worktree ' .. (home .. '/dev/forge.nvim-issue-117'),
+            'HEAD 1c6fe7612345',
+            'branch refs/heads/fix/yaml-parser-requirement',
+            '',
+            'worktree ' .. (home .. '/dev/forge.nvim-picker-search-keys'),
+            'HEAD a2fef9a12345',
+            'branch refs/heads/fix/picker-search-keys',
+            '',
+            'worktree ' .. yaml_path,
+            'HEAD e566fa912345',
+            'branch refs/heads/fix/yaml-template-parser-failure',
+            '',
+            'worktree ' .. nested_path,
+            'HEAD 9be38e312345',
+            'branch refs/heads/worktree-agent-a43cb846',
+            '',
+          }, '\n'),
+          stderr = '',
+        }
+        captured.last_system = key
+        captured.systems[#captured.systems + 1] = key
+        if cb then
+          cb(result)
+        end
+        return {
+          wait = function()
+            return result
+          end,
+        }
+      end
+      return current_system(cmd, opts, cb)
+    end
+
+    require('forge.pickers').worktrees({ root = current_path })
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.equals(
+      vim.fn.fnamemodify(yaml_path, ':~'),
+      vim.trim(captured.picker.entries[4].display[2][1])
+    )
+  end)
+
   it('warns for worktree-backed branch deletion and deletes ordinary branches', function()
     local ctx = {
       id = 'current',
