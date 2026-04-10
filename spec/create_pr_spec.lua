@@ -1,8 +1,9 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-describe('create_issue', function()
+describe('create_pr', function()
   local captured
   local old_system
+  local old_fn_system
   local old_executable
   local old_preload
 
@@ -11,7 +12,8 @@ describe('create_issue', function()
       errors = {},
     }
 
-    old_system = vim.fn.system
+    old_system = vim.system
+    old_fn_system = vim.fn.system
     old_executable = vim.fn.executable
     old_preload = {
       ['forge.action'] = package.preload['forge.action'],
@@ -33,6 +35,43 @@ describe('create_issue', function()
       return 0
     end
 
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'git@github.com:owner/repo.git\n'
+      end
+      if cmd == 'git branch --show-current' then
+        return 'feature\n'
+      end
+      return ''
+    end
+
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      if key == 'pr-for-branch feature' then
+        result.stdout = '\n'
+      elseif key == 'default-branch' then
+        result.stdout = 'main\n'
+      elseif key == 'git diff --quiet origin/main..HEAD' then
+        result.code = 1
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
     package.preload['forge.action'] = function()
       return {
         register = function() end,
@@ -48,7 +87,7 @@ describe('create_issue', function()
 
     package.preload['forge.compose'] = function()
       return {
-        open_issue = function(_, result)
+        open_pr = function(_, _, _, _, result)
           captured.opened = result
         end,
       }
@@ -81,8 +120,15 @@ describe('create_issue', function()
     package.preload['forge.github'] = function()
       return {
         cli = 'gh',
-        issue_template_paths = function()
-          return { '.github/ISSUE_TEMPLATE/' }
+        labels = { pr_one = 'PR' },
+        pr_for_branch_cmd = function(_, branch)
+          return { 'pr-for-branch', branch }
+        end,
+        default_branch_cmd = function()
+          return { 'default-branch' }
+        end,
+        template_paths = function()
+          return { '.github/PULL_REQUEST_TEMPLATE/' }
         end,
       }
     end
@@ -108,6 +154,29 @@ describe('create_issue', function()
       }
     end
 
+    package.preload['forge.template'] = function()
+      return {
+        discover = function()
+          return nil,
+            {
+              {
+                name = 'pull_request.md',
+                display = 'Pull Request',
+                is_yaml = false,
+                dir = '/repo/.github/PULL_REQUEST_TEMPLATE',
+              },
+            },
+            nil
+        end,
+        load = function()
+          return { body = 'template' }
+        end,
+        fill_from_commits = function()
+          return 'title', 'body'
+        end,
+      }
+    end
+
     package.loaded['forge'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
@@ -122,7 +191,8 @@ describe('create_issue', function()
   end)
 
   after_each(function()
-    vim.fn.system = old_system
+    vim.system = old_system
+    vim.fn.system = old_fn_system
     vim.fn.executable = old_executable
 
     package.preload['forge.action'] = old_preload['forge.action']
@@ -149,93 +219,18 @@ describe('create_issue', function()
     package.loaded['forge.template'] = nil
   end)
 
-  it('aborts issue creation when a single yaml template cannot be loaded', function()
-    package.preload['forge.template'] = function()
-      return {
-        discover = function()
-          return nil,
-            nil,
-            'tree-sitter yaml parser not found; install it to use YAML issue form templates'
-        end,
-        load = function() end,
-      }
-    end
-
-    require('forge').create_issue()
-
-    assert.is_nil(captured.opened)
-    assert.is_nil(captured.picker)
-    assert.same(
-      { 'tree-sitter yaml parser not found; install it to use YAML issue form templates' },
-      captured.errors
-    )
-  end)
-
-  it(
-    'logs an error instead of opening a blank issue when a selected yaml template fails to load',
-    function()
-      package.preload['forge.template'] = function()
-        return {
-          discover = function()
-            return nil,
-              {
-                {
-                  name = 'bug_report.yaml',
-                  display = 'Bug Report',
-                  is_yaml = true,
-                  dir = '/repo/.github/ISSUE_TEMPLATE',
-                },
-              },
-              nil
-          end,
-          load = function()
-            return nil,
-              'tree-sitter yaml parser not found; install it to use YAML issue form templates'
-          end,
-        }
-      end
-
-      require('forge').create_issue()
-
-      assert.is_not_nil(captured.picker)
-      captured.picker.actions[1].fn(captured.picker.entries[1])
-
-      assert.is_nil(captured.opened)
-      assert.same(
-        { 'tree-sitter yaml parser not found; install it to use YAML issue form templates' },
-        captured.errors
-      )
-    end
-  )
-
-  it('preserves back on the issue template picker', function()
+  it('preserves back on the PR template picker', function()
     local back_calls = 0
 
-    package.preload['forge.template'] = function()
-      return {
-        discover = function()
-          return nil,
-            {
-              {
-                name = 'bug_report.md',
-                display = 'Bug Report',
-                is_yaml = false,
-                dir = '/repo/.github/ISSUE_TEMPLATE',
-              },
-            },
-            nil
-        end,
-        load = function()
-          return { body = 'template' }
-        end,
-      }
-    end
-
-    require('forge').create_issue({
+    require('forge').create_pr({
       back = function()
         back_calls = back_calls + 1
       end,
     })
+
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
 
     assert.is_not_nil(captured.picker)
     assert.is_function(captured.picker.back)

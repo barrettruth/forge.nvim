@@ -285,6 +285,7 @@ function M.open_index()
         },
       },
       picker_name = '_menu',
+      back = session.back,
     })
   end
 
@@ -426,7 +427,8 @@ function M.files()
   M.open_index()
 end
 
-function M.start_branch(ctx, branch)
+function M.start_branch(ctx, branch, opts)
+  opts = opts or {}
   branch = branch or ctx.branch
   if not branch or branch == '' then
     log.warn('missing branch')
@@ -451,6 +453,7 @@ function M.start_branch(ctx, branch)
     current_file = nil,
     materialization = 'current',
     repo_root = ctx.root,
+    back = opts.back,
   }
 
   if ctx.branch ~= branch then
@@ -467,7 +470,8 @@ function M.start_branch(ctx, branch)
   M.open_index()
 end
 
-function M.start_commit(ctx, sha)
+function M.start_commit(ctx, sha, opts)
+  opts = opts or {}
   sha = sha or ctx.head
   if not sha or sha == '' then
     log.warn('missing commit')
@@ -498,6 +502,7 @@ function M.start_commit(ctx, sha)
     materialization = 'worktree',
     repo_root = ctx.root,
     worktree_path = worktree,
+    back = opts.back,
   })
   M.open_index()
 end
