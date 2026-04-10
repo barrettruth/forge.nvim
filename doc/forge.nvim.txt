@@ -250,7 +250,7 @@ Top-level keys: ~
     `table`  Status icons used in picker lines.
 
     Key         Default   Used for ~
-    `open`        `"+"`       Open PRs/issues
+    `open`        `"o"`       Open PRs/issues
     `merged`      `"m"`       Merged PRs
     `closed`      `"x"`       Closed PRs/issues
     `pass`        `"*"`       Passed checks/runs
@@ -801,7 +801,7 @@ Compose buffer: ~
   `ForgeComposeBranch`       `Special`          Branch names
   `ForgeComposeForge`        `Label`            Forge name
   `ForgeComposeDraft`        `DiagnosticWarn`   Draft status value
-  `ForgeComposeFile`         `Constant`         File paths in diff stat
+  `ForgeComposeFile`         `Directory`        File paths in diff stat
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
   `ForgeComposeHeader`       `PreProc`          Section headers
@@ -811,19 +811,32 @@ Picker lines: ~
 
   Group                    Default Link        Description ~
   `ForgeNumber`              `Number`             PR/issue number (#123)
-  `ForgeOpen`                `DiagnosticInfo`     Open status icon
-  `ForgeMerged`              `Constant`           Merged status icon
+  `ForgeOpen`                `DiagnosticOk`       Open status icon
+  `ForgeMerged`              `Special`            Merged status icon
   `ForgeClosed`              `Comment`            Closed status icon
   `ForgePass`                `DiagnosticOk`       Passed CI status icon
   `ForgeFail`                `DiagnosticError`    Failed CI status icon
   `ForgePending`             `DiagnosticWarn`     In-progress CI status icon
   `ForgeSkip`                `Comment`            Skipped/cancelled CI icon
   `ForgeBranch`              `Special`            Branch names and git refs
-  `ForgeBranchCurrent`       custom               Current branch label
+  `ForgeBranchCurrent`       `Special` + bold     Current branch label
   `ForgeCommitHash`          `Number`             Commit hash text
   `ForgeCommitTime`          `Comment`            Commit age metadata
   `ForgeCommitAuthor`        `Comment`            Commit author metadata
   `ForgeDim`                 `Comment`            Secondary picker metadata
+
+Log viewer: ~
+
+  Group                    Default Link        Description ~
+  `ForgeLogJob`             `Title`              Job headers
+  `ForgeLogStep`            `Function`           Step and group headers
+  `ForgeLogError`           `DiagnosticError`    Error lines
+  `ForgeLogErrorLabel`      bold                 `Error:` label emphasis
+  `ForgeLogWarning`         `DiagnosticWarn`     Warning and notice lines
+  `ForgeLogWarningLabel`    bold                 `Warning:` label emphasis
+  `ForgeLogSection`         `Function`           Section headers
+  `ForgeLogCommand`         `Special`            Command lines
+  `ForgeLogDim`             `Comment`            Durations and debug text
 
 ==============================================================================
 SOURCES                                                        *forge-sources*

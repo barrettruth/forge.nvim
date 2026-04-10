@@ -112,62 +112,24 @@ local function offset_hls(hls, n)
   return hls
 end
 
----@type table<string, string>
-local step_icons = {
-  success = 'OK',
-  failure = 'FAIL',
-  skipped = 'SKIP',
-}
-
-local function summary_status_word(status)
+local function summary_status(prefix)
   local labels = {
-    success = 'OK',
-    failure = 'FAIL',
-    skipped = 'SKIP',
-    cancelled = 'CANCEL',
-    canceled = 'CANCEL',
-    in_progress = 'RUN',
-    queued = 'QUEUE',
-    running = 'RUN',
-    pending = 'RUN',
+    ['✓'] = 'success',
+    X = 'failure',
+    ['✗'] = 'failure',
+    ['-'] = 'skipped',
+    ['⊘'] = 'skipped',
+    ['~'] = 'in_progress',
+    ['●'] = 'in_progress',
+    ['*'] = 'queued',
+    OK = 'success',
+    FAIL = 'failure',
+    SKIP = 'skipped',
+    CANCEL = 'cancelled',
+    RUN = 'in_progress',
+    QUEUE = 'queued',
   }
-  local label = labels[status]
-  if label then
-    return label
-  end
-  status = tostring(status or '')
-  if status == '' then
-    return 'RUN'
-  end
-  return status:gsub('_', ' '):upper()
-end
-
-local function normalize_summary_line(text)
-  local prefix, rest = text:match('^(%S+)%s+(.*)$')
-  if not prefix then
-    return text, false
-  end
-  local labels = {
-    ['✓'] = 'OK',
-    ['X'] = 'FAIL',
-    ['✗'] = 'FAIL',
-    ['-'] = 'SKIP',
-    ['⊘'] = 'SKIP',
-    ['~'] = 'RUN',
-    ['●'] = 'RUN',
-    ['*'] = 'QUEUE',
-    OK = 'OK',
-    FAIL = 'FAIL',
-    SKIP = 'SKIP',
-    CANCEL = 'CANCEL',
-    RUN = 'RUN',
-    QUEUE = 'QUEUE',
-  }
-  local label = labels[prefix]
-  if not label then
-    return text, false
-  end
-  return ('%s %s'):format(label, rest), label == 'FAIL'
+  return labels[prefix]
 end
 
 ---@param started string?
@@ -269,10 +231,9 @@ local function parse_github(raw_lines, steps)
     end
     se.emitted = true
     in_group = false
-    local icon = step_icons[se.conclusion] or 'RUN'
     local dur = format_duration(se.started, se.completed)
     lines[#lines + 1] = {
-      text = ('%s %s'):format(icon, se.name),
+      text = se.name,
       hls = {},
       fold = '>2',
       kind = 'step',
@@ -924,13 +885,13 @@ local function parse_summary(raw_lines)
 
   for _, raw in ipairs(raw_lines) do
     local text, h = strip_ansi(raw)
-    local failed
-    text, failed = normalize_summary_line(text)
+    local prefix = text:match('^(%S+)')
+    local status = prefix and summary_status(prefix) or nil
     lines[#lines + 1] = text
     hls[#hls + 1] = h
     local job_id = text:match('%(ID (%d+)%)%s*$')
     if job_id then
-      jobs[#lines] = { id = job_id, failed = failed }
+      jobs[#lines] = { id = job_id, failed = status == 'failure' }
       job_lnums[#job_lnums + 1] = #lines
     end
   end
@@ -947,6 +908,11 @@ local json_status_hl = {
   queued = 'ForgePending',
 }
 
+local function summary_hls(text, status)
+  local hl_grp = json_status_hl[status] or 'ForgePending'
+  return { { col = 0, end_col = #text, group = hl_grp } }
+end
+
 local function parse_summary_json(data)
   local lines = {}
   local hls_list = {}
@@ -954,20 +920,17 @@ local function parse_summary_json(data)
   local job_lnums = {}
 
   local run_status = (data.conclusion and data.conclusion ~= '') and data.conclusion or data.status
-  local icon = summary_status_word(run_status)
-  local header = ('%s %s'):format(icon, data.name or 'run')
+  local header = data.name or 'run'
   lines[#lines + 1] = header
-  local hl_grp = json_status_hl[run_status] or 'ForgePending'
-  hls_list[#hls_list + 1] = { { col = 0, end_col = #icon, group = hl_grp } }
+  hls_list[#hls_list + 1] = summary_hls(header, run_status)
 
   lines[#lines + 1] = ''
   hls_list[#hls_list + 1] = {}
 
   for _, job in ipairs(data.jobs or {}) do
     local jstatus = (job.conclusion and job.conclusion ~= '') and job.conclusion or job.status
-    local jicon = summary_status_word(jstatus)
+    local line = job.name or 'job'
     local dur = format_duration(job.startedAt, job.completedAt)
-    local line = ('%s %s'):format(jicon, job.name or 'job')
     if dur then
       line = line .. ('  (%s)'):format(dur)
     end
@@ -985,8 +948,7 @@ local function parse_summary_json(data)
       end
     end
     lines[#lines + 1] = line
-    local jhl_grp = json_status_hl[jstatus] or 'ForgePending'
-    hls_list[#hls_list + 1] = { { col = 0, end_col = #jicon, group = jhl_grp } }
+    hls_list[#hls_list + 1] = summary_hls(line, jstatus)
 
     local job_id = tostring(job.databaseId or '')
     if job_id ~= '' then

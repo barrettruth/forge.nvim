@@ -294,7 +294,7 @@ describe('git sections', function()
       return captured.picker ~= nil
     end)
 
-    assert.equals('Commits on main [origin/main] (2)> ', captured.picker.prompt)
+    assert.equals('Commits on main (2)> ', captured.picker.prompt)
     assert.equals('show', captured.picker.actions[1].label)
     assert.equals('web', captured.picker.actions[2].label)
     assert.equals('review', captured.picker.actions[3].label)

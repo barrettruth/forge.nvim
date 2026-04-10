@@ -30,7 +30,7 @@ describe('config', function()
     assert.equals('horizontal', cfg.split)
     assert.equals(45, cfg.display.widths.title)
     assert.equals(100, cfg.display.limits.pulls)
-    assert.equals('+', cfg.display.icons.open)
+    assert.equals('o', cfg.display.icons.open)
     assert.is_nil(cfg.keys.pr.checkout)
     assert.is_nil(cfg.keys.pr.manage)
     assert.is_nil(cfg.keys.pr.edit)
@@ -63,6 +63,18 @@ describe('config', function()
     assert.equals('>', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
     assert.equals(45, cfg.display.widths.title)
+  end)
+
+  it('derives the current branch highlight from Special with bold emphasis', function()
+    local special = vim.api.nvim_get_hl(0, { name = 'Special', link = false })
+    local current = vim.api.nvim_get_hl(0, { name = 'ForgeBranchCurrent', link = false })
+    assert.is_true(current.bold)
+    if special.fg ~= nil then
+      assert.equals(special.fg, current.fg)
+    end
+    if special.bg ~= nil then
+      assert.equals(special.bg, current.bg)
+    end
   end)
 
   it('deep-merges git section key bindings', function()
@@ -109,7 +121,7 @@ describe('format_pr', function()
     local entry =
       { number = 42, title = 'fix bug', state = 'OPEN', login = 'alice', created_at = '' }
     local result = flatten(forge.format_pr(entry, fields, true))
-    assert.truthy(result:find('+'))
+    assert.truthy(result:find('o'))
     assert.truthy(result:find('#42'))
     assert.truthy(result:find('fix bug'))
   end)
@@ -194,7 +206,7 @@ describe('format_issue', function()
     local entry =
       { number = 10, title = 'bug report', state = 'open', author = 'alice', created_at = '' }
     local result = flatten(forge.format_issue(entry, fields, true))
-    assert.truthy(result:find('+'))
+    assert.truthy(result:find('o'))
     assert.truthy(result:find('#10'))
   end)
 
@@ -208,7 +220,7 @@ describe('format_issue', function()
     local entry =
       { number = 12, title = 'mr issue', state = 'opened', author = 'c', created_at = '' }
     local result = flatten(forge.format_issue(entry, fields, true))
-    assert.truthy(result:find('+'))
+    assert.truthy(result:find('o'))
   end)
 
   it('normalizes embedded control characters in issue titles', function()
