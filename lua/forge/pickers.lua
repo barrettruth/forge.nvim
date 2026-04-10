@@ -53,6 +53,13 @@ local next_ci_filter = {
   pending = 'all',
 }
 
+local prev_ci_filter = {
+  all = 'pending',
+  fail = 'all',
+  pass = 'fail',
+  pending = 'pass',
+}
+
 ---@param text string
 ---@return forge.PickerEntry
 local function placeholder_entry(text)
@@ -819,6 +826,7 @@ end
 ---@param num string
 ---@param filter string?
 ---@param cached_checks table[]?
+---@param opts? { back?: fun() }
 function M.checks(f, num, filter, cached_checks, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -924,6 +932,13 @@ function M.checks(f, num, filter, cached_checks, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.checks(f, num, prev_ci_filter[filter] or 'all', current_checks, { back = opts.back })
+      end,
+    },
+    {
       name = 'failed',
       label = 'failed',
       fn = function()
@@ -1017,6 +1032,7 @@ end
 ---@param f forge.Forge
 ---@param branch string?
 ---@param filter string?
+---@param opts? { back?: fun() }
 function M.ci(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -1181,6 +1197,13 @@ function M.ci(f, branch, filter, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.ci(f, branch, prev_ci_filter[filter] or 'all', { back = opts.back })
+      end,
+    },
+    {
       name = 'failed',
       label = 'failed',
       fn = function()
@@ -1262,11 +1285,12 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer }
+---@param opts? { limit?: integer, back?: fun() }
 function M.pr(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.pr
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
+  local prev_state = ({ all = 'closed', open = 'all', closed = 'open' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
@@ -1443,6 +1467,13 @@ function M.pr(state, f, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.pr(prev_state, f, { limit = visible_limit, back = opts.back })
+      end,
+    },
+    {
       name = 'refresh',
       label = 'refresh',
       fn = function()
@@ -1505,11 +1536,12 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer }
+---@param opts? { limit?: integer, back?: fun() }
 function M.issue(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.issue
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
+  local prev_state = ({ all = 'closed', open = 'all', closed = 'open' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
@@ -1627,6 +1659,13 @@ function M.issue(state, f, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.issue(prev_state, f, { limit = visible_limit, back = opts.back })
+      end,
+    },
+    {
       name = 'refresh',
       label = 'refresh',
       fn = function()
@@ -1728,12 +1767,14 @@ end
 
 ---@param state 'all'|'draft'|'prerelease'
 ---@param f forge.Forge
+---@param opts? { back?: fun() }
 function M.release(state, f, opts)
   opts = opts or {}
   local forge_mod = require('forge')
   local cache_key = forge_mod.list_key('release', 'list')
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
+  local prev_state = ({ all = 'prerelease', draft = 'all', prerelease = 'draft' })[state]
   local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
     or 'Releases'
 
@@ -1840,6 +1881,13 @@ function M.release(state, f, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.release(prev_state, f, { back = opts.back })
+      end,
+    },
+    {
       name = 'refresh',
       label = 'refresh',
       fn = function()
@@ -1893,6 +1941,7 @@ function M.release(state, f, opts)
 end
 
 ---@param ctx { root: string, branch: string, forge: forge.Forge? }
+---@param opts? { back?: fun() }
 function M.branches(ctx, opts)
   opts = opts or {}
   local forge_mod = require('forge')
@@ -2061,7 +2110,7 @@ end
 
 ---@param ctx { forge: forge.Forge?, branch: string }
 ---@param branch string
----@param opts? { limit?: integer }
+---@param opts? { limit?: integer, back?: fun() }
 function M.commits(ctx, branch, opts)
   opts = opts or {}
   local forge_mod = require('forge')
@@ -2225,6 +2274,7 @@ function M.commits(ctx, branch, opts)
 end
 
 ---@param ctx { root: string }
+---@param opts? { back?: fun() }
 function M.worktrees(ctx, opts)
   opts = opts or {}
   local forge_mod = require('forge')

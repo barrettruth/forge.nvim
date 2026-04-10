@@ -77,7 +77,7 @@ describe('fzf picker', function()
     assert.equals('2', captured.opts.fzf_opts['--accept-nth'])
   end)
 
-  it('renders headers with <cr> and ^X style key labels without to text', function()
+  it('renders headers with enter, ctrl, tab, and shift-tab labels without to text', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'PRs> ',
@@ -94,16 +94,19 @@ describe('fzf picker', function()
         { name = 'default', label = 'more', fn = function() end },
         { name = 'browse', label = 'browse', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
+        { name = 'filter_prev', label = 'prev', fn = function() end },
       },
       picker_name = 'pr',
     })
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:^F] [FzfLuaHeaderText:filter]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]|[FzfLuaHeaderBind:<s-tab>] [FzfLuaHeaderText:prev]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
+    assert.is_function(captured.opts.actions.tab)
+    assert.is_function(captured.opts.actions.btab)
   end)
 
   it('suppresses headers for single-action pickers', function()
@@ -148,9 +151,9 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.is_nil(captured.opts.fzf_opts['--header'])
-    assert.is_function(captured.opts.actions['ctrl-b'])
+    assert.is_function(captured.opts.actions['ctrl-o'])
 
-    captured.opts.actions['ctrl-b']({})
+    captured.opts.actions['ctrl-o']({})
 
     assert.equals(1, back_calls)
   end)
@@ -196,6 +199,7 @@ describe('fzf picker', function()
         { name = 'close', label = 'close', fn = function() end },
         { name = 'create', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
+        { name = 'filter_prev', label = 'prev', fn = function() end },
         { name = 'refresh', fn = function() end },
       },
       picker_name = 'issue',
@@ -203,7 +207,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|[FzfLuaHeaderBind:^F] [FzfLuaHeaderText:filter]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|[FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]|[FzfLuaHeaderBind:<s-tab>] [FzfLuaHeaderText:prev]',
       captured.opts.fzf_opts['--header']
     )
   end)

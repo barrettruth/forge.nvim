@@ -9,6 +9,12 @@ local no_bg_highlights = {
   ForgeBranchCurrent = true,
 }
 
+local special_keys = {
+  ['<cr>'] = { fzf = 'enter', header = '<cr>' },
+  ['<tab>'] = { fzf = 'tab', header = '<tab>' },
+  ['<s-tab>'] = { fzf = 'btab', header = '<s-tab>' },
+}
+
 local function strip_bg_ansi(text)
   return (text:gsub('\27%[48;2;%d+;%d+;%d+m', ''):gsub('\27%[48;5;%d+m', ''))
 end
@@ -16,8 +22,9 @@ end
 ---@param key string
 ---@return string
 local function to_fzf_key(key)
-  if key == '<cr>' then
-    return 'enter'
+  local special = special_keys[key]
+  if special then
+    return special.fzf
   end
   local result = key:gsub('<c%-(%a)>', function(ch)
     return 'ctrl-' .. ch:lower()
@@ -28,8 +35,9 @@ end
 ---@param key string
 ---@return string
 local function to_header_key(key)
-  if key == '<cr>' then
-    return '<cr>'
+  local special = special_keys[key]
+  if special then
+    return special.header
   end
   local ctrl = key:match('^<c%-(.)>$')
   if ctrl then
