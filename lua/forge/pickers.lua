@@ -53,6 +53,13 @@ local next_ci_filter = {
   pending = 'all',
 }
 
+local prev_ci_filter = {
+  all = 'pending',
+  fail = 'all',
+  pass = 'fail',
+  pending = 'pass',
+}
+
 ---@param text string
 ---@return forge.PickerEntry
 local function placeholder_entry(text)
@@ -922,6 +929,13 @@ function M.checks(f, num, filter, cached_checks, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.checks(f, num, prev_ci_filter[filter] or 'all', current_checks, { back = opts.back })
+      end,
+    },
+    {
       name = 'failed',
       label = 'failed',
       fn = function()
@@ -1178,6 +1192,13 @@ function M.ci(f, branch, filter, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.ci(f, branch, prev_ci_filter[filter] or 'all', { back = opts.back })
+      end,
+    },
+    {
       name = 'failed',
       label = 'failed',
       fn = function()
@@ -1263,6 +1284,7 @@ function M.pr(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.pr
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
+  local prev_state = ({ all = 'closed', open = 'all', closed = 'open' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
@@ -1439,6 +1461,13 @@ function M.pr(state, f, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.pr(prev_state, f, { limit = visible_limit, back = opts.back })
+      end,
+    },
+    {
       name = 'refresh',
       label = 'refresh',
       fn = function()
@@ -1505,6 +1534,7 @@ function M.issue(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.issue
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
+  local prev_state = ({ all = 'closed', open = 'all', closed = 'open' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
@@ -1622,6 +1652,13 @@ function M.issue(state, f, opts)
       end,
     },
     {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.issue(prev_state, f, { limit = visible_limit, back = opts.back })
+      end,
+    },
+    {
       name = 'refresh',
       label = 'refresh',
       fn = function()
@@ -1728,6 +1765,7 @@ function M.release(state, f, opts)
   local cache_key = forge_mod.list_key('release', 'list')
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
+  local prev_state = ({ all = 'prerelease', draft = 'all', prerelease = 'draft' })[state]
   local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
     or 'Releases'
 
@@ -1831,6 +1869,13 @@ function M.release(state, f, opts)
       label = 'filter',
       fn = function()
         M.release(next_state, f, { back = opts.back })
+      end,
+    },
+    {
+      name = 'filter_prev',
+      label = 'prev',
+      fn = function()
+        M.release(prev_state, f, { back = opts.back })
       end,
     },
     {

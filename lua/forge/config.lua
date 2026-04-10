@@ -38,6 +38,7 @@ local M = {}
 ---@field create string|false
 ---@field close? string|false
 ---@field filter string|false
+---@field filter_prev string|false
 ---@field refresh string|false
 
 ---@class forge.IssuePickerKeys
@@ -45,6 +46,7 @@ local M = {}
 ---@field close string|false
 ---@field create string|false
 ---@field filter string|false
+---@field filter_prev string|false
 ---@field refresh string|false
 
 ---@class forge.CIPickerKeys
@@ -52,6 +54,7 @@ local M = {}
 ---@field watch string|false
 ---@field browse string|false
 ---@field filter string|false
+---@field filter_prev string|false
 ---@field failed? string|false
 ---@field passed? string|false
 ---@field running? string|false
@@ -63,6 +66,7 @@ local M = {}
 ---@field yank string|false
 ---@field delete string|false
 ---@field filter string|false
+---@field filter_prev string|false
 ---@field refresh string|false
 
 ---@class forge.LogViewerKeys
@@ -222,7 +226,7 @@ local DEFAULTS = {
     worktrees = 'worktrees.list',
   },
   keys = {
-    back = '<c-b>',
+    back = '<c-o>',
     pr = {
       review = '<c-d>',
       diff = '<c-d>',
@@ -230,13 +234,15 @@ local DEFAULTS = {
       ci = '<c-t>',
       browse = '<c-x>',
       create = '<c-a>',
-      filter = '<c-f>',
+      filter = '<tab>',
+      filter_prev = '<s-tab>',
       refresh = '<c-r>',
     },
     issue = {
       browse = '<c-x>',
       close = '<c-s>',
-      filter = '<c-f>',
+      filter = '<tab>',
+      filter_prev = '<s-tab>',
       refresh = '<c-r>',
       create = '<c-a>',
     },
@@ -244,14 +250,16 @@ local DEFAULTS = {
       log = '<cr>',
       watch = '<c-w>',
       browse = '<c-x>',
-      filter = '<c-f>',
+      filter = '<tab>',
+      filter_prev = '<s-tab>',
       refresh = '<c-r>',
     },
     release = {
       browse = '<cr>',
       yank = '<c-y>',
       delete = '<c-d>',
-      filter = '<c-f>',
+      filter = '<tab>',
+      filter_prev = '<s-tab>',
       refresh = '<c-r>',
     },
     branch = {
@@ -442,6 +450,7 @@ function M.config()
         'create',
         'close',
         'filter',
+        'filter_prev',
         'refresh',
       }) do
         vim.validate('forge.keys.pr.' .. k, keys.pr[k], key_or_false, 'string or false')
@@ -449,7 +458,7 @@ function M.config()
     end
     if keys.issue ~= nil then
       vim.validate('forge.keys.issue', keys.issue, 'table')
-      for _, k in ipairs({ 'browse', 'close', 'create', 'filter', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'close', 'create', 'filter', 'filter_prev', 'refresh' }) do
         vim.validate('forge.keys.issue.' .. k, keys.issue[k], key_or_false, 'string or false')
       end
     end
@@ -460,6 +469,7 @@ function M.config()
         'watch',
         'browse',
         'filter',
+        'filter_prev',
         'failed',
         'passed',
         'running',
@@ -471,7 +481,7 @@ function M.config()
     end
     if keys.release ~= nil then
       vim.validate('forge.keys.release', keys.release, 'table')
-      for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'filter_prev', 'refresh' }) do
         vim.validate('forge.keys.release.' .. k, keys.release[k], key_or_false, 'string or false')
       end
     end
