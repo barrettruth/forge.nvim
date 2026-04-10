@@ -3,7 +3,9 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 local captured
 local cache
 local issue_create_calls
+local issue_create_opts
 local pr_create_calls
+local pr_create_opts
 local default_system
 
 local function fake_forge()
@@ -124,7 +126,9 @@ describe('pickers', function()
   before_each(function()
     captured = nil
     issue_create_calls = 0
+    issue_create_opts = nil
     pr_create_calls = 0
+    pr_create_opts = nil
     default_system = vim.system
     vim.system = function(_, _, cb)
       if cb then
@@ -268,11 +272,13 @@ describe('pickers', function()
         repo_info = function(f)
           return f:repo_info()
         end,
-        create_issue = function()
+        create_issue = function(...)
           issue_create_calls = issue_create_calls + 1
+          issue_create_opts = select(1, ...)
         end,
-        create_pr = function()
+        create_pr = function(...)
           pr_create_calls = pr_create_calls + 1
+          pr_create_opts = select(1, ...)
         end,
         edit_pr = function() end,
       }
@@ -441,6 +447,48 @@ describe('pickers', function()
     assert.equals('42', streamed[1].value)
     assert.equals('#42', streamed[1].display[1][1])
     assert.same(42, cache['pr:open'][1].number)
+  end)
+
+  it('keeps back available on uncached streaming PR opens', function()
+    cache['pr:open'] = nil
+    local back_calls = 0
+
+    local old_system = vim.system
+    vim.system = function()
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge(), {
+      back = function()
+        back_calls = back_calls + 1
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_function(captured.back)
+
+    captured.back()
+
+    assert.equals(1, back_calls)
+    vim.system = old_system
+  end)
+
+  it('passes back through create actions from nested pickers', function()
+    local pickers = require('forge.pickers')
+    local back = function() end
+
+    pickers.pr('open', fake_forge(), { back = back })
+    action_by_name('create').fn()
+    assert.same(back, pr_create_opts.back)
+
+    pickers.issue('open', fake_issue_forge(), { back = back })
+    action_by_name('create').fn()
+    assert.same(back, issue_create_opts.back)
   end)
 
   it('ignores stale PR responses after a refresh starts a newer fetch', function()

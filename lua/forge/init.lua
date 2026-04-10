@@ -234,6 +234,7 @@ M.filter_runs = format_mod.filter_runs
 ---@field draft boolean?
 ---@field instant boolean?
 ---@field web boolean?
+---@field back fun()?
 
 ---@param opts forge.CreatePROpts?
 function M.create_pr(opts)
@@ -336,6 +337,7 @@ function M.create_pr(opts)
                   },
                 },
                 picker_name = '_menu',
+                back = opts.back,
               })
             end
           end
@@ -394,6 +396,7 @@ end
 ---@field web boolean?
 ---@field blank boolean?
 ---@field template string?
+---@field back fun()?
 
 ---@param opts forge.CreateIssueOpts?
 function M.create_issue(opts)
@@ -482,6 +485,7 @@ function M.create_issue(opts)
       },
     },
     picker_name = '_menu',
+    back = opts.back,
   })
 end
 
