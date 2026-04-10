@@ -228,7 +228,6 @@ local function open_root(ctx)
         entries[#entries + 1] = {
           display = { { label } },
           value = route,
-          ordinal = label,
         }
       end
     end

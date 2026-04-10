@@ -261,7 +261,6 @@ function M.open_index()
       entries[#entries + 1] = {
         display = file_display(item),
         value = item,
-        ordinal = item.status .. ' ' .. item.path .. ' ' .. (item.old_path or ''),
       }
     end
     if #entries == 0 then
