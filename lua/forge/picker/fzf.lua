@@ -57,12 +57,15 @@ local function render(segments)
   return table.concat(parts)
 end
 
-local function render_line(index, entry)
+local function render_line(index, picker_name, entry)
+  local picker_mod = require('forge.picker')
   local text = render(entry.display)
   if vim.trim(text) == '' then
     return nil
   end
-  return ('%d\t%s'):format(index, text)
+  local search_key = picker_mod.search_key(picker_name, entry)
+  search_key = search_key:gsub('[\r\n\t]', ' ')
+  return ('%d\t%s\t%s'):format(index, search_key, text)
 end
 
 ---@param actions forge.PickerActionDef[]
@@ -110,7 +113,7 @@ function M.pick(opts)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
-        local line = render_line(i, entry)
+        local line = render_line(i, opts.picker_name, entry)
         if line then
           fzf_cb(line)
         end
@@ -122,7 +125,7 @@ function M.pick(opts)
         end
         next_index = next_index + 1
         entries[next_index] = entry
-        local line = render_line(next_index, entry)
+        local line = render_line(next_index, opts.picker_name, entry)
         if line then
           fzf_cb(line)
         end
@@ -131,7 +134,7 @@ function M.pick(opts)
   else
     lines = {}
     for i, entry in ipairs(entries) do
-      local line = render_line(i, entry)
+      local line = render_line(i, opts.picker_name, entry)
       if line then
         lines[#lines + 1] = line
       end
@@ -180,7 +183,8 @@ function M.pick(opts)
       ['--ansi'] = '',
       ['--header'] = render_header(opts.actions, bindings),
       ['--no-multi'] = '',
-      ['--with-nth'] = '2..',
+      ['--with-nth'] = '3..',
+      ['--nth'] = '2',
       ['--delimiter'] = '\t',
     },
     actions = fzf_actions,

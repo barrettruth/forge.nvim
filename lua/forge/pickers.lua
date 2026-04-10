@@ -1873,12 +1873,6 @@ function M.branches(ctx)
       entries[#entries + 1] = {
         display = branch_display(item, plan),
         value = item,
-        ordinal = table.concat({
-          item.name,
-          item.upstream,
-          item.subject,
-          item.worktree_path or '',
-        }, ' '),
       }
     end
     local count = #entries
@@ -2199,7 +2193,6 @@ function M.worktrees(ctx)
       entries[#entries + 1] = {
         display = worktree_display(item, plan),
         value = item,
-        ordinal = item.path .. ' ' .. worktree_label(item) .. ' ' .. item.short_head,
       }
     end
     local count = #entries

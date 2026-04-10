@@ -26,6 +26,125 @@ M.backends = {
 
 M.detect_order = { 'fzf-lua' }
 
+local root_search_terms = {
+  ['prs.all'] = { 'prs', 'pull', 'requests', 'reviews' },
+  ['prs.open'] = { 'prs', 'pull', 'requests', 'reviews' },
+  ['prs.closed'] = { 'prs', 'pull', 'requests', 'reviews' },
+  ['issues.all'] = { 'issues', 'bugs', 'tickets' },
+  ['issues.open'] = { 'issues', 'bugs', 'tickets' },
+  ['issues.closed'] = { 'issues', 'bugs', 'tickets' },
+  ['ci.all'] = { 'ci', 'checks', 'runs', 'actions' },
+  ['ci.current_branch'] = { 'ci', 'checks', 'runs', 'actions' },
+  ['branches.local'] = { 'branches', 'refs' },
+  ['commits.current_branch'] = { 'commits', 'history', 'log' },
+  ['worktrees.list'] = { 'worktrees', 'trees' },
+  ['browse.contextual'] = { 'browse', 'web' },
+  ['browse.branch'] = { 'browse', 'web' },
+  ['browse.commit'] = { 'browse', 'web' },
+  ['releases.all'] = { 'releases', 'tags' },
+  ['releases.draft'] = { 'releases', 'tags' },
+  ['releases.prerelease'] = { 'releases', 'tags' },
+}
+
+local function flatten_display(entry)
+  local parts = {}
+  for _, seg in ipairs(entry.display or {}) do
+    parts[#parts + 1] = seg[1]
+  end
+  return table.concat(parts)
+end
+
+local function join_search_terms(parts)
+  local items = {}
+  for _, part in ipairs(parts) do
+    if type(part) == 'string' then
+      local text = vim.trim(part)
+      if text ~= '' then
+        items[#items + 1] = text
+      end
+    end
+  end
+  return table.concat(items, ' ')
+end
+
+local function menu_search_key(entry)
+  local value = entry.value
+  if type(value) == 'table' then
+    if value.path then
+      return join_search_terms({ value.path, value.old_path or '' })
+    end
+    if value.name and value.display and value.dir then
+      local slug = value.name:gsub('%.ya?ml$', ''):gsub('%.md$', '')
+      return join_search_terms({ value.display, slug })
+    end
+  elseif type(value) == 'string' then
+    local root_terms = root_search_terms[value]
+    if root_terms then
+      local display = flatten_display(entry)
+      return join_search_terms(vim.list_extend({ display }, vim.deepcopy(root_terms)))
+    end
+    return value
+  end
+  return M.ordinal(entry)
+end
+
+M.search_keys = {
+  _menu = menu_search_key,
+  pr = function(entry)
+    return M.ordinal(entry)
+  end,
+  issue = function(entry)
+    return M.ordinal(entry)
+  end,
+  ci = function(entry)
+    local value = entry.value
+    if type(value) == 'table' then
+      return join_search_terms({ value.name or '', value.branch or '' })
+    end
+    return M.ordinal(entry)
+  end,
+  branch = function(entry)
+    local value = entry.value
+    if type(value) == 'table' and value.name then
+      return value.name
+    end
+    return M.ordinal(entry)
+  end,
+  commit = function(entry)
+    local value = entry.value
+    if type(value) == 'table' then
+      return join_search_terms({
+        value.sha or '',
+        value.short_sha or '',
+        value.subject or '',
+        value.author or '',
+      })
+    end
+    return M.ordinal(entry)
+  end,
+  worktree = function(entry)
+    local value = entry.value
+    if type(value) == 'table' and value.path then
+      local key = value.branch ~= '' and value.branch or vim.fs.basename(value.path)
+      if value.detached and value.short_head ~= '' then
+        key = join_search_terms({ key, value.short_head })
+      end
+      return key
+    end
+    return M.ordinal(entry)
+  end,
+  release = function(entry)
+    local value = entry.value
+    if type(value) == 'table' then
+      return join_search_terms({
+        value.tag or '',
+        type(value.rel) == 'table' and value.rel.title or '',
+      })
+    end
+    return M.ordinal(entry)
+  end,
+}
+
 ---@return string
 local function detect()
   local cfg = require('forge').config()
@@ -47,11 +166,18 @@ function M.ordinal(entry)
   if entry.ordinal then
     return entry.ordinal
   end
-  local parts = {}
-  for _, seg in ipairs(entry.display) do
-    table.insert(parts, seg[1])
+  return flatten_display(entry)
+end
+
+---@param picker_name string
+---@param entry forge.PickerEntry
+---@return string
+function M.search_key(picker_name, entry)
+  local builder = M.search_keys[picker_name]
+  if builder then
+    return builder(entry)
   end
-  return table.concat(parts)
+  return M.ordinal(entry)
 end
 
 ---@return string
