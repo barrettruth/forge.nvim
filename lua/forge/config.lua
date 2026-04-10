@@ -97,6 +97,7 @@ local M = {}
 ---@class forge.LimitsConfig
 ---@field pulls integer
 ---@field issues integer
+---@field commits integer
 ---@field runs integer
 ---@field releases integer
 
@@ -300,6 +301,7 @@ local DEFAULTS = {
     limits = {
       pulls = 100,
       issues = 100,
+      commits = 100,
       runs = 30,
       releases = 30,
     },
@@ -414,6 +416,7 @@ function M.config()
   vim.validate('forge.display.limits', cfg.display.limits, 'table')
   vim.validate('forge.display.limits.pulls', cfg.display.limits.pulls, 'number')
   vim.validate('forge.display.limits.issues', cfg.display.limits.issues, 'number')
+  vim.validate('forge.display.limits.commits', cfg.display.limits.commits, 'number')
   vim.validate('forge.display.limits.runs', cfg.display.limits.runs, 'number')
   vim.validate('forge.display.limits.releases', cfg.display.limits.releases, 'number')
 

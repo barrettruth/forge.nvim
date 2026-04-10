@@ -2028,12 +2028,21 @@ end
 
 ---@param ctx { forge: forge.Forge?, branch: string }
 ---@param branch string
-function M.commits(ctx, branch)
+---@param opts? { limit?: integer }
+function M.commits(ctx, branch, opts)
+  opts = opts or {}
   local forge_mod = require('forge')
+  local limit_step = require('forge.config').config().display.limits.commits
+  local visible_limit = opts.limit or limit_step
+  local fetch_limit = visible_limit + 1
+  local use_cache = visible_limit == limit_step
   local cache_key = forge_mod.list_key('commit', branch)
 
-  local function open_commit_list(commits, label)
-    label = label or branch
+  local function open_commit_list(commits)
+    local has_more = #commits > visible_limit
+    if has_more then
+      commits = vim.list_slice(commits, 1, visible_limit)
+    end
     local plan = commit_layout(commits)
     local entries = {}
     for _, item in ipairs(commits) do
@@ -2044,6 +2053,9 @@ function M.commits(ctx, branch)
       }
     end
     local count = #entries
+    if has_more then
+      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+    end
     entries = with_placeholder(entries, 'No commits in ' .. branch .. ' history')
 
     local actions = {
@@ -2052,6 +2064,10 @@ function M.commits(ctx, branch)
         label = 'show',
         fn = function(entry)
           if not entry then
+            return
+          end
+          if entry.load_more then
+            M.commits(ctx, branch, { limit = entry.next_limit })
             return
           end
           require('forge.term').open({
@@ -2068,7 +2084,7 @@ function M.commits(ctx, branch)
         name = 'review',
         label = 'review',
         fn = function(entry)
-          if entry then
+          if entry and not entry.load_more then
             require('forge.review').start_commit(ctx, entry.value.sha)
           end
         end,
@@ -2078,7 +2094,7 @@ function M.commits(ctx, branch)
         label = 'copy',
         close = false,
         fn = function(entry)
-          if not entry then
+          if not entry or entry.load_more then
             return
           end
           vim.fn.setreg('+', entry.value.sha)
@@ -2090,7 +2106,7 @@ function M.commits(ctx, branch)
         label = 'refresh',
         fn = function()
           forge_mod.clear_list(cache_key)
-          M.commits(ctx, branch)
+          M.commits(ctx, branch, { limit = visible_limit })
         end,
       },
     }
@@ -2101,7 +2117,7 @@ function M.commits(ctx, branch)
         label = 'web',
         close = false,
         fn = function(entry)
-          if entry then
+          if entry and not entry.load_more then
             ctx.forge:browse_commit(entry.value.sha)
           end
         end,
@@ -2109,7 +2125,7 @@ function M.commits(ctx, branch)
     end
 
     picker.pick({
-      prompt = ('Commits on %s (%d)> '):format(label, count),
+      prompt = ('Commits on %s (%d)> '):format(branch, count),
       entries = entries,
       actions = actions,
       picker_name = 'commit',
@@ -2123,10 +2139,10 @@ function M.commits(ctx, branch)
     return cached, branch
   end
 
-  local cached = forge_mod.get_list(cache_key)
+  local cached = use_cache and forge_mod.get_list(cache_key) or nil
   if cached then
-    local commits, label = unpack_cached(cached)
-    open_commit_list(commits, label)
+    local commits = unpack_cached(cached)
+    open_commit_list(commits)
     return
   end
 
@@ -2135,7 +2151,7 @@ function M.commits(ctx, branch)
     vim.system({
       'git',
       'log',
-      '--max-count=100',
+      '--max-count=' .. fetch_limit,
       '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
       ref,
     }, { text = true }, function(result)
@@ -2145,10 +2161,12 @@ function M.commits(ctx, branch)
           return
         end
         local commits = parse_commits(result.stdout or '')
-        forge_mod.set_list(cache_key, {
-          entries = commits,
-        })
-        open_commit_list(commits, branch)
+        if use_cache then
+          forge_mod.set_list(cache_key, {
+            entries = commits,
+          })
+        end
+        open_commit_list(commits)
       end)
     end)
   end
