@@ -22,10 +22,12 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge`..................................................|:Forge-no-args|
     TARGET DEFAULTS AND OVERRIDES......................|forge-target-defaults|
     COMMAND COMPLETION................................|forge-command-completion|
-    `:Forge pr` [{flags}]..........................................|:Forge-pr|
-    `:Forge pr create` [{flags}]............................|:Forge-pr-create|
-    `:Forge pr checkout` {num}............................|:Forge-pr-checkout|
-    `:Forge pr review` {num}................................|:Forge-pr-review|
+    CANONICAL SYNTAX AND COMPATIBILITY..............|forge-command-compatibility|
+    BANG SEMANTICS.........................................|forge-command-bang|
+    `:Forge pr` [state=...] [repo=...]............................|:Forge-pr|
+    `:Forge pr create` [modifiers]......................|:Forge-pr-create|
+    `:Forge pr checkout` {num} [repo=...]............|:Forge-pr-checkout|
+    `:Forge pr review` {num} [repo=...]..................|:Forge-pr-review|
     `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
     `:Forge pr ci` {num}........................................|:Forge-pr-ci|
     `:Forge pr browse` {num}................................|:Forge-pr-browse|
@@ -34,21 +36,21 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr merge` {num} [`method=`]....................|:Forge-pr-merge|
     `:Forge pr draft` {num}..................................|:Forge-pr-draft|
     `:Forge pr ready` {num}..................................|:Forge-pr-ready|
-    `:Forge issue` [{flags}]....................................|:Forge-issue|
-    `:Forge issue browse` {num}..........................|:Forge-issue-browse|
-    `:Forge issue close` {num}............................|:Forge-issue-close|
-    `:Forge issue reopen` {num}..........................|:Forge-issue-reopen|
-    `:Forge issue create` [{flags}]........................|:Forge-issue-create|
-    `:Forge ci` [{flags}]..........................................|:Forge-ci|
-    `:Forge ci log` {run-id}..................................|:Forge-ci-log|
-    `:Forge ci watch` {run-id}..............................|:Forge-ci-watch|
+    `:Forge issue` [state=...] [repo=...]......................|:Forge-issue|
+    `:Forge issue browse` {num} [repo=...]................|:Forge-issue-browse|
+    `:Forge issue close` {num} [repo=...]..................|:Forge-issue-close|
+    `:Forge issue reopen` {num} [repo=...]................|:Forge-issue-reopen|
+    `:Forge issue create` [modifiers]......................|:Forge-issue-create|
+    `:Forge ci` [repo=...] [rev=...] [target=...] [all]..........|:Forge-ci|
+    `:Forge ci log` {run-id} [repo=...]......................|:Forge-ci-log|
+    `:Forge ci watch` {run-id} [repo=...]..................|:Forge-ci-watch|
     `:Forge branches`........................................|:Forge-branches|
     `:Forge commits` [{branch}]..............................|:Forge-commits|
     `:Forge worktrees`......................................|:Forge-worktrees|
-    `:Forge release`..........................................|:Forge-release|
-    `:Forge release browse` {tag}......................|:Forge-release-browse|
-    `:Forge release delete` {tag}......................|:Forge-release-delete|
-    `:Forge browse` [{flags}]..................................|:Forge-browse|
+    `:Forge release` [state=...] [repo=...]....................|:Forge-release|
+    `:Forge release browse` {tag} [repo=...]............|:Forge-release-browse|
+    `:Forge release delete` {tag} [repo=...]............|:Forge-release-delete|
+    `:Forge browse` [repo=...] [rev=...] [target=...]..........|:Forge-browse|
     `:Forge review branch` [{branch}]......................|:Forge-review-branch|
     `:Forge review commit` [{sha}]..........................|:Forge-review-commit|
     `:Forge review files`..................................|:Forge-review-files|
@@ -358,91 +360,117 @@ COMMAND COMPLETION                                  *forge-command-completion*
     - `target=` suggests repo/revision prefixes and leaves path completion
       after `:` for future work
 
-`:Forge pr` [{flags}]                                              *:Forge-pr*
+CANONICAL SYNTAX AND COMPATIBILITY                  *forge-command-compatibility*
+    The documented `:Forge` interface is the canonical Ex-style form:
+    - `family verb`
+    - `key=value` modifiers such as `state=closed` or `repo=upstream`
+    - bare boolean atoms such as `all`, `draft`, `fill`, `web`, `blank`
+
+    Compatibility sugar is still accepted, but it is not the primary
+    interface:
+    - omitted default verbs such as `:Forge pr`, `:Forge issue`, `:Forge ci`,
+      `:Forge release`, and `:Forge browse`
+    - legacy `--name` / `--name=value` forms for modifiers
+    - `:Forge pr diff` as a legacy alias for `:Forge pr review`
+    - `:Forge browse --root` and `:Forge browse --commit`
+
+BANG SEMANTICS                                           *forge-command-bang*
+    `!` is only accepted on mutating commands with an explicit force variant:
+    - `:Forge! pr close`
+    - `:Forge! issue close`
+    - `:Forge! release delete`
+
+    All other `!` forms fail with `E477: No ! allowed`.
+
+`:Forge pr` [state=...] [repo=...]                              *:Forge-pr*
     Open the PR list picker for the collaboration repo. Defaults to open
     PRs.
-    `--state=open`     Show open PRs (default).
-    `--state=closed`   Show closed PRs.
-    `--state=all`      Show all PRs.
+    `state=open`       Show open PRs (default).
+    `state=closed`     Show closed PRs.
+    `state=all`        Show all PRs.
 
-`:Forge pr create` [{flags}]                                *:Forge-pr-create*
+`:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
+                                                          *:Forge-pr-create*
     Create a new PR.
     Default targets: `head=` is the current branch push context and
     `base=` is the collaboration repo default branch.
-    (no flags)         Open the compose buffer (|forge-compose|).
-    `--draft`          Open compose buffer with draft pre-set.
-    `--fill`           Create instantly from commits (skip compose).
-    `--web`            Push and open the forge's web create-PR page.
-    `--draft --fill`   Create draft instantly.
+    (no modifiers)     Open the compose buffer (|forge-compose|).
+    `draft`            Open compose buffer with draft pre-set.
+    `fill`             Create instantly from commits (skip compose).
+    `web`              Push and open the forge's web create-PR page.
+    `draft fill`       Create draft instantly.
 
-`:Forge pr checkout` {num}                                *:Forge-pr-checkout*
+`:Forge pr checkout` {num} [repo=...]                    *:Forge-pr-checkout*
     Check out the branch for PR `{num}`.
 
-`:Forge pr review` {num}                                    *:Forge-pr-review*
+`:Forge pr review` {num} [repo=...]                        *:Forge-pr-review*
     Start a review for PR `{num}` (|forge-review|).
 
 `:Forge pr diff` {num}                                        *:Forge-pr-diff*
     Legacy alias for `:Forge pr review {num}`.
 
-`:Forge pr worktree` {num}                                *:Forge-pr-worktree*
+`:Forge pr worktree` {num} [repo=...]                    *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
 
-`:Forge pr ci` {num}                                            *:Forge-pr-ci*
+`:Forge pr ci` {num} [repo=...]                                *:Forge-pr-ci*
     Open the CI checks picker for PR `{num}`.
 
-`:Forge pr browse` {num}                                    *:Forge-pr-browse*
+`:Forge pr browse` {num} [repo=...]                        *:Forge-pr-browse*
     Open PR `{num}` in the browser.
 
-`:Forge pr manage` {num}                                    *:Forge-pr-manage*
+`:Forge pr manage` {num} [repo=...]                        *:Forge-pr-manage*
     Open the more picker for PR `{num}` (edit, approve, merge, close,
     reopen, draft toggle).
 
-`:Forge pr approve` {num}                                  *:Forge-pr-approve*
+`:Forge pr approve` {num} [repo=...]                      *:Forge-pr-approve*
     Approve PR `{num}`.
 
-`:Forge pr merge` {num} [`method=`]                        *:Forge-pr-merge*
+`:Forge pr merge` {num} [repo=...] [`method=`]            *:Forge-pr-merge*
     Merge PR `{num}`. When `method=` is omitted, the forge CLI uses its
     default merge behavior.
     `method=merge`     Merge commit.
     `method=squash`    Squash merge.
     `method=rebase`    Rebase merge.
 
-`:Forge pr draft` {num}                                      *:Forge-pr-draft*
+`:Forge pr draft` {num} [repo=...]                          *:Forge-pr-draft*
     Mark PR `{num}` as draft when the forge supports draft toggles.
 
-`:Forge pr ready` {num}                                      *:Forge-pr-ready*
+`:Forge pr ready` {num} [repo=...]                          *:Forge-pr-ready*
     Mark PR `{num}` as ready for review when supported by the forge.
 
-`:Forge issue` [{flags}]                                        *:Forge-issue*
+`:Forge issue` [state=...] [repo=...]                          *:Forge-issue*
     Open the issue list picker for the collaboration repo. Defaults to
     open issues.
-    `--state=open`     Show open issues (default).
-    `--state=closed`   Show closed issues.
-    `--state=all`      Show all issues.
+    `state=open`       Show open issues (default).
+    `state=closed`     Show closed issues.
+    `state=all`        Show all issues.
 
-`:Forge issue browse` {num}                              *:Forge-issue-browse*
+`:Forge issue browse` {num} [repo=...]                  *:Forge-issue-browse*
     Open issue `{num}` in the browser.
 
-`:Forge issue close` {num}                                *:Forge-issue-close*
+`:Forge issue close` {num} [repo=...]                    *:Forge-issue-close*
     Close issue `{num}`.
 
-`:Forge issue reopen` {num}                              *:Forge-issue-reopen*
+`:Forge issue reopen` {num} [repo=...]                  *:Forge-issue-reopen*
     Reopen issue `{num}`.
 
-`:Forge issue create` [{flags}]                          *:Forge-issue-create*
+`:Forge issue create` [repo=...] [web] [blank] [template=...]
+                                                          *:Forge-issue-create*
     Create a new issue.
-    (no flags)         Open the compose buffer.
-    `--web`            Open the forge's web create-issue page.
+    (no modifiers)     Open the compose buffer.
+    `web`              Open the forge's web create-issue page.
+    `blank`            Start from a blank issue template when supported.
+    `template=...`     Use the named issue template.
 
-`:Forge ci` [{flags}]                                              *:Forge-ci*
+`:Forge ci` [repo=...] [rev=...] [target=...] [all]              *:Forge-ci*
     Open the CI runs picker. Defaults to the current branch in the repo
     selected by `targets.ci.repo`.
-    `--all`            Show runs for all branches.
+    `all`              Show runs for all branches.
 
-`:Forge ci log` {run-id}                                      *:Forge-ci-log*
+`:Forge ci log` {run-id} [repo=...]                          *:Forge-ci-log*
     Open logs for CI run `{run-id}`.
 
-`:Forge ci watch` {run-id}                                  *:Forge-ci-watch*
+`:Forge ci watch` {run-id} [repo=...]                      *:Forge-ci-watch*
     Open the forge's live watch view for CI run `{run-id}` when
     supported.
 
@@ -456,23 +484,23 @@ COMMAND COMPLETION                                  *forge-command-completion*
 `:Forge worktrees`                                      *:Forge-worktrees*
     Open the worktree picker (|forge-picker-worktree|).
 
-`:Forge release`                                              *:Forge-release*
+`:Forge release` [state=...] [repo=...]                      *:Forge-release*
     Open the release list picker for the collaboration repo
     (|forge-picker-release|).
 
-`:Forge release browse` {tag}                          *:Forge-release-browse*
+`:Forge release browse` {tag} [repo=...]              *:Forge-release-browse*
     Open release `{tag}` in the browser.
 
-`:Forge release delete` {tag}                          *:Forge-release-delete*
+`:Forge release delete` {tag} [repo=...]              *:Forge-release-delete*
     Delete release `{tag}` (with confirmation prompt).
 
-`:Forge browse` [{flags}]                                      *:Forge-browse*
+`:Forge browse` [repo=...] [rev=...] [target=...]              *:Forge-browse*
     Open a browser target on the forge. Without explicit target modifiers,
     this defaults to the current file location on the current branch in
     the current repo.
-    `--root`           Open the repository root page.
-    `--commit`         Open the current HEAD commit.
-    (no flags)         Open the current file and line(s) on the current
+    `--root`           Legacy compatibility flag for the repository root.
+    `--commit`         Legacy compatibility flag for the current HEAD commit.
+    (no modifiers)     Open the current file and line(s) on the current
                        branch. In visual mode, the selected line range is
                        included.
 
