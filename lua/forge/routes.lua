@@ -42,43 +42,43 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.pr('all', ctx.forge, { back = opts.back })
+      pickers.pr('all', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['prs.open'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.pr('open', ctx.forge, { back = opts.back })
+      pickers.pr('open', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['prs.closed'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.pr('closed', ctx.forge, { back = opts.back })
+      pickers.pr('closed', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['issues.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.issue('all', ctx.forge, { back = opts.back })
+      pickers.issue('all', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['issues.open'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.issue('open', ctx.forge, { back = opts.back })
+      pickers.issue('open', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['issues.closed'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.issue('closed', ctx.forge, { back = opts.back })
+      pickers.issue('closed', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['ci.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.ci(ctx.forge, nil, nil, { back = opts.back })
+      pickers.ci(ctx.forge, nil, nil, { back = opts.back, scope = opts.scope })
     end,
     ['ci.current_branch'] = function(ctx, opts)
       if not ctx.forge then
@@ -88,7 +88,7 @@ local function route_handlers()
       if branch == nil or branch == '' then
         branch = ctx.branch ~= '' and ctx.branch or nil
       end
-      pickers.ci(ctx.forge, branch, nil, { back = opts.back })
+      pickers.ci(ctx.forge, branch, nil, { back = opts.back, scope = opts.scope })
     end,
     ['branches.local'] = function(ctx, opts)
       pickers.branches(ctx, { back = opts.back })
@@ -112,9 +112,9 @@ local function route_handlers()
         return false, err
       end
       if ctx.has_file and ctx.loc then
-        ctx.forge:browse(ctx.loc, branch)
+        ctx.forge:browse(ctx.loc, branch, opts.scope)
       else
-        ctx.forge:browse_branch(branch)
+        ctx.forge:browse_branch(branch, opts.scope)
       end
     end,
     ['browse.branch'] = function(ctx, opts)
@@ -125,7 +125,7 @@ local function route_handlers()
       if not branch then
         return false, err
       end
-      ctx.forge:browse_branch(branch)
+      ctx.forge:browse_branch(branch, opts.scope)
     end,
     ['browse.commit'] = function(ctx, opts)
       if not ctx.forge then
@@ -138,25 +138,25 @@ local function route_handlers()
       if sha == '' then
         return false, 'detached HEAD'
       end
-      ctx.forge:browse_commit(sha)
+      ctx.forge:browse_commit(sha, opts.scope)
     end,
     ['releases.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.release('all', ctx.forge, { back = opts.back })
+      pickers.release('all', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['releases.draft'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.release('draft', ctx.forge, { back = opts.back })
+      pickers.release('draft', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['releases.prerelease'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      pickers.release('prerelease', ctx.forge, { back = opts.back })
+      pickers.release('prerelease', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
   }
 end

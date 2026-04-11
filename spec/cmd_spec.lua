@@ -2,6 +2,69 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 describe('command schema', function()
   local cmd = require('forge.cmd')
+  local old_system
+  local old_preload
+
+  before_each(function()
+    old_system = vim.system
+    old_preload = package.preload['forge']
+
+    vim.system = function(cmdline)
+      local key = table.concat(cmdline, ' ')
+      local result = {
+        code = 1,
+        stdout = '',
+      }
+      if key == 'git remote get-url origin' then
+        result = { code = 0, stdout = 'git@github.com:owner/current.git\n' }
+      elseif key == 'git remote get-url upstream' then
+        result = { code = 0, stdout = 'git@github.com:owner/upstream.git\n' }
+      elseif key == 'git remote' then
+        result = { code = 0, stdout = 'origin\nupstream\n' }
+      elseif key == 'git branch --show-current' then
+        result = { code = 0, stdout = 'feature\n' }
+      elseif key == 'git config branch.feature.pushRemote' then
+        result = { code = 0, stdout = 'origin\n' }
+      elseif key == 'git config remote.pushDefault' then
+        result = { code = 1, stdout = '' }
+      elseif key == 'git rev-parse --abbrev-ref feature@{upstream}' then
+        result = { code = 0, stdout = 'origin/feature\n' }
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return {
+            targets = {
+              default_repo = 'collab',
+              aliases = {
+                collab = 'remote:upstream',
+              },
+              ci = {
+                repo = 'collaboration',
+              },
+            },
+          }
+        end,
+      }
+    end
+
+    package.loaded['forge'] = nil
+    package.loaded['forge.target'] = nil
+  end)
+
+  after_each(function()
+    vim.system = old_system
+    package.preload['forge'] = old_preload
+    package.loaded['forge'] = nil
+    package.loaded['forge.target'] = nil
+  end)
 
   it('lists canonical and local command families in order', function()
     assert.same({
@@ -77,6 +140,37 @@ describe('command schema', function()
     assert.equals('barrettruth/forge.nvim', create.parsed_modifiers.head.repo.slug)
     assert.equals('README.md', browse.parsed_modifiers.target.path)
     assert.same({ start_line = 10, end_line = 20 }, browse.parsed_modifiers.target.range)
+  end)
+
+  it('attaches default target policy for omitted addresses', function()
+    local pr = assert(cmd.parse({ 'pr' }))
+    local create = assert(cmd.parse({ 'pr', 'create' }))
+    local ci = assert(cmd.parse({ 'ci' }))
+    local browse = assert(cmd.parse({ 'browse' }))
+
+    assert.same({ repo = 'collaboration' }, pr.default_policy)
+    assert.equals('owner/upstream', pr.default_targets.repo.slug)
+
+    assert.same({
+      repo = 'collaboration',
+      head = 'current_push_context',
+      base = 'collaboration_default_branch',
+    }, create.default_policy)
+    assert.equals('feature', create.default_targets.head.rev)
+    assert.equals('owner/current', create.default_targets.head.repo.slug)
+    assert.is_true(create.default_targets.base.default_branch)
+    assert.equals('owner/upstream', create.default_targets.base.repo.slug)
+
+    assert.same({ repo = 'collaboration', rev = 'current_branch' }, ci.default_policy)
+    assert.equals('feature', ci.default_targets.rev.rev)
+    assert.equals('owner/upstream', ci.default_targets.rev.repo.slug)
+
+    assert.same(
+      { repo = 'current', rev = 'current_branch', target = 'contextual' },
+      browse.default_policy
+    )
+    assert.equals('feature', browse.default_targets.rev.rev)
+    assert.equals('owner/current', browse.default_targets.rev.repo.slug)
   end)
 
   it('tracks the intended bang matrix', function()

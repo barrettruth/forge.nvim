@@ -393,15 +393,117 @@ end
 local function target_parse_opts()
   local ok, forge = pcall(require, 'forge')
   if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
-    return { resolve_repo = true }
+    return {
+      resolve_repo = true,
+      ci_repo = 'current',
+    }
   end
   local cfg = forge.config()
   local targets = type(cfg) == 'table' and cfg.targets or nil
   local aliases = type(targets) == 'table' and targets.aliases or nil
+  local default_repo = type(targets) == 'table' and targets.default_repo or nil
+  local ci = type(targets) == 'table' and targets.ci or nil
+  local ci_repo = type(ci) == 'table' and ci.repo or nil
   return {
     resolve_repo = true,
     aliases = type(aliases) == 'table' and aliases or {},
+    default_repo = type(default_repo) == 'string' and default_repo or nil,
+    ci_repo = ci_repo == 'collaboration' and 'collaboration' or 'current',
   }
+end
+
+local function repo_target(value)
+  if type(value) ~= 'table' then
+    return nil
+  end
+  if value.kind == 'repo' then
+    return value
+  end
+  if value.kind == 'rev' then
+    return value.repo
+  end
+  if value.kind == 'location' and type(value.rev) == 'table' then
+    return value.rev.repo
+  end
+  return value.repo
+end
+
+local function default_policy(command, parse_opts)
+  local policy = {}
+  if
+    not command.parsed_modifiers.repo
+    and (
+      (command.family == 'pr' and (command.name == 'list' or command.name == 'create'))
+      or (command.name == 'list' and (command.family == 'issue' or command.family == 'release'))
+    )
+  then
+    policy.repo = 'collaboration'
+  end
+  if command.family == 'pr' and command.name == 'create' then
+    if not command.parsed_modifiers.head then
+      policy.head = 'current_push_context'
+    end
+    if not command.parsed_modifiers.base then
+      policy.base = 'collaboration_default_branch'
+    end
+  elseif command.family == 'ci' and command.name == 'list' then
+    if
+      not repo_target(command.parsed_modifiers.target)
+      and not repo_target(command.parsed_modifiers.rev)
+      and not command.parsed_modifiers.repo
+    then
+      policy.repo = parse_opts.ci_repo
+    end
+    if
+      command.modifiers.all ~= true
+      and not command.parsed_modifiers.target
+      and not command.parsed_modifiers.rev
+      and command.subjects[1] == nil
+    then
+      policy.rev = 'current_branch'
+    end
+  elseif command.family == 'browse' and command.name == 'open' then
+    if
+      not repo_target(command.parsed_modifiers.target)
+      and not repo_target(command.parsed_modifiers.rev)
+      and not command.parsed_modifiers.repo
+    then
+      policy.repo = 'current'
+    end
+    if not command.parsed_modifiers.target and not command.parsed_modifiers.rev then
+      policy.rev = 'current_branch'
+    end
+    if not command.parsed_modifiers.target then
+      policy.target = 'contextual'
+    end
+  end
+  return next(policy) and policy or {}
+end
+
+local function default_targets(command, parse_opts)
+  local target = require('forge.target')
+  local policy = default_policy(command, parse_opts)
+  local defaults = {}
+  local repo = nil
+  if policy.repo == 'collaboration' then
+    repo = target.collaboration_repo(parse_opts)
+  elseif policy.repo == 'current' then
+    repo = target.current_repo(parse_opts)
+  end
+  if repo then
+    defaults.repo = repo
+  end
+  if policy.rev == 'current_branch' then
+    defaults.rev = target.branch_rev(target.current_branch(), repo)
+  end
+  if policy.head == 'current_push_context' then
+    defaults.head = target.push_rev(parse_opts)
+  end
+  if policy.base == 'collaboration_default_branch' then
+    defaults.base =
+      target.default_branch_rev(defaults.repo or target.collaboration_repo(parse_opts))
+  end
+  return policy, defaults
 end
 
 local function require_git_or_warn()
@@ -423,9 +525,44 @@ local function require_forge_or_warn()
   return f, forge_mod
 end
 
-local function resolve_scope_modifier(command)
-  local _ = command
-  return nil
+local function resolve_scope_modifier(command, forge_name)
+  local target = require('forge.target')
+  local repo = repo_target(command.parsed_modifiers.target)
+    or repo_target(command.parsed_modifiers.rev)
+    or repo_target(command.parsed_modifiers.base)
+    or repo_target(command.parsed_modifiers.head)
+    or repo_target(command.parsed_modifiers.repo)
+    or repo_target(command.default_targets.target)
+    or repo_target(command.default_targets.rev)
+    or repo_target(command.default_targets.base)
+    or repo_target(command.default_targets.head)
+    or repo_target(command.default_targets.repo)
+  return target.repo_scope(repo, forge_name)
+end
+
+local function effective_rev(command)
+  return command.parsed_modifiers.target and command.parsed_modifiers.target.rev
+    or command.parsed_modifiers.rev
+    or command.default_targets.rev
+end
+
+local function location_arg(location)
+  if
+    type(location) ~= 'table'
+    or location.kind ~= 'location'
+    or not location.path
+    or location.path == ''
+  then
+    return nil
+  end
+  local range = location.range
+  if not range then
+    return location.path
+  end
+  if range.start_line == range.end_line then
+    return ('%s:%d'):format(location.path, range.start_line)
+  end
+  return ('%s:%d-%d'):format(location.path, range.start_line, range.end_line)
 end
 
 local function dispatch_pr(command)
@@ -438,12 +575,13 @@ local function dispatch_pr(command)
   end
   local pickers = require('forge.pickers')
   local num = command.subjects[1]
+  local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
     local state = command.modifiers.state
     if state then
-      forge_mod.open('prs.' .. state)
+      forge_mod.open('prs.' .. state, { scope = scope })
     else
-      forge_mod.open('prs')
+      forge_mod.open('prs', { scope = scope })
     end
     return
   end
@@ -452,7 +590,7 @@ local function dispatch_pr(command)
       draft = command.modifiers.draft == true,
       instant = command.modifiers.fill == true,
       web = command.modifiers.web == true,
-      scope = resolve_scope_modifier(command),
+      scope = scope,
     })
     return
   end
@@ -461,42 +599,42 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'checkout' then
-    pickers.pr_actions(f, num).checkout()
+    pickers.pr_actions(f, { num = num, scope = scope }).checkout()
     return
   end
   if command.name == 'review' then
-    pickers.pr_actions(f, num).review()
+    pickers.pr_actions(f, { num = num, scope = scope }).review()
     return
   end
   if command.name == 'worktree' then
-    pickers.pr_actions(f, num).worktree()
+    pickers.pr_actions(f, { num = num, scope = scope }).worktree()
     return
   end
   if command.name == 'ci' then
     if f.capabilities.per_pr_checks then
-      pickers.checks(f, num)
+      pickers.checks(f, num, nil, nil, { scope = scope })
     else
       require('forge.logger').debug(
         ('per-%s checks unavailable on %s, showing repo CI'):format(f.labels.pr_one, f.name)
       )
-      pickers.ci(f)
+      pickers.ci(f, nil, nil, { scope = scope })
     end
     return
   end
   if command.name == 'browse' then
-    f:view_web(f.kinds.pr, num)
+    f:view_web(f.kinds.pr, num, scope)
     return
   end
   if command.name == 'manage' then
-    pickers.pr_manage(f, num)
+    pickers.pr_manage(f, { num = num, scope = scope })
     return
   end
   if command.name == 'close' then
-    pickers.pr_close(f, num)
+    pickers.pr_close(f, num, scope)
     return
   end
   if command.name == 'reopen' then
-    pickers.pr_reopen(f, num)
+    pickers.pr_reopen(f, num, scope)
     return
   end
   warn(('unsupported pr action: %s'):format(command.name))
@@ -512,12 +650,13 @@ local function dispatch_issue(command)
   end
   local pickers = require('forge.pickers')
   local num = command.subjects[1]
+  local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
     local state = command.modifiers.state
     if state then
-      forge_mod.open('issues.' .. state)
+      forge_mod.open('issues.' .. state, { scope = scope })
     else
-      forge_mod.open('issues')
+      forge_mod.open('issues', { scope = scope })
     end
     return
   end
@@ -527,20 +666,20 @@ local function dispatch_issue(command)
       web = command.modifiers.web == true,
       blank = command.modifiers.blank == true,
       template = template ~= true and template or nil,
-      scope = resolve_scope_modifier(command),
+      scope = scope,
     })
     return
   end
   if command.name == 'browse' then
-    f:view_web(f.kinds.issue, num)
+    f:view_web(f.kinds.issue, num, scope)
     return
   end
   if command.name == 'close' then
-    pickers.issue_close(f, num)
+    pickers.issue_close(f, num, scope)
     return
   end
   if command.name == 'reopen' then
-    pickers.issue_reopen(f, num)
+    pickers.issue_reopen(f, num, scope)
     return
   end
   warn(('unsupported issue action: %s'):format(command.name))
@@ -554,18 +693,20 @@ local function dispatch_ci(command)
   if not f then
     return
   end
+  local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
     local branch = nil
     if command.modifiers.all ~= true then
-      branch = command.modifiers.rev or command.subjects[1]
-      if branch == nil or branch == '' then
-        branch = vim.trim(vim.fn.system('git branch --show-current'))
-        if branch == '' then
-          branch = nil
-        end
-      end
+      local rev = command.parsed_modifiers.target and command.parsed_modifiers.target.rev
+        or command.parsed_modifiers.rev
+        or command.subjects[1] and { rev = command.subjects[1] }
+        or command.default_targets.rev
+      branch = rev and rev.rev or nil
     end
-    forge_mod.open(command.modifiers.all and 'ci.all' or 'ci.current_branch', { branch = branch })
+    forge_mod.open(command.modifiers.all and 'ci.all' or 'ci.current_branch', {
+      branch = branch,
+      scope = scope,
+    })
     return
   end
   warn(('unsupported ci action: %s'):format(command.name))
@@ -580,23 +721,24 @@ local function dispatch_release(command)
     return
   end
   local tag = command.subjects[1]
+  local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
     local state = command.modifiers.state
     if state then
-      forge_mod.open('releases.' .. state)
+      forge_mod.open('releases.' .. state, { scope = scope })
     else
-      forge_mod.open('releases')
+      forge_mod.open('releases', { scope = scope })
     end
     return
   end
   if command.name == 'browse' then
-    f:browse_release(tag)
+    f:browse_release(tag, scope)
     return
   end
   if command.name == 'delete' then
     local function do_delete()
       require('forge.logger').info('deleting release ' .. tag .. '...')
-      vim.system(f:delete_release_cmd(tag), { text = true }, function(result)
+      vim.system(f:delete_release_cmd(tag, scope), { text = true }, function(result)
         vim.schedule(function()
           if result.code == 0 then
             require('forge.logger').info('deleted release ' .. tag)
@@ -629,12 +771,29 @@ local function dispatch_browse(command)
   if not f then
     return
   end
+  local scope = resolve_scope_modifier(command, f.name)
   if command.modifiers.commit then
-    forge_mod.open('browse.commit')
+    forge_mod.open('browse.commit', { scope = scope })
   elseif command.modifiers.root then
-    forge_mod.open('browse.branch')
+    forge_mod.open('browse.branch', {
+      scope = scope,
+      branch = effective_rev(command) and effective_rev(command).rev or nil,
+    })
   else
-    forge_mod.open('browse.contextual')
+    local location = command.parsed_modifiers.target
+    if location then
+      local loc = location_arg(location)
+      if loc then
+        f:browse(loc, location.rev.rev, scope)
+        return
+      end
+    end
+    local rev = effective_rev(command)
+    if rev and rev.rev then
+      f:browse(require('forge').file_loc(), rev.rev, scope)
+      return
+    end
+    forge_mod.open('browse.contextual', { scope = scope })
   end
 end
 
@@ -944,6 +1103,8 @@ function M.parse(args, opts)
       command.parsed_modifiers[name] = parsed
     end
   end
+
+  command.default_policy, command.default_targets = default_targets(command, parse_opts)
 
   return command
 end

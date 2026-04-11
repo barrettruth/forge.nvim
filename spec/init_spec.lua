@@ -28,6 +28,8 @@ describe('config', function()
     local cfg = forge.config()
     assert.equals(1000, cfg.ci.lines)
     assert.equals('horizontal', cfg.split)
+    assert.same({}, cfg.targets.aliases)
+    assert.equals('current', cfg.targets.ci.repo)
     assert.equals(45, cfg.display.widths.title)
     assert.equals(100, cfg.display.limits.pulls)
     assert.equals(100, cfg.display.limits.commits)
@@ -607,6 +609,45 @@ describe('config validation', function()
     assert.has_error(function()
       forge.config()
     end)
+  end)
+
+  it('rejects non-table targets', function()
+    vim.g.forge = { targets = 'bad' }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('rejects invalid target alias values', function()
+    vim.g.forge = { targets = { aliases = { upstream = false } } }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('rejects invalid ci repo policy', function()
+    vim.g.forge = { targets = { ci = { repo = 'fork' } } }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('accepts target alias and collaboration defaults', function()
+    vim.g.forge = {
+      targets = {
+        default_repo = 'upstream',
+        aliases = {
+          work = 'github.com/owner/repo',
+        },
+        ci = {
+          repo = 'collaboration',
+        },
+      },
+    }
+    local cfg = forge.config()
+    assert.equals('upstream', cfg.targets.default_repo)
+    assert.equals('github.com/owner/repo', cfg.targets.aliases.work)
+    assert.equals('collaboration', cfg.targets.ci.repo)
   end)
 
   it('accepts false for individual key binding', function()

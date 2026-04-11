@@ -13,17 +13,24 @@ local function fake_forge()
       issue = 'Issues',
       ci = 'CI',
     },
-    browse = function(_, loc, branch)
+    browse = function(_, loc, branch, scope)
       captured.browse = {
         loc = loc,
         branch = branch,
+        scope = scope,
       }
     end,
-    browse_branch = function(_, branch)
-      captured.browse_branch = branch
+    browse_branch = function(_, branch, scope)
+      captured.browse_branch = {
+        branch = branch,
+        scope = scope,
+      }
     end,
-    browse_commit = function(_, sha)
-      captured.browse_commit = sha
+    browse_commit = function(_, sha, scope)
+      captured.browse_commit = {
+        sha = sha,
+        scope = scope,
+      }
     end,
   }
 end
@@ -131,14 +138,17 @@ describe('routes', function()
         pr = function(state, _, opts)
           captured.pr = state
           captured.pr_back = opts and opts.back or nil
+          captured.pr_scope = opts and opts.scope or nil
         end,
         issue = function(state, _, opts)
           captured.issue = state
           captured.issue_back = opts and opts.back or nil
+          captured.issue_scope = opts and opts.scope or nil
         end,
         ci = function(_, branch, _, opts)
           captured.ci = branch
           captured.ci_back = opts and opts.back or nil
+          captured.ci_scope = opts and opts.scope or nil
         end,
         branches = function(ctx, opts)
           captured.branches = ctx.id
@@ -155,6 +165,7 @@ describe('routes', function()
         release = function(state, _, opts)
           captured.release = state
           captured.release_back = opts and opts.back or nil
+          captured.release_scope = opts and opts.scope or nil
         end,
       }
     end
@@ -187,6 +198,24 @@ describe('routes', function()
     require('forge.routes').open('prs')
 
     assert.equals('closed', captured.pr)
+  end)
+
+  it('passes scoped route options through picker handlers', function()
+    local scope = {
+      kind = 'github',
+      host = 'github.com',
+      owner = 'owner',
+      repo = 'repo',
+      slug = 'owner/repo',
+      repo_arg = 'owner/repo',
+      web_url = 'https://github.com/owner/repo',
+    }
+
+    require('forge.routes').open('prs', { scope = scope })
+    require('forge.routes').open('ci.current_branch', { scope = scope })
+
+    assert.same(scope, captured.pr_scope)
+    assert.same(scope, captured.ci_scope)
   end)
 
   it('opens the configured root sections through the picker client', function()
@@ -240,13 +269,13 @@ describe('routes', function()
   it('uses branch browsing for contextual browse without a file buffer', function()
     require('forge.routes').open('browse.contextual')
 
-    assert.equals('main', captured.browse_branch)
+    assert.same({ branch = 'main', scope = nil }, captured.browse_branch)
     assert.is_nil(captured.browse)
   end)
 
   it('uses the current commit for commit browsing', function()
     require('forge.routes').open('browse.commit')
 
-    assert.equals('abc123', captured.browse_commit)
+    assert.same({ sha = 'abc123', scope = nil }, captured.browse_commit)
   end)
 end)
