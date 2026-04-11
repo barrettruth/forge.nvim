@@ -18,6 +18,14 @@ local modifiers = {
   commit = { kind = 'flag', legacy = true },
 }
 
+local target_modifier_parsers = {
+  repo = 'resolve_repo',
+  rev = 'parse_rev',
+  target = 'parse_location',
+  head = 'parse_rev',
+  base = 'parse_rev',
+}
+
 local families = {
   {
     name = 'pr',
@@ -379,6 +387,20 @@ local function error_result(msg, opts)
   return nil, {
     code = opts.code,
     message = msg,
+  }
+end
+
+local function target_parse_opts()
+  local ok, forge = pcall(require, 'forge')
+  if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
+    return { resolve_repo = true }
+  end
+  local cfg = forge.config()
+  local targets = type(cfg) == 'table' and cfg.targets or nil
+  local aliases = type(targets) == 'table' and targets.aliases or nil
+  return {
+    resolve_repo = true,
+    aliases = type(aliases) == 'table' and aliases or {},
   }
 end
 
@@ -906,6 +928,20 @@ function M.parse(args, opts)
     local values = verb_values or allowed_values
     if type(value) == 'string' and values and not set_contains(values, value) then
       return error_result(('invalid value for %s: %s'):format(name, value))
+    end
+  end
+
+  command.parsed_modifiers = {}
+  local target = require('forge.target')
+  local parse_opts = target_parse_opts()
+  for name, value in pairs(command.modifiers) do
+    local parser_name = target_modifier_parsers[name]
+    if parser_name and type(value) == 'string' then
+      local parsed, err = target[parser_name](value, parse_opts)
+      if not parsed then
+        return error_result(err)
+      end
+      command.parsed_modifiers[name] = parsed
     end
   end
 
