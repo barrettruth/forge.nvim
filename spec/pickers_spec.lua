@@ -4,6 +4,7 @@ local captured
 local cache
 local issue_create_calls
 local issue_create_opts
+local op_calls
 local pr_create_calls
 local pr_create_opts
 local default_system
@@ -127,6 +128,7 @@ describe('pickers', function()
     captured = nil
     issue_create_calls = 0
     issue_create_opts = nil
+    op_calls = {}
     pr_create_calls = 0
     pr_create_opts = nil
     default_system = vim.system
@@ -149,6 +151,7 @@ describe('pickers', function()
       ['fzf-lua.utils'] = package.preload['fzf-lua.utils'],
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.ops'] = package.preload['forge.ops'],
       ['forge.picker'] = package.preload['forge.picker'],
     }
     package.preload['fzf-lua.utils'] = function()
@@ -174,6 +177,92 @@ describe('pickers', function()
         end,
         pick = function(opts)
           captured = opts
+        end,
+      }
+    end
+    package.preload['forge.ops'] = function()
+      return {
+        pr_checkout = function(_, pr)
+          table.insert(op_calls, { name = 'pr_checkout', pr = pr })
+        end,
+        pr_browse = function(_, pr)
+          table.insert(op_calls, { name = 'pr_browse', pr = pr })
+        end,
+        pr_worktree = function(_, pr)
+          table.insert(op_calls, { name = 'pr_worktree', pr = pr })
+        end,
+        pr_review = function(_, pr, opts)
+          table.insert(op_calls, { name = 'pr_review', pr = pr, opts = opts })
+        end,
+        pr_ci = function(_, pr, opts)
+          table.insert(op_calls, { name = 'pr_ci', pr = pr, opts = opts })
+        end,
+        pr_manage = function(_, pr, parent)
+          table.insert(op_calls, { name = 'pr_manage', pr = pr, parent = parent })
+          require('forge.pickers').pr_manage(fake_forge(), pr, parent)
+        end,
+        pr_edit = function(pr)
+          table.insert(op_calls, { name = 'pr_edit', pr = pr })
+        end,
+        pr_create = function(opts)
+          require('forge').create_pr(opts)
+        end,
+        pr_close = function(_, pr, opts)
+          table.insert(op_calls, { name = 'pr_close', pr = pr })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        pr_reopen = function(_, pr, opts)
+          table.insert(op_calls, { name = 'pr_reopen', pr = pr })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        pr_approve = function(_, pr, opts)
+          table.insert(op_calls, { name = 'pr_approve', pr = pr })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        pr_merge = function(_, pr, method, opts)
+          table.insert(op_calls, { name = 'pr_merge', pr = pr, method = method })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        pr_toggle_draft = function(_, pr, is_draft, opts)
+          table.insert(op_calls, { name = 'pr_toggle_draft', pr = pr, is_draft = is_draft })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        issue_browse = function(_, issue)
+          table.insert(op_calls, { name = 'issue_browse', issue = issue })
+        end,
+        issue_create = function(opts)
+          require('forge').create_issue(opts)
+        end,
+        issue_close = function(_, issue, opts)
+          table.insert(op_calls, { name = 'issue_close', issue = issue })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        issue_reopen = function(_, issue, opts)
+          table.insert(op_calls, { name = 'issue_reopen', issue = issue })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
+        end,
+        release_browse = function(_, release)
+          table.insert(op_calls, { name = 'release_browse', release = release })
+        end,
+        release_delete = function(_, release, opts)
+          table.insert(op_calls, { name = 'release_delete', release = release })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
         end,
       }
     end
@@ -286,6 +375,7 @@ describe('pickers', function()
     package.loaded['forge'] = nil
     package.loaded['forge.config'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.ops'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.picker.session'] = nil
     package.loaded['forge.pickers'] = nil
@@ -297,10 +387,12 @@ describe('pickers', function()
     package.preload['fzf-lua.utils'] = old_preload['fzf-lua.utils']
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.ops'] = old_preload['forge.ops']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.loaded['forge'] = nil
     package.loaded['forge.config'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.ops'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.picker.session'] = nil
     package.loaded['forge.pickers'] = nil
@@ -342,6 +434,19 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('worktree'), 'close'))
     assert.is_nil(rawget(action_by_name('checkout'), 'close'))
     assert.is_nil(rawget(action_by_name('manage'), 'close'))
+  end)
+
+  it('routes PR review actions through forge.ops', function()
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    action_by_name('review').fn(captured.entries[1])
+
+    assert.same({
+      name = 'pr_review',
+      pr = { num = '42', scope = nil },
+      opts = {},
+    }, op_calls[1])
   end)
 
   it('shows edit inside the more picker', function()

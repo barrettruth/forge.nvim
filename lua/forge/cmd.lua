@@ -1,5 +1,7 @@
 local M = {}
 
+local ops = require('forge.ops')
+
 local modifiers = {
   state = { kind = 'value' },
   repo = { kind = 'value', target = 'repo' },
@@ -546,47 +548,22 @@ local function effective_rev(command)
     or command.default_targets.rev
 end
 
-local function location_arg(location)
-  if
-    type(location) ~= 'table'
-    or location.kind ~= 'location'
-    or not location.path
-    or location.path == ''
-  then
-    return nil
-  end
-  local range = location.range
-  if not range then
-    return location.path
-  end
-  if range.start_line == range.end_line then
-    return ('%s:%d'):format(location.path, range.start_line)
-  end
-  return ('%s:%d-%d'):format(location.path, range.start_line, range.end_line)
-end
-
 local function dispatch_pr(command)
   if not require_git_or_warn() then
     return
   end
-  local f, forge_mod = require_forge_or_warn()
+  local f = require_forge_or_warn()
   if not f then
     return
   end
-  local pickers = require('forge.pickers')
   local num = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
-    local state = command.modifiers.state
-    if state then
-      forge_mod.open('prs.' .. state, { scope = scope })
-    else
-      forge_mod.open('prs', { scope = scope })
-    end
+    ops.pr_list(command.modifiers.state, { scope = scope })
     return
   end
   if command.name == 'create' then
-    forge_mod.create_pr({
+    ops.pr_create({
       draft = command.modifiers.draft == true,
       instant = command.modifiers.fill == true,
       web = command.modifiers.web == true,
@@ -595,46 +572,39 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'edit' then
-    forge_mod.edit_pr(num)
+    ops.pr_edit({ num = num, scope = scope })
     return
   end
   if command.name == 'checkout' then
-    pickers.pr_actions(f, { num = num, scope = scope }).checkout()
+    ops.pr_checkout(f, { num = num, scope = scope })
     return
   end
   if command.name == 'review' then
-    pickers.pr_actions(f, { num = num, scope = scope }).review()
+    ops.pr_review(f, { num = num, scope = scope })
     return
   end
   if command.name == 'worktree' then
-    pickers.pr_actions(f, { num = num, scope = scope }).worktree()
+    ops.pr_worktree(f, { num = num, scope = scope })
     return
   end
   if command.name == 'ci' then
-    if f.capabilities.per_pr_checks then
-      pickers.checks(f, num, nil, nil, { scope = scope })
-    else
-      require('forge.logger').debug(
-        ('per-%s checks unavailable on %s, showing repo CI'):format(f.labels.pr_one, f.name)
-      )
-      pickers.ci(f, nil, nil, { scope = scope })
-    end
+    ops.pr_ci(f, { num = num, scope = scope })
     return
   end
   if command.name == 'browse' then
-    f:view_web(f.kinds.pr, num, scope)
+    ops.pr_browse(f, { num = num, scope = scope })
     return
   end
   if command.name == 'manage' then
-    pickers.pr_manage(f, { num = num, scope = scope })
+    ops.pr_manage(f, { num = num, scope = scope })
     return
   end
   if command.name == 'close' then
-    pickers.pr_close(f, num, scope)
+    ops.pr_close(f, { num = num, scope = scope })
     return
   end
   if command.name == 'reopen' then
-    pickers.pr_reopen(f, num, scope)
+    ops.pr_reopen(f, { num = num, scope = scope })
     return
   end
   warn(('unsupported pr action: %s'):format(command.name))
@@ -644,25 +614,19 @@ local function dispatch_issue(command)
   if not require_git_or_warn() then
     return
   end
-  local f, forge_mod = require_forge_or_warn()
+  local f = require_forge_or_warn()
   if not f then
     return
   end
-  local pickers = require('forge.pickers')
   local num = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
-    local state = command.modifiers.state
-    if state then
-      forge_mod.open('issues.' .. state, { scope = scope })
-    else
-      forge_mod.open('issues', { scope = scope })
-    end
+    ops.issue_list(command.modifiers.state, { scope = scope })
     return
   end
   if command.name == 'create' then
     local template = command.modifiers.template
-    forge_mod.create_issue({
+    ops.issue_create({
       web = command.modifiers.web == true,
       blank = command.modifiers.blank == true,
       template = template ~= true and template or nil,
@@ -671,15 +635,15 @@ local function dispatch_issue(command)
     return
   end
   if command.name == 'browse' then
-    f:view_web(f.kinds.issue, num, scope)
+    ops.issue_browse(f, { num = num, scope = scope })
     return
   end
   if command.name == 'close' then
-    pickers.issue_close(f, num, scope)
+    ops.issue_close(f, { num = num, scope = scope })
     return
   end
   if command.name == 'reopen' then
-    pickers.issue_reopen(f, num, scope)
+    ops.issue_reopen(f, { num = num, scope = scope })
     return
   end
   warn(('unsupported issue action: %s'):format(command.name))
@@ -689,7 +653,7 @@ local function dispatch_ci(command)
   if not require_git_or_warn() then
     return
   end
-  local f, forge_mod = require_forge_or_warn()
+  local f = require_forge_or_warn()
   if not f then
     return
   end
@@ -703,10 +667,7 @@ local function dispatch_ci(command)
         or command.default_targets.rev
       branch = rev and rev.rev or nil
     end
-    forge_mod.open(command.modifiers.all and 'ci.all' or 'ci.current_branch', {
-      branch = branch,
-      scope = scope,
-    })
+    ops.ci_list(command.modifiers.all and nil or branch, { scope = scope })
     return
   end
   warn(('unsupported ci action: %s'):format(command.name))
@@ -716,49 +677,22 @@ local function dispatch_release(command)
   if not require_git_or_warn() then
     return
   end
-  local f, forge_mod = require_forge_or_warn()
+  local f = require_forge_or_warn()
   if not f then
     return
   end
   local tag = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'list' then
-    local state = command.modifiers.state
-    if state then
-      forge_mod.open('releases.' .. state, { scope = scope })
-    else
-      forge_mod.open('releases', { scope = scope })
-    end
+    ops.release_list(command.modifiers.state, { scope = scope })
     return
   end
   if command.name == 'browse' then
-    f:browse_release(tag, scope)
+    ops.release_browse(f, { tag = tag, scope = scope })
     return
   end
   if command.name == 'delete' then
-    local function do_delete()
-      require('forge.logger').info('deleting release ' .. tag .. '...')
-      vim.system(f:delete_release_cmd(tag, scope), { text = true }, function(result)
-        vim.schedule(function()
-          if result.code == 0 then
-            require('forge.logger').info('deleted release ' .. tag)
-          else
-            require('forge.logger').error('delete failed')
-          end
-        end)
-      end)
-    end
-    if command.bang then
-      do_delete()
-      return
-    end
-    vim.ui.select({ 'Yes', 'No' }, {
-      prompt = 'Delete release ' .. tag .. '? ',
-    }, function(choice)
-      if choice == 'Yes' then
-        do_delete()
-      end
-    end)
+    ops.release_delete(f, { tag = tag, scope = scope }, { confirm = not command.bang })
     return
   end
 end
@@ -767,33 +701,27 @@ local function dispatch_browse(command)
   if not require_git_or_warn() then
     return
   end
-  local f, forge_mod = require_forge_or_warn()
+  local f = require_forge_or_warn()
   if not f then
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
   if command.modifiers.commit then
-    forge_mod.open('browse.commit', { scope = scope })
+    ops.browse_commit({ scope = scope })
   elseif command.modifiers.root then
-    forge_mod.open('browse.branch', {
+    ops.browse_branch(effective_rev(command) and effective_rev(command).rev or nil, {
       scope = scope,
-      branch = effective_rev(command) and effective_rev(command).rev or nil,
     })
   else
     local location = command.parsed_modifiers.target
-    if location then
-      local loc = location_arg(location)
-      if loc then
-        f:browse(loc, location.rev.rev, scope)
-        return
-      end
-    end
-    local rev = effective_rev(command)
-    if rev and rev.rev then
-      f:browse(require('forge').file_loc(), rev.rev, scope)
+    if location and ops.browse_location(f, location, scope) then
       return
     end
-    forge_mod.open('browse.contextual', { scope = scope })
+    local rev = effective_rev(command)
+    if rev and rev.rev and ops.browse_file(f, require('forge').file_loc(), rev.rev, scope) then
+      return
+    end
+    ops.browse_contextual({ scope = scope })
   end
 end
 

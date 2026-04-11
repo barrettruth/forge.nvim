@@ -1138,6 +1138,12 @@ PUBLIC API: `require('forge')` ~
     over defaults. If `vim.g.forge.keys` is `false`, `cfg.keys` is
     `false`.
 
+SHARED OPERATIONS: `require('forge.ops')` ~
+    Picker actions and `:Forge` command dispatch share semantic forge
+    operations through `forge.ops`. Future command/picker capability work
+    should add semantic behavior there before wiring it into picker-only
+    or command-only entrypoints.
+
                                                             *forge.register()*
 `register(name, source)`
     Registers a custom `forge.Forge` source under `name`.
