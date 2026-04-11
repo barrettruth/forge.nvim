@@ -60,6 +60,25 @@ describe('command schema', function()
     assert.same({ 'feature' }, ci.subjects)
   end)
 
+  it('attaches parsed target-bearing modifiers to normalized commands', function()
+    local create = assert(cmd.parse({
+      'pr',
+      'create',
+      'base=@main',
+      'head=github.com/barrettruth/forge.nvim@topic',
+    }))
+    local browse = assert(cmd.parse({
+      'browse',
+      'target=github.com/barrettruth/forge.nvim@main:README.md#L10-L20',
+    }))
+
+    assert.equals('main', create.parsed_modifiers.base.rev)
+    assert.equals('topic', create.parsed_modifiers.head.rev)
+    assert.equals('barrettruth/forge.nvim', create.parsed_modifiers.head.repo.slug)
+    assert.equals('README.md', browse.parsed_modifiers.target.path)
+    assert.same({ start_line = 10, end_line = 20 }, browse.parsed_modifiers.target.range)
+  end)
+
   it('tracks the intended bang matrix', function()
     assert.is_true(cmd.supports_bang('pr', 'close'))
     assert.is_true(cmd.supports_bang('issue', 'close'))
