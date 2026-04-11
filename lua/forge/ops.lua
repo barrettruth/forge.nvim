@@ -62,6 +62,13 @@ local function normalize_release_ref(release, scope)
   return { tag = release, scope = scope }
 end
 
+local function normalize_run_ref(run, scope)
+  if type(run) == 'table' then
+    return run
+  end
+  return { id = run, scope = scope }
+end
+
 local function location_arg(location)
   if
     type(location) ~= 'table'
@@ -310,6 +317,90 @@ end
 function M.ci_list(branch, opts)
   opts = vim.tbl_extend('force', opts or {}, { branch = branch })
   require('forge').open(branch == nil and 'ci.all' or 'ci.current_branch', opts)
+end
+
+function M.ci_log(f, run)
+  run = normalize_run_ref(run)
+  local run_ref = run.scope
+  local status = trim(run.status):lower()
+  local in_progress = status == 'in_progress'
+    or status == 'queued'
+    or status == 'pending'
+    or status == 'running'
+  local url = trim(run.url)
+  url = url ~= '' and url or nil
+  local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
+  if f.summary_json_cmd then
+    require('forge.log').open_summary(f:summary_json_cmd(run.id, run_ref), {
+      forge_name = f.name,
+      run_id = run.id,
+      url = url,
+      title = run.name or run.id,
+      in_progress = in_progress,
+      status_cmd = status_cmd,
+      json = true,
+      log_cmd_fn = function(job_id, failed)
+        return f:check_log_cmd(run.id, failed, job_id, run_ref),
+          {
+            forge_name = f.name,
+            url = url,
+            title = (run.name or run.id) .. ' / ' .. (job_id or ''),
+            steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
+            job_id = job_id,
+            in_progress = in_progress,
+            status_cmd = status_cmd,
+          }
+      end,
+    })
+    return
+  end
+  if f.view_cmd then
+    require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
+      forge_name = f.name,
+      run_id = run.id,
+      url = url,
+      title = run.name or run.id,
+      in_progress = in_progress,
+      status_cmd = status_cmd,
+      log_cmd_fn = function(job_id, failed)
+        return f:check_log_cmd(run.id, failed, job_id, run_ref),
+          {
+            forge_name = f.name,
+            url = url,
+            title = (run.name or run.id) .. ' / ' .. (job_id or ''),
+            steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
+            job_id = job_id,
+            in_progress = in_progress,
+            status_cmd = status_cmd,
+          }
+      end,
+    })
+    return
+  end
+  log.info('fetching CI/CD logs...')
+  require('forge.log').open(
+    f:run_log_cmd(run.id, status == 'failure' or status == 'failed', run_ref),
+    {
+      forge_name = f.name,
+      url = url,
+      title = run.name or run.id,
+      steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
+      in_progress = in_progress,
+      status_cmd = status_cmd,
+    }
+  )
+end
+
+function M.ci_watch(f, run)
+  run = normalize_run_ref(run)
+  if not f.watch_cmd then
+    return false
+  end
+  local url = trim(run.url)
+  require('forge.term').open(f:watch_cmd(run.id, run.scope), {
+    url = url ~= '' and url or nil,
+  })
+  return true
 end
 
 function M.release_list(state, opts)

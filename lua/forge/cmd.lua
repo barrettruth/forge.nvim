@@ -105,6 +105,7 @@ local families = {
       merge = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo', 'method' },
+        required_modifiers = { 'method' },
       },
       draft = {
         subject = { kind = 'pr', min = 1, max = 1 },
@@ -599,6 +600,22 @@ local function dispatch_pr(command)
     ops.pr_manage(f, { num = num, scope = scope })
     return
   end
+  if command.name == 'approve' then
+    ops.pr_approve(f, { num = num, scope = scope })
+    return
+  end
+  if command.name == 'merge' then
+    ops.pr_merge(f, { num = num, scope = scope }, command.modifiers.method)
+    return
+  end
+  if command.name == 'draft' then
+    ops.pr_toggle_draft(f, { num = num, scope = scope }, false)
+    return
+  end
+  if command.name == 'ready' then
+    ops.pr_toggle_draft(f, { num = num, scope = scope }, true)
+    return
+  end
   if command.name == 'close' then
     ops.pr_close(f, { num = num, scope = scope })
     return
@@ -668,6 +685,14 @@ local function dispatch_ci(command)
       branch = rev and rev.rev or nil
     end
     ops.ci_list(command.modifiers.all and nil or branch, { scope = scope })
+    return
+  end
+  if command.name == 'log' then
+    ops.ci_log(f, { id = command.subjects[1], scope = scope })
+    return
+  end
+  if command.name == 'watch' then
+    ops.ci_watch(f, { id = command.subjects[1], scope = scope })
     return
   end
   warn(('unsupported ci action: %s'):format(command.name))
@@ -1015,6 +1040,12 @@ function M.parse(args, opts)
     local values = verb_values or allowed_values
     if type(value) == 'string' and values and not set_contains(values, value) then
       return error_result(('invalid value for %s: %s'):format(name, value))
+    end
+  end
+
+  for _, name in ipairs(command.required_modifiers or {}) do
+    if command.modifiers[name] == nil then
+      return error_result('missing modifier: ' .. name)
     end
   end
 

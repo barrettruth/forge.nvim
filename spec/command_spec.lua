@@ -171,6 +171,18 @@ describe(':Forge command', function()
         pr_manage = function(_, pr)
           table.insert(captured.ops_calls, { name = 'pr_manage', pr = pr })
         end,
+        pr_approve = function(_, pr)
+          table.insert(captured.ops_calls, { name = 'pr_approve', pr = pr })
+        end,
+        pr_merge = function(_, pr, method)
+          table.insert(captured.ops_calls, { name = 'pr_merge', pr = pr, method = method })
+        end,
+        pr_toggle_draft = function(_, pr, is_draft)
+          table.insert(
+            captured.ops_calls,
+            { name = 'pr_toggle_draft', pr = pr, is_draft = is_draft }
+          )
+        end,
         pr_close = function(_, pr)
           table.insert(captured.ops_calls, { name = 'pr_close', pr = pr })
         end,
@@ -201,6 +213,12 @@ describe(':Forge command', function()
             branch == nil and 'ci.all' or 'ci.current_branch',
             vim.tbl_extend('force', opts or {}, { branch = branch })
           )
+        end,
+        ci_log = function(_, run)
+          table.insert(captured.ops_calls, { name = 'ci_log', run = run })
+        end,
+        ci_watch = function(_, run)
+          table.insert(captured.ops_calls, { name = 'ci_watch', run = run })
         end,
         release_list = function(state, opts)
           table.insert(captured.ops_calls, { name = 'release_list', state = state, opts = opts })
@@ -479,6 +497,73 @@ describe(':Forge command', function()
 
     assert.same({ name = 'pr_close', pr = { num = '42', scope = nil } }, captured.ops_calls[1])
     assert.same({ name = 'issue_close', issue = { num = '9', scope = nil } }, captured.ops_calls[2])
+  end)
+
+  it('dispatches PR management parity subcommands through forge.ops', function()
+    vim.cmd('Forge pr approve 42')
+    vim.cmd('Forge pr merge 42 method=squash repo=upstream')
+    vim.cmd('Forge pr draft 42')
+    vim.cmd('Forge pr ready 42')
+
+    assert.same({ name = 'pr_approve', pr = { num = '42', scope = nil } }, captured.ops_calls[1])
+    assert.same({
+      name = 'pr_merge',
+      pr = {
+        num = '42',
+        scope = {
+          kind = 'github',
+          host = 'github.com',
+          owner = 'owner',
+          repo = 'upstream',
+          slug = 'owner/upstream',
+          repo_arg = 'owner/upstream',
+          web_url = 'https://github.com/owner/upstream',
+        },
+      },
+      method = 'squash',
+    }, captured.ops_calls[2])
+    assert.same({
+      name = 'pr_toggle_draft',
+      pr = { num = '42', scope = nil },
+      is_draft = false,
+    }, captured.ops_calls[3])
+    assert.same({
+      name = 'pr_toggle_draft',
+      pr = { num = '42', scope = nil },
+      is_draft = true,
+    }, captured.ops_calls[4])
+  end)
+
+  it('requires an explicit merge method for :Forge pr merge', function()
+    vim.cmd('Forge pr merge 42')
+
+    assert.same({ 'missing modifier: method' }, captured.warnings)
+    assert.is_nil(captured.ops_calls[1])
+  end)
+
+  it('dispatches CI log and watch subcommands through forge.ops', function()
+    vim.cmd('Forge ci log 123 repo=upstream')
+    vim.cmd('Forge ci watch 456')
+
+    assert.same({
+      name = 'ci_log',
+      run = {
+        id = '123',
+        scope = {
+          kind = 'github',
+          host = 'github.com',
+          owner = 'owner',
+          repo = 'upstream',
+          slug = 'owner/upstream',
+          repo_arg = 'owner/upstream',
+          web_url = 'https://github.com/owner/upstream',
+        },
+      },
+    }, captured.ops_calls[1])
+    assert.same({
+      name = 'ci_watch',
+      run = { id = '456', scope = nil },
+    }, captured.ops_calls[2])
   end)
 
   it('completes git-local subcommands and commit refs', function()
