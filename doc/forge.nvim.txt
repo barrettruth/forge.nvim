@@ -21,6 +21,7 @@ CONTENTS                                                 *forge.nvim-contents*
     COMMANDS..........................................................|:Forge|
     `:Forge`..................................................|:Forge-no-args|
     TARGET DEFAULTS AND OVERRIDES......................|forge-target-defaults|
+    COMMAND COMPLETION................................|forge-command-completion|
     `:Forge pr` [{flags}]..........................................|:Forge-pr|
     `:Forge pr create` [{flags}]............................|:Forge-pr-create|
     `:Forge pr checkout` {num}............................|:Forge-pr-checkout|
@@ -345,6 +346,17 @@ TARGET DEFAULTS AND OVERRIDES                            *forge-target-defaults*
       context and `base=` to the collaboration repo default branch
     - `:Forge browse` defaults to the current file/line selection on the
       current branch in the current repo
+
+COMMAND COMPLETION                                  *forge-command-completion*
+    `:Forge` completion is contextual:
+    - families are suggested after `:Forge `
+    - verbs are suggested after a family such as `:Forge pr `
+    - only valid modifiers are suggested for the resolved subcommand
+    - `repo=` suggests configured aliases, git remotes, and resolved repo
+      addresses
+    - `rev=`, `head=`, and `base=` suggest revision addresses using `@...`
+    - `target=` suggests repo/revision prefixes and leaves path completion
+      after `:` for future work
 
 `:Forge pr` [{flags}]                                              *:Forge-pr*
     Open the PR list picker for the collaboration repo. Defaults to open

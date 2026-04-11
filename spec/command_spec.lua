@@ -48,6 +48,8 @@ describe(':Forge command', function()
         result = { code = 1, stdout = '', stderr = '' }
       elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
         result = { code = 0, stdout = 'origin/main\n', stderr = '' }
+      elseif key == 'git rev-list --max-count=20 --abbrev-commit HEAD' then
+        result = { code = 0, stdout = 'deadbee\nabc123\n', stderr = '' }
       end
       if cb then
         cb(result)
@@ -112,6 +114,19 @@ describe(':Forge command', function()
             root = '/repo',
             branch = 'main',
             head = 'abc123',
+          }
+        end,
+        config = function()
+          return {
+            targets = {
+              aliases = {
+                mirror = 'remote:upstream',
+                work = 'github.com/owner/work',
+              },
+              ci = {
+                repo = 'current',
+              },
+            },
           }
         end,
         create_pr = function(opts)
@@ -332,7 +347,7 @@ describe(':Forge command', function()
 
     vim.fn.systemlist = function(cmd)
       if cmd == 'git for-each-ref --format=%(refname:short) refs/heads refs/tags' then
-        return { 'main', 'feature' }
+        return { 'main', 'feature', 'v1.0.0' }
       end
       return old_systemlist(cmd)
     end
@@ -567,6 +582,62 @@ describe(':Forge command', function()
       name = 'ci_watch',
       run = { id = '456', scope = nil },
     }, captured.ops_calls[2])
+  end)
+
+  it('completes families, verbs, and valid canonical modifiers contextually', function()
+    local families = vim.fn.getcompletion('Forge ', 'cmdline')
+    local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
+    local pr_create = vim.fn.getcompletion('Forge pr create ', 'cmdline')
+    local issue_create = vim.fn.getcompletion('Forge issue create ', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(families, 'pr'))
+    assert.is_true(vim.tbl_contains(families, 'ci'))
+    assert.is_true(vim.tbl_contains(families, 'browse'))
+
+    assert.is_true(vim.tbl_contains(pr, 'list'))
+    assert.is_true(vim.tbl_contains(pr, 'approve'))
+    assert.is_true(vim.tbl_contains(pr, 'merge'))
+    assert.is_true(vim.tbl_contains(pr, 'draft'))
+    assert.is_true(vim.tbl_contains(pr, 'ready'))
+    assert.is_true(vim.tbl_contains(pr, 'state='))
+    assert.is_true(vim.tbl_contains(pr, 'repo='))
+
+    assert.is_true(vim.tbl_contains(pr_create, 'head='))
+    assert.is_true(vim.tbl_contains(pr_create, 'base='))
+    assert.is_true(vim.tbl_contains(pr_create, 'draft'))
+    assert.is_true(vim.tbl_contains(pr_create, 'fill'))
+    assert.is_true(vim.tbl_contains(pr_create, 'web'))
+    assert.is_false(vim.tbl_contains(pr_create, 'state='))
+
+    assert.is_true(vim.tbl_contains(issue_create, 'template='))
+    assert.is_true(vim.tbl_contains(issue_create, 'blank'))
+    assert.is_true(vim.tbl_contains(issue_create, 'web'))
+    assert.is_false(vim.tbl_contains(issue_create, 'head='))
+  end)
+
+  it('completes modifier values for repo, revision, and target addresses', function()
+    local repos = vim.fn.getcompletion('Forge pr list repo=', 'cmdline')
+    local revs = vim.fn.getcompletion('Forge ci list rev=', 'cmdline')
+    local heads = vim.fn.getcompletion('Forge pr create head=', 'cmdline')
+    local target_revs = vim.fn.getcompletion('Forge browse target=work@', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(repos, 'repo=work'))
+    assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
+    assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
+    assert.is_true(vim.tbl_contains(repos, 'repo=upstream'))
+
+    assert.is_true(vim.tbl_contains(revs, 'rev=@main'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=@feature'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=@v1.0.0'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=@deadbee'))
+
+    assert.is_true(vim.tbl_contains(heads, 'head=work@'))
+    assert.is_true(vim.tbl_contains(heads, 'head=origin@'))
+    assert.is_true(vim.tbl_contains(heads, 'head=@main'))
+    assert.is_true(vim.tbl_contains(heads, 'head=@deadbee'))
+
+    assert.is_true(vim.tbl_contains(target_revs, 'target=work@main:'))
+    assert.is_true(vim.tbl_contains(target_revs, 'target=work@feature:'))
   end)
 
   it('completes git-local subcommands and commit refs', function()
