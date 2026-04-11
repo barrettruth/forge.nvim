@@ -33,8 +33,13 @@ describe('github', function()
   end)
 
   it('builds merge_cmd with method flag', function()
-    assert.same({ 'gh', 'pr', 'merge', '42', '--squash' }, gh:merge_cmd('42', 'squash'))
-    assert.same({ 'gh', 'pr', 'merge', '10', '--rebase' }, gh:merge_cmd('10', 'rebase'))
+    local squash = gh:merge_cmd('42', 'squash')
+    assert.same({ 'gh', 'pr', 'merge', '42', '--squash' }, vim.list_slice(squash, 1, 5))
+    assert.truthy(vim.tbl_contains(squash, '-R'))
+
+    local rebase = gh:merge_cmd('10', 'rebase')
+    assert.same({ 'gh', 'pr', 'merge', '10', '--rebase' }, vim.list_slice(rebase, 1, 5))
+    assert.truthy(vim.tbl_contains(rebase, '-R'))
   end)
 
   it('builds create_pr_cmd', function()
@@ -60,12 +65,19 @@ describe('github', function()
   end)
 
   it('builds checkout_cmd', function()
-    assert.same({ 'gh', 'pr', 'checkout', '5' }, gh:checkout_cmd('5'))
+    local cmd = gh:checkout_cmd('5')
+    assert.same({ 'gh', 'pr', 'checkout', '5' }, vim.list_slice(cmd, 1, 4))
+    assert.truthy(vim.tbl_contains(cmd, '-R'))
   end)
 
   it('builds close/reopen commands', function()
-    assert.same({ 'gh', 'pr', 'close', '3' }, gh:close_cmd('3'))
-    assert.same({ 'gh', 'pr', 'reopen', '3' }, gh:reopen_cmd('3'))
+    local close = gh:close_cmd('3')
+    assert.same({ 'gh', 'pr', 'close', '3' }, vim.list_slice(close, 1, 4))
+    assert.truthy(vim.tbl_contains(close, '-R'))
+
+    local reopen = gh:reopen_cmd('3')
+    assert.same({ 'gh', 'pr', 'reopen', '3' }, vim.list_slice(reopen, 1, 4))
+    assert.truthy(vim.tbl_contains(reopen, '-R'))
   end)
 
   it('returns correct pr_json_fields', function()
@@ -167,9 +179,11 @@ describe('github browse', function()
     end)
 
     assert.same(
-      { 'gh', 'browse', 'lua/forge/init.lua:10', '--branch', 'main', '--no-browser' },
-      captured.cmd
+      { 'gh', 'browse', 'lua/forge/init.lua:10', '--branch', 'main' },
+      vim.list_slice(captured.cmd, 1, 5)
     )
+    assert.same('--no-browser', captured.cmd[#captured.cmd])
+    assert.truthy(vim.tbl_contains(captured.cmd, '-R'))
     assert.equals('https://example.com/repo/blob/main/lua/forge/init.lua#L10', captured.url)
     assert.is_nil(captured.error)
   end)
@@ -197,7 +211,9 @@ describe('github browse', function()
       return captured.error ~= nil
     end)
 
-    assert.same({ 'gh', 'browse', '--branch', 'main', '--no-browser' }, captured.cmd)
+    assert.same({ 'gh', 'browse', '--branch', 'main' }, vim.list_slice(captured.cmd, 1, 4))
+    assert.same('--no-browser', captured.cmd[#captured.cmd])
+    assert.truthy(vim.tbl_contains(captured.cmd, '-R'))
     assert.equals('exit status 1', captured.error)
     assert.is_nil(captured.url)
   end)
@@ -230,9 +246,19 @@ describe('gitlab', function()
   end)
 
   it('builds merge_cmd with method flags', function()
-    assert.same({ 'glab', 'mr', 'merge', '5', '--squash' }, gl:merge_cmd('5', 'squash'))
-    assert.same({ 'glab', 'mr', 'merge', '5', '--rebase' }, gl:merge_cmd('5', 'rebase'))
-    assert.same({ 'glab', 'mr', 'merge', '5' }, gl:merge_cmd('5', 'merge'))
+    local squash = gl:merge_cmd('5', 'squash')
+    assert.same({ 'glab', 'mr', 'merge', '5' }, vim.list_slice(squash, 1, 4))
+    assert.truthy(vim.tbl_contains(squash, '--squash'))
+    assert.truthy(vim.tbl_contains(squash, '-R'))
+
+    local rebase = gl:merge_cmd('5', 'rebase')
+    assert.same({ 'glab', 'mr', 'merge', '5' }, vim.list_slice(rebase, 1, 4))
+    assert.truthy(vim.tbl_contains(rebase, '--rebase'))
+    assert.truthy(vim.tbl_contains(rebase, '-R'))
+
+    local merge = gl:merge_cmd('5', 'merge')
+    assert.same({ 'glab', 'mr', 'merge', '5' }, vim.list_slice(merge, 1, 4))
+    assert.truthy(vim.tbl_contains(merge, '-R'))
   end)
 
   it('builds create_pr_cmd with --description and --target-branch', function()
@@ -290,7 +316,9 @@ describe('codeberg', function()
   end)
 
   it('builds merge_cmd with --style', function()
-    assert.same({ 'tea', 'pr', 'merge', '7', '--style', 'squash' }, cb:merge_cmd('7', 'squash'))
+    local cmd = cb:merge_cmd('7', 'squash')
+    assert.same({ 'tea', 'pr', 'merge', '7', '--style', 'squash' }, vim.list_slice(cmd, 1, 6))
+    assert.truthy(vim.tbl_contains(cmd, '--repo'))
   end)
 
   it('ignores draft and reviewers in create_pr_cmd', function()
@@ -310,5 +338,28 @@ describe('codeberg', function()
   it('returns nil from draft_toggle_cmd', function()
     assert.is_nil(cb:draft_toggle_cmd('1', true))
     assert.is_nil(cb:draft_toggle_cmd('1', false))
+  end)
+
+  it('uses tea api owner/repo placeholders for scoped fetches', function()
+    local checks_cmd = cb:checks_json_cmd('7', { repo_arg = 'forgejo/tea-test' })
+    assert.truthy(checks_cmd[3]:find('/repos/{owner}/{repo}/pulls/7', 1, true))
+    assert.truthy(checks_cmd[3]:find('/repos/{owner}/{repo}/commits/$SHA/status', 1, true))
+
+    local details_cmd = cb:fetch_pr_details_cmd('7', { repo_arg = 'forgejo/tea-test' })
+    assert.truthy(details_cmd[3]:find('/repos/{owner}/{repo}/pulls/7', 1, true))
+
+    local default_cmd = cb:default_branch_cmd({ repo_arg = 'forgejo/tea-test' })
+    assert.truthy(default_cmd[3]:find('/repos/{owner}/{repo}', 1, true))
+  end)
+
+  it('uses tea releases commands for release list and delete', function()
+    assert.same(
+      { 'sh', '-c', 'tea releases list --limit 30 --output json --repo forgejo/tea-test' },
+      cb:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' })
+    )
+    assert.same(
+      { 'sh', '-c', 'tea releases delete --confirm --repo forgejo/tea-test v1.2.3' },
+      cb:delete_release_cmd('v1.2.3', { repo_arg = 'forgejo/tea-test' })
+    )
   end)
 end)

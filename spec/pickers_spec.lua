@@ -446,7 +446,7 @@ describe('pickers', function()
     end)
     vim.system = old_system
 
-    assert.equals('42', streamed[1].value)
+    assert.equals('42', streamed[1].value.num)
     assert.equals('#42', streamed[1].display[1][1])
     assert.same(42, cache['pr:open'][1].number)
   end)
@@ -551,7 +551,7 @@ describe('pickers', function()
     vim.system = old_system
 
     assert.is_nil(first_streamed[1])
-    assert.equals('42', second_streamed[1].value)
+    assert.equals('42', second_streamed[1].value.num)
     assert.same(42, cache['pr:open'][1].number)
   end)
 
@@ -569,7 +569,7 @@ describe('pickers', function()
     assert.same(
       { '42', '13', '7' },
       vim.tbl_map(function(entry)
-        return entry.value
+        return entry.value.num
       end, captured.entries)
     )
   end)
@@ -595,7 +595,7 @@ describe('pickers', function()
     assert.same(
       { '42', '13' },
       vim.tbl_map(function(entry)
-        return entry.value
+        return entry.value.num
       end, vim.list_slice(captured.entries, 1, 2))
     )
     assert.equals('Load more...', captured.entries[3].display[1][1])
@@ -719,7 +719,7 @@ describe('pickers', function()
     assert.same(
       { '12', '7' },
       vim.tbl_map(function(entry)
-        return entry.value
+        return entry.value.num
       end, vim.list_slice(captured.entries, 1, 2))
     )
     assert.equals('Load more...', captured.entries[3].display[1][1])
@@ -851,7 +851,7 @@ describe('pickers', function()
     end)
     vim.system = old_system
 
-    assert.equals('7', streamed[1].value)
+    assert.equals('7', streamed[1].value.num)
     assert.equals('#7', streamed[1].display[1][1])
     assert.same(7, cache['issue:all'][1].number)
   end)

@@ -1,4 +1,5 @@
 local forge = require('forge')
+local scope = require('forge.scope')
 
 ---@class forge.GitLab: forge.Forge
 local M = {
@@ -40,10 +41,24 @@ local M = {
   },
 }
 
+local function repo_arg(ref)
+  return forge.scope_repo_arg(ref) or forge.remote_web_url()
+end
+
+local function project(ref)
+  local current = ref or forge.current_scope(M.name)
+  return scope.encode_project(current) or ''
+end
+
+local function hostname(ref)
+  local current = ref or forge.current_scope(M.name)
+  return current and current.host or nil
+end
+
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_pr_json_cmd(state, limit)
+function M:list_pr_json_cmd(state, limit, ref)
   local cmd = {
     'glab',
     'mr',
@@ -53,6 +68,11 @@ function M:list_pr_json_cmd(state, limit)
     '--output',
     'json',
   }
+  local repo = repo_arg(ref)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
   if state == 'closed' then
     table.insert(cmd, '--closed')
   elseif state == 'all' then
@@ -64,7 +84,7 @@ end
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_issue_json_cmd(state, limit)
+function M:list_issue_json_cmd(state, limit, ref)
   local cmd = {
     'glab',
     'issue',
@@ -74,6 +94,11 @@ function M:list_issue_json_cmd(state, limit)
     '--output',
     'json',
   }
+  local repo = repo_arg(ref)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
   if state == 'closed' then
     table.insert(cmd, '--closed')
   elseif state == 'all' then
@@ -84,66 +109,74 @@ end
 
 ---@param kind string
 ---@param num string
-function M:view_web(kind, num)
-  vim.system({ 'glab', kind, 'view', num, '--web' })
+function M:view_web(kind, num, ref)
+  vim.system({ 'glab', kind, 'view', num, '--web', '-R', repo_arg(ref) })
 end
 
 ---@param loc string
 ---@param branch string
-function M:browse(loc, branch)
-  local base = forge.remote_web_url()
+function M:browse(loc, branch, ref)
+  local base = forge.remote_web_url(ref)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
-function M:browse_branch(branch)
-  local base = forge.remote_web_url()
+function M:browse_branch(branch, ref)
+  local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/-/tree/' .. branch)
 end
 
-function M:browse_commit(sha)
-  local base = forge.remote_web_url()
+function M:browse_commit(sha, ref)
+  local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/-/commit/' .. sha)
 end
 
-function M:checkout_cmd(num)
-  return { 'glab', 'mr', 'checkout', num }
+function M:checkout_cmd(num, ref)
+  return { 'glab', 'mr', 'checkout', num, '-R', repo_arg(ref) }
 end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr(num)
+function M:fetch_pr(num, ref)
+  local remote = 'origin'
+  local current = forge.current_scope(M.name)
+  if ref and forge.scope_key(ref) ~= '' and forge.scope_key(ref) ~= forge.scope_key(current) then
+    remote = forge.remote_web_url(ref) .. '.git'
+  end
   return {
     'git',
     'fetch',
-    'origin',
+    remote,
     ('merge-requests/%s/head:mr-%s'):format(num, num),
   }
 end
 
 ---@param num string
 ---@return string[]
-function M:pr_base_cmd(num)
+function M:pr_base_cmd(num, ref)
   return {
     'sh',
     '-c',
-    ('glab mr view %s -F json | jq -r .target_branch'):format(num),
+    ("glab mr view %s -F json -R '%s' | jq -r .target_branch"):format(num, repo_arg(ref)),
   }
 end
 
 ---@param branch string
 ---@return string[]
-function M:pr_for_branch_cmd(branch)
+function M:pr_for_branch_cmd(branch, ref)
   return {
     'sh',
     '-c',
-    ("glab mr list --source-branch '%s' -F json | jq -r '.[0].iid // empty'"):format(branch),
+    ("glab mr list --source-branch '%s' -F json -R '%s' | jq -r '.[0].iid // empty'"):format(
+      branch,
+      repo_arg(ref)
+    ),
   }
 end
 
 ---@param num string
 ---@return string[]
-function M:checks_json_cmd(num)
+function M:checks_json_cmd(num, ref)
   local jq = [=[
     [.[] | {
       name: .name,
@@ -161,8 +194,12 @@ function M:checks_json_cmd(num)
   return {
     'sh',
     '-c',
-    ('PID=$(glab api "projects/:id/merge_requests/%s/pipelines?per_page=1" 2>/dev/null | jq -r ".[0].id // empty") && [ -n "$PID" ] && glab api "projects/:id/pipelines/$PID/jobs?per_page=100" 2>/dev/null | jq -r \'%s\''):format(
+    ('PID=$(glab api --hostname %s "projects/%s/merge_requests/%s/pipelines?per_page=1" 2>/dev/null | jq -r ".[0].id // empty") && [ -n "$PID" ] && glab api --hostname %s "projects/%s/pipelines/$PID/jobs?per_page=100" 2>/dev/null | jq -r \'%s\''):format(
+      hostname(ref) or 'gitlab.com',
+      project(ref),
       num,
+      hostname(ref) or 'gitlab.com',
+      project(ref),
       jq:gsub('%s+', ' ')
     ),
   }
@@ -179,33 +216,35 @@ end
 ---@param failed_only boolean
 ---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only, job_id)
+function M:check_log_cmd(run_id, failed_only, job_id, ref)
   local _ = failed_only
   local lines = forge.config().ci.lines
   local id = job_id or run_id
   return {
     'sh',
     '-c',
-    ('glab ci trace %s | tail -n %d'):format(id, lines),
+    ("glab ci trace %s -R '%s' | tail -n %d"):format(id, repo_arg(ref), lines),
   }
 end
 
 ---@param run_id string
 ---@return string[]
-function M:check_tail_cmd(run_id)
-  return { 'glab', 'ci', 'trace', run_id }
+function M:check_tail_cmd(run_id, ref)
+  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(ref) }
 end
 
 ---@param run_id string
 ---@return string[]
-function M:live_tail_cmd(run_id)
-  return { 'glab', 'ci', 'trace', run_id }
+function M:live_tail_cmd(run_id, _, ref)
+  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(ref) }
 end
 
 ---@param id string?
 ---@return string[]
-function M:watch_cmd(id)
+function M:watch_cmd(id, ref)
   local cmd = { 'glab', 'ci', 'view' }
+  table.insert(cmd, '-R')
+  table.insert(cmd, repo_arg(ref))
   if id then
     table.insert(cmd, '-p')
     table.insert(cmd, id)
@@ -213,7 +252,7 @@ function M:watch_cmd(id)
   return cmd
 end
 
-function M:list_runs_json_cmd(branch)
+function M:list_runs_json_cmd(branch, ref)
   local cmd = {
     'glab',
     'ci',
@@ -222,6 +261,8 @@ function M:list_runs_json_cmd(branch)
     'json',
     '--per-page',
     tostring(forge.config().display.limits.runs),
+    '-R',
+    repo_arg(ref),
   }
   if branch then
     table.insert(cmd, '--ref')
@@ -244,29 +285,35 @@ function M:normalize_run(entry)
   }
 end
 
-function M:run_log_cmd(id, failed_only)
+function M:run_log_cmd(id, failed_only, ref)
   local lines = forge.config().ci.lines
   local jq_filter = failed_only and '[.[] | select(.status=="failed")][0].id // .[0].id'
     or '.[0].id'
   return {
     'sh',
     '-c',
-    ('JOB=$(glab api \'projects/:id/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB" | tail -n %d'):format(
+    ('JOB=$(glab api --hostname %s \'projects/%s/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB" -R \'%s\' | tail -n %d'):format(
+      hostname(ref) or 'gitlab.com',
+      project(ref),
       id,
       jq_filter,
+      repo_arg(ref),
       lines
     ),
   }
 end
 
-function M:run_tail_cmd(id)
+function M:run_tail_cmd(id, ref)
   local jq_filter = '[.[] | select(.status=="running" or .status=="pending")][0].id // .[0].id'
   return {
     'sh',
     '-c',
-    ('JOB=$(glab api \'projects/:id/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB"'):format(
+    ('JOB=$(glab api --hostname %s \'projects/%s/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB" -R \'%s\''):format(
+      hostname(ref) or 'gitlab.com',
+      project(ref),
       id,
-      jq_filter
+      jq_filter,
+      repo_arg(ref)
     ),
   }
 end
@@ -274,8 +321,10 @@ end
 ---@param num string
 ---@param method string
 ---@return string[]
-function M:merge_cmd(num, method)
+function M:merge_cmd(num, method, ref)
   local cmd = { 'glab', 'mr', 'merge', num }
+  table.insert(cmd, '-R')
+  table.insert(cmd, repo_arg(ref))
   if method == 'squash' then
     table.insert(cmd, '--squash')
   elseif method == 'rebase' then
@@ -286,20 +335,20 @@ end
 
 ---@param num string
 ---@return string[]
-function M:approve_cmd(num)
-  return { 'glab', 'mr', 'approve', num }
+function M:approve_cmd(num, ref)
+  return { 'glab', 'mr', 'approve', num, '-R', repo_arg(ref) }
 end
 
 ---@param num string
 ---@return string[]
-function M:close_cmd(num)
-  return { 'glab', 'mr', 'close', num }
+function M:close_cmd(num, ref)
+  return { 'glab', 'mr', 'close', num, '-R', repo_arg(ref) }
 end
 
 ---@param num string
 ---@return string[]
-function M:reopen_cmd(num)
-  return { 'glab', 'mr', 'reopen', num }
+function M:reopen_cmd(num, ref)
+  return { 'glab', 'mr', 'reopen', num, '-R', repo_arg(ref) }
 end
 
 ---@param num string
@@ -316,8 +365,8 @@ end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr_details_cmd(num)
-  return { 'glab', 'mr', 'view', num, '--output', 'json' }
+function M:fetch_pr_details_cmd(num, ref)
+  return { 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(ref) }
 end
 
 ---@param num string
@@ -328,8 +377,9 @@ end
 ---@param assignees string[]?
 ---@param milestone string?
 ---@return string[]
-function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone)
-  local cmd = { 'glab', 'mr', 'update', num, '--title', title, '--description', body }
+function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone, ref)
+  local cmd =
+    { 'glab', 'mr', 'update', num, '--title', title, '--description', body, '-R', repo_arg(ref) }
   for _, r in ipairs(reviewers or {}) do
     table.insert(cmd, '--reviewer')
     table.insert(cmd, r)
@@ -350,7 +400,7 @@ function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milesto
 end
 
 ---@param json table
----@return { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+---@return forge.PRDetails
 function M:parse_pr_details(json)
   local labels = {}
   for _, l in ipairs(json.labels or {}) do
@@ -381,19 +431,39 @@ end
 
 ---@param field string
 ---@return string[]?
-function M:completion_cmd(field)
+function M:completion_cmd(field, ref)
   if field == 'labels' then
-    return { 'sh', '-c', "glab label list -F json | jq -r '.[].name'" }
+    return { 'sh', '-c', "glab label list -F json -R '" .. repo_arg(ref) .. "' | jq -r '.[].name'" }
   elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
-    return { 'sh', '-c', "glab api 'projects/:id/members/all?per_page=100' | jq -r '.[].username'" }
+    return {
+      'sh',
+      '-c',
+      'glab api --hostname '
+        .. (hostname(ref) or 'gitlab.com')
+        .. " 'projects/"
+        .. project(ref)
+        .. "/members/all?per_page=100' | jq -r '.[].username'",
+    }
   elseif field == 'milestone' then
-    return { 'sh', '-c', "glab api 'projects/:id/milestones?state=active' | jq -r '.[].title'" }
+    return {
+      'sh',
+      '-c',
+      'glab api --hostname '
+        .. (hostname(ref) or 'gitlab.com')
+        .. " 'projects/"
+        .. project(ref)
+        .. "/milestones?state=active' | jq -r '.[].title'",
+    }
   elseif field == 'issues' then
     return {
       'sh',
       '-c',
-      'glab issue list --per-page 50 -F json | jq -r \'.[] | "\\(.iid)\\t\\(.title)"\''
-        .. ' && glab mr list --per-page 50 -F json | jq -r \'.[] | "\\(.iid)\\t\\(.title)"\'',
+      "glab issue list --per-page 50 -F json -R '"
+        .. repo_arg(ref)
+        .. "' | jq -r '.[] | \"\\(.iid)\\t\\(.title)\"'"
+        .. " && glab mr list --per-page 50 -F json -R '"
+        .. repo_arg(ref)
+        .. "' | jq -r '.[] | \"\\(.iid)\\t\\(.title)\"'",
     }
   end
   return nil
@@ -408,7 +478,7 @@ end
 ---@param assignees string[]?
 ---@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone)
+function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone, ref)
   local cmd = {
     'glab',
     'mr',
@@ -420,6 +490,8 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
     '--target-branch',
     base,
     '--yes',
+    '-R',
+    repo_arg(ref),
   }
   if draft then
     table.insert(cmd, '--draft')
@@ -444,8 +516,8 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
 end
 
 ---@return string[]
-function M:create_pr_web_cmd()
-  return { 'glab', 'mr', 'create', '--web' }
+function M:create_pr_web_cmd(ref)
+  return { 'glab', 'mr', 'create', '--web', '-R', repo_arg(ref) }
 end
 
 ---@param title string
@@ -454,8 +526,19 @@ end
 ---@param assignees string[]?
 ---@param milestone string?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, assignees, milestone)
-  local cmd = { 'glab', 'issue', 'create', '--title', title, '--description', body, '--yes' }
+function M:create_issue_cmd(title, body, labels, assignees, milestone, ref)
+  local cmd = {
+    'glab',
+    'issue',
+    'create',
+    '--title',
+    title,
+    '--description',
+    body,
+    '--yes',
+    '-R',
+    repo_arg(ref),
+  }
   if labels and #labels > 0 then
     table.insert(cmd, '--label')
     table.insert(cmd, table.concat(labels, ','))
@@ -472,8 +555,8 @@ function M:create_issue_cmd(title, body, labels, assignees, milestone)
 end
 
 ---@return string[]
-function M:create_issue_web_cmd()
-  return { 'glab', 'issue', 'create', '--web' }
+function M:create_issue_web_cmd(ref)
+  return { 'glab', 'issue', 'create', '--web', '-R', repo_arg(ref) }
 end
 
 ---@return string[]
@@ -482,11 +565,11 @@ function M:issue_template_paths()
 end
 
 ---@return string[]
-function M:default_branch_cmd()
+function M:default_branch_cmd(ref)
   return {
     'sh',
     '-c',
-    "glab repo view -F json | jq -r '.default_branch'",
+    "glab repo view -F json -R '" .. repo_arg(ref) .. "' | jq -r '.default_branch'",
   }
 end
 
@@ -498,16 +581,24 @@ end
 ---@param num string
 ---@param is_draft boolean
 ---@return string[]?
-function M:draft_toggle_cmd(num, is_draft)
+function M:draft_toggle_cmd(num, is_draft, ref)
   if is_draft then
-    return { 'glab', 'mr', 'update', num, '--ready' }
+    return { 'glab', 'mr', 'update', num, '--ready', '-R', repo_arg(ref) }
   end
-  return { 'glab', 'mr', 'update', num, '--draft' }
+  return { 'glab', 'mr', 'update', num, '--draft', '-R', repo_arg(ref) }
 end
 
 ---@return forge.RepoInfo
-function M:repo_info()
-  local result = vim.system({ 'glab', 'api', 'projects/:id' }, { text = true }):wait()
+function M:repo_info(ref)
+  local result = vim
+    .system({
+      'glab',
+      'api',
+      '--hostname',
+      hostname(ref) or 'gitlab.com',
+      'projects/' .. project(ref),
+    }, { text = true })
+    :wait()
   local ok, data = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(data) ~= 'table' then
     data = {}
@@ -545,9 +636,9 @@ end
 
 ---@param num string
 ---@return forge.PRState
-function M:pr_state(num)
+function M:pr_state(num, ref)
   local result = vim
-    .system({ 'glab', 'mr', 'view', num, '--output', 'json' }, { text = true })
+    .system({ 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(ref) }, { text = true })
     :wait()
   local ok, data = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(data) ~= 'table' then
@@ -561,20 +652,20 @@ function M:pr_state(num)
   }
 end
 
-function M:list_releases_json_cmd()
-  return { 'glab', 'release', 'list', '--output', 'json' }
+function M:list_releases_json_cmd(ref)
+  return { 'glab', 'release', 'list', '--output', 'json', '-R', repo_arg(ref) }
 end
 
 ---@param tag string
-function M:browse_release(tag)
-  local base = forge.remote_web_url()
+function M:browse_release(tag, ref)
+  local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/-/releases/' .. tag)
 end
 
 ---@param tag string
 ---@return string[]
-function M:delete_release_cmd(tag)
-  return { 'glab', 'release', 'delete', tag }
+function M:delete_release_cmd(tag, ref)
+  return { 'glab', 'release', 'delete', tag, '-R', repo_arg(ref) }
 end
 
 return M

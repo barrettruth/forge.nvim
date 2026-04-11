@@ -94,11 +94,37 @@ local function with_placeholder(entries, text)
   return { placeholder_entry(text) }
 end
 
+local function scoped_forge_ref(f, ref)
+  if ref then
+    return ref
+  end
+  local forge_mod = require('forge')
+  if forge_mod.current_scope then
+    return forge_mod.current_scope(f.name)
+  end
+  return nil
+end
+
+local function scoped_key(forge_mod, ref)
+  if forge_mod.scope_key then
+    return forge_mod.scope_key(ref)
+  end
+  return ''
+end
+
+local function scoped_id(id, suffix)
+  if suffix ~= nil and suffix ~= '' then
+    return id .. '|' .. suffix
+  end
+  return id
+end
+
 local list_states = { 'open', 'closed', 'all' }
 
-local function clear_state_caches(forge_mod, kind)
+local function clear_state_caches(forge_mod, kind, suffix)
+  local scoped_suffix = suffix ~= '' and suffix or nil
   for _, state in ipairs(list_states) do
-    local key = forge_mod.list_key(kind, state)
+    local key = forge_mod.list_key(kind, scoped_suffix and (state .. '|' .. scoped_suffix) or state)
     forge_mod.clear_list(key)
     picker_session.invalidate(key)
   end
@@ -109,8 +135,9 @@ local function clear_list_cache(forge_mod, key)
   picker_session.invalidate(key)
 end
 
-local function maybe_prefetch_list(forge_mod, kind, state, label, cmd)
-  local key = forge_mod.list_key(kind, state)
+local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
+  local scoped_suffix = suffix ~= '' and suffix or nil
+  local key = forge_mod.list_key(kind, scoped_suffix and (state .. '|' .. scoped_suffix) or state)
   local started = picker_session.prefetch_json({
     key = key,
     cmd = cmd,
@@ -533,13 +560,13 @@ end
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
-local function issue_toggle_state(f, num, is_open, on_success)
+local function issue_toggle_state(f, num, is_open, on_success, ref)
   if is_open then
     run_forge_cmd(
       'issue',
       num,
       'closing',
-      f:close_issue_cmd(num),
+      f:close_issue_cmd(num, ref),
       'closed',
       'close failed',
       on_success,
@@ -550,7 +577,7 @@ local function issue_toggle_state(f, num, is_open, on_success)
       'issue',
       num,
       'reopening',
-      f:reopen_issue_cmd(num),
+      f:reopen_issue_cmd(num, ref),
       'reopened',
       'reopen failed',
       on_success,
@@ -562,14 +589,14 @@ end
 ---@param f forge.Forge
 ---@param num string
 ---@param is_open boolean
-local function pr_toggle_state(f, num, is_open, on_success)
+local function pr_toggle_state(f, num, is_open, on_success, ref)
   local kind = f.labels.pr_one
   if is_open then
     run_forge_cmd(
       kind,
       num,
       'closing',
-      f:close_cmd(num),
+      f:close_cmd(num, ref),
       'closed',
       'close failed',
       on_success,
@@ -580,7 +607,7 @@ local function pr_toggle_state(f, num, is_open, on_success)
       kind,
       num,
       'reopening',
-      f:reopen_cmd(num),
+      f:reopen_cmd(num, ref),
       'reopened',
       'reopen failed',
       on_success,
@@ -589,10 +616,21 @@ local function pr_toggle_state(f, num, is_open, on_success)
   end
 end
 
+---@param pr forge.PRRefLike
+---@return forge.PRRef
+local function normalize_pr_ref(pr)
+  if type(pr) == 'table' then
+    return pr
+  end
+  return { num = pr }
+end
+
 ---@param f forge.Forge
----@param num string
+---@param pr forge.PRRef
 ---@return table<string, function>
-local function pr_action_fns(f, num)
+local function pr_action_fns(f, pr)
+  local num = pr.num
+  local ref = pr.scope
   local kind = f.labels.pr_one
   local function review_pr(opts)
     opts = opts or {}
@@ -600,20 +638,20 @@ local function pr_action_fns(f, num)
     local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
 
     log.info(('reviewing %s #%s...'):format(kind, num))
-    vim.system(f:checkout_cmd(num), { text = true }, function(co_result)
+    vim.system(f:checkout_cmd(num, ref), { text = true }, function(co_result)
       if co_result.code ~= 0 then
         vim.schedule(function()
           log.debug('checkout skipped, proceeding with review')
         end)
       end
 
-      vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
+      vim.system(f:pr_base_cmd(num, ref), { text = true }, function(base_result)
         vim.schedule(function()
           local base = vim.trim(base_result.stdout or '')
           if base == '' or base_result.code ~= 0 then
             base = 'main'
           end
-          local range = 'origin/' .. base
+          local range = require('forge').remote_ref(ref, base) or ('origin/' .. base)
           local head = vim.trim(vim.fn.system('git branch --show-current'))
           review.start_session({
             subject = {
@@ -639,7 +677,7 @@ local function pr_action_fns(f, num)
   return {
     checkout = function()
       log.info(('checking out %s #%s...'):format(kind, num))
-      vim.system(f:checkout_cmd(num), { text = true }, function(result)
+      vim.system(f:checkout_cmd(num, ref), { text = true }, function(result)
         vim.schedule(function()
           if result.code == 0 then
             log.info(('checked out %s #%s'):format(kind, num))
@@ -650,10 +688,10 @@ local function pr_action_fns(f, num)
       end)
     end,
     browse = function()
-      f:view_web(f.kinds.pr, num)
+      f:view_web(f.kinds.pr, num, ref)
     end,
     worktree = function()
-      local fetch_cmd = f:fetch_pr(num)
+      local fetch_cmd = f:fetch_pr(num, ref)
       local branch = fetch_cmd[#fetch_cmd]:match(':(.+)$')
       if not branch then
         return
@@ -678,39 +716,43 @@ local function pr_action_fns(f, num)
     ci = function(opts)
       opts = opts or {}
       if f.capabilities.per_pr_checks then
+        opts.scope = ref
         M.checks(f, num, nil, nil, opts)
       else
         log.debug(('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name))
+        opts.scope = ref
         M.ci(f, nil, nil, opts)
       end
     end,
     manage = function()
-      M.pr_manage(f, num)
+      M.pr_manage(f, { num = num, scope = ref })
     end,
     edit = function()
-      require('forge').edit_pr(num)
+      require('forge').edit_pr(num, ref)
     end,
   }
 end
 
 ---@param f forge.Forge
----@param num string
-local function pr_manage_picker(f, num, parent)
+---@param pr forge.PRRef
+local function pr_manage_picker(f, pr, parent)
   local forge_mod = require('forge')
+  local num = pr.num
+  local ref = pr.scope
   local kind = f.labels.pr_one
   log.info('loading more for ' .. kind .. ' #' .. num .. '...')
 
-  local info = forge_mod.repo_info(f)
+  local info = forge_mod.repo_info(f, ref)
   local can_write = info.permission == 'ADMIN'
     or info.permission == 'MAINTAIN'
     or info.permission == 'WRITE'
-  local pr_state = f:pr_state(num)
+  local pr_state = f:pr_state(num, ref)
   local is_open = pr_state.state == 'OPEN' or pr_state.state == 'OPENED'
 
   local entries = {}
   local action_map = {}
   local function reopen_self()
-    pr_manage_picker(f, num, parent)
+    pr_manage_picker(f, { num = num, scope = ref }, parent)
   end
 
   local function add(label, fn)
@@ -722,7 +764,7 @@ local function pr_manage_picker(f, num, parent)
   end
 
   add('Edit', function()
-    require('forge').edit_pr(num)
+    require('forge').edit_pr(num, ref)
   end)
 
   if can_write and is_open then
@@ -731,7 +773,7 @@ local function pr_manage_picker(f, num, parent)
         kind,
         num,
         'approving',
-        f:approve_cmd(num),
+        f:approve_cmd(num, ref),
         'approved',
         'approve failed',
         reopen_self,
@@ -747,7 +789,7 @@ local function pr_manage_picker(f, num, parent)
           kind,
           num,
           'merging (' .. method .. ')',
-          f:merge_cmd(num, method),
+          f:merge_cmd(num, method, ref),
           'merged (' .. method .. ')',
           'merge failed',
           parent and parent.refresh or reopen_self,
@@ -763,7 +805,7 @@ local function pr_manage_picker(f, num, parent)
         kind,
         num,
         'closing',
-        f:close_cmd(num),
+        f:close_cmd(num, ref),
         'closed',
         'close failed',
         parent and parent.refresh or reopen_self,
@@ -776,7 +818,7 @@ local function pr_manage_picker(f, num, parent)
         kind,
         num,
         'reopening',
-        f:reopen_cmd(num),
+        f:reopen_cmd(num, ref),
         'reopened',
         'reopen failed',
         parent and parent.refresh or reopen_self,
@@ -785,7 +827,7 @@ local function pr_manage_picker(f, num, parent)
     end)
   end
 
-  local draft_cmd = f:draft_toggle_cmd(num, pr_state.is_draft)
+  local draft_cmd = f:draft_toggle_cmd(num, pr_state.is_draft, ref)
   if draft_cmd then
     local draft_label = pr_state.is_draft and 'Mark as ready' or 'Mark as draft'
     local draft_done = pr_state.is_draft and 'marked as ready' or 'marked as draft'
@@ -826,13 +868,14 @@ end
 ---@param num string
 ---@param filter string?
 ---@param cached_checks table[]?
----@param opts? { back?: fun() }
+---@param opts? forge.PickerBackOpts
 function M.checks(f, num, filter, cached_checks, opts)
   opts = opts or {}
   filter = filter or 'all'
   local forge_mod = require('forge')
+  local ref = scoped_forge_ref(f, opts.scope)
   local current_checks = cached_checks
-  local request_key = forge_mod.list_key('check', num)
+  local request_key = forge_mod.list_key('check', scoped_id(num, scoped_key(forge_mod, ref)))
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -895,13 +938,14 @@ function M.checks(f, num, filter, cached_checks, opts)
           return
         end
         local in_progress = bucket == 'pending'
+        local check_ref = c.scope or ref
         if in_progress and f.live_tail_cmd then
-          require('forge.term').open(f:live_tail_cmd(run_id, job_id), { url = c.link })
+          require('forge.term').open(f:live_tail_cmd(run_id, job_id, check_ref), { url = c.link })
         else
           log.info('fetching check logs...')
-          local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id)
-          local steps_cmd = f.steps_cmd and f:steps_cmd(run_id) or nil
-          local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id) or nil
+          local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id, check_ref)
+          local steps_cmd = f.steps_cmd and f:steps_cmd(run_id, check_ref) or nil
+          local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id, check_ref) or nil
           require('forge.log').open(cmd, {
             forge_name = f.name,
             url = c.link,
@@ -928,42 +972,54 @@ function M.checks(f, num, filter, cached_checks, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.checks(f, num, next_ci_filter[filter] or 'all', current_checks, { back = opts.back })
+        M.checks(
+          f,
+          num,
+          next_ci_filter[filter] or 'all',
+          current_checks,
+          { back = opts.back, scope = ref }
+        )
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.checks(f, num, prev_ci_filter[filter] or 'all', current_checks, { back = opts.back })
+        M.checks(
+          f,
+          num,
+          prev_ci_filter[filter] or 'all',
+          current_checks,
+          { back = opts.back, scope = ref }
+        )
       end,
     },
     {
       name = 'failed',
       label = 'failed',
       fn = function()
-        M.checks(f, num, 'fail', current_checks, { back = opts.back })
+        M.checks(f, num, 'fail', current_checks, { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'passed',
       label = 'passed',
       fn = function()
-        M.checks(f, num, 'pass', current_checks, { back = opts.back })
+        M.checks(f, num, 'pass', current_checks, { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'running',
       label = 'running',
       fn = function()
-        M.checks(f, num, 'pending', current_checks, { back = opts.back })
+        M.checks(f, num, 'pending', current_checks, { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'all',
       label = 'all',
       fn = function()
-        M.checks(f, num, 'all', current_checks, { back = opts.back })
+        M.checks(f, num, 'all', current_checks, { back = opts.back, scope = ref })
       end,
     },
     {
@@ -971,13 +1027,16 @@ function M.checks(f, num, filter, cached_checks, opts)
       label = 'refresh',
       fn = function()
         log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
-        M.checks(f, num, filter, nil, { back = opts.back })
+        M.checks(f, num, filter, nil, { back = opts.back, scope = ref })
       end,
     },
   }
 
   local function open_picker(checks)
     current_checks = checks
+    for _, check in ipairs(checks) do
+      check.scope = check.scope or ref
+    end
     local entries, count = build_check_entries(checks)
 
     picker.pick({
@@ -1003,7 +1062,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       picker_name = 'ci',
       back = opts.back,
       cmd = function()
-        return f:checks_json_cmd(num)
+        return f:checks_json_cmd(num, ref)
       end,
       on_fetch = function()
         log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
@@ -1013,6 +1072,9 @@ function M.checks(f, num, filter, cached_checks, opts)
       end,
       build_entries = function(checks)
         current_checks = checks
+        for _, check in ipairs(checks) do
+          check.scope = check.scope or ref
+        end
         local entries = build_check_entries(checks)
         return entries
       end,
@@ -1032,12 +1094,14 @@ end
 ---@param f forge.Forge
 ---@param branch string?
 ---@param filter string?
----@param opts? { back?: fun() }
+---@param opts? forge.PickerBackOpts
 function M.ci(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
   local forge_mod = require('forge')
-  local request_key = forge_mod.list_key('ci', branch or 'all')
+  local ref = scoped_forge_ref(f, opts.scope)
+  local request_key =
+    forge_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -1064,7 +1128,9 @@ function M.ci(f, branch, filter, opts)
   local function build_ci_entries(runs)
     local normalized = {}
     for _, entry in ipairs(runs) do
-      table.insert(normalized, f:normalize_run(entry))
+      local run = f:normalize_run(entry)
+      run.scope = run.scope or ref
+      table.insert(normalized, run)
     end
     local filtered = forge_mod.filter_runs(normalized, filter)
     local count = #filtered
@@ -1101,12 +1167,13 @@ function M.ci(f, branch, filter, opts)
           return
         end
         local run = entry.value
+        local run_ref = run.scope or ref
         local s = run.status:lower()
         local in_progress = s == 'in_progress' or s == 'queued' or s == 'pending' or s == 'running'
         local url = run.url ~= '' and run.url or nil
-        local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id) or nil
+        local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
         if f.summary_json_cmd then
-          require('forge.log').open_summary(f:summary_json_cmd(run.id), {
+          require('forge.log').open_summary(f:summary_json_cmd(run.id, run_ref), {
             forge_name = f.name,
             run_id = run.id,
             url = url,
@@ -1115,12 +1182,12 @@ function M.ci(f, branch, filter, opts)
             status_cmd = status_cmd,
             json = true,
             log_cmd_fn = function(job_id, failed)
-              return f:check_log_cmd(run.id, failed, job_id),
+              return f:check_log_cmd(run.id, failed, job_id, run_ref),
                 {
                   forge_name = f.name,
                   url = url,
                   title = (run.name or run.id) .. ' / ' .. (job_id or ''),
-                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
+                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
                   job_id = job_id,
                   in_progress = in_progress,
                   status_cmd = status_cmd,
@@ -1128,7 +1195,7 @@ function M.ci(f, branch, filter, opts)
             end,
           })
         elseif f.view_cmd then
-          require('forge.log').open_summary(f:view_cmd(run.id), {
+          require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
             forge_name = f.name,
             run_id = run.id,
             url = url,
@@ -1136,12 +1203,12 @@ function M.ci(f, branch, filter, opts)
             in_progress = in_progress,
             status_cmd = status_cmd,
             log_cmd_fn = function(job_id, failed)
-              return f:check_log_cmd(run.id, failed, job_id),
+              return f:check_log_cmd(run.id, failed, job_id, run_ref),
                 {
                   forge_name = f.name,
                   url = url,
                   title = (run.name or run.id) .. ' / ' .. (job_id or ''),
-                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil,
+                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
                   job_id = job_id,
                   in_progress = in_progress,
                   status_cmd = status_cmd,
@@ -1151,8 +1218,8 @@ function M.ci(f, branch, filter, opts)
         else
           log.info('fetching CI/CD logs...')
           local failed = s == 'failure' or s == 'failed'
-          local cmd = f:run_log_cmd(run.id, failed)
-          local steps_cmd = f.steps_cmd and f:steps_cmd(run.id) or nil
+          local cmd = f:run_log_cmd(run.id, failed, run_ref)
+          local steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil
           require('forge.log').open(cmd, {
             forge_name = f.name,
             url = url,
@@ -1173,7 +1240,7 @@ function M.ci(f, branch, filter, opts)
         end
         if f.watch_cmd then
           local run = entry.value
-          require('forge.term').open(f:watch_cmd(run.id), {
+          require('forge.term').open(f:watch_cmd(run.id, run.scope or ref), {
             url = run.url ~= '' and run.url or nil,
           })
         end
@@ -1193,42 +1260,42 @@ function M.ci(f, branch, filter, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.ci(f, branch, next_ci_filter[filter] or 'all', { back = opts.back })
+        M.ci(f, branch, next_ci_filter[filter] or 'all', { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.ci(f, branch, prev_ci_filter[filter] or 'all', { back = opts.back })
+        M.ci(f, branch, prev_ci_filter[filter] or 'all', { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'failed',
       label = 'failed',
       fn = function()
-        M.ci(f, branch, 'fail', { back = opts.back })
+        M.ci(f, branch, 'fail', { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'passed',
       label = 'passed',
       fn = function()
-        M.ci(f, branch, 'pass', { back = opts.back })
+        M.ci(f, branch, 'pass', { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'running',
       label = 'running',
       fn = function()
-        M.ci(f, branch, 'pending', { back = opts.back })
+        M.ci(f, branch, 'pending', { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'all',
       label = 'all',
       fn = function()
-        M.ci(f, branch, 'all', { back = opts.back })
+        M.ci(f, branch, 'all', { back = opts.back, scope = ref })
       end,
     },
     {
@@ -1236,7 +1303,7 @@ function M.ci(f, branch, filter, opts)
       label = 'refresh',
       fn = function()
         log.info('refreshing CI runs...')
-        M.ci(f, branch, filter, { back = opts.back })
+        M.ci(f, branch, filter, { back = opts.back, scope = ref })
       end,
     },
   }
@@ -1261,7 +1328,7 @@ function M.ci(f, branch, filter, opts)
       picker_name = 'ci',
       back = opts.back,
       cmd = function()
-        return f:list_runs_json_cmd(branch)
+        return f:list_runs_json_cmd(branch, ref)
       end,
       on_fetch = function()
         log.info('fetching CI runs...')
@@ -1285,7 +1352,7 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer, back?: fun() }
+---@param opts? forge.PickerLimitOpts
 function M.pr(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.pr
@@ -1298,7 +1365,8 @@ function M.pr(state, f, opts)
   local visible_limit = opts.limit or limit_step
   local fetch_limit = visible_limit + 1
   local use_cache = visible_limit == limit_step
-  local cache_key = forge_mod.list_key('pr', state)
+  local ref = scoped_forge_ref(f, opts.scope)
+  local cache_key = forge_mod.list_key('pr', scoped_id(state, scoped_key(forge_mod, ref)))
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
   local show_state = state ~= 'open'
@@ -1325,7 +1393,7 @@ function M.pr(state, f, opts)
       state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
-        value = num,
+        value = { num = num, scope = ref },
         ordinal = (pr[pr_fields.title] or '') .. ' #' .. num,
       })
     end
@@ -1339,12 +1407,12 @@ function M.pr(state, f, opts)
   end
 
   local function reopen_list()
-    clear_state_caches(forge_mod, 'pr')
-    M.pr(state, f, { limit = visible_limit, back = opts.back })
+    clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
+    M.pr(state, f, { limit = visible_limit, back = opts.back, scope = ref })
   end
 
   local function back_to_list()
-    M.pr(state, f, { limit = visible_limit, back = opts.back })
+    M.pr(state, f, { limit = visible_limit, back = opts.back, scope = ref })
   end
 
   local function maybe_prefetch_next()
@@ -1356,7 +1424,8 @@ function M.pr(state, f, opts)
       'pr',
       next_state,
       f.labels.pr,
-      f:list_pr_json_cmd(next_state, fetch_limit)
+      f:list_pr_json_cmd(next_state, fetch_limit, ref),
+      scoped_key(forge_mod, ref)
     )
   end
 
@@ -1366,7 +1435,7 @@ function M.pr(state, f, opts)
       label = 'more',
       fn = function(entry)
         if entry and entry.load_more then
-          M.pr(state, f, { limit = entry.next_limit, back = opts.back })
+          M.pr(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
         elseif entry then
           pr_manage_picker(f, entry.value, {
             refresh = reopen_list,
@@ -1418,7 +1487,7 @@ function M.pr(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
-          f:view_web(cli_kind, entry.value)
+          f:view_web(cli_kind, entry.value.num, entry.value.scope)
         end
       end,
     },
@@ -1447,7 +1516,7 @@ function M.pr(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_pr({ back = opts.back })
+        forge_mod.create_pr({ back = opts.back, scope = ref })
       end,
     },
     {
@@ -1455,7 +1524,13 @@ function M.pr(state, f, opts)
       label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
       fn = function(entry)
         if entry and not entry.load_more then
-          pr_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
+          pr_toggle_state(
+            f,
+            entry.value.num,
+            state_map[entry.value.num] ~= false,
+            reopen_list,
+            entry.value.scope
+          )
         end
       end,
     },
@@ -1463,22 +1538,22 @@ function M.pr(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.pr(next_state, f, { limit = visible_limit, back = opts.back })
+        M.pr(next_state, f, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.pr(prev_state, f, { limit = visible_limit, back = opts.back })
+        M.pr(prev_state, f, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'refresh',
       label = 'refresh',
       fn = function()
-        clear_state_caches(forge_mod, 'pr')
-        M.pr(state, f, { limit = visible_limit, back = opts.back })
+        clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
+        M.pr(state, f, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
   }
@@ -1507,7 +1582,7 @@ function M.pr(state, f, opts)
     picker_name = 'pr',
     back = opts.back,
     cmd = function()
-      return f:list_pr_json_cmd(state, fetch_limit)
+      return f:list_pr_json_cmd(state, fetch_limit, ref)
     end,
     on_fetch = function()
       log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
@@ -1536,7 +1611,7 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer, back?: fun() }
+---@param opts? forge.PickerLimitOpts
 function M.issue(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.issue
@@ -1549,7 +1624,8 @@ function M.issue(state, f, opts)
   local visible_limit = opts.limit or limit_step
   local fetch_limit = visible_limit + 1
   local use_cache = visible_limit == limit_step
-  local cache_key = forge_mod.list_key('issue', state)
+  local ref = scoped_forge_ref(f, opts.scope)
+  local cache_key = forge_mod.list_key('issue', scoped_id(state, scoped_key(forge_mod, ref)))
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
   local issue_show_state = state == 'all'
@@ -1581,7 +1657,7 @@ function M.issue(state, f, opts)
       state_map[n] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
-        value = n,
+        value = { num = n, scope = ref },
         ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
       })
     end
@@ -1595,8 +1671,8 @@ function M.issue(state, f, opts)
   end
 
   local function reopen_list()
-    clear_state_caches(forge_mod, 'issue')
-    M.issue(state, f, { limit = visible_limit, back = opts.back })
+    clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
+    M.issue(state, f, { limit = visible_limit, back = opts.back, scope = ref })
   end
 
   local function maybe_prefetch_next()
@@ -1608,7 +1684,8 @@ function M.issue(state, f, opts)
       'issue',
       next_state,
       f.labels.issue,
-      f:list_issue_json_cmd(next_state, fetch_limit)
+      f:list_issue_json_cmd(next_state, fetch_limit, ref),
+      scoped_key(forge_mod, ref)
     )
   end
 
@@ -1619,9 +1696,9 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and entry.load_more then
-          M.issue(state, f, { limit = entry.next_limit, back = opts.back })
+          M.issue(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
         elseif entry then
-          f:view_web(cli_kind, entry.value)
+          f:view_web(cli_kind, entry.value.num, entry.value.scope)
         end
       end,
     },
@@ -1631,7 +1708,7 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
-          f:view_web(cli_kind, entry.value)
+          f:view_web(cli_kind, entry.value.num, entry.value.scope)
         end
       end,
     },
@@ -1640,7 +1717,13 @@ function M.issue(state, f, opts)
       label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
       fn = function(entry)
         if entry and not entry.load_more then
-          issue_toggle_state(f, entry.value, state_map[entry.value] ~= false, reopen_list)
+          issue_toggle_state(
+            f,
+            entry.value.num,
+            state_map[entry.value.num] ~= false,
+            reopen_list,
+            entry.value.scope
+          )
         end
       end,
     },
@@ -1648,29 +1731,29 @@ function M.issue(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_issue({ back = opts.back })
+        forge_mod.create_issue({ back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.issue(next_state, f, { limit = visible_limit, back = opts.back })
+        M.issue(next_state, f, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.issue(prev_state, f, { limit = visible_limit, back = opts.back })
+        M.issue(prev_state, f, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'refresh',
       label = 'refresh',
       fn = function()
-        clear_state_caches(forge_mod, 'issue')
-        M.issue(state, f, { limit = visible_limit, back = opts.back })
+        clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
+        M.issue(state, f, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
   }
@@ -1699,7 +1782,7 @@ function M.issue(state, f, opts)
     picker_name = 'issue',
     back = opts.back,
     cmd = function()
-      return f:list_issue_json_cmd(state, fetch_limit)
+      return f:list_issue_json_cmd(state, fetch_limit, ref)
     end,
     on_fetch = function()
       log.info('fetching issue list (' .. state .. ')...')
@@ -1727,51 +1810,63 @@ function M.issue(state, f, opts)
 end
 
 ---@param f forge.Forge
----@param num string
-function M.pr_manage(f, num)
-  pr_manage_picker(f, num)
+---@param pr forge.PRRefLike
+function M.pr_manage(f, pr)
+  pr_manage_picker(f, normalize_pr_ref(pr))
 end
 
 ---@param f forge.Forge
 ---@param num string
-function M.issue_close(f, num)
-  run_forge_cmd('issue', num, 'closing', f:close_issue_cmd(num), 'closed', 'close failed')
+---@param ref? forge.Scope
+function M.issue_close(f, num, ref)
+  run_forge_cmd('issue', num, 'closing', f:close_issue_cmd(num, ref), 'closed', 'close failed')
 end
 
 ---@param f forge.Forge
 ---@param num string
-function M.issue_reopen(f, num)
-  run_forge_cmd('issue', num, 'reopening', f:reopen_issue_cmd(num), 'reopened', 'reopen failed')
+---@param ref? forge.Scope
+function M.issue_reopen(f, num, ref)
+  run_forge_cmd(
+    'issue',
+    num,
+    'reopening',
+    f:reopen_issue_cmd(num, ref),
+    'reopened',
+    'reopen failed'
+  )
 end
 
 ---@param f forge.Forge
 ---@param num string
-function M.pr_close(f, num)
+---@param ref? forge.Scope
+function M.pr_close(f, num, ref)
   local kind = f.labels.pr_one
-  run_forge_cmd(kind, num, 'closing', f:close_cmd(num), 'closed', 'close failed')
+  run_forge_cmd(kind, num, 'closing', f:close_cmd(num, ref), 'closed', 'close failed')
 end
 
 ---@param f forge.Forge
 ---@param num string
-function M.pr_reopen(f, num)
+---@param ref? forge.Scope
+function M.pr_reopen(f, num, ref)
   local kind = f.labels.pr_one
-  run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num), 'reopened', 'reopen failed')
+  run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num, ref), 'reopened', 'reopen failed')
 end
 
 ---@param f forge.Forge
----@param num string
+---@param pr forge.PRRefLike
 ---@return table<string, function>
-function M.pr_actions(f, num)
-  return pr_action_fns(f, num)
+function M.pr_actions(f, pr)
+  return pr_action_fns(f, normalize_pr_ref(pr))
 end
 
 ---@param state 'all'|'draft'|'prerelease'
 ---@param f forge.Forge
----@param opts? { back?: fun() }
+---@param opts? forge.PickerBackOpts
 function M.release(state, f, opts)
   opts = opts or {}
   local forge_mod = require('forge')
-  local cache_key = forge_mod.list_key('release', 'list')
+  local ref = scoped_forge_ref(f, opts.scope)
+  local cache_key = forge_mod.list_key('release', scoped_id('list', scoped_key(forge_mod, ref)))
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
   local prev_state = ({ all = 'prerelease', draft = 'all', prerelease = 'draft' })[state]
@@ -1804,7 +1899,7 @@ function M.release(state, f, opts)
       local tag = tostring(rel[rel_fields.tag] or '')
       table.insert(entries, {
         display = displays[i],
-        value = { tag = tag, rel = rel },
+        value = { tag = tag, rel = rel, scope = ref },
         ordinal = tag .. ' ' .. (rel[rel_fields.title] or ''),
       })
     end
@@ -1817,7 +1912,7 @@ function M.release(state, f, opts)
 
   local function reopen_list()
     clear_list_cache(forge_mod, cache_key)
-    M.release(state, f, { back = opts.back })
+    M.release(state, f, { back = opts.back, scope = ref })
   end
 
   local actions = {
@@ -1827,7 +1922,7 @@ function M.release(state, f, opts)
       close = false,
       fn = function(entry)
         if entry then
-          f:browse_release(entry.value.tag)
+          f:browse_release(entry.value.tag, entry.value.scope)
         end
       end,
     },
@@ -1837,7 +1932,7 @@ function M.release(state, f, opts)
       close = false,
       fn = function(entry)
         if entry then
-          local base = forge_mod.remote_web_url()
+          local base = forge_mod.remote_web_url(entry.value.scope)
           local tag = entry.value.tag
           local url = base .. '/releases/tag/' .. tag
           vim.fn.setreg('+', url)
@@ -1861,14 +1956,14 @@ function M.release(state, f, opts)
               'release',
               tag,
               'deleting',
-              f:delete_release_cmd(tag),
+              f:delete_release_cmd(tag, entry.value.scope),
               'deleted',
               'delete failed',
               reopen_list,
               reopen_list
             )
           else
-            M.release(state, f, { back = opts.back })
+            M.release(state, f, { back = opts.back, scope = ref })
           end
         end)
       end,
@@ -1877,14 +1972,14 @@ function M.release(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.release(next_state, f, { back = opts.back })
+        M.release(next_state, f, { back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.release(prev_state, f, { back = opts.back })
+        M.release(prev_state, f, { back = opts.back, scope = ref })
       end,
     },
     {
@@ -1892,7 +1987,7 @@ function M.release(state, f, opts)
       label = 'refresh',
       fn = function()
         clear_list_cache(forge_mod, cache_key)
-        M.release(state, f, { back = opts.back })
+        M.release(state, f, { back = opts.back, scope = ref })
       end,
     },
   }
@@ -1918,7 +2013,7 @@ function M.release(state, f, opts)
     picker_name = 'release',
     back = opts.back,
     cmd = function()
-      return f:list_releases_json_cmd()
+      return f:list_releases_json_cmd(ref)
     end,
     on_fetch = function()
       log.info('fetching releases...')
