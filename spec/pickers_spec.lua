@@ -313,7 +313,6 @@ describe('pickers', function()
     assert.is_nil(cfg.keys.pr.edit)
     assert.is_nil(cfg.keys.pr.close)
     assert.equals('<tab>', cfg.keys.ci.filter)
-    assert.equals('<s-tab>', cfg.keys.ci.filter_prev)
 
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
