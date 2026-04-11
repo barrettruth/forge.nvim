@@ -616,12 +616,21 @@ local function pr_toggle_state(f, num, is_open, on_success, ref)
   end
 end
 
+---@param pr forge.PRRefLike
+---@return forge.PRRef
+local function normalize_pr_ref(pr)
+  if type(pr) == 'table' then
+    return pr
+  end
+  return { num = pr }
+end
+
 ---@param f forge.Forge
----@param pr { num: string, scope: table? }|string
+---@param pr forge.PRRef
 ---@return table<string, function>
 local function pr_action_fns(f, pr)
-  local num = type(pr) == 'table' and pr.num or pr
-  local ref = type(pr) == 'table' and pr.scope or nil
+  local num = pr.num
+  local ref = pr.scope
   local kind = f.labels.pr_one
   local function review_pr(opts)
     opts = opts or {}
@@ -725,11 +734,11 @@ local function pr_action_fns(f, pr)
 end
 
 ---@param f forge.Forge
----@param pr { num: string, scope: table? }|string
+---@param pr forge.PRRef
 local function pr_manage_picker(f, pr, parent)
   local forge_mod = require('forge')
-  local num = type(pr) == 'table' and pr.num or pr
-  local ref = type(pr) == 'table' and pr.scope or nil
+  local num = pr.num
+  local ref = pr.scope
   local kind = f.labels.pr_one
   log.info('loading more for ' .. kind .. ' #' .. num .. '...')
 
@@ -859,7 +868,7 @@ end
 ---@param num string
 ---@param filter string?
 ---@param cached_checks table[]?
----@param opts? { back?: fun(), scope?: table }
+---@param opts? forge.PickerBackOpts
 function M.checks(f, num, filter, cached_checks, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -1085,7 +1094,7 @@ end
 ---@param f forge.Forge
 ---@param branch string?
 ---@param filter string?
----@param opts? { back?: fun(), scope?: table }
+---@param opts? forge.PickerBackOpts
 function M.ci(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -1343,7 +1352,7 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer, back?: fun(), scope?: table }
+---@param opts? forge.PickerLimitOpts
 function M.pr(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.pr
@@ -1602,7 +1611,7 @@ end
 
 ---@param state 'all'|'open'|'closed'
 ---@param f forge.Forge
----@param opts? { limit?: integer, back?: fun(), scope?: table }
+---@param opts? forge.PickerLimitOpts
 function M.issue(state, f, opts)
   opts = opts or {}
   local cli_kind = f.kinds.issue
@@ -1801,21 +1810,21 @@ function M.issue(state, f, opts)
 end
 
 ---@param f forge.Forge
----@param pr { num: string, scope: table? }|string
+---@param pr forge.PRRefLike
 function M.pr_manage(f, pr)
-  pr_manage_picker(f, pr)
+  pr_manage_picker(f, normalize_pr_ref(pr))
 end
 
 ---@param f forge.Forge
 ---@param num string
----@param ref? table
+---@param ref? forge.Scope
 function M.issue_close(f, num, ref)
   run_forge_cmd('issue', num, 'closing', f:close_issue_cmd(num, ref), 'closed', 'close failed')
 end
 
 ---@param f forge.Forge
 ---@param num string
----@param ref? table
+---@param ref? forge.Scope
 function M.issue_reopen(f, num, ref)
   run_forge_cmd(
     'issue',
@@ -1829,7 +1838,7 @@ end
 
 ---@param f forge.Forge
 ---@param num string
----@param ref? table
+---@param ref? forge.Scope
 function M.pr_close(f, num, ref)
   local kind = f.labels.pr_one
   run_forge_cmd(kind, num, 'closing', f:close_cmd(num, ref), 'closed', 'close failed')
@@ -1837,22 +1846,22 @@ end
 
 ---@param f forge.Forge
 ---@param num string
----@param ref? table
+---@param ref? forge.Scope
 function M.pr_reopen(f, num, ref)
   local kind = f.labels.pr_one
   run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num, ref), 'reopened', 'reopen failed')
 end
 
 ---@param f forge.Forge
----@param pr { num: string, scope: table? }|string
+---@param pr forge.PRRefLike
 ---@return table<string, function>
 function M.pr_actions(f, pr)
-  return pr_action_fns(f, pr)
+  return pr_action_fns(f, normalize_pr_ref(pr))
 end
 
 ---@param state 'all'|'draft'|'prerelease'
 ---@param f forge.Forge
----@param opts? { back?: fun(), scope?: table }
+---@param opts? forge.PickerBackOpts
 function M.release(state, f, opts)
   opts = opts or {}
   local forge_mod = require('forge')

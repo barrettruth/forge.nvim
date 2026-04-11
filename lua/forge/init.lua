@@ -271,12 +271,6 @@ M.format_releases = format_mod.format_releases
 M.filter_checks = format_mod.filter_checks
 M.filter_runs = format_mod.filter_runs
 
----@class forge.CreatePROpts
----@field draft boolean?
----@field instant boolean?
----@field web boolean?
----@field back fun()?
-
 ---@param opts forge.CreatePROpts?
 function M.create_pr(opts)
   opts = opts or {}
@@ -403,7 +397,7 @@ function M.create_pr(opts)
 end
 
 ---@param num string
----@param ref? table
+---@param ref? forge.Scope
 function M.edit_pr(num, ref)
   local log = require('forge.logger')
 
@@ -448,12 +442,6 @@ function M.edit_pr(num, ref)
     end)
   end)
 end
-
----@class forge.CreateIssueOpts
----@field web boolean?
----@field blank boolean?
----@field template string?
----@field back fun()?
 
 ---@param opts forge.CreateIssueOpts?
 function M.create_issue(opts)

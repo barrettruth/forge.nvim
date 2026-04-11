@@ -400,7 +400,7 @@ function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milesto
 end
 
 ---@param json table
----@return { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+---@return forge.PRDetails
 function M:parse_pr_details(json)
   local labels = {}
   for _, l in ipairs(json.labels or {}) do

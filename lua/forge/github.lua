@@ -265,7 +265,7 @@ function M:steps_cmd(run_id, scope)
 end
 
 ---@param id string
----@param opts? { job_id?: string, log?: boolean, failed?: boolean }
+---@param opts? forge.RunViewOpts
 ---@return string[]
 function M:view_cmd(id, opts)
   opts = opts or {}
@@ -486,7 +486,7 @@ function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milesto
 end
 
 ---@param json table
----@return { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+---@return forge.PRDetails
 function M:parse_pr_details(json)
   local labels = {}
   for _, l in ipairs(json.labels or {}) do

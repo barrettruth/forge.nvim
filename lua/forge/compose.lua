@@ -141,7 +141,7 @@ end
 ---@param pr_assignees string[]?
 ---@param pr_milestone string?
 ---@param buf integer?
----@param ref? table
+---@param ref? forge.Scope
 local function push_and_create(
   f,
   branch,
@@ -247,7 +247,7 @@ end
 
 ---@param f forge.Forge
 ---@param result forge.TemplateResult?
----@param ref? table
+---@param ref? forge.Scope
 function M.open_issue(f, result, ref)
   local buf = create_compose_buf('forge://issue/new')
   vim.b[buf].forge_scope = ref
@@ -347,7 +347,7 @@ end
 ---@param base string
 ---@param draft boolean
 ---@param tmpl forge.TemplateResult?
----@param ref? table
+---@param ref? forge.Scope
 function M.open_pr(f, branch, base, draft, tmpl, ref)
   local title, commit_body = template.fill_from_commits(branch, base)
   local body = (tmpl and tmpl.body) or commit_body
@@ -523,7 +523,7 @@ M.push_and_create = push_and_create
 ---@param pr_assignees string[]?
 ---@param pr_milestone string?
 ---@param buf integer?
----@param ref? table
+---@param ref? forge.Scope
 local function update_pr(
   f,
   num,
@@ -586,10 +586,10 @@ end
 
 ---@param f forge.Forge
 ---@param num string
----@param details { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
+---@param details forge.PRDetails
 ---@param branch string
 ---@param base string
----@param ref? table
+---@param ref? forge.Scope
 function M.open_pr_edit(f, num, details, branch, base, ref)
   local buf = create_compose_buf(('forge://pr/%s/edit'):format(num))
   vim.b[buf].forge_scope = ref

@@ -29,9 +29,11 @@ local function split_url(url)
   return host, path
 end
 
+---@param url string
+---@return forge.Scope?
 local function github_scope(url)
   local host, path = split_url(url)
-  if not host then
+  if not host or not path then
     return nil
   end
   local owner, repo = path:match('^([^/]+)/([^/]+)')
@@ -51,9 +53,11 @@ local function github_scope(url)
   }
 end
 
+---@param url string
+---@return forge.Scope?
 local function gitlab_scope(url)
   local host, path = split_url(url)
-  if not host then
+  if not host or not path then
     return nil
   end
   local slug = path:match('^(.-)/%-/') or path
@@ -62,7 +66,10 @@ local function gitlab_scope(url)
     return nil
   end
   local repo = slug:match('([^/]+)$')
-  local namespace = repo and slug:sub(1, #slug - #repo - 1) or ''
+  if not repo then
+    return nil
+  end
+  local namespace = slug:sub(1, #slug - #repo - 1)
   return {
     kind = 'gitlab',
     host = host,
@@ -74,9 +81,11 @@ local function gitlab_scope(url)
   }
 end
 
+---@param url string
+---@return forge.Scope?
 local function codeberg_scope(url)
   local host, path = split_url(url)
-  if not host then
+  if not host or not path then
     return nil
   end
   local owner, repo = path:match('^([^/]+)/([^/]+)')
@@ -95,6 +104,9 @@ local function codeberg_scope(url)
   }
 end
 
+---@param kind forge.ScopeKind
+---@param url string
+---@return forge.Scope?
 function M.from_url(kind, url)
   if kind == 'github' then
     return github_scope(url)
@@ -108,6 +120,8 @@ function M.from_url(kind, url)
   return nil
 end
 
+---@param scope forge.Scope?
+---@return string
 function M.key(scope)
   if type(scope) ~= 'table' then
     return ''
@@ -119,20 +133,29 @@ function M.key(scope)
   }, '|')
 end
 
+---@param a forge.Scope?
+---@param b forge.Scope?
+---@return boolean
 function M.same(a, b)
   local ka = M.key(a)
   local kb = M.key(b)
   return ka ~= '' and ka == kb
 end
 
+---@param scope forge.Scope?
+---@return string?
 function M.repo_arg(scope)
   return type(scope) == 'table' and scope.repo_arg or nil
 end
 
+---@param scope forge.Scope?
+---@return string
 function M.web_url(scope)
   return type(scope) == 'table' and scope.web_url or ''
 end
 
+---@param scope forge.Scope?
+---@return string?
 function M.git_url(scope)
   local url = M.web_url(scope)
   if url == '' then
@@ -141,6 +164,8 @@ function M.git_url(scope)
   return url .. '.git'
 end
 
+---@param scope forge.Scope?
+---@return string?
 function M.encode_project(scope)
   if type(scope) ~= 'table' or not scope.slug or scope.slug == '' then
     return nil
@@ -148,6 +173,8 @@ function M.encode_project(scope)
   return (scope.slug:gsub('/', '%%2F'))
 end
 
+---@param scope forge.Scope?
+---@return string?
 function M.remote_name(scope)
   if type(scope) ~= 'table' then
     return nil
@@ -168,9 +195,12 @@ function M.remote_name(scope)
   return nil
 end
 
+---@param scope forge.Scope?
+---@param branch string
+---@return string?
 function M.remote_ref(scope, branch)
   local remote = M.remote_name(scope)
-  if remote and type(branch) == 'string' and branch ~= '' then
+  if remote and branch ~= '' then
     return remote .. '/' .. branch
   end
   return nil
