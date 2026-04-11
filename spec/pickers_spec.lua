@@ -237,6 +237,12 @@ describe('pickers', function()
             opts.on_success()
           end
         end,
+        ci_log = function(_, run)
+          table.insert(op_calls, { name = 'ci_log', run = run })
+        end,
+        ci_watch = function(_, run)
+          table.insert(op_calls, { name = 'ci_watch', run = run })
+        end,
         issue_browse = function(_, issue)
           table.insert(op_calls, { name = 'issue_browse', issue = issue })
         end,
@@ -1041,6 +1047,70 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('log'), 'close'))
     assert.is_nil(rawget(action_by_name('watch'), 'close'))
+  end)
+
+  it('routes CI log and watch actions through forge.ops', function()
+    local old_system = vim.system
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            id = '1',
+            name = 'CI',
+            branch = 'main',
+            status = 'success',
+            url = 'https://example.com',
+          },
+        }),
+      })
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    action_by_name('log').fn(streamed[1])
+    action_by_name('watch').fn(streamed[1])
+
+    assert.same({
+      name = 'ci_log',
+      run = {
+        id = '1',
+        name = 'CI',
+        branch = 'main',
+        status = 'success',
+        url = 'https://example.com',
+        scope = nil,
+      },
+    }, op_calls[1])
+    assert.same({
+      name = 'ci_watch',
+      run = {
+        id = '1',
+        name = 'CI',
+        branch = 'main',
+        status = 'success',
+        url = 'https://example.com',
+        scope = nil,
+      },
+    }, op_calls[2])
   end)
 
   it('uses subject-first prompts for filtered checks', function()

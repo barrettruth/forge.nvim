@@ -1006,69 +1006,7 @@ function M.ci(f, branch, filter, opts)
         if not entry then
           return
         end
-        local run = entry.value
-        local run_ref = run.scope or ref
-        local s = run.status:lower()
-        local in_progress = s == 'in_progress' or s == 'queued' or s == 'pending' or s == 'running'
-        local url = run.url ~= '' and run.url or nil
-        local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
-        if f.summary_json_cmd then
-          require('forge.log').open_summary(f:summary_json_cmd(run.id, run_ref), {
-            forge_name = f.name,
-            run_id = run.id,
-            url = url,
-            title = run.name or run.id,
-            in_progress = in_progress,
-            status_cmd = status_cmd,
-            json = true,
-            log_cmd_fn = function(job_id, failed)
-              return f:check_log_cmd(run.id, failed, job_id, run_ref),
-                {
-                  forge_name = f.name,
-                  url = url,
-                  title = (run.name or run.id) .. ' / ' .. (job_id or ''),
-                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
-                  job_id = job_id,
-                  in_progress = in_progress,
-                  status_cmd = status_cmd,
-                }
-            end,
-          })
-        elseif f.view_cmd then
-          require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
-            forge_name = f.name,
-            run_id = run.id,
-            url = url,
-            title = run.name or run.id,
-            in_progress = in_progress,
-            status_cmd = status_cmd,
-            log_cmd_fn = function(job_id, failed)
-              return f:check_log_cmd(run.id, failed, job_id, run_ref),
-                {
-                  forge_name = f.name,
-                  url = url,
-                  title = (run.name or run.id) .. ' / ' .. (job_id or ''),
-                  steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
-                  job_id = job_id,
-                  in_progress = in_progress,
-                  status_cmd = status_cmd,
-                }
-            end,
-          })
-        else
-          log.info('fetching CI/CD logs...')
-          local failed = s == 'failure' or s == 'failed'
-          local cmd = f:run_log_cmd(run.id, failed, run_ref)
-          local steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil
-          require('forge.log').open(cmd, {
-            forge_name = f.name,
-            url = url,
-            title = run.name or run.id,
-            steps_cmd = steps_cmd,
-            in_progress = in_progress,
-            status_cmd = status_cmd,
-          })
-        end
+        ops.ci_log(f, entry.value)
       end,
     },
     {
@@ -1078,12 +1016,7 @@ function M.ci(f, branch, filter, opts)
         if not entry then
           return
         end
-        if f.watch_cmd then
-          local run = entry.value
-          require('forge.term').open(f:watch_cmd(run.id, run.scope or ref), {
-            url = run.url ~= '' and run.url or nil,
-          })
-        end
+        ops.ci_watch(f, entry.value)
       end,
     },
     {

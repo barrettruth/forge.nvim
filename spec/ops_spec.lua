@@ -14,6 +14,9 @@ describe('shared operations', function()
       errors = {},
       sessions = {},
       opened = 0,
+      summaries = {},
+      logs = {},
+      terms = {},
     }
 
     old_system = vim.system
@@ -21,8 +24,10 @@ describe('shared operations', function()
     old_ui_select = vim.ui.select
     old_preload = {
       ['forge'] = package.preload['forge'],
+      ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.review'] = package.preload['forge.review'],
+      ['forge.term'] = package.preload['forge.term'],
     }
 
     vim.fn.system = function(cmd)
@@ -73,6 +78,25 @@ describe('shared operations', function()
       }
     end
 
+    package.preload['forge.log'] = function()
+      return {
+        open_summary = function(cmd, opts)
+          table.insert(captured.summaries, { cmd = cmd, opts = opts })
+        end,
+        open = function(cmd, opts)
+          table.insert(captured.logs, { cmd = cmd, opts = opts })
+        end,
+      }
+    end
+
+    package.preload['forge.term'] = function()
+      return {
+        open = function(cmd, opts)
+          table.insert(captured.terms, { cmd = cmd, opts = opts })
+        end,
+      }
+    end
+
     package.preload['forge'] = function()
       return {
         remote_ref = function(_, branch)
@@ -94,9 +118,11 @@ describe('shared operations', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.review'] = nil
+    package.loaded['forge.term'] = nil
   end)
 
   after_each(function()
@@ -105,13 +131,17 @@ describe('shared operations', function()
     vim.ui.select = old_ui_select
 
     package.preload['forge'] = old_preload['forge']
+    package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.review'] = old_preload['forge.review']
+    package.preload['forge.term'] = old_preload['forge.term']
 
     package.loaded['forge'] = nil
+    package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.review'] = nil
+    package.loaded['forge.term'] = nil
   end)
 
   it('starts PR review sessions through the shared operation', function()
@@ -159,6 +189,33 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
+  it('runs PR merge commands without requiring a method', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.pr_merge(
+      {
+        labels = { pr_one = 'PR' },
+        merge_cmd = function(_, num, method)
+          return { 'merge', num, method or 'default' }
+        end,
+      },
+      { num = '42' },
+      nil,
+      {
+        on_success = function()
+          done = done + 1
+        end,
+      }
+    )
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'merge 42 default' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
   it('confirms release deletion before running the shared delete operation', function()
     local done = 0
     local ops = require('forge.ops')
@@ -178,5 +235,102 @@ describe('shared operations', function()
 
     assert.same({ 'delete v1.2.3' }, captured.commands)
     assert.equals(1, done)
+  end)
+
+  it('opens CI summaries through the shared log operation', function()
+    local ops = require('forge.ops')
+    ops.ci_log({
+      name = 'github',
+      summary_json_cmd = function(_, run_id, scope)
+        return { 'summary', run_id, scope or 'none' }
+      end,
+      check_log_cmd = function(_, run_id, failed, job_id, scope)
+        return { 'check-log', run_id, tostring(failed), job_id or '', scope or 'none' }
+      end,
+      steps_cmd = function(_, run_id, scope)
+        return { 'steps', run_id, scope or 'none' }
+      end,
+      run_status_cmd = function(_, run_id, scope)
+        return { 'status', run_id, scope or 'none' }
+      end,
+    }, {
+      id = '77',
+      name = 'CI',
+      status = 'running',
+      url = 'https://example.com/runs/77',
+      scope = 'repo/ref',
+    })
+
+    assert.same({ 'summary', '77', 'repo/ref' }, captured.summaries[1].cmd)
+    local summary_opts = vim.deepcopy(captured.summaries[1].opts)
+    summary_opts.log_cmd_fn = nil
+    assert.same({
+      forge_name = 'github',
+      run_id = '77',
+      url = 'https://example.com/runs/77',
+      title = 'CI',
+      in_progress = true,
+      status_cmd = { 'status', '77', 'repo/ref' },
+      json = true,
+    }, summary_opts)
+
+    local cmd, opts = captured.summaries[1].opts.log_cmd_fn('job-1', true)
+    assert.same({ 'check-log', '77', 'true', 'job-1', 'repo/ref' }, cmd)
+    assert.same({
+      forge_name = 'github',
+      url = 'https://example.com/runs/77',
+      title = 'CI / job-1',
+      steps_cmd = { 'steps', '77', 'repo/ref' },
+      job_id = 'job-1',
+      in_progress = true,
+      status_cmd = { 'status', '77', 'repo/ref' },
+    }, opts)
+  end)
+
+  it('opens CI logs and watches through the shared operations', function()
+    local ops = require('forge.ops')
+    ops.ci_log({
+      name = 'gitlab',
+      run_log_cmd = function(_, run_id, failed, scope)
+        return { 'run-log', run_id, tostring(failed), scope or 'none' }
+      end,
+      steps_cmd = function(_, run_id, scope)
+        return { 'steps', run_id, scope or 'none' }
+      end,
+      run_status_cmd = function(_, run_id, scope)
+        return { 'status', run_id, scope or 'none' }
+      end,
+      watch_cmd = function(_, run_id, scope)
+        return { 'watch', run_id, scope or 'none' }
+      end,
+    }, {
+      id = '88',
+      name = 'Deploy',
+      status = 'failed',
+      url = 'https://example.com/runs/88',
+      scope = 'repo/ref',
+    })
+    local watched = ops.ci_watch({
+      watch_cmd = function(_, run_id, scope)
+        return { 'watch', run_id, scope or 'none' }
+      end,
+    }, {
+      id = '88',
+      url = 'https://example.com/runs/88',
+      scope = 'repo/ref',
+    })
+
+    assert.same({ 'run-log', '88', 'true', 'repo/ref' }, captured.logs[1].cmd)
+    assert.same({
+      forge_name = 'gitlab',
+      url = 'https://example.com/runs/88',
+      title = 'Deploy',
+      steps_cmd = { 'steps', '88', 'repo/ref' },
+      in_progress = false,
+      status_cmd = { 'status', '88', 'repo/ref' },
+    }, captured.logs[1].opts)
+    assert.is_true(watched)
+    assert.same({ 'watch', '88', 'repo/ref' }, captured.terms[1].cmd)
+    assert.same({ url = 'https://example.com/runs/88' }, captured.terms[1].opts)
   end)
 end)
