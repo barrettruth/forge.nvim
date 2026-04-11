@@ -576,3 +576,47 @@ describe('buffer reuse refreshes', function()
     assert.same({ '✓ new job (ID 2)' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 end)
+
+describe('log folds', function()
+  local original_system
+
+  before_each(function()
+    original_system = vim.system
+  end)
+
+  after_each(function()
+    vim.system = original_system
+  end)
+
+  it('leaves completed log folds open by default', function()
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = table.concat({
+          'build\tSetup\t2024-01-01T00:00:00Z hello',
+          'build\tSetup\t2024-01-01T00:00:01Z ##[group]Install',
+          'build\tSetup\t2024-01-01T00:00:02Z done',
+          'build\tSetup\t2024-01-01T00:00:03Z ##[endgroup]',
+        }, '\n'),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    log_mod.open({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      title = 'ci',
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
+    end)
+
+    assert.equals(99, vim.wo[0].foldlevel)
+    assert.equals(-1, vim.fn.foldclosed(1))
+    assert.equals(-1, vim.fn.foldclosed(2))
+    assert.equals(-1, vim.fn.foldclosed(3))
+  end)
+end)

@@ -551,7 +551,7 @@ On GitHub, `<cr>` on a run opens a summary buffer showing all jobs with
 status, durations, and annotations. Press `<cr>` on a job line to open its
 full log. On GitLab and Codeberg, in-progress jobs open a live-tailing
 terminal (`glab ci trace`, `tea actions runs logs --follow`); completed
-jobs render in a buffer with highlighting and folds.
+jobs render in a buffer with highlighting and folds left open by default.
 
 In-progress views auto-refresh at the `ci.refresh` interval.
 

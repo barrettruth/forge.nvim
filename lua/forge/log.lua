@@ -583,7 +583,7 @@ local function render(buf, parsed)
       for _, r in ipairs(ranges) do
         vim.cmd(r[1] .. ',' .. r[2] .. 'fold')
       end
-      vim.wo[0].foldlevel = 1
+      vim.wo[0].foldlevel = 99
     end)
   end
 end
