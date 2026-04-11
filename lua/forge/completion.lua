@@ -63,20 +63,21 @@ end
 
 ---@param field string
 ---@param f forge.Forge
+---@param scope? table
 ---@return string[]
-local function fetch(field, f)
+local function fetch(field, f, scope)
   if field == 'draft' then
     return { 'true', 'false' }
   end
 
   local now = os.time()
-  local key = f.name .. ':' .. field
+  local key = f.name .. ':' .. field .. ':' .. require('forge').scope_key(scope)
   local entry = cache[key]
   if entry and entry.data and (now - entry.ts) < TTL then
     return entry.data
   end
 
-  local cmd = f:completion_cmd(field)
+  local cmd = f:completion_cmd(field, scope)
   if not cmd then
     return {}
   end
@@ -133,11 +134,12 @@ function M.omnifunc(findstart, base)
   if not f then
     return {}
   end
+  local scope = vim.b.forge_scope
 
   local kind, value = last_context:match('^(%w+):(.+)$')
 
   if kind == 'field' then
-    local candidates = fetch(value, f)
+    local candidates = fetch(value, f, scope)
     local items = {}
     local lower_base = base:lower()
     for _, word in ipairs(candidates) do
@@ -150,7 +152,7 @@ function M.omnifunc(findstart, base)
 
   if kind == 'trigger' then
     if value == '#' then
-      local candidates = fetch('issues', f)
+      local candidates = fetch('issues', f, scope)
       local items = {}
       local lower_base = base:lower()
       for _, entry in ipairs(candidates) do
@@ -163,7 +165,7 @@ function M.omnifunc(findstart, base)
       end
       return items
     elseif value == '@' then
-      local candidates = fetch('mentions', f)
+      local candidates = fetch('mentions', f, scope)
       local items = {}
       local lower_base = base:lower()
       for _, word in ipairs(candidates) do

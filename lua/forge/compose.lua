@@ -141,6 +141,7 @@ end
 ---@param pr_assignees string[]?
 ---@param pr_milestone string?
 ---@param buf integer?
+---@param ref? table
 local function push_and_create(
   f,
   branch,
@@ -152,7 +153,8 @@ local function push_and_create(
   pr_labels,
   pr_assignees,
   pr_milestone,
-  buf
+  buf,
+  ref
 )
   local log = require('forge.logger')
   log.info('pushing and creating ' .. f.labels.pr_one .. '...')
@@ -176,7 +178,8 @@ local function push_and_create(
         pr_reviewers,
         pr_labels,
         pr_assignees,
-        pr_milestone
+        pr_milestone,
+        ref
       ),
       { text = true },
       function(create_result)
@@ -208,11 +211,11 @@ local function push_and_create(
   end)
 end
 
-local function submit_issue(f, title, body, labels, assignees, milestone, buf)
+local function submit_issue(f, title, body, labels, assignees, milestone, buf, ref)
   local log = require('forge.logger')
   log.info('creating issue...')
   vim.system(
-    f:create_issue_cmd(title, body, labels, assignees, milestone),
+    f:create_issue_cmd(title, body, labels, assignees, milestone, ref),
     { text = true },
     function(result)
       vim.schedule(function()
@@ -244,8 +247,10 @@ end
 
 ---@param f forge.Forge
 ---@param result forge.TemplateResult?
-function M.open_issue(f, result)
+---@param ref? table
+function M.open_issue(f, result, ref)
   local buf = create_compose_buf('forge://issue/new')
+  vim.b[buf].forge_scope = ref
 
   local template_title = result and result.title or ''
   local title_prefix = '# ' .. template_title
@@ -320,7 +325,16 @@ function M.open_issue(f, result)
       end
 
       local meta = parse_comment_metadata(buf_lines)
-      submit_issue(f, issue_title, issue_body, meta.labels, meta.assignees, meta.milestone, buf)
+      submit_issue(
+        f,
+        issue_title,
+        issue_body,
+        meta.labels,
+        meta.assignees,
+        meta.milestone,
+        buf,
+        ref
+      )
     end,
   })
 
@@ -333,11 +347,13 @@ end
 ---@param base string
 ---@param draft boolean
 ---@param tmpl forge.TemplateResult?
-function M.open_pr(f, branch, base, draft, tmpl)
+---@param ref? table
+function M.open_pr(f, branch, base, draft, tmpl, ref)
   local title, commit_body = template.fill_from_commits(branch, base)
   local body = (tmpl and tmpl.body) or commit_body
 
   local buf = create_compose_buf('forge://pr/new')
+  vim.b[buf].forge_scope = ref
 
   local b = ComposeBuilder.new()
   b.lines = { '# ' .. title, '' }
@@ -483,7 +499,8 @@ function M.open_pr(f, branch, base, draft, tmpl)
         meta.labels,
         meta.assignees,
         meta.milestone,
-        buf
+        buf,
+        ref
       )
     end,
   })
@@ -506,6 +523,7 @@ M.push_and_create = push_and_create
 ---@param pr_assignees string[]?
 ---@param pr_milestone string?
 ---@param buf integer?
+---@param ref? table
 local function update_pr(
   f,
   num,
@@ -517,12 +535,13 @@ local function update_pr(
   pr_labels,
   pr_assignees,
   pr_milestone,
-  buf
+  buf,
+  ref
 )
   local log = require('forge.logger')
   log.info('updating ' .. f.labels.pr_one .. ' #' .. num .. '...')
   vim.system(
-    f:update_pr_cmd(num, title, body, pr_reviewers, pr_labels, pr_assignees, pr_milestone),
+    f:update_pr_cmd(num, title, body, pr_reviewers, pr_labels, pr_assignees, pr_milestone, ref),
     { text = true },
     function(result)
       vim.schedule(function()
@@ -538,7 +557,7 @@ local function update_pr(
           return
         end
         if pr_draft ~= original_draft then
-          local draft_cmd = f:draft_toggle_cmd(num, original_draft)
+          local draft_cmd = f:draft_toggle_cmd(num, original_draft, ref)
           if draft_cmd then
             vim.system(draft_cmd, { text = true }, function(dr)
               vim.schedule(function()
@@ -570,8 +589,10 @@ end
 ---@param details { title: string, body: string, draft: boolean, reviewers: string[], labels: string[], assignees: string[], milestone: string }
 ---@param branch string
 ---@param base string
-function M.open_pr_edit(f, num, details, branch, base)
+---@param ref? table
+function M.open_pr_edit(f, num, details, branch, base, ref)
   local buf = create_compose_buf(('forge://pr/%s/edit'):format(num))
+  vim.b[buf].forge_scope = ref
 
   local b = ComposeBuilder.new()
   b.lines = { '# ' .. details.title, '' }
@@ -715,7 +736,8 @@ function M.open_pr_edit(f, num, details, branch, base)
         meta.labels,
         meta.assignees,
         meta.milestone,
-        buf
+        buf,
+        ref
       )
     end,
   })

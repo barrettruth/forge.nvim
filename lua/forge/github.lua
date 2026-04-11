@@ -44,9 +44,9 @@ local M = {
   },
 }
 
-local function nwo()
-  local url = forge.remote_web_url()
-  return url:match('github%.com/(.+)$') or ''
+local function nwo(scope)
+  local current = scope or forge.current_scope(M.name)
+  return forge.scope_repo_arg(current) or ''
 end
 
 local function open_browse_url(cmd)
@@ -71,8 +71,8 @@ end
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_pr_json_cmd(state, limit)
-  return {
+function M:list_pr_json_cmd(state, limit, scope)
+  local cmd = {
     'gh',
     'pr',
     'list',
@@ -81,15 +81,21 @@ function M:list_pr_json_cmd(state, limit)
     '--state',
     state,
     '--json',
-    'number,title,headRefName,state,author,createdAt',
+    'number,title,headRefName,state,author,createdAt,url',
   }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_issue_json_cmd(state, limit)
-  return {
+function M:list_issue_json_cmd(state, limit, scope)
+  local cmd = {
     'gh',
     'issue',
     'list',
@@ -100,46 +106,93 @@ function M:list_issue_json_cmd(state, limit)
     '--json',
     'number,title,state,author,createdAt',
   }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param kind string
 ---@param num string
-function M:view_web(kind, num)
-  vim.system({ 'gh', kind, 'view', num, '--web' })
+function M:view_web(kind, num, scope)
+  local cmd = { 'gh', kind, 'view', num, '--web' }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  vim.system(cmd)
 end
 
 ---@param loc string
 ---@param branch string
-function M:browse(loc, branch)
-  open_browse_url({ 'gh', 'browse', loc, '--branch', branch })
+function M:browse(loc, branch, scope)
+  local cmd = { 'gh', 'browse', loc, '--branch', branch }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  open_browse_url(cmd)
 end
 
-function M:browse_branch(branch)
-  open_browse_url({ 'gh', 'browse', '--branch', branch })
+function M:browse_branch(branch, scope)
+  local cmd = { 'gh', 'browse', '--branch', branch }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  open_browse_url(cmd)
 end
 
-function M:browse_commit(sha)
-  open_browse_url({ 'gh', 'browse', sha })
+function M:browse_commit(sha, scope)
+  local cmd = { 'gh', 'browse', sha }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  open_browse_url(cmd)
 end
 
-function M:checkout_cmd(num)
-  return { 'gh', 'pr', 'checkout', num }
+function M:checkout_cmd(num, scope)
+  local cmd = { 'gh', 'pr', 'checkout', num }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr(num)
-  return { 'git', 'fetch', 'origin', ('pull/%s/head:pr-%s'):format(num, num) }
+function M:fetch_pr(num, scope)
+  local current = forge.current_scope(M.name)
+  local remote = 'origin'
+  if
+    scope
+    and forge.scope_key(scope) ~= ''
+    and forge.scope_key(scope) ~= forge.scope_key(current)
+  then
+    remote = forge.remote_web_url(scope) .. '.git'
+  end
+  return { 'git', 'fetch', remote, ('pull/%s/head:pr-%s'):format(num, num) }
 end
 
 ---@param num string
 ---@return string[]
-function M:pr_base_cmd(num)
+function M:pr_base_cmd(num, scope)
   return {
     'gh',
     'pr',
     'view',
     num,
+    '-R',
+    nwo(scope),
     '--json',
     'baseRefName',
     '--jq',
@@ -149,8 +202,8 @@ end
 
 ---@param branch string
 ---@return string[]
-function M:pr_for_branch_cmd(branch)
-  return {
+function M:pr_for_branch_cmd(branch, scope)
+  local cmd = {
     'gh',
     'pr',
     'list',
@@ -161,6 +214,12 @@ function M:pr_for_branch_cmd(branch)
     '--jq',
     '.[0].number',
   }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
@@ -171,12 +230,14 @@ end
 
 ---@param num string
 ---@return string[]
-function M:checks_json_cmd(num)
+function M:checks_json_cmd(num, scope)
   return {
     'gh',
     'pr',
     'checks',
     num,
+    '-R',
+    nwo(scope),
     '--json',
     'name,bucket,link,state,startedAt,completedAt',
   }
@@ -186,21 +247,21 @@ end
 ---@param failed_only boolean
 ---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only, job_id)
+function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local lines = forge.config().ci.lines
   local flag = failed_only and '--log-failed' or '--log'
   local job_flag = job_id and (' --job %s'):format(job_id) or ''
   return {
     'sh',
     '-c',
-    ('gh run view %s -R %s%s %s | tail -n %d'):format(run_id, nwo(), job_flag, flag, lines),
+    ('gh run view %s -R %s%s %s | tail -n %d'):format(run_id, nwo(scope), job_flag, flag, lines),
   }
 end
 
 ---@param run_id string
 ---@return string[]
-function M:steps_cmd(run_id)
-  return { 'gh', 'run', 'view', run_id, '-R', nwo(), '--json', 'jobs' }
+function M:steps_cmd(run_id, scope)
+  return { 'gh', 'run', 'view', run_id, '-R', nwo(scope), '--json', 'jobs' }
 end
 
 ---@param id string
@@ -208,7 +269,7 @@ end
 ---@return string[]
 function M:view_cmd(id, opts)
   opts = opts or {}
-  local cmd = { 'gh', 'run', 'view', id, '-R', nwo() }
+  local cmd = { 'gh', 'run', 'view', id, '-R', nwo(opts.scope) }
   if opts.job_id then
     table.insert(cmd, '--job')
     table.insert(cmd, opts.job_id)
@@ -221,7 +282,7 @@ end
 
 ---@param id string
 ---@return string[]
-function M:summary_json_cmd(id)
+function M:summary_json_cmd(id, scope)
   local jq = table.concat({
     '{name,status,conclusion,event,url,',
     'jobs:[.jobs[]|{databaseId,name,status,conclusion,url,',
@@ -234,7 +295,7 @@ function M:summary_json_cmd(id)
     'view',
     id,
     '-R',
-    nwo(),
+    nwo(scope),
     '--json',
     'name,status,conclusion,event,url,jobs',
     '--jq',
@@ -244,27 +305,27 @@ end
 
 ---@param id string
 ---@return string[]
-function M:watch_cmd(id)
-  return { 'gh', 'run', 'watch', id, '-R', nwo() }
+function M:watch_cmd(id, scope)
+  return { 'gh', 'run', 'watch', id, '-R', nwo(scope) }
 end
 
 ---@param id string
 ---@return string[]
-function M:run_status_cmd(id)
-  return { 'gh', 'run', 'view', id, '-R', nwo(), '--json', 'status,conclusion' }
+function M:run_status_cmd(id, scope)
+  return { 'gh', 'run', 'view', id, '-R', nwo(scope), '--json', 'status,conclusion' }
 end
 
-function M:run_log_cmd(id, failed_only)
+function M:run_log_cmd(id, failed_only, scope)
   local lines = forge.config().ci.lines
   local flag = failed_only and '--log-failed' or '--log'
   return {
     'sh',
     '-c',
-    ('gh run view %s -R %s %s | tail -n %d'):format(id, nwo(), flag, lines),
+    ('gh run view %s -R %s %s | tail -n %d'):format(id, nwo(scope), flag, lines),
   }
 end
 
-function M:list_runs_json_cmd(branch)
+function M:list_runs_json_cmd(branch, scope)
   local cmd = {
     'gh',
     'run',
@@ -274,6 +335,11 @@ function M:list_runs_json_cmd(branch)
     '--limit',
     tostring(forge.config().display.limits.runs),
   }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
   if branch then
     table.insert(cmd, '--branch')
     table.insert(cmd, branch)
@@ -300,50 +366,88 @@ end
 ---@param num string
 ---@param method string
 ---@return string[]
-function M:merge_cmd(num, method)
-  return { 'gh', 'pr', 'merge', num, '--' .. method }
+function M:merge_cmd(num, method, scope)
+  local cmd = { 'gh', 'pr', 'merge', num, '--' .. method }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:approve_cmd(num)
-  return { 'gh', 'pr', 'review', num, '--approve' }
+function M:approve_cmd(num, scope)
+  local cmd = { 'gh', 'pr', 'review', num, '--approve' }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:close_cmd(num)
-  return { 'gh', 'pr', 'close', num }
+function M:close_cmd(num, scope)
+  local cmd = { 'gh', 'pr', 'close', num }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:reopen_cmd(num)
-  return { 'gh', 'pr', 'reopen', num }
+function M:reopen_cmd(num, scope)
+  local cmd = { 'gh', 'pr', 'reopen', num }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:close_issue_cmd(num)
-  return { 'gh', 'issue', 'close', num }
+function M:close_issue_cmd(num, scope)
+  local cmd = { 'gh', 'issue', 'close', num }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:reopen_issue_cmd(num)
-  return { 'gh', 'issue', 'reopen', num }
+function M:reopen_issue_cmd(num, scope)
+  local cmd = { 'gh', 'issue', 'reopen', num }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr_details_cmd(num)
+function M:fetch_pr_details_cmd(num, scope)
   return {
     'gh',
     'pr',
     'view',
     num,
+    '-R',
+    nwo(scope),
     '--json',
-    'title,body,isDraft,labels,assignees,reviewRequests,milestone',
+    'title,body,isDraft,labels,assignees,reviewRequests,milestone,url',
   }
 end
 
@@ -355,8 +459,13 @@ end
 ---@param assignees string[]?
 ---@param milestone string?
 ---@return string[]
-function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone)
+function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone, scope)
   local cmd = { 'gh', 'pr', 'edit', num, '--title', title, '--body', body }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
   for _, r in ipairs(reviewers or {}) do
     table.insert(cmd, '--add-reviewer')
     table.insert(cmd, r)
@@ -408,19 +517,23 @@ end
 
 ---@param field string
 ---@return string[]?
-function M:completion_cmd(field)
+function M:completion_cmd(field, scope)
   if field == 'labels' then
-    return { 'gh', 'label', 'list', '--json', 'name', '--jq', '.[].name' }
+    return { 'gh', 'label', 'list', '-R', nwo(scope), '--json', 'name', '--jq', '.[].name' }
   elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
-    return { 'gh', 'api', 'repos/' .. nwo() .. '/collaborators', '--jq', '.[].login' }
+    return { 'gh', 'api', 'repos/' .. nwo(scope) .. '/collaborators', '--jq', '.[].login' }
   elseif field == 'milestone' then
-    return { 'gh', 'api', 'repos/' .. nwo() .. '/milestones', '--jq', '.[].title' }
+    return { 'gh', 'api', 'repos/' .. nwo(scope) .. '/milestones', '--jq', '.[].title' }
   elseif field == 'issues' then
     return {
       'sh',
       '-c',
-      'gh issue list --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\''
-        .. ' && gh pr list --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\'',
+      'gh issue list -R '
+        .. nwo(scope)
+        .. ' --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\''
+        .. ' && gh pr list -R '
+        .. nwo(scope)
+        .. ' --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\'',
     }
   end
   return nil
@@ -435,8 +548,13 @@ end
 ---@param assignees string[]?
 ---@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone)
+function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone, scope)
   local cmd = { 'gh', 'pr', 'create', '--title', title, '--body', body, '--base', base }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
   if draft then
     table.insert(cmd, '--draft')
   end
@@ -460,8 +578,14 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
 end
 
 ---@return string[]
-function M:create_pr_web_cmd()
-  return { 'gh', 'pr', 'create', '--web' }
+function M:create_pr_web_cmd(scope)
+  local cmd = { 'gh', 'pr', 'create', '--web' }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param title string
@@ -470,8 +594,13 @@ end
 ---@param assignees string[]?
 ---@param milestone string?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, assignees, milestone)
+function M:create_issue_cmd(title, body, labels, assignees, milestone, scope)
   local cmd = { 'gh', 'issue', 'create', '--title', title, '--body', body }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
   for _, l in ipairs(labels or {}) do
     table.insert(cmd, '--label')
     table.insert(cmd, l)
@@ -488,8 +617,14 @@ function M:create_issue_cmd(title, body, labels, assignees, milestone)
 end
 
 ---@return string[]
-function M:create_issue_web_cmd()
-  return { 'gh', 'issue', 'create', '--web' }
+function M:create_issue_web_cmd(scope)
+  local cmd = { 'gh', 'issue', 'create', '--web' }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@return string[]
@@ -501,8 +636,17 @@ function M:issue_template_paths()
 end
 
 ---@return string[]
-function M:default_branch_cmd()
-  return { 'gh', 'repo', 'view', '--json', 'defaultBranchRef', '--jq', '.defaultBranchRef.name' }
+function M:default_branch_cmd(scope)
+  return {
+    'gh',
+    'repo',
+    'view',
+    nwo(scope),
+    '--json',
+    'defaultBranchRef',
+    '--jq',
+    '.defaultBranchRef.name',
+  }
 end
 
 ---@return string[]
@@ -517,21 +661,21 @@ end
 ---@param num string
 ---@param is_draft boolean
 ---@return string[]?
-function M:draft_toggle_cmd(num, is_draft)
+function M:draft_toggle_cmd(num, is_draft, scope)
   if is_draft then
-    return { 'gh', 'pr', 'ready', num }
+    return { 'gh', 'pr', 'ready', num, '-R', nwo(scope) }
   end
-  return { 'gh', 'pr', 'ready', num, '--undo' }
+  return { 'gh', 'pr', 'ready', num, '--undo', '-R', nwo(scope) }
 end
 
 ---@return forge.RepoInfo
-function M:repo_info()
+function M:repo_info(scope)
   local result = vim
     .system({
       'gh',
       'repo',
       'view',
-      nwo(),
+      nwo(scope),
       '--json',
       'viewerPermission,squashMergeAllowed,rebaseMergeAllowed,mergeCommitAllowed',
     }, { text = true })
@@ -560,13 +704,15 @@ end
 
 ---@param num string
 ---@return forge.PRState
-function M:pr_state(num)
+function M:pr_state(num, scope)
   local result = vim
     .system({
       'gh',
       'pr',
       'view',
       num,
+      '-R',
+      nwo(scope),
       '--json',
       'state,mergeable,reviewDecision,isDraft',
     }, { text = true })
@@ -584,8 +730,8 @@ function M:pr_state(num)
   }
 end
 
-function M:list_releases_json_cmd()
-  return {
+function M:list_releases_json_cmd(scope)
+  local cmd = {
     'gh',
     'release',
     'list',
@@ -594,17 +740,29 @@ function M:list_releases_json_cmd()
     '--limit',
     tostring(forge.config().display.limits.releases),
   }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  return cmd
 end
 
 ---@param tag string
-function M:browse_release(tag)
-  vim.system({ 'gh', 'release', 'view', tag, '--web' })
+function M:browse_release(tag, scope)
+  local cmd = { 'gh', 'release', 'view', tag, '--web' }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  vim.system(cmd)
 end
 
 ---@param tag string
 ---@return string[]
-function M:delete_release_cmd(tag)
-  return { 'gh', 'release', 'delete', tag, '--yes' }
+function M:delete_release_cmd(tag, scope)
+  return { 'gh', 'release', 'delete', tag, '--yes', '-R', nwo(scope) }
 end
 
 return M

@@ -6,6 +6,7 @@ local compose_mod = require('forge.compose')
 local config_mod = require('forge.config')
 local context_mod = require('forge.context')
 local format_mod = require('forge.format')
+local scope_mod = require('forge.scope')
 local template_mod = require('forge.template')
 
 ---@type table<string, forge.Forge>
@@ -132,14 +133,15 @@ end
 
 ---@param f forge.Forge
 ---@return forge.RepoInfo
-function M.repo_info(f)
+function M.repo_info(f, scope)
   local root = git_root()
-  if root and repo_info_cache[root] then
-    return repo_info_cache[root]
+  local key = root and (root .. '|' .. scope_mod.key(scope)) or nil
+  if key and repo_info_cache[key] then
+    return repo_info_cache[key]
   end
-  local info = f:repo_info()
-  if root then
-    repo_info_cache[root] = info
+  local info = f:repo_info(scope)
+  if key then
+    repo_info_cache[key] = info
   end
   return info
 end
@@ -203,7 +205,10 @@ function M.file_loc()
 end
 
 ---@return string
-function M.remote_web_url()
+function M.remote_web_url(scope)
+  if scope then
+    return scope_mod.web_url(scope)
+  end
   local root = git_root()
   if not root then
     return ''
@@ -213,6 +218,42 @@ function M.remote_web_url()
   remote = remote:gsub('^ssh://git@', 'https://')
   remote = remote:gsub('^git@([^:]+):', 'https://%1/')
   return remote
+end
+
+function M.scope_from_url(name, url)
+  return scope_mod.from_url(name, url)
+end
+
+function M.scope_repo_arg(scope)
+  return scope_mod.repo_arg(scope)
+end
+
+function M.scope_key(scope)
+  return scope_mod.key(scope)
+end
+
+function M.current_scope(name)
+  local url = M.remote_web_url()
+  if url == '' then
+    return nil
+  end
+  local forge_name = name
+  if not forge_name then
+    local f = M.detect()
+    forge_name = f and f.name or nil
+  end
+  if not forge_name then
+    return nil
+  end
+  return scope_mod.from_url(forge_name, url)
+end
+
+function M.remote_name(scope)
+  return scope_mod.remote_name(scope)
+end
+
+function M.remote_ref(scope, branch)
+  return scope_mod.remote_ref(scope, branch)
 end
 
 M.config = config_mod.config
@@ -246,6 +287,7 @@ function M.create_pr(opts)
     log.warn('no forge detected')
     return
   end
+  local ref = opts.scope or M.current_scope(f.name)
 
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
   if branch == '' then
@@ -255,11 +297,11 @@ function M.create_pr(opts)
 
   log.info('checking for existing ' .. f.labels.pr_one .. '...')
 
-  vim.system(f:pr_for_branch_cmd(branch), { text = true }, function(result)
+  vim.system(f:pr_for_branch_cmd(branch, ref), { text = true }, function(result)
     local num = vim.trim(result.stdout or '')
     vim.schedule(function()
       if num ~= '' and num ~= 'null' then
-        M.edit_pr(num)
+        M.edit_pr(num, ref)
         return
       end
 
@@ -271,7 +313,7 @@ function M.create_pr(opts)
               log.error('push failed')
               return
             end
-            local web_cmd = f:create_pr_web_cmd()
+            local web_cmd = f:create_pr_web_cmd(ref)
             if web_cmd then
               vim.system(web_cmd)
             end
@@ -281,7 +323,7 @@ function M.create_pr(opts)
       end
 
       log.info('resolving base branch...')
-      vim.system(f:default_branch_cmd(), { text = true }, function(base_result)
+      vim.system(f:default_branch_cmd(ref), { text = true }, function(base_result)
         local base = vim.trim(base_result.stdout or '')
         if base == '' then
           base = 'main'
@@ -296,7 +338,20 @@ function M.create_pr(opts)
           end
           if opts.instant then
             local title, body = template_mod.fill_from_commits(branch, base)
-            compose_mod.push_and_create(f, branch, title, body, base, opts.draft or false)
+            compose_mod.push_and_create(
+              f,
+              branch,
+              title,
+              body,
+              base,
+              opts.draft or false,
+              nil,
+              nil,
+              nil,
+              nil,
+              nil,
+              ref
+            )
           else
             local root = git_root() or ''
             local draft = opts.draft or false
@@ -306,7 +361,7 @@ function M.create_pr(opts)
               return
             end
             if tmpl or not templates then
-              compose_mod.open_pr(f, branch, base, draft, tmpl)
+              compose_mod.open_pr(f, branch, base, draft, tmpl, ref)
             else
               local picker = require('forge.picker')
               local entries = {}
@@ -331,7 +386,7 @@ function M.create_pr(opts)
                           log.error(load_err)
                           return
                         end
-                        compose_mod.open_pr(f, branch, base, draft, template)
+                        compose_mod.open_pr(f, branch, base, draft, template, ref)
                       end
                     end,
                   },
@@ -348,7 +403,8 @@ function M.create_pr(opts)
 end
 
 ---@param num string
-function M.edit_pr(num)
+---@param ref? table
+function M.edit_pr(num, ref)
   local log = require('forge.logger')
 
   local f = M.detect()
@@ -356,6 +412,7 @@ function M.edit_pr(num)
     log.warn('no forge detected')
     return
   end
+  ref = ref or M.current_scope(f.name)
 
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
   if branch == '' then
@@ -365,7 +422,7 @@ function M.edit_pr(num)
 
   log.info(('fetching %s #%s...'):format(f.labels.pr_one, num))
 
-  vim.system(f:fetch_pr_details_cmd(num), { text = true }, function(result)
+  vim.system(f:fetch_pr_details_cmd(num, ref), { text = true }, function(result)
     if result.code ~= 0 then
       vim.schedule(function()
         log.error('failed to fetch ' .. f.labels.pr_one .. ' #' .. num)
@@ -380,13 +437,13 @@ function M.edit_pr(num)
       return
     end
     local details = f:parse_pr_details(json)
-    vim.system(f:pr_base_cmd(num), { text = true }, function(base_result)
+    vim.system(f:pr_base_cmd(num, ref), { text = true }, function(base_result)
       local base = vim.trim(base_result.stdout or '')
       if base == '' then
         base = 'main'
       end
       vim.schedule(function()
-        compose_mod.open_pr_edit(f, num, details, branch, base)
+        compose_mod.open_pr_edit(f, num, details, branch, base, ref)
       end)
     end)
   end)
@@ -408,22 +465,23 @@ function M.create_issue(opts)
     log.warn('no forge detected')
     return
   end
+  local ref = opts.scope or M.current_scope(f.name)
 
   if opts.web then
     if f.create_issue_web_cmd then
-      local cmd = f:create_issue_web_cmd()
+      local cmd = f:create_issue_web_cmd(ref)
       if cmd then
         vim.system(cmd)
       end
     else
-      local url = M.remote_web_url() .. '/issues/new'
+      local url = M.remote_web_url(ref) .. '/issues/new'
       vim.ui.open(url)
     end
     return
   end
 
   if opts.blank then
-    compose_mod.open_issue(f, nil)
+    compose_mod.open_issue(f, nil, ref)
     return
   end
 
@@ -443,7 +501,7 @@ function M.create_issue(opts)
           log.error(load_err)
           return
         end
-        compose_mod.open_issue(f, template)
+        compose_mod.open_issue(f, template, ref)
         return
       end
     end
@@ -452,7 +510,7 @@ function M.create_issue(opts)
   end
 
   if result or not templates then
-    compose_mod.open_issue(f, result)
+    compose_mod.open_issue(f, result, ref)
     return
   end
 
@@ -479,7 +537,7 @@ function M.create_issue(opts)
               log.error(load_err)
               return
             end
-            compose_mod.open_issue(f, template)
+            compose_mod.open_issue(f, template, ref)
           end
         end,
       },
