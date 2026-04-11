@@ -105,7 +105,6 @@ local families = {
       merge = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo', 'method' },
-        required_modifiers = { 'method' },
       },
       draft = {
         subject = { kind = 'pr', min = 1, max = 1 },

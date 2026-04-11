@@ -367,7 +367,10 @@ end
 ---@param method string
 ---@return string[]
 function M:merge_cmd(num, method, scope)
-  local cmd = { 'gh', 'pr', 'merge', num, '--' .. method }
+  local cmd = { 'gh', 'pr', 'merge', num }
+  if method and method ~= '' then
+    table.insert(cmd, '--' .. method)
+  end
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')

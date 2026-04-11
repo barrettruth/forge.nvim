@@ -263,7 +263,14 @@ end
 ---@param method string
 ---@return string[]
 function M:merge_cmd(num, method, ref)
-  return { 'tea', 'pr', 'merge', num, '--style', method, '--repo', repo_arg(ref) }
+  local cmd = { 'tea', 'pr', 'merge', num }
+  if method and method ~= '' then
+    table.insert(cmd, '--style')
+    table.insert(cmd, method)
+  end
+  table.insert(cmd, '--repo')
+  table.insert(cmd, repo_arg(ref))
+  return cmd
 end
 
 ---@param num string

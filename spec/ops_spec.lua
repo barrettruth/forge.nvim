@@ -189,6 +189,33 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
+  it('runs PR merge commands without requiring a method', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.pr_merge(
+      {
+        labels = { pr_one = 'PR' },
+        merge_cmd = function(_, num, method)
+          return { 'merge', num, method or 'default' }
+        end,
+      },
+      { num = '42' },
+      nil,
+      {
+        on_success = function()
+          done = done + 1
+        end,
+      }
+    )
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'merge 42 default' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
   it('confirms release deletion before running the shared delete operation', function()
     local done = 0
     local ops = require('forge.ops')

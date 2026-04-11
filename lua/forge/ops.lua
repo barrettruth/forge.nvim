@@ -250,9 +250,9 @@ function M.pr_merge(f, pr, method, opts)
   run_forge_cmd(
     f.labels.pr_one,
     pr.num,
-    'merging (' .. method .. ')',
+    method and ('merging (' .. method .. ')') or 'merging',
     f:merge_cmd(pr.num, method, pr.scope),
-    'merged (' .. method .. ')',
+    method and ('merged (' .. method .. ')') or 'merged',
     'merge failed',
     opts
   )

@@ -501,7 +501,7 @@ describe(':Forge command', function()
 
   it('dispatches PR management parity subcommands through forge.ops', function()
     vim.cmd('Forge pr approve 42')
-    vim.cmd('Forge pr merge 42 method=squash repo=upstream')
+    vim.cmd('Forge pr merge 42 repo=upstream')
     vim.cmd('Forge pr draft 42')
     vim.cmd('Forge pr ready 42')
 
@@ -520,7 +520,7 @@ describe(':Forge command', function()
           web_url = 'https://github.com/owner/upstream',
         },
       },
-      method = 'squash',
+      method = nil,
     }, captured.ops_calls[2])
     assert.same({
       name = 'pr_toggle_draft',
@@ -534,11 +534,14 @@ describe(':Forge command', function()
     }, captured.ops_calls[4])
   end)
 
-  it('requires an explicit merge method for :Forge pr merge', function()
-    vim.cmd('Forge pr merge 42')
+  it('passes through an explicit merge method when provided', function()
+    vim.cmd('Forge pr merge 42 method=squash')
 
-    assert.same({ 'missing modifier: method' }, captured.warnings)
-    assert.is_nil(captured.ops_calls[1])
+    assert.same({
+      name = 'pr_merge',
+      pr = { num = '42', scope = nil },
+      method = 'squash',
+    }, captured.ops_calls[1])
   end)
 
   it('dispatches CI log and watch subcommands through forge.ops', function()

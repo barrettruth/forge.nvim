@@ -30,7 +30,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr browse` {num}................................|:Forge-pr-browse|
     `:Forge pr manage` {num}................................|:Forge-pr-manage|
     `:Forge pr approve` {num}..............................|:Forge-pr-approve|
-    `:Forge pr merge` {num} `method=`......................|:Forge-pr-merge|
+    `:Forge pr merge` {num} [`method=`]....................|:Forge-pr-merge|
     `:Forge pr draft` {num}..................................|:Forge-pr-draft|
     `:Forge pr ready` {num}..................................|:Forge-pr-ready|
     `:Forge issue` [{flags}]....................................|:Forge-issue|
@@ -388,8 +388,9 @@ TARGET DEFAULTS AND OVERRIDES                            *forge-target-defaults*
 `:Forge pr approve` {num}                                  *:Forge-pr-approve*
     Approve PR `{num}`.
 
-`:Forge pr merge` {num} `method=`                          *:Forge-pr-merge*
-    Merge PR `{num}` with an explicit strategy.
+`:Forge pr merge` {num} [`method=`]                        *:Forge-pr-merge*
+    Merge PR `{num}`. When `method=` is omitted, the forge CLI uses its
+    default merge behavior.
     `method=merge`     Merge commit.
     `method=squash`    Squash merge.
     `method=rebase`    Rebase merge.
@@ -1059,7 +1060,7 @@ All methods receive `self` as the first argument (use `:` syntax).
   `list_runs_cmd(branch?)`             `string` shell command for CI runs.
   `normalize_run(entry)`                `forge.CIRun` normalized run entry.
   `run_log_cmd(id, failed_only)`       `string[]` cmd to view run log.
-  `merge_cmd(num, method)`             `string[]` cmd to merge PR.
+  `merge_cmd(num, method?)`            `string[]` cmd to merge PR.
   `approve_cmd(num)`                    `string[]` cmd to approve PR.
   `repo_info()`                         `forge.RepoInfo` with `permission`
                                         (`"ADMIN"`, `"WRITE"`, `"READ"`)
