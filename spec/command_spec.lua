@@ -9,6 +9,7 @@ describe(':Forge command', function()
   before_each(function()
     captured = {
       opens = {},
+      ops_calls = {},
       pr_action_num = nil,
       pr_action_scope = nil,
       reviews = {},
@@ -21,6 +22,7 @@ describe(':Forge command', function()
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.ops'] = package.preload['forge.ops'],
       ['forge.pickers'] = package.preload['forge.pickers'],
       ['forge.review'] = package.preload['forge.review'],
     }
@@ -136,6 +138,120 @@ describe(':Forge command', function()
       }
     end
 
+    package.preload['forge.ops'] = function()
+      return {
+        pr_list = function(state, opts)
+          table.insert(captured.ops_calls, { name = 'pr_list', state = state, opts = opts })
+          require('forge').open(state and ('prs.' .. state) or 'prs', opts)
+        end,
+        pr_create = function(opts)
+          table.insert(captured.ops_calls, { name = 'pr_create', opts = opts })
+          require('forge').create_pr(opts)
+        end,
+        pr_edit = function(pr)
+          table.insert(captured.ops_calls, { name = 'pr_edit', pr = pr })
+          require('forge').edit_pr(pr.num, pr.scope)
+        end,
+        pr_checkout = function(_, pr)
+          table.insert(captured.ops_calls, { name = 'pr_checkout', pr = pr })
+        end,
+        pr_review = function(_, pr, opts)
+          table.insert(captured.ops_calls, { name = 'pr_review', pr = pr, opts = opts })
+        end,
+        pr_worktree = function(_, pr)
+          table.insert(captured.ops_calls, { name = 'pr_worktree', pr = pr })
+        end,
+        pr_ci = function(_, pr, opts)
+          table.insert(captured.ops_calls, { name = 'pr_ci', pr = pr, opts = opts })
+        end,
+        pr_browse = function(f, pr)
+          table.insert(captured.ops_calls, { name = 'pr_browse', pr = pr })
+          f:view_web(f.kinds.pr, pr.num, pr.scope)
+        end,
+        pr_manage = function(_, pr)
+          table.insert(captured.ops_calls, { name = 'pr_manage', pr = pr })
+        end,
+        pr_close = function(_, pr)
+          table.insert(captured.ops_calls, { name = 'pr_close', pr = pr })
+        end,
+        pr_reopen = function(_, pr)
+          table.insert(captured.ops_calls, { name = 'pr_reopen', pr = pr })
+        end,
+        issue_list = function(state, opts)
+          table.insert(captured.ops_calls, { name = 'issue_list', state = state, opts = opts })
+          require('forge').open(state and ('issues.' .. state) or 'issues', opts)
+        end,
+        issue_create = function(opts)
+          table.insert(captured.ops_calls, { name = 'issue_create', opts = opts })
+          require('forge').create_issue(opts)
+        end,
+        issue_browse = function(f, issue)
+          table.insert(captured.ops_calls, { name = 'issue_browse', issue = issue })
+          f:view_web(f.kinds.issue, issue.num, issue.scope)
+        end,
+        issue_close = function(_, issue)
+          table.insert(captured.ops_calls, { name = 'issue_close', issue = issue })
+        end,
+        issue_reopen = function(_, issue)
+          table.insert(captured.ops_calls, { name = 'issue_reopen', issue = issue })
+        end,
+        ci_list = function(branch, opts)
+          table.insert(captured.ops_calls, { name = 'ci_list', branch = branch, opts = opts })
+          require('forge').open(
+            branch == nil and 'ci.all' or 'ci.current_branch',
+            vim.tbl_extend('force', opts or {}, { branch = branch })
+          )
+        end,
+        release_list = function(state, opts)
+          table.insert(captured.ops_calls, { name = 'release_list', state = state, opts = opts })
+          require('forge').open(state and ('releases.' .. state) or 'releases', opts)
+        end,
+        release_browse = function(f, release)
+          table.insert(captured.ops_calls, { name = 'release_browse', release = release })
+          f:browse_release(release.tag, release.scope)
+        end,
+        release_delete = function(_, release, opts)
+          table.insert(
+            captured.ops_calls,
+            { name = 'release_delete', release = release, opts = opts }
+          )
+        end,
+        browse_commit = function(opts)
+          table.insert(captured.ops_calls, { name = 'browse_commit', opts = opts })
+          require('forge').open('browse.commit', opts)
+        end,
+        browse_branch = function(branch, opts)
+          table.insert(captured.ops_calls, { name = 'browse_branch', branch = branch, opts = opts })
+          require('forge').open(
+            'browse.branch',
+            vim.tbl_extend('force', opts or {}, { branch = branch })
+          )
+        end,
+        browse_contextual = function(opts)
+          table.insert(captured.ops_calls, { name = 'browse_contextual', opts = opts })
+          require('forge').open('browse.contextual', opts)
+        end,
+        browse_location = function(f, location, scope)
+          table.insert(
+            captured.ops_calls,
+            { name = 'browse_location', location = location, scope = scope }
+          )
+          f:browse(location.path .. ':10-20', location.rev.rev, scope)
+          return true
+        end,
+        browse_file = function(f, file_loc, branch, scope)
+          table.insert(captured.ops_calls, {
+            name = 'browse_file',
+            file_loc = file_loc,
+            branch = branch,
+            scope = scope,
+          })
+          f:browse(file_loc, branch, scope)
+          return true
+        end,
+      }
+    end
+
     package.preload['forge.pickers'] = function()
       return {
         pr_actions = function(_, pr)
@@ -210,6 +326,7 @@ describe(':Forge command', function()
     package.loaded['forge'] = nil
     package.loaded['forge.cmd'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
     package.loaded['forge.review'] = nil
 
@@ -221,11 +338,13 @@ describe(':Forge command', function()
     vim.fn.systemlist = old_systemlist
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.ops'] = old_preload['forge.ops']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
     package.preload['forge.review'] = old_preload['forge.review']
     package.loaded['forge'] = nil
     package.loaded['forge.cmd'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
     package.loaded['forge.review'] = nil
     if vim.api.nvim_get_commands({ builtin = false }).Forge then
@@ -236,17 +355,21 @@ describe(':Forge command', function()
   it('dispatches :Forge pr review to the PR review action', function()
     vim.cmd('Forge pr review 42')
 
-    assert.equals('42', captured.pr_action_num)
-    assert.is_nil(captured.pr_action_scope)
-    assert.same({ '42' }, captured.reviews)
+    assert.same({
+      name = 'pr_review',
+      pr = { num = '42', scope = nil },
+      opts = nil,
+    }, captured.ops_calls[1])
   end)
 
   it('keeps :Forge pr diff as an alias for the PR review action', function()
     vim.cmd('Forge pr diff 7')
 
-    assert.equals('7', captured.pr_action_num)
-    assert.is_nil(captured.pr_action_scope)
-    assert.same({ '7' }, captured.reviews)
+    assert.same({
+      name = 'pr_review',
+      pr = { num = '7', scope = nil },
+      opts = nil,
+    }, captured.ops_calls[1])
   end)
 
   it('dispatches review navigation subcommands', function()
@@ -347,15 +470,15 @@ describe(':Forge command', function()
 
     assert.is_false(ok)
     assert.matches('E477: No ! allowed', err)
-    assert.is_nil(captured.pr_action_num)
+    assert.is_nil(captured.ops_calls[1])
   end)
 
   it('allows supported bang on close subcommands', function()
     vim.cmd('Forge! pr close 42')
     vim.cmd('Forge! issue close 9')
 
-    assert.same({ '42' }, captured.closed_prs)
-    assert.same({ '9' }, captured.closed_issues)
+    assert.same({ name = 'pr_close', pr = { num = '42', scope = nil } }, captured.ops_calls[1])
+    assert.same({ name = 'issue_close', issue = { num = '9', scope = nil } }, captured.ops_calls[2])
   end)
 
   it('completes git-local subcommands and commit refs', function()

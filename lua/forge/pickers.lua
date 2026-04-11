@@ -3,12 +3,10 @@ local M = {}
 local format = require('forge.format')
 local layout = require('forge.layout')
 local log = require('forge.logger')
+local ops = require('forge.ops')
 local picker = require('forge.picker')
 local picker_session = require('forge.picker.session')
 
----@param result { code: integer, stdout: string?, stderr: string? }
----@param fallback string
----@return string
 local function cmd_error(result, fallback)
   local msg = result.stderr or ''
   if vim.trim(msg) == '' then
@@ -19,31 +17,6 @@ local function cmd_error(result, fallback)
     msg = fallback
   end
   return msg
-end
-
----@param kind string
----@param num string
----@param label string
----@param cmd string[]
----@param success_msg string
----@param fail_msg string
-local function run_forge_cmd(kind, num, label, cmd, success_msg, fail_msg, on_success, on_failure)
-  log.info(label .. ' ' .. kind .. ' #' .. num .. '...')
-  vim.system(cmd, { text = true }, function(result)
-    vim.schedule(function()
-      if result.code == 0 then
-        log.info(('%s %s #%s'):format(success_msg, kind, num))
-        if on_success then
-          on_success()
-        end
-      else
-        log.error(cmd_error(result, fail_msg))
-        if on_failure then
-          on_failure()
-        end
-      end
-    end)
-  end)
 end
 
 local next_ci_filter = {
@@ -562,26 +535,16 @@ end
 ---@param is_open boolean
 local function issue_toggle_state(f, num, is_open, on_success, ref)
   if is_open then
-    run_forge_cmd(
-      'issue',
-      num,
-      'closing',
-      f:close_issue_cmd(num, ref),
-      'closed',
-      'close failed',
-      on_success,
-      on_success
+    ops.issue_close(
+      f,
+      { num = num, scope = ref },
+      { on_success = on_success, on_failure = on_success }
     )
   else
-    run_forge_cmd(
-      'issue',
-      num,
-      'reopening',
-      f:reopen_issue_cmd(num, ref),
-      'reopened',
-      'reopen failed',
-      on_success,
-      on_success
+    ops.issue_reopen(
+      f,
+      { num = num, scope = ref },
+      { on_success = on_success, on_failure = on_success }
     )
   end
 end
@@ -590,28 +553,17 @@ end
 ---@param num string
 ---@param is_open boolean
 local function pr_toggle_state(f, num, is_open, on_success, ref)
-  local kind = f.labels.pr_one
   if is_open then
-    run_forge_cmd(
-      kind,
-      num,
-      'closing',
-      f:close_cmd(num, ref),
-      'closed',
-      'close failed',
-      on_success,
-      on_success
+    ops.pr_close(
+      f,
+      { num = num, scope = ref },
+      { on_success = on_success, on_failure = on_success }
     )
   else
-    run_forge_cmd(
-      kind,
-      num,
-      'reopening',
-      f:reopen_cmd(num, ref),
-      'reopened',
-      'reopen failed',
-      on_success,
-      on_success
+    ops.pr_reopen(
+      f,
+      { num = num, scope = ref },
+      { on_success = on_success, on_failure = on_success }
     )
   end
 end
@@ -629,106 +581,30 @@ end
 ---@param pr forge.PRRef
 ---@return table<string, function>
 local function pr_action_fns(f, pr)
-  local num = pr.num
-  local ref = pr.scope
-  local kind = f.labels.pr_one
-  local function review_pr(opts)
-    opts = opts or {}
-    local review = require('forge.review')
-    local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-
-    log.info(('reviewing %s #%s...'):format(kind, num))
-    vim.system(f:checkout_cmd(num, ref), { text = true }, function(co_result)
-      if co_result.code ~= 0 then
-        vim.schedule(function()
-          log.debug('checkout skipped, proceeding with review')
-        end)
-      end
-
-      vim.system(f:pr_base_cmd(num, ref), { text = true }, function(base_result)
-        vim.schedule(function()
-          local base = vim.trim(base_result.stdout or '')
-          if base == '' or base_result.code ~= 0 then
-            base = 'main'
-          end
-          local range = require('forge').remote_ref(ref, base) or ('origin/' .. base)
-          local head = vim.trim(vim.fn.system('git branch --show-current'))
-          review.start_session({
-            subject = {
-              kind = 'pr',
-              id = num,
-              label = ('%s #%s'):format(kind, num),
-              base_ref = range,
-              head_ref = head,
-            },
-            mode = 'patch',
-            files = {},
-            current_file = nil,
-            materialization = co_result.code == 0 and 'checkout' or 'current',
-            repo_root = repo_root,
-            back = opts.back,
-          })
-          review.open_index()
-          log.debug(('review ready for %s #%s against %s'):format(kind, num, base))
-        end)
-      end)
-    end)
-  end
   return {
     checkout = function()
-      log.info(('checking out %s #%s...'):format(kind, num))
-      vim.system(f:checkout_cmd(num, ref), { text = true }, function(result)
-        vim.schedule(function()
-          if result.code == 0 then
-            log.info(('checked out %s #%s'):format(kind, num))
-          else
-            log.error(cmd_error(result, 'checkout failed'))
-          end
-        end)
-      end)
+      ops.pr_checkout(f, pr)
     end,
     browse = function()
-      f:view_web(f.kinds.pr, num, ref)
+      ops.pr_browse(f, pr)
     end,
     worktree = function()
-      local fetch_cmd = f:fetch_pr(num, ref)
-      local branch = fetch_cmd[#fetch_cmd]:match(':(.+)$')
-      if not branch then
-        return
-      end
-      local root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-      local wt_path = vim.fs.normalize(root .. '/../' .. branch)
-      log.info(('fetching %s #%s into worktree...'):format(kind, num))
-      vim.system(fetch_cmd, { text = true }, function()
-        vim.system({ 'git', 'worktree', 'add', wt_path, branch }, { text = true }, function(result)
-          vim.schedule(function()
-            if result.code == 0 then
-              log.info(('worktree at %s'):format(wt_path))
-            else
-              log.error(cmd_error(result, 'worktree failed'))
-            end
-          end)
-        end)
-      end)
+      ops.pr_worktree(f, pr)
     end,
-    review = review_pr,
-    diff = review_pr,
+    review = function(opts)
+      ops.pr_review(f, pr, opts)
+    end,
+    diff = function(opts)
+      ops.pr_review(f, pr, opts)
+    end,
     ci = function(opts)
-      opts = opts or {}
-      if f.capabilities.per_pr_checks then
-        opts.scope = ref
-        M.checks(f, num, nil, nil, opts)
-      else
-        log.debug(('per-%s checks unavailable on %s, showing repo CI'):format(kind, f.name))
-        opts.scope = ref
-        M.ci(f, nil, nil, opts)
-      end
+      ops.pr_ci(f, pr, opts)
     end,
-    manage = function()
-      M.pr_manage(f, { num = num, scope = ref })
+    manage = function(parent)
+      ops.pr_manage(f, pr, parent)
     end,
     edit = function()
-      require('forge').edit_pr(num, ref)
+      ops.pr_edit(pr)
     end,
   }
 end
@@ -764,84 +640,48 @@ local function pr_manage_picker(f, pr, parent)
   end
 
   add('Edit', function()
-    require('forge').edit_pr(num, ref)
+    ops.pr_edit(pr)
   end)
 
   if can_write and is_open then
     add('Approve', function()
-      run_forge_cmd(
-        kind,
-        num,
-        'approving',
-        f:approve_cmd(num, ref),
-        'approved',
-        'approve failed',
-        reopen_self,
-        reopen_self
-      )
+      ops.pr_approve(f, pr, { on_success = reopen_self, on_failure = reopen_self })
     end)
   end
 
   if can_write and is_open then
     for _, method in ipairs(info.merge_methods) do
       add('Merge (' .. method .. ')', function()
-        run_forge_cmd(
-          kind,
-          num,
-          'merging (' .. method .. ')',
-          f:merge_cmd(num, method, ref),
-          'merged (' .. method .. ')',
-          'merge failed',
-          parent and parent.refresh or reopen_self,
-          reopen_self
-        )
+        ops.pr_merge(f, pr, method, {
+          on_success = parent and parent.refresh or reopen_self,
+          on_failure = reopen_self,
+        })
       end)
     end
   end
 
   if is_open then
     add('Close', function()
-      run_forge_cmd(
-        kind,
-        num,
-        'closing',
-        f:close_cmd(num, ref),
-        'closed',
-        'close failed',
-        parent and parent.refresh or reopen_self,
-        reopen_self
-      )
+      ops.pr_close(f, pr, {
+        on_success = parent and parent.refresh or reopen_self,
+        on_failure = reopen_self,
+      })
     end)
   else
     add('Reopen', function()
-      run_forge_cmd(
-        kind,
-        num,
-        'reopening',
-        f:reopen_cmd(num, ref),
-        'reopened',
-        'reopen failed',
-        parent and parent.refresh or reopen_self,
-        reopen_self
-      )
+      ops.pr_reopen(f, pr, {
+        on_success = parent and parent.refresh or reopen_self,
+        on_failure = reopen_self,
+      })
     end)
   end
 
-  local draft_cmd = f:draft_toggle_cmd(num, pr_state.is_draft, ref)
-  if draft_cmd then
-    local draft_label = pr_state.is_draft and 'Mark as ready' or 'Mark as draft'
-    local draft_done = pr_state.is_draft and 'marked as ready' or 'marked as draft'
-    add(draft_label, function()
-      run_forge_cmd(
-        kind,
-        num,
-        'toggling draft',
-        draft_cmd,
-        draft_done,
-        'draft toggle failed',
-        reopen_self,
-        reopen_self
-      )
+  if f:draft_toggle_cmd(num, pr_state.is_draft, ref) then
+    add(pr_state.is_draft and 'Mark as ready' or 'Mark as draft', function()
+      ops.pr_toggle_draft(f, pr, pr_state.is_draft, {
+        on_success = reopen_self,
+        on_failure = reopen_self,
+      })
     end)
   end
 
@@ -1355,7 +1195,6 @@ end
 ---@param opts? forge.PickerLimitOpts
 function M.pr(state, f, opts)
   opts = opts or {}
-  local cli_kind = f.kinds.pr
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local prev_state = ({ all = 'closed', open = 'all', closed = 'open' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
@@ -1487,7 +1326,7 @@ function M.pr(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
-          f:view_web(cli_kind, entry.value.num, entry.value.scope)
+          ops.pr_browse(f, entry.value)
         end
       end,
     },
@@ -1496,7 +1335,7 @@ function M.pr(state, f, opts)
       label = 'more',
       fn = function(entry)
         if entry and not entry.load_more then
-          pr_manage_picker(f, entry.value, {
+          ops.pr_manage(f, entry.value, {
             refresh = reopen_list,
             back = back_to_list,
           })
@@ -1516,7 +1355,7 @@ function M.pr(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_pr({ back = opts.back, scope = ref })
+        ops.pr_create({ back = opts.back, scope = ref })
       end,
     },
     {
@@ -1614,7 +1453,6 @@ end
 ---@param opts? forge.PickerLimitOpts
 function M.issue(state, f, opts)
   opts = opts or {}
-  local cli_kind = f.kinds.issue
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local prev_state = ({ all = 'closed', open = 'all', closed = 'open' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
@@ -1698,7 +1536,7 @@ function M.issue(state, f, opts)
         if entry and entry.load_more then
           M.issue(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
         elseif entry then
-          f:view_web(cli_kind, entry.value.num, entry.value.scope)
+          ops.issue_browse(f, entry.value)
         end
       end,
     },
@@ -1708,7 +1546,7 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
-          f:view_web(cli_kind, entry.value.num, entry.value.scope)
+          ops.issue_browse(f, entry.value)
         end
       end,
     },
@@ -1731,7 +1569,7 @@ function M.issue(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_issue({ back = opts.back, scope = ref })
+        ops.issue_create({ back = opts.back, scope = ref })
       end,
     },
     {
@@ -1811,45 +1649,36 @@ end
 
 ---@param f forge.Forge
 ---@param pr forge.PRRefLike
-function M.pr_manage(f, pr)
-  pr_manage_picker(f, normalize_pr_ref(pr))
+function M.pr_manage(f, pr, parent)
+  pr_manage_picker(f, normalize_pr_ref(pr), parent)
 end
 
 ---@param f forge.Forge
 ---@param num string
 ---@param ref? forge.Scope
 function M.issue_close(f, num, ref)
-  run_forge_cmd('issue', num, 'closing', f:close_issue_cmd(num, ref), 'closed', 'close failed')
+  ops.issue_close(f, { num = num, scope = ref })
 end
 
 ---@param f forge.Forge
 ---@param num string
 ---@param ref? forge.Scope
 function M.issue_reopen(f, num, ref)
-  run_forge_cmd(
-    'issue',
-    num,
-    'reopening',
-    f:reopen_issue_cmd(num, ref),
-    'reopened',
-    'reopen failed'
-  )
+  ops.issue_reopen(f, { num = num, scope = ref })
 end
 
 ---@param f forge.Forge
 ---@param num string
 ---@param ref? forge.Scope
 function M.pr_close(f, num, ref)
-  local kind = f.labels.pr_one
-  run_forge_cmd(kind, num, 'closing', f:close_cmd(num, ref), 'closed', 'close failed')
+  ops.pr_close(f, { num = num, scope = ref })
 end
 
 ---@param f forge.Forge
 ---@param num string
 ---@param ref? forge.Scope
 function M.pr_reopen(f, num, ref)
-  local kind = f.labels.pr_one
-  run_forge_cmd(kind, num, 'reopening', f:reopen_cmd(num, ref), 'reopened', 'reopen failed')
+  ops.pr_reopen(f, { num = num, scope = ref })
 end
 
 ---@param f forge.Forge
@@ -1922,7 +1751,7 @@ function M.release(state, f, opts)
       close = false,
       fn = function(entry)
         if entry then
-          f:browse_release(entry.value.tag, entry.value.scope)
+          ops.release_browse(f, entry.value)
         end
       end,
     },
@@ -1947,25 +1776,13 @@ function M.release(state, f, opts)
         if not entry then
           return
         end
-        local tag = entry.value.tag
-        vim.ui.select({ 'Yes', 'No' }, {
-          prompt = 'Delete release ' .. tag .. '? ',
-        }, function(choice)
-          if choice == 'Yes' then
-            run_forge_cmd(
-              'release',
-              tag,
-              'deleting',
-              f:delete_release_cmd(tag, entry.value.scope),
-              'deleted',
-              'delete failed',
-              reopen_list,
-              reopen_list
-            )
-          else
+        ops.release_delete(f, entry.value, {
+          on_success = reopen_list,
+          on_failure = reopen_list,
+          on_cancel = function()
             M.release(state, f, { back = opts.back, scope = ref })
-          end
-        end)
+          end,
+        })
       end,
     },
     {
