@@ -1097,16 +1097,60 @@ function M.run(opts)
   return M.dispatch(command)
 end
 
-local function modifier_completion_items(command, legacy)
-  local items = {}
-  local names = legacy and command.declared_legacy_modifiers or command.declared_modifiers
-  for _, name in ipairs(names or {}) do
-    local spec = modifiers[name]
-    local prefix = legacy and '--' or ''
-    if spec and spec.kind == 'flag' then
-      items[#items + 1] = prefix .. name
+local function completion_state(command, args)
+  local state = {
+    subjects = {},
+    modifiers = {},
+  }
+  for _, token in ipairs(args) do
+    local name, value
+    if token:match('^%-%-') then
+      local body = token:sub(3)
+      local eq = body:find('=', 1, true)
+      if eq then
+        name = body:sub(1, eq - 1)
+        value = body:sub(eq + 1)
+      else
+        name = body
+        value = true
+      end
     else
-      items[#items + 1] = prefix .. name .. '='
+      local eq = token:find('=', 1, true)
+      if eq then
+        name = token:sub(1, eq - 1)
+        value = token:sub(eq + 1)
+      end
+    end
+    if
+      name
+      and (
+        list_contains(command.declared_modifiers or {}, name)
+        or list_contains(command.declared_legacy_modifiers or {}, name)
+      )
+    then
+      if state.modifiers[name] == nil then
+        state.modifiers[name] = value
+      end
+    else
+      state.subjects[#state.subjects + 1] = token
+    end
+  end
+  return state
+end
+
+local function filtered_modifier_completion_items(command, state, legacy)
+  local items = {}
+  local names = legacy and (command.declared_legacy_modifiers or command.legacy_modifiers)
+    or (command.declared_modifiers or command.modifiers)
+  for _, name in ipairs(names or {}) do
+    if state.modifiers[name] == nil then
+      local spec = modifiers[name]
+      local prefix = legacy and '--' or ''
+      if spec and spec.kind == 'flag' then
+        items[#items + 1] = prefix .. name
+      else
+        items[#items + 1] = prefix .. name .. '='
+      end
     end
   end
   return items
@@ -1118,22 +1162,180 @@ local function filter(candidates, arglead)
   end, candidates)
 end
 
-local function completion_values(family_name, verb_name, flag_name)
+local function system_lines(cmd)
+  if type(cmd) == 'table' then
+    local result = vim.system(cmd, { text = true }):wait()
+    if result.code ~= 0 then
+      return {}
+    end
+    local output = vim.trim(result.stdout or '')
+    return output == '' and {} or vim.split(output, '\n', { plain = true, trimempty = true })
+  end
+  local lines = vim.fn.systemlist(cmd)
+  if vim.v.shell_error ~= 0 then
+    return {}
+  end
+  return lines
+end
+
+local function add_completion_candidate(items, seen, value)
+  if type(value) ~= 'string' or value == '' or seen[value] then
+    return
+  end
+  seen[value] = true
+  items[#items + 1] = value
+end
+
+local function repo_completion_values(prefix)
+  local target = require('forge.target')
+  local parse_opts = target_parse_opts()
+  local items = {}
+  local seen = {}
+
+  local alias_names = {}
+  for name in pairs(parse_opts.aliases or {}) do
+    alias_names[#alias_names + 1] = name
+  end
+  table.sort(alias_names)
+  for _, name in ipairs(alias_names) do
+    add_completion_candidate(items, seen, name)
+  end
+
+  for _, remote in ipairs(system_lines({ 'git', 'remote' })) do
+    add_completion_candidate(items, seen, remote)
+    local resolved = target.resolve_repo(remote, parse_opts)
+    if resolved then
+      add_completion_candidate(items, seen, resolved.slug)
+      if resolved.host and resolved.slug then
+        add_completion_candidate(items, seen, resolved.host .. '/' .. resolved.slug)
+      end
+    end
+  end
+
+  for _, repo in ipairs({
+    target.current_repo(parse_opts),
+    target.push_repo(parse_opts),
+    target.collaboration_repo(parse_opts),
+  }) do
+    if repo then
+      add_completion_candidate(items, seen, repo.slug)
+      if repo.host and repo.slug then
+        add_completion_candidate(items, seen, repo.host .. '/' .. repo.slug)
+      end
+    end
+  end
+
+  return filter(items, prefix)
+end
+
+local function ref_completion_values(prefix)
+  local items = {}
+  local seen = {}
+  for _, ref in
+    ipairs(system_lines('git for-each-ref --format=%(refname:short) refs/heads refs/tags'))
+  do
+    add_completion_candidate(items, seen, ref)
+  end
+  for _, sha in
+    ipairs(system_lines({ 'git', 'rev-list', '--max-count=20', '--abbrev-commit', 'HEAD' }))
+  do
+    add_completion_candidate(items, seen, sha)
+  end
+  return filter(items, prefix)
+end
+
+local function rev_address_completion_values(prefix)
+  local items = {}
+  local seen = {}
+  local at = prefix:find('@', 1, true)
+  if at then
+    local repo = prefix:sub(1, at - 1)
+    local rev_prefix = prefix:sub(at + 1)
+    local base = repo ~= '' and (repo .. '@') or '@'
+    for _, ref in ipairs(ref_completion_values(rev_prefix)) do
+      add_completion_candidate(items, seen, base .. ref)
+    end
+    return items
+  end
+
+  for _, repo in ipairs(repo_completion_values(prefix)) do
+    add_completion_candidate(items, seen, repo .. '@')
+  end
+  for _, ref in ipairs(ref_completion_values('')) do
+    add_completion_candidate(items, seen, '@' .. ref)
+  end
+  return filter(items, prefix)
+end
+
+local function target_completion_values(prefix)
+  if prefix:find(':', 1, true) then
+    return {}
+  end
+  local items = {}
+  local seen = {}
+  local at = prefix:find('@', 1, true)
+  if at then
+    for _, value in ipairs(rev_address_completion_values(prefix)) do
+      add_completion_candidate(items, seen, value .. ':')
+    end
+    return items
+  end
+
+  for _, repo in ipairs(repo_completion_values(prefix)) do
+    add_completion_candidate(items, seen, repo .. '@')
+  end
+  for _, ref in ipairs(ref_completion_values('')) do
+    add_completion_candidate(items, seen, '@' .. ref .. ':')
+  end
+  return filter(items, prefix)
+end
+
+local function completion_values(family_name, verb_name, flag_name, prefix)
   local command = M.resolve(family_name, verb_name)
   if not command then
     return nil
   end
+  if flag_name == 'repo' then
+    return repo_completion_values(prefix or '')
+  end
+  if flag_name == 'rev' or flag_name == 'head' or flag_name == 'base' then
+    return rev_address_completion_values(prefix or '')
+  end
+  if flag_name == 'target' then
+    return target_completion_values(prefix or '')
+  end
   if flag_name == 'template' then
-    return require('forge').template_slugs()
+    return filter(require('forge').template_slugs(), prefix or '')
   end
   if command.modifier_values and command.modifier_values[flag_name] then
-    return command.modifier_values[flag_name]
+    return filter(command.modifier_values[flag_name], prefix or '')
   end
   local spec = modifiers[flag_name]
   if spec and spec.values then
-    return spec.values
+    return filter(spec.values, prefix or '')
   end
   return nil
+end
+
+local function subject_completion_items(command, state, arglead)
+  local subject = command.subject or { min = 0, max = 0 }
+  local max = subject.max or subject.min or 0
+  if max ~= nil and #state.subjects >= max then
+    return {}
+  end
+  if subject.kind == 'branch' then
+    return ref_completion_values(arglead)
+  end
+  if subject.kind == 'rev' then
+    return ref_completion_values(arglead)
+  end
+  if subject.kind == 'sha' then
+    return filter(
+      system_lines({ 'git', 'rev-list', '--max-count=20', '--abbrev-commit', 'HEAD' }),
+      arglead
+    )
+  end
+  return {}
 end
 
 function M.complete(arglead, cmdline, _)
@@ -1149,20 +1351,20 @@ function M.complete(arglead, cmdline, _)
 
   local legacy_flag, legacy_prefix = arglead:match('^(%-%-[^=]+)=(.*)$')
   if legacy_flag then
-    local values = completion_values(family_name, explicit_verb, legacy_flag:sub(3))
+    local values = completion_values(family_name, explicit_verb, legacy_flag:sub(3), legacy_prefix)
     if values then
       return vim.tbl_map(function(v)
         return legacy_flag .. '=' .. v
-      end, filter(values, legacy_prefix))
+      end, values)
     end
   end
   local flag, value_prefix = arglead:match('^([%w%-_]+)=(.*)$')
   if flag then
-    local values = completion_values(family_name, explicit_verb, flag)
+    local values = completion_values(family_name, explicit_verb, flag, value_prefix)
     if values then
       return vim.tbl_map(function(v)
         return flag .. '=' .. v
-      end, filter(values, value_prefix))
+      end, values)
     end
   end
   if arg_idx == 1 then
@@ -1172,37 +1374,38 @@ function M.complete(arglead, cmdline, _)
     return {}
   end
   if arg_idx == 2 then
+    local command = M.resolve(family_name)
+    local state = command and completion_state(command, {}) or { modifiers = {}, subjects = {} }
     local candidates = {}
     for _, verb in ipairs(M.verb_names(family_name)) do
-      if verb ~= family.default_verb then
-        candidates[#candidates + 1] = verb
+      candidates[#candidates + 1] = verb
+    end
+    if command then
+      if arglead:match('^%-%-') then
+        vim.list_extend(candidates, filtered_modifier_completion_items(command, state, true))
+      else
+        vim.list_extend(candidates, filtered_modifier_completion_items(command, state, false))
+        vim.list_extend(candidates, subject_completion_items(command, state, arglead))
       end
-    end
-    local implicit = M.resolve(family_name)
-    if implicit then
-      vim.list_extend(candidates, modifier_completion_items(implicit, true))
-    end
-    if (family_name == 'ci' or family_name == 'commits') and not arglead:match('^%-') then
-      vim.list_extend(
-        candidates,
-        vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags')
-      )
     end
     return filter(candidates, arglead)
   end
-  if family_name == 'review' and words[3] == 'branch' and arg_idx == 3 then
-    return filter(
-      vim.fn.systemlist('git for-each-ref --format=%(refname:short) refs/heads refs/tags'),
-      arglead
-    )
+  local command = M.resolve(family_name, explicit_verb)
+  if not command then
+    return {}
   end
-  if explicit_verb then
-    local command = M.resolve(family_name, explicit_verb)
-    if command then
-      return filter(modifier_completion_items(command, true), arglead)
-    end
+  local rest_index = explicit_verb and 4 or 3
+  local consumed = {}
+  for i = rest_index, arglead == '' and #words or (#words - 1) do
+    consumed[#consumed + 1] = words[i]
   end
-  return {}
+  local state = completion_state(command, consumed)
+  if arglead:match('^%-%-') then
+    return filter(filtered_modifier_completion_items(command, state, true), arglead)
+  end
+  local candidates = filtered_modifier_completion_items(command, state, false)
+  vim.list_extend(candidates, subject_completion_items(command, state, arglead))
+  return filter(candidates, arglead)
 end
 
 return M
