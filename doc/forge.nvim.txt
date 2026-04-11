@@ -8,6 +8,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `debug`...............................................|forge-config-debug|
     `split`...............................................|forge-config-split|
     `ci`.....................................................|forge-config-ci|
+    `targets`.........................................|forge-config-targets|
     `sources`...........................................|forge-config-sources|
     `contexts`.........................................|forge-config-contexts|
     `sections`.........................................|forge-config-sections|
@@ -19,6 +20,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `display.limits`.............................|forge-config-display-limits|
     COMMANDS..........................................................|:Forge|
     `:Forge`..................................................|:Forge-no-args|
+    TARGET DEFAULTS AND OVERRIDES......................|forge-target-defaults|
     `:Forge pr` [{flags}]..........................................|:Forge-pr|
     `:Forge pr create` [{flags}]............................|:Forge-pr-create|
     `:Forge pr checkout` {num}............................|:Forge-pr-checkout|
@@ -119,6 +121,37 @@ Top-level keys: ~
 
   `ci.split`        `string?`  (default `nil`, inherits from `split`)
     Split direction for CI views. Overrides the global `split`.
+
+`targets`                                             *forge-config-targets*
+  `targets.aliases`      `table<string, string>`  (default `{}`)
+    Symbolic target aliases used by the normalized `:Forge` command
+    modifiers (`repo=`, repo-bearing `rev=`, `target=`, `head=`, and
+    `base=`). Repo addresses resolve in this order: configured alias, git
+    remote name, explicit hosted repo path.
+
+  `targets.default_repo` `string?`  (default `nil`)
+    Preferred collaboration repo for commands that omit an explicit repo
+    target. Values can be aliases, git remotes, `owner/repo`, or
+    `host/owner/repo`. When unset, forge.nvim falls back to `upstream`,
+    then `origin`.
+
+  `targets.ci.repo`      `string`  (default `"current"`)
+    Default repo policy for `:Forge ci` when no explicit repo is given.
+    One of `"current"` or `"collaboration"`.
+
+  Example: >lua
+      vim.g.forge = {
+        targets = {
+          default_repo = 'upstream',
+          aliases = {
+            work = 'github.com/barrettruth/forge.nvim',
+          },
+          ci = {
+            repo = 'collaboration',
+          },
+        },
+      }
+<
 
 `sources`                                               *forge-config-sources*
   `table<string, { hosts: string[] }>`  (default `{}`)
@@ -290,14 +323,34 @@ COMMANDS                                                              *:Forge*
 `:Forge`                                                      *:Forge-no-args*
     Open the root workflow surface (|forge-picker|).
 
+TARGET DEFAULTS AND OVERRIDES                            *forge-target-defaults*
+    Supported verbs accept explicit target modifiers such as `repo=...`,
+    `rev=...`, `target=...`, `head=...`, and `base=...`. Explicit target
+    modifiers override default policy.
+
+    Default policy:
+    - collaboration repo = `targets.default_repo`, else `upstream`, else
+      `origin`
+    - `:Forge pr`, `:Forge issue`, and `:Forge release` default to the
+      collaboration repo
+    - `:Forge ci` defaults to the current branch and uses `targets.ci.repo`
+      for its repo policy
+    - `:Forge pr create` defaults `head=` to the current branch push
+      context and `base=` to the collaboration repo default branch
+    - `:Forge browse` defaults to the current file/line selection on the
+      current branch in the current repo
+
 `:Forge pr` [{flags}]                                              *:Forge-pr*
-    Open the PR list picker. Defaults to open PRs.
+    Open the PR list picker for the collaboration repo. Defaults to open
+    PRs.
     `--state=open`     Show open PRs (default).
     `--state=closed`   Show closed PRs.
     `--state=all`      Show all PRs.
 
 `:Forge pr create` [{flags}]                                *:Forge-pr-create*
     Create a new PR.
+    Default targets: `head=` is the current branch push context and
+    `base=` is the collaboration repo default branch.
     (no flags)         Open the compose buffer (|forge-compose|).
     `--draft`          Open compose buffer with draft pre-set.
     `--fill`           Create instantly from commits (skip compose).
@@ -327,10 +380,11 @@ COMMANDS                                                              *:Forge*
     reopen, draft toggle).
 
 `:Forge issue` [{flags}]                                        *:Forge-issue*
-    Open the issue list picker. Defaults to all issues.
-    `--state=open`     Show open issues.
+    Open the issue list picker for the collaboration repo. Defaults to
+    open issues.
+    `--state=open`     Show open issues (default).
     `--state=closed`   Show closed issues.
-    `--state=all`      Show all issues (default).
+    `--state=all`      Show all issues.
 
 `:Forge issue browse` {num}                              *:Forge-issue-browse*
     Open issue `{num}` in the browser.
@@ -347,7 +401,8 @@ COMMANDS                                                              *:Forge*
     `--web`            Open the forge's web create-issue page.
 
 `:Forge ci` [{flags}]                                              *:Forge-ci*
-    Open the CI runs picker. Defaults to current branch.
+    Open the CI runs picker. Defaults to the current branch in the repo
+    selected by `targets.ci.repo`.
     `--all`            Show runs for all branches.
 
 `:Forge branches`                                        *:Forge-branches*
@@ -361,7 +416,8 @@ COMMANDS                                                              *:Forge*
     Open the worktree picker (|forge-picker-worktree|).
 
 `:Forge release`                                              *:Forge-release*
-    Open the release list picker (|forge-picker-release|).
+    Open the release list picker for the collaboration repo
+    (|forge-picker-release|).
 
 `:Forge release browse` {tag}                          *:Forge-release-browse*
     Open release `{tag}` in the browser.
@@ -370,7 +426,9 @@ COMMANDS                                                              *:Forge*
     Delete release `{tag}` (with confirmation prompt).
 
 `:Forge browse` [{flags}]                                      *:Forge-browse*
-    Open the current file location on the forge.
+    Open a browser target on the forge. Without explicit target modifiers,
+    this defaults to the current file location on the current branch in
+    the current repo.
     `--root`           Open the repository root page.
     `--commit`         Open the current HEAD commit.
     (no flags)         Open the current file and line(s) on the current

@@ -4,16 +4,19 @@ describe(':Forge command', function()
   local captured
   local old_preload
   local old_systemlist
+  local old_system
 
   before_each(function()
     captured = {
       opens = {},
       pr_action_num = nil,
+      pr_action_scope = nil,
       reviews = {},
       review_actions = {},
       warnings = {},
       closed_prs = {},
       closed_issues = {},
+      browse_calls = {},
     }
     old_preload = {
       ['forge'] = package.preload['forge'],
@@ -22,6 +25,37 @@ describe(':Forge command', function()
       ['forge.review'] = package.preload['forge.review'],
     }
     old_systemlist = vim.fn.systemlist
+    old_system = vim.system
+
+    vim.system = function(cmd, _, cb)
+      local key = table.concat(cmd, ' ')
+      local result = {
+        code = 1,
+        stdout = '',
+        stderr = '',
+      }
+      if key == 'git remote get-url origin' then
+        result = { code = 0, stdout = 'git@github.com:owner/current.git\n', stderr = '' }
+      elseif key == 'git remote get-url upstream' then
+        result = { code = 0, stdout = 'git@github.com:owner/upstream.git\n', stderr = '' }
+      elseif key == 'git remote' then
+        result = { code = 0, stdout = 'origin\nupstream\n', stderr = '' }
+      elseif key == 'git branch --show-current' then
+        result = { code = 0, stdout = 'main\n', stderr = '' }
+      elseif key == 'git config branch.main.pushRemote' then
+        result = { code = 1, stdout = '', stderr = '' }
+      elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
+        result = { code = 0, stdout = 'origin/main\n', stderr = '' }
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
 
     package.preload['forge.logger'] = function()
       return {
@@ -38,6 +72,7 @@ describe(':Forge command', function()
       return {
         detect = function()
           return {
+            name = 'github',
             capabilities = {
               per_pr_checks = true,
             },
@@ -48,6 +83,26 @@ describe(':Forge command', function()
               pr = 'pr',
               issue = 'issue',
             },
+            view_web = function(_, kind, num, scope)
+              captured.view_web = {
+                kind = kind,
+                num = num,
+                scope = scope,
+              }
+            end,
+            browse = function(_, loc, branch, scope)
+              table.insert(captured.browse_calls, {
+                loc = loc,
+                branch = branch,
+                scope = scope,
+              })
+            end,
+            browse_release = function(_, tag, scope)
+              captured.release_browse = {
+                tag = tag,
+                scope = scope,
+              }
+            end,
           }
         end,
         current_context = function()
@@ -69,6 +124,9 @@ describe(':Forge command', function()
         clear_cache = function()
           captured.cleared = true
         end,
+        file_loc = function()
+          return 'lua/forge/init.lua:10'
+        end,
         open = function(route, opts)
           table.insert(captured.opens, { route = route, opts = opts })
         end,
@@ -80,11 +138,13 @@ describe(':Forge command', function()
 
     package.preload['forge.pickers'] = function()
       return {
-        pr_actions = function(_, num)
-          captured.pr_action_num = num
+        pr_actions = function(_, pr)
+          local ref = type(pr) == 'table' and pr or { num = pr }
+          captured.pr_action_num = ref.num
+          captured.pr_action_scope = ref.scope
           return {
             review = function()
-              table.insert(captured.reviews, num)
+              table.insert(captured.reviews, ref.num)
             end,
             checkout = function() end,
             worktree = function() end,
@@ -157,6 +217,7 @@ describe(':Forge command', function()
   end)
 
   after_each(function()
+    vim.system = old_system
     vim.fn.systemlist = old_systemlist
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
@@ -176,6 +237,7 @@ describe(':Forge command', function()
     vim.cmd('Forge pr review 42')
 
     assert.equals('42', captured.pr_action_num)
+    assert.is_nil(captured.pr_action_scope)
     assert.same({ '42' }, captured.reviews)
   end)
 
@@ -183,6 +245,7 @@ describe(':Forge command', function()
     vim.cmd('Forge pr diff 7')
 
     assert.equals('7', captured.pr_action_num)
+    assert.is_nil(captured.pr_action_scope)
     assert.same({ '7' }, captured.reviews)
   end)
 
@@ -219,14 +282,30 @@ describe(':Forge command', function()
     assert.is_nil(captured.opens[3].opts)
   end)
 
-  it('dispatches browse subcommands through the route aliases', function()
+  it('uses explicit browse defaults for omitted targets', function()
     vim.cmd('Forge browse')
+
+    assert.same({
+      loc = 'lua/forge/init.lua:10',
+      branch = 'main',
+      scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'current',
+        slug = 'owner/current',
+        repo_arg = 'owner/current',
+        web_url = 'https://github.com/owner/current',
+      },
+    }, captured.browse_calls[1])
+  end)
+
+  it('dispatches browse subcommands through the route aliases', function()
     vim.cmd('Forge browse --root')
     vim.cmd('Forge browse --commit')
 
-    assert.equals('browse.contextual', captured.opens[1].route)
-    assert.equals('browse.branch', captured.opens[2].route)
-    assert.equals('browse.commit', captured.opens[3].route)
+    assert.equals('browse.branch', captured.opens[1].route)
+    assert.equals('browse.commit', captured.opens[2].route)
   end)
 
   it('dispatches normalized create and clear commands through the command layer', function()
@@ -234,9 +313,33 @@ describe(':Forge command', function()
     vim.cmd('Forge issue create --blank --template=bug')
     vim.cmd('Forge clear')
 
-    assert.same({ draft = true, instant = true, web = true, scope = nil }, captured.create_pr)
+    assert.same({
+      draft = true,
+      instant = true,
+      web = true,
+      scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'upstream',
+        slug = 'owner/upstream',
+        repo_arg = 'owner/upstream',
+        web_url = 'https://github.com/owner/upstream',
+      },
+    }, captured.create_pr)
     assert.same({ web = false, blank = true, template = 'bug', scope = nil }, captured.create_issue)
     assert.is_true(captured.cleared)
+  end)
+
+  it('applies collaboration and ci default scopes to list commands', function()
+    vim.cmd('Forge pr')
+    vim.cmd('Forge ci')
+
+    assert.equals('prs', captured.opens[1].route)
+    assert.equals('owner/upstream', captured.opens[1].opts.scope.slug)
+    assert.equals('ci.current_branch', captured.opens[2].route)
+    assert.equals('owner/current', captured.opens[2].opts.scope.slug)
+    assert.equals('main', captured.opens[2].opts.branch)
   end)
 
   it('rejects unsupported bang with E477 and no side effects', function()

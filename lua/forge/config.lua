@@ -114,6 +114,12 @@ local DEFAULTS = {
   debug = false,
   split = 'horizontal',
   ci = { lines = 1000, refresh = 5 },
+  targets = {
+    aliases = {},
+    ci = {
+      repo = 'current',
+    },
+  },
   sources = {},
   contexts = {
     current = true,
@@ -314,10 +320,22 @@ function M.config()
   vim.validate('forge.ci', cfg.ci, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, 'number')
   vim.validate('forge.ci.refresh', cfg.ci.refresh, 'number')
+  vim.validate('forge.targets', cfg.targets, 'table')
   if cfg.ci.split ~= nil then
     vim.validate('forge.ci.split', cfg.ci.split, function(v)
       return v == 'horizontal' or v == 'vertical'
     end, "'horizontal' or 'vertical'")
+  end
+  vim.validate('forge.targets.aliases', cfg.targets.aliases, 'table')
+  if cfg.targets.default_repo ~= nil then
+    vim.validate('forge.targets.default_repo', cfg.targets.default_repo, 'string')
+  end
+  local target_ci = cfg.targets.ci or {}
+  vim.validate('forge.targets.ci', target_ci, 'table')
+  if target_ci.repo ~= nil then
+    vim.validate('forge.targets.ci.repo', target_ci.repo, function(v)
+      return v == 'current' or v == 'collaboration'
+    end, "'current' or 'collaboration'")
   end
 
   vim.validate('forge.display.icons', cfg.display.icons, 'table')
@@ -440,6 +458,10 @@ function M.config()
     if source.hosts ~= nil then
       vim.validate('forge.sources.' .. name .. '.hosts', source.hosts, 'table')
     end
+  end
+
+  for name, target in pairs(cfg.targets.aliases) do
+    vim.validate('forge.targets.aliases.' .. name, target, 'string')
   end
 
   for name, enabled in pairs(cfg.contexts) do

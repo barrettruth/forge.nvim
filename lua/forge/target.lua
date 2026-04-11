@@ -1,5 +1,11 @@
 local M = {}
 
+local default_hosts = {
+  github = 'github.com',
+  gitlab = 'gitlab.com',
+  codeberg = 'codeberg.org',
+}
+
 local function trim(text)
   if type(text) ~= 'string' then
     return nil
@@ -47,12 +53,50 @@ local function alias_map(opts)
   return type(opts) == 'table' and type(opts.aliases) == 'table' and opts.aliases or {}
 end
 
-local function remote_url(name)
-  local result = vim.system({ 'git', 'remote', 'get-url', name }, { text = true }):wait()
+local function shell_text(cmd)
+  local result = vim.system(cmd, { text = true }):wait()
   if result.code ~= 0 then
     return nil
   end
   return trim(result.stdout)
+end
+
+local function remote_url(name)
+  return shell_text({ 'git', 'remote', 'get-url', name })
+end
+
+local function preferred_remote_name()
+  if remote_url('origin') then
+    return 'origin'
+  end
+  local remotes = shell_text({ 'git', 'remote' })
+  if not remotes then
+    return nil
+  end
+  return vim.split(remotes, '\n', { plain = true, trimempty = true })[1]
+end
+
+local function push_remote_name(branch)
+  local value = trim(branch)
+  if not value then
+    return preferred_remote_name()
+  end
+  local branch_remote = shell_text({ 'git', 'config', 'branch.' .. value .. '.pushRemote' })
+  if branch_remote then
+    return branch_remote
+  end
+  local push_default = shell_text({ 'git', 'config', 'remote.pushDefault' })
+  if push_default then
+    return push_default
+  end
+  local upstream = shell_text({ 'git', 'rev-parse', '--abbrev-ref', value .. '@{upstream}' })
+  if upstream then
+    local remote = upstream:match('^([^/]+)/')
+    if remote then
+      return remote
+    end
+  end
+  return preferred_remote_name()
 end
 
 local function parse_range(fragment)
@@ -180,6 +224,92 @@ function M.resolve_repo(text, opts)
   return parsed
 end
 
+function M.current_branch()
+  return shell_text({ 'git', 'branch', '--show-current' })
+end
+
+function M.current_repo(opts)
+  local remote = preferred_remote_name()
+  if not remote then
+    return nil
+  end
+  return M.resolve_repo(remote, opts)
+end
+
+function M.push_repo(opts)
+  local branch = M.current_branch()
+  local remote = push_remote_name(branch)
+  if not remote then
+    return nil
+  end
+  return M.resolve_repo(remote, opts)
+end
+
+function M.collaboration_repo(opts)
+  local configured = type(opts) == 'table' and trim(opts.default_repo) or nil
+  if configured then
+    local resolved = M.resolve_repo(configured, opts)
+    if resolved then
+      return resolved
+    end
+  end
+  for _, remote in ipairs({ 'upstream', 'origin' }) do
+    local resolved = M.resolve_repo(remote, opts)
+    if resolved then
+      return resolved
+    end
+  end
+  return nil
+end
+
+function M.branch_rev(branch, repo)
+  local value = trim(branch)
+  if not value then
+    return nil
+  end
+  local rev = {
+    kind = 'rev',
+    text = '@' .. value,
+    rev = value,
+  }
+  if repo then
+    rev.repo = repo
+  end
+  return rev
+end
+
+function M.default_branch_rev(repo)
+  if not repo then
+    return nil
+  end
+  return {
+    kind = 'rev',
+    text = '',
+    repo = repo,
+    default_branch = true,
+  }
+end
+
+function M.current_rev(opts)
+  return M.branch_rev(M.current_branch(), M.current_repo(opts))
+end
+
+function M.ci_rev(opts)
+  local repo = type(opts) == 'table'
+      and opts.ci_repo == 'collaboration'
+      and M.collaboration_repo(opts)
+    or M.current_repo(opts)
+  return M.branch_rev(M.current_branch(), repo)
+end
+
+function M.push_rev(opts)
+  return M.branch_rev(M.current_branch(), M.push_repo(opts))
+end
+
+function M.collaboration_default_branch(opts)
+  return M.default_branch_rev(M.collaboration_repo(opts))
+end
+
 function M.parse_rev(text, opts)
   local value = trim(text)
   if not value then
@@ -263,6 +393,26 @@ function M.parse_location(text, opts)
     path = path,
     range = range,
   }
+end
+
+function M.repo_scope(repo, forge_name)
+  if type(repo) ~= 'table' then
+    return nil
+  end
+  local host = repo.host
+  local slug = repo.slug
+  if repo.form == 'path' then
+    local current = nil
+    local ok, forge = pcall(require, 'forge')
+    if ok and type(forge) == 'table' and type(forge.current_scope) == 'function' then
+      current = forge.current_scope(forge_name)
+    end
+    host = current and current.host or default_hosts[forge_name]
+  end
+  if not host or not slug then
+    return nil
+  end
+  return require('forge.scope').from_url(forge_name, ('https://%s/%s'):format(host, slug))
 end
 
 return M
