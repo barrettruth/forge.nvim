@@ -77,7 +77,7 @@ describe('fzf picker', function()
     assert.equals('2', captured.opts.fzf_opts['--accept-nth'])
   end)
 
-  it('renders headers with enter, ctrl, tab, and shift-tab labels without to text', function()
+  it('renders headers with enter, ctrl, and tab labels without to text', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'PRs> ',
@@ -101,12 +101,11 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]|[FzfLuaHeaderBind:<s-tab>] [FzfLuaHeaderText:prev]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|[FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
     assert.is_function(captured.opts.actions.tab)
-    assert.is_function(captured.opts.actions.btab)
   end)
 
   it('suppresses headers for single-action pickers', function()
@@ -207,7 +206,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|[FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]|[FzfLuaHeaderBind:<s-tab>] [FzfLuaHeaderText:prev]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|[FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)

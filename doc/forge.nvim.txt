@@ -190,7 +190,6 @@ Top-level keys: ~
           browse = '<c-x>',
           create = '<c-a>',
           filter = '<tab>',
-          filter_prev = '<s-tab>',
           refresh = '<c-r>',
         },
         issue = {
@@ -198,7 +197,6 @@ Top-level keys: ~
           close = '<c-s>',
           create = '<c-a>',
           filter = '<tab>',
-          filter_prev = '<s-tab>',
           refresh = '<c-r>',
         },
         ci = {
@@ -206,7 +204,6 @@ Top-level keys: ~
           watch = '<c-w>',
           browse = '<c-x>',
           filter = '<tab>',
-          filter_prev = '<s-tab>',
           refresh = '<c-r>',
         },
         release = {
@@ -214,7 +211,6 @@ Top-level keys: ~
           yank = '<c-y>',
           delete = '<c-d>',
           filter = '<tab>',
-          filter_prev = '<s-tab>',
           refresh = '<c-r>',
         },
         branch = {
@@ -529,7 +525,6 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
   `browse`      `<c-x>`          Open PR in browser
   `create`      `<c-a>`          Create new PR (|forge-compose|)
   `filter`      `<tab>`          Cycle state: open -> closed -> all
-  `filter_prev` `<s-tab>`        Cycle state: open -> all -> closed
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                           *forge-picker-issue*
@@ -540,7 +535,6 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
   `close`       `<c-s>`          Close or reopen the issue
   `create`      `<c-a>`          Create new issue
   `filter`      `<tab>`          Cycle state: all -> open -> closed
-  `filter_prev` `<s-tab>`        Cycle state: all -> closed -> open
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                              *forge-picker-ci*
@@ -560,7 +554,6 @@ In-progress views auto-refresh at the `ci.refresh` interval.
   `watch`       `<c-w>`          Live-watch in terminal
   `browse`      `<c-x>`          Open run/check URL in browser
   `filter`      `<tab>`          Cycle filter: all -> failed -> passed -> running
-  `filter_prev` `<s-tab>`        Cycle filter: all -> running -> passed -> failed
   `refresh`     `<c-r>`          Re-fetch runs
 
                                                          *forge-picker-branch*
@@ -611,7 +604,6 @@ prerelease badges are shown for forges that support them (GitHub, Codeberg).
   `yank`        `<c-y>`          Copy release URL to `+` register
   `delete`      `<c-d>`          Delete release (with confirmation)
   `filter`      `<tab>`          Cycle filter: all -> draft -> prerelease
-  `filter_prev` `<s-tab>`        Cycle filter: all -> prerelease -> draft
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                          *forge-picker-manage*

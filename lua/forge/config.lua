@@ -148,14 +148,12 @@ local DEFAULTS = {
       browse = '<c-x>',
       create = '<c-a>',
       filter = '<tab>',
-      filter_prev = '<s-tab>',
       refresh = '<c-r>',
     },
     issue = {
       browse = '<c-x>',
       close = '<c-s>',
       filter = '<tab>',
-      filter_prev = '<s-tab>',
       refresh = '<c-r>',
       create = '<c-a>',
     },
@@ -164,7 +162,6 @@ local DEFAULTS = {
       watch = '<c-w>',
       browse = '<c-x>',
       filter = '<tab>',
-      filter_prev = '<s-tab>',
       refresh = '<c-r>',
     },
     release = {
@@ -172,7 +169,6 @@ local DEFAULTS = {
       yank = '<c-y>',
       delete = '<c-d>',
       filter = '<tab>',
-      filter_prev = '<s-tab>',
       refresh = '<c-r>',
     },
     branch = {

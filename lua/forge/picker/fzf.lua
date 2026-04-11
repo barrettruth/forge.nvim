@@ -12,7 +12,6 @@ local no_bg_highlights = {
 local special_keys = {
   ['<cr>'] = { fzf = 'enter', header = '<cr>' },
   ['<tab>'] = { fzf = 'tab', header = '<tab>' },
-  ['<s-tab>'] = { fzf = 'btab', header = '<s-tab>' },
 }
 
 local function strip_bg_ansi(text)
