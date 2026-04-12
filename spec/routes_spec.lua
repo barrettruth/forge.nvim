@@ -103,7 +103,7 @@ describe('routes', function()
           return fake_forge()
         end,
         file_loc = function()
-          return 'lua/forge/init.lua:10'
+          return 'lua/forge/init.lua'
         end,
       }
     end
@@ -271,6 +271,15 @@ describe('routes', function()
 
     assert.same({ branch = 'main', scope = nil }, captured.browse_branch)
     assert.is_nil(captured.browse)
+  end)
+
+  it('uses file browsing for contextual browse with a file buffer', function()
+    vim.api.nvim_buf_set_name(0, '/repo/lua/forge/init.lua')
+
+    require('forge.routes').open('browse.contextual')
+
+    assert.same({ loc = 'lua/forge/init.lua', branch = 'main', scope = nil }, captured.browse)
+    assert.is_nil(captured.browse_branch)
   end)
 
   it('uses the current commit for commit browsing', function()

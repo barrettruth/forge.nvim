@@ -18,6 +18,10 @@ local function flatten(segments)
   return table.concat(parts)
 end
 
+local function repo_file(path)
+  return vim.fn.getcwd() .. '/' .. path
+end
+
 describe('config', function()
   after_each(function()
     vim.g.forge = nil
@@ -120,6 +124,29 @@ describe('config', function()
     vim.g.forge = { keys = false }
     local cfg = forge.config()
     assert.is_false(cfg.keys)
+  end)
+end)
+
+describe('file_loc', function()
+  after_each(function()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_name(0, '')
+  end)
+
+  it('returns the current file path without a line in normal mode', function()
+    vim.api.nvim_buf_set_name(0, repo_file('tmp/file-loc-normal.lua'))
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'one', 'two', 'three' })
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+    assert.equals('tmp/file-loc-normal.lua', forge.file_loc())
+  end)
+
+  it('returns the selected line range in visual mode', function()
+    vim.api.nvim_buf_set_name(0, repo_file('tmp/file-loc-visual.lua'))
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'one', 'two', 'three' })
+    vim.cmd('normal! ggVj')
+
+    assert.equals('tmp/file-loc-visual.lua:1-2', forge.file_loc())
   end)
 end)
 

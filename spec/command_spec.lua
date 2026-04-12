@@ -139,7 +139,7 @@ describe(':Forge command', function()
           captured.cleared = true
         end,
         file_loc = function()
-          return 'lua/forge/init.lua:10'
+          return 'lua/forge/init.lua'
         end,
         open = function(route, opts)
           table.insert(captured.opens, { route = route, opts = opts })
@@ -354,7 +354,7 @@ describe(':Forge command', function()
     vim.cmd('Forge browse')
 
     assert.same({
-      loc = 'lua/forge/init.lua:10',
+      loc = 'lua/forge/init.lua',
       branch = 'main',
       scope = {
         kind = 'github',
