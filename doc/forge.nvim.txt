@@ -135,6 +135,23 @@ Top-level keys: ~
     Default split direction for terminal views. One of `"horizontal"` or
     `"vertical"`. Individual scopes (e.g. `ci.split`) override this value.
 
+`confirm`                                               *forge-config-confirm*
+  `table`  (default shown below)
+    Confirmation settings for destructive picker actions.
+
+  Defaults: >lua
+      confirm = {
+        branch_delete = true,
+        worktree_delete = true,
+      }
+<
+
+  `branch_delete`   `boolean`  (default `true`)
+    Ask for confirmation before deleting a branch from the branch picker.
+
+  `worktree_delete` `boolean`  (default `true`)
+    Ask for confirmation before deleting a worktree from the worktree picker.
+
 `ci`                                                         *forge-config-ci*
   `ci.lines`        `integer`  (default `1000`)
     Maximum number of log lines fetched for CI/check log output.
@@ -719,7 +736,8 @@ markers, upstream, and tip commit summary. `*` marks the current branch and
   `switch`      `<cr>`           Switch to the selected branch, or jump to its
                                 worktree when the row is marked `+`
   `review`      `<c-d>`          Start branch review
-  `delete`      `<c-s>`          Delete a non-current branch after confirmation
+  `delete`      `<c-s>`          Delete a non-current branch after `[y/N]`
+                                confirmation
   `browse`      `<c-x>`          Open branch in browser
   `yank`        `<c-y>`          Copy branch name to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -745,7 +763,8 @@ path segments when needed to preserve the distinguishing tail.
   Action      Default Key    Description ~
   `switch cwd`  `<cr>`           Change Neovim's cwd to the selected worktree
   `add`         `<c-a>`          Add a sibling worktree for a branch name
-  `delete`      `<c-s>`          Delete a non-current worktree after confirmation
+  `delete`      `<c-s>`          Delete a non-current worktree after `[y/N]`
+                                confirmation
   `yank`        `<c-y>`          Copy worktree path to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
 

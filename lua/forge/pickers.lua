@@ -154,6 +154,26 @@ local function change_directory(path)
   log.info('changed directory to ' .. path)
 end
 
+local function confirm_input(prompt, enabled, on_confirm, on_cancel)
+  if enabled == false then
+    on_confirm()
+    return
+  end
+
+  vim.ui.input({
+    prompt = prompt .. ' [y/N] ',
+  }, function(input)
+    local choice = vim.trim((input or '')):lower()
+    if choice == 'y' or choice == 'yes' then
+      on_confirm()
+      return
+    end
+    if on_cancel then
+      on_cancel()
+    end
+  end)
+end
+
 local function split_records(text)
   return vim.tbl_map(function(record)
     return vim.split(record, field_sep, { plain = true })
@@ -1846,6 +1866,7 @@ function M.branches(ctx, opts)
             return
           end
           local item = entry.value
+          local confirm = require('forge').config().confirm
           if item.current then
             log.warn('cannot delete active branch ' .. item.name)
             return
@@ -1859,26 +1880,22 @@ function M.branches(ctx, opts)
             )
             return
           end
-          vim.ui.select({ 'Yes', 'No' }, {
-            prompt = 'Delete branch ' .. item.name .. '? ',
-          }, function(choice)
-            if choice == 'Yes' then
-              run_git_cmd(
-                'deleting branch ' .. item.name,
-                { 'git', 'branch', '--delete', item.name },
-                'deleted branch ' .. item.name,
-                'delete failed',
-                function()
-                  forge_mod.clear_list(cache_key)
-                  M.branches(ctx, { back = opts.back })
-                end,
-                function()
-                  M.branches(ctx, { back = opts.back })
-                end
-              )
-            else
-              M.branches(ctx, { back = opts.back })
-            end
+          confirm_input('Delete branch ' .. item.name .. '?', confirm.branch_delete, function()
+            run_git_cmd(
+              'deleting branch ' .. item.name,
+              { 'git', 'branch', '--delete', item.name },
+              'deleted branch ' .. item.name,
+              'delete failed',
+              function()
+                forge_mod.clear_list(cache_key)
+                M.branches(ctx, { back = opts.back })
+              end,
+              function()
+                M.branches(ctx, { back = opts.back })
+              end
+            )
+          end, function()
+            M.branches(ctx, { back = opts.back })
           end)
         end,
       },
@@ -2203,30 +2220,25 @@ function M.worktrees(ctx, opts)
               return
             end
             local item = entry.value
+            local confirm = require('forge').config().confirm
             if item.current then
               log.warn('cannot delete current worktree ' .. item.path)
               reopen()
               return
             end
-            vim.ui.select({ 'Yes', 'No' }, {
-              prompt = 'Delete worktree ' .. item.path .. '? ',
-            }, function(choice)
-              if choice == 'Yes' then
-                run_git_cmd(
-                  'deleting worktree ' .. item.path,
-                  { 'git', 'worktree', 'remove', item.path },
-                  'deleted worktree ' .. item.path,
-                  'worktree delete failed',
-                  function()
-                    forge_mod.clear_list(cache_key)
-                    reopen()
-                  end,
-                  reopen
-                )
-              else
-                reopen()
-              end
-            end)
+            confirm_input('Delete worktree ' .. item.path .. '?', confirm.worktree_delete, function()
+              run_git_cmd(
+                'deleting worktree ' .. item.path,
+                { 'git', 'worktree', 'remove', item.path },
+                'deleted worktree ' .. item.path,
+                'worktree delete failed',
+                function()
+                  forge_mod.clear_list(cache_key)
+                  reopen()
+                end,
+                reopen
+              )
+            end, reopen)
           end,
         },
         {

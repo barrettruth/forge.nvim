@@ -5,7 +5,6 @@ local cache
 local old_preload
 local old_system
 local old_cmd
-local old_ui_select
 local old_ui_input
 local old_win_get_width
 
@@ -18,13 +17,12 @@ end
 
 describe('git sections', function()
   before_each(function()
-    captured = { systems = {}, select_choice = 'Yes', input_value = 'new-tree' }
+    captured = { systems = {}, input_value = 'new-tree' }
     cache = {}
     local now = os.time()
 
     old_system = vim.system
     old_cmd = vim.cmd
-    old_ui_select = vim.ui.select
     old_ui_input = vim.ui.input
     old_win_get_width = vim.api.nvim_win_get_width
     vim.system = function(cmd, _, cb)
@@ -97,11 +95,6 @@ describe('git sections', function()
 
     vim.cmd = function(cmd)
       captured.cmd = cmd
-    end
-
-    vim.ui.select = function(_, opts, cb)
-      captured.select_prompt = opts.prompt
-      cb(captured.select_choice)
     end
 
     vim.ui.input = function(opts, cb)
@@ -195,7 +188,6 @@ describe('git sections', function()
   after_each(function()
     vim.system = old_system
     vim.cmd = old_cmd
-    vim.ui.select = old_ui_select
     vim.ui.input = old_ui_input
     vim.api.nvim_win_get_width = old_win_get_width
     package.preload['forge'] = old_preload['forge']
@@ -519,8 +511,9 @@ describe('git sections', function()
     assert.is_true(vim.tbl_contains(captured.systems, 'git worktree add /new-tree -b new-tree'))
 
     local entry = captured.picker.entries[2]
+    captured.input_value = 'y'
     captured.picker.actions[3].fn(entry)
-    assert.equals('Delete worktree /repo-feature? ', captured.select_prompt)
+    assert.equals('Delete worktree /repo-feature? [y/N] ', captured.input_prompt)
     vim.wait(100, function()
       return vim.tbl_contains(captured.systems, 'git worktree remove /repo-feature')
     end)
@@ -775,11 +768,56 @@ describe('git sections', function()
     )
 
     local delete_entry = captured.picker.entries[3]
+    captured.input_value = 'y'
     delete_action.fn(delete_entry)
-    assert.equals('Delete branch topic? ', captured.select_prompt)
+    assert.equals('Delete branch topic? [y/N] ', captured.input_prompt)
     vim.wait(100, function()
       return vim.tbl_contains(captured.systems, 'git branch --delete topic')
     end)
     assert.is_true(vim.tbl_contains(captured.systems, 'git branch --delete topic'))
+  end)
+
+
+  it('skips branch and worktree delete prompts when confirmation is disabled', function()
+    vim.g.forge = {
+      confirm = {
+        branch_delete = false,
+        worktree_delete = false,
+      },
+    }
+
+    require('forge.pickers').branches({
+      id = 'current',
+      root = '/repo',
+    })
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    local branch_delete
+    for _, action in ipairs(captured.picker.actions) do
+      if action.name == 'delete' then
+        branch_delete = action
+        break
+      end
+    end
+
+    branch_delete.fn(captured.picker.entries[3])
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.systems, 'git branch --delete topic')
+    end)
+    assert.is_nil(captured.input_prompt)
+
+    captured.picker = nil
+    require('forge.pickers').worktrees({ root = '/repo' })
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    captured.picker.actions[3].fn(captured.picker.entries[2])
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.systems, 'git worktree remove /repo-feature')
+    end)
+    assert.is_nil(captured.input_prompt)
   end)
 end)
