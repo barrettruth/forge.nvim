@@ -47,6 +47,32 @@ local function repo_arg(ref)
   return forge.scope_repo_arg(current) or ''
 end
 
+local function diff_values(before, after)
+  local before_set = {}
+  for _, value in ipairs(before or {}) do
+    before_set[value] = true
+  end
+  local after_set = {}
+  for _, value in ipairs(after or {}) do
+    after_set[value] = true
+  end
+  local added = {}
+  for _, value in ipairs(after or {}) do
+    if not before_set[value] then
+      table.insert(added, value)
+      before_set[value] = true
+    end
+  end
+  local removed = {}
+  for _, value in ipairs(before or {}) do
+    if not after_set[value] then
+      table.insert(removed, value)
+      after_set[value] = true
+    end
+  end
+  return added, removed
+end
+
 ---@param state string
 ---@param limit integer?
 ---@return string[]
@@ -313,6 +339,14 @@ function M:fetch_pr_details_cmd(num, ref)
   }
 end
 
+function M:fetch_issue_details_cmd(num, ref)
+  return {
+    'sh',
+    '-c',
+    ('tea api --repo %s "/repos/{owner}/{repo}/issues/%s"'):format(repo_arg(ref), num),
+  }
+end
+
 ---@param num string
 ---@param title string
 ---@param body string
@@ -334,6 +368,43 @@ function M:update_pr_cmd(num, title, body, _reviewers, _labels, _assignees, _mil
     '--repo',
     repo_arg(ref),
   }
+end
+
+function M:update_issue_cmd(num, title, body, labels, assignees, milestone, original, ref)
+  local cmd = {
+    'tea',
+    'issues',
+    'edit',
+    num,
+    '--title',
+    title,
+    '--description',
+    body,
+    '--repo',
+    repo_arg(ref),
+  }
+  local added_labels, removed_labels = diff_values(original and original.labels or {}, labels)
+  if #added_labels > 0 then
+    table.insert(cmd, '--add-labels')
+    table.insert(cmd, table.concat(added_labels, ','))
+  end
+  if #removed_labels > 0 then
+    table.insert(cmd, '--remove-labels')
+    table.insert(cmd, table.concat(removed_labels, ','))
+  end
+  local added_assignees = select(1, diff_values(original and original.assignees or {}, assignees))
+  if #added_assignees > 0 then
+    table.insert(cmd, '--add-assignees')
+    table.insert(cmd, table.concat(added_assignees, ','))
+  end
+  if
+    milestone ~= nil
+    and (milestone ~= '' or (original and original.milestone and original.milestone ~= ''))
+  then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
+  end
+  return cmd
 end
 
 ---@param json table
@@ -358,6 +429,28 @@ function M:parse_pr_details(json)
     labels = labels,
     assignees = assignees,
     reviewers = {},
+    milestone = milestone,
+  }
+end
+
+function M:parse_issue_details(json)
+  local labels = {}
+  for _, l in ipairs(json.labels or {}) do
+    table.insert(labels, l.name or '')
+  end
+  local assignees = {}
+  for _, a in ipairs(json.assignees or {}) do
+    table.insert(assignees, a.login or '')
+  end
+  local milestone = ''
+  if type(json.milestone) == 'table' and json.milestone.title then
+    milestone = json.milestone.title
+  end
+  return {
+    title = json.title or '',
+    body = json.body or '',
+    labels = labels,
+    assignees = assignees,
     milestone = milestone,
   }
 end

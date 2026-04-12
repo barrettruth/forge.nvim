@@ -49,6 +49,13 @@
 ---@field assignees string[]
 ---@field milestone string
 
+---@class forge.IssueDetails
+---@field title string
+---@field body string
+---@field labels string[]
+---@field assignees string[]
+---@field milestone string
+
 ---@class forge.CreatePROpts
 ---@field draft boolean?
 ---@field instant boolean?
@@ -144,6 +151,8 @@
 ---@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?, scope?: forge.Scope): string[]
 ---@field fetch_pr_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field parse_pr_details fun(self: forge.Forge, json: table): forge.PRDetails
+---@field fetch_issue_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
+---@field parse_issue_details fun(self: forge.Forge, json: table): forge.IssueDetails
 ---@field completion_cmd (fun(self: forge.Forge, field: string, scope?: forge.Scope): string[]?)?
 ---@field create_pr_web_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]?
 ---@field create_pr_web_url (fun(self: forge.Forge, scope?: forge.Scope): string?)?
@@ -155,5 +164,6 @@
 ---@field browse_release fun(self: forge.Forge, tag: string, scope?: forge.Scope)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string, scope?: forge.Scope): string[]
 ---@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?, scope?: forge.Scope): string[]
+---@field update_issue_cmd fun(self: forge.Forge, num: string, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?, original: forge.IssueDetails, scope?: forge.Scope): string[]
 ---@field issue_template_paths fun(self: forge.Forge): string[]
 ---@field create_issue_web_cmd (fun(self: forge.Forge, scope?: forge.Scope): string[]?)?

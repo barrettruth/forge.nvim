@@ -55,6 +55,32 @@ local function hostname(ref)
   return current and current.host or nil
 end
 
+local function diff_values(before, after)
+  local before_set = {}
+  for _, value in ipairs(before or {}) do
+    before_set[value] = true
+  end
+  local after_set = {}
+  for _, value in ipairs(after or {}) do
+    after_set[value] = true
+  end
+  local added = {}
+  for _, value in ipairs(after or {}) do
+    if not before_set[value] then
+      table.insert(added, value)
+      before_set[value] = true
+    end
+  end
+  local removed = {}
+  for _, value in ipairs(before or {}) do
+    if not after_set[value] then
+      table.insert(removed, value)
+      after_set[value] = true
+    end
+  end
+  return added, removed
+end
+
 ---@param state string
 ---@param limit integer?
 ---@return string[]
@@ -369,6 +395,10 @@ function M:fetch_pr_details_cmd(num, ref)
   return { 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(ref) }
 end
 
+function M:fetch_issue_details_cmd(num, ref)
+  return { 'glab', 'issue', 'view', num, '--output', 'json', '-R', repo_arg(ref) }
+end
+
 ---@param num string
 ---@param title string
 ---@param body string
@@ -399,6 +429,44 @@ function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milesto
   return cmd
 end
 
+function M:update_issue_cmd(num, title, body, labels, assignees, milestone, original, ref)
+  local cmd = {
+    'glab',
+    'issue',
+    'update',
+    num,
+    '--title',
+    title,
+    '--description',
+    body,
+    '-R',
+    repo_arg(ref),
+  }
+  local added_labels, removed_labels = diff_values(original and original.labels or {}, labels)
+  if #added_labels > 0 then
+    table.insert(cmd, '--label')
+    table.insert(cmd, table.concat(added_labels, ','))
+  end
+  if #removed_labels > 0 then
+    table.insert(cmd, '--unlabel')
+    table.insert(cmd, table.concat(removed_labels, ','))
+  end
+  if assignees and #assignees > 0 then
+    table.insert(cmd, '--assignee')
+    table.insert(cmd, table.concat(assignees, ','))
+  elseif original and original.assignees and #original.assignees > 0 then
+    table.insert(cmd, '--unassign')
+  end
+  if milestone and milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, milestone)
+  elseif original and original.milestone and original.milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, '')
+  end
+  return cmd
+end
+
 ---@param json table
 ---@return forge.PRDetails
 function M:parse_pr_details(json)
@@ -425,6 +493,28 @@ function M:parse_pr_details(json)
     labels = labels,
     assignees = assignees,
     reviewers = reviewers,
+    milestone = milestone,
+  }
+end
+
+function M:parse_issue_details(json)
+  local labels = {}
+  for _, l in ipairs(json.labels or {}) do
+    table.insert(labels, type(l) == 'string' and l or '')
+  end
+  local assignees = {}
+  for _, a in ipairs(json.assignees or {}) do
+    table.insert(assignees, a.username or '')
+  end
+  local milestone = ''
+  if type(json.milestone) == 'table' and json.milestone.title then
+    milestone = json.milestone.title
+  end
+  return {
+    title = json.title or '',
+    body = json.description or '',
+    labels = labels,
+    assignees = assignees,
     milestone = milestone,
   }
 end

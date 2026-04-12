@@ -132,6 +132,9 @@ describe(':Forge command', function()
         edit_pr = function(num)
           captured.edit_pr = num
         end,
+        edit_issue = function(num, scope)
+          captured.edit_issue = { num = num, scope = scope }
+        end,
         create_issue = function(opts)
           captured.create_issue = opts
         end,
@@ -206,6 +209,10 @@ describe(':Forge command', function()
         issue_create = function(opts)
           table.insert(captured.ops_calls, { name = 'issue_create', opts = opts })
           require('forge').create_issue(opts)
+        end,
+        issue_edit = function(issue)
+          table.insert(captured.ops_calls, { name = 'issue_edit', issue = issue })
+          require('forge').edit_issue(issue.num, issue.scope)
         end,
         issue_browse = function(f, issue)
           table.insert(captured.ops_calls, { name = 'issue_browse', issue = issue })
@@ -430,6 +437,38 @@ describe(':Forge command', function()
     assert.is_true(captured.cleared)
   end)
 
+  it('dispatches issue edit through forge.ops with scoped parity', function()
+    vim.cmd('Forge issue edit 174 repo=upstream')
+
+    assert.same({
+      name = 'issue_edit',
+      issue = {
+        num = '174',
+        scope = {
+          kind = 'github',
+          host = 'github.com',
+          owner = 'owner',
+          repo = 'upstream',
+          slug = 'owner/upstream',
+          repo_arg = 'owner/upstream',
+          web_url = 'https://github.com/owner/upstream',
+        },
+      },
+    }, captured.ops_calls[1])
+    assert.same({
+      num = '174',
+      scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'upstream',
+        slug = 'owner/upstream',
+        repo_arg = 'owner/upstream',
+        web_url = 'https://github.com/owner/upstream',
+      },
+    }, captured.edit_issue)
+  end)
+
   it('applies collaboration and ci default scopes to list commands', function()
     vim.cmd('Forge pr')
     vim.cmd('Forge ci')
@@ -530,6 +569,7 @@ describe(':Forge command', function()
   it('completes families, verbs, and valid canonical modifiers contextually', function()
     local families = vim.fn.getcompletion('Forge ', 'cmdline')
     local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
+    local issue = vim.fn.getcompletion('Forge issue ', 'cmdline')
     local pr_create = vim.fn.getcompletion('Forge pr create ', 'cmdline')
     local issue_create = vim.fn.getcompletion('Forge issue create ', 'cmdline')
 
@@ -544,6 +584,7 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'ready'))
     assert.is_true(vim.tbl_contains(pr, 'state='))
     assert.is_true(vim.tbl_contains(pr, 'repo='))
+    assert.is_true(vim.tbl_contains(issue, 'edit'))
 
     assert.is_true(vim.tbl_contains(pr_create, 'head='))
     assert.is_true(vim.tbl_contains(pr_create, 'base='))

@@ -109,7 +109,7 @@ local families = {
     name = 'issue',
     surface = 'forge',
     default_verb = 'list',
-    verb_order = { 'list', 'browse', 'close', 'reopen', 'create' },
+    verb_order = { 'list', 'browse', 'close', 'reopen', 'create', 'edit' },
     verbs = {
       list = {
         subject = { min = 0, max = 0 },
@@ -132,6 +132,10 @@ local families = {
       create = {
         subject = { min = 0, max = 0 },
         modifiers = { 'repo', 'web', 'blank', 'template' },
+      },
+      edit = {
+        subject = { kind = 'issue', min = 1, max = 1 },
+        modifiers = { 'repo' },
       },
     },
   },
@@ -571,6 +575,10 @@ local function dispatch_issue(command)
   end
   if command.name == 'browse' then
     ops.issue_browse(f, { num = num, scope = scope })
+    return
+  end
+  if command.name == 'edit' then
+    ops.issue_edit({ num = num, scope = scope })
     return
   end
   if command.name == 'close' then

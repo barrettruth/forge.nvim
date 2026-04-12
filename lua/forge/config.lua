@@ -48,6 +48,7 @@ local M = {}
 
 ---@class forge.IssuePickerKeys
 ---@field browse string|false
+---@field edit string|false
 ---@field close string|false
 ---@field create string|false
 ---@field filter string|false
@@ -171,6 +172,7 @@ local DEFAULTS = {
     },
     issue = {
       browse = '<c-x>',
+      edit = '<c-e>',
       close = '<c-s>',
       filter = '<tab>',
       filter_prev = false,
@@ -401,7 +403,7 @@ function M.config()
     end
     if keys.issue ~= nil then
       vim.validate('forge.keys.issue', keys.issue, 'table')
-      for _, k in ipairs({ 'browse', 'close', 'create', 'filter', 'filter_prev', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'edit', 'close', 'create', 'filter', 'filter_prev', 'refresh' }) do
         vim.validate('forge.keys.issue.' .. k, keys.issue[k], key_or_false, 'string or false')
       end
     end

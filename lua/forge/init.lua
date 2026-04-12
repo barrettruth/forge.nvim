@@ -515,6 +515,39 @@ function M.edit_pr(num, ref)
   end)
 end
 
+function M.edit_issue(num, ref)
+  local log = require('forge.logger')
+
+  local f = M.detect()
+  if not f then
+    log.warn('no forge detected')
+    return
+  end
+  ref = ref or M.current_scope(f.name)
+
+  log.info(('fetching issue #%s...'):format(num))
+
+  vim.system(f:fetch_issue_details_cmd(num, ref), { text = true }, function(result)
+    if result.code ~= 0 then
+      vim.schedule(function()
+        log.error('failed to fetch issue #' .. num)
+      end)
+      return
+    end
+    local ok, json = pcall(vim.json.decode, result.stdout or '{}')
+    if not ok or type(json) ~= 'table' then
+      vim.schedule(function()
+        log.error('failed to parse issue details')
+      end)
+      return
+    end
+    local details = f:parse_issue_details(json)
+    vim.schedule(function()
+      compose_mod.open_issue_edit(f, num, details, ref)
+    end)
+  end)
+end
+
 ---@param opts forge.CreateIssueOpts?
 function M.create_issue(opts)
   opts = opts or {}

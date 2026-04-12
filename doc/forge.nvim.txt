@@ -41,6 +41,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge issue close` {num} [repo=...]..................|:Forge-issue-close|
     `:Forge issue reopen` {num} [repo=...]................|:Forge-issue-reopen|
     `:Forge issue create` [modifiers]......................|:Forge-issue-create|
+    `:Forge issue edit` {num} [repo=...]....................|:Forge-issue-edit|
     `:Forge ci` [repo=...] [rev=...] [target=...] [all]..........|:Forge-ci|
     `:Forge ci log` {run-id} [repo=...]......................|:Forge-ci-log|
     `:Forge ci watch` {run-id} [repo=...]..................|:Forge-ci-watch|
@@ -492,6 +493,9 @@ BANG SEMANTICS                                            *forge-command-bang*
     `blank`            Start from a blank issue template when supported.
     `template=...`     Use the named issue template.
 
+`:Forge issue edit` {num} [repo=...]                       *:Forge-issue-edit*
+    Open the issue edit compose flow for issue `{num}`.
+
 `:Forge ci` [repo=...] [rev=...] [target=...] [all]                *:Forge-ci*
     Open the CI runs picker. Defaults to the current branch in the repo
     selected by `targets.ci.repo`. Repo CI runs respect
@@ -856,6 +860,11 @@ Metadata fields: ~
   `Assignees:`       Comma or space separated usernames.
   `Milestone:`       Milestone name.
 
+Editing an issue opens a compose buffer at `forge://issue/{num}/edit` with
+the same title/body layout and metadata fields as issue creation. Write
+(`:w`) to update the issue. An empty title aborts editing. Empty bodies are
+allowed.
+
 Template discovery: ~
   forge.nvim searches forge-specific template paths. If a template
   directory contains multiple files, you are prompted to choose.
@@ -963,6 +972,7 @@ support for features that vary:
   Per-check log viewing        yes       yes        -
   CI runs (repo-wide)          yes       yes       yes
   Issue create                   yes       yes       yes
+  Issue edit                    yes       yes       yes
   Issue create (labels)        yes       yes       yes
   Issue create (assignees)     yes       yes       yes
   Issue create (milestone)     yes       yes       yes
@@ -1227,6 +1237,10 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 `create_issue(opts?)`
     Creates an issue. `opts` is `forge.CreateIssueOpts?`:
       `web`       `boolean?`  Open web creation page.
+
+                                                          *forge.edit_issue()*
+`edit_issue(num, ref?)`
+    Opens the issue edit compose flow for issue `num`.
 
                                                              *forge.edit_pr()*
 `edit_pr(num, ref?)`
