@@ -146,6 +146,7 @@
 ---@field parse_pr_details fun(self: forge.Forge, json: table): forge.PRDetails
 ---@field completion_cmd (fun(self: forge.Forge, field: string, scope?: forge.Scope): string[]?)?
 ---@field create_pr_web_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]?
+---@field create_pr_web_url (fun(self: forge.Forge, scope?: forge.Scope): string?)?
 ---@field default_branch_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string, scope?: forge.Scope): string[])?
 ---@field template_paths fun(self: forge.Forge): string[]

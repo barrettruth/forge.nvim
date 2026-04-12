@@ -2,17 +2,24 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 describe('create_issue', function()
   local captured
-  local old_system
+  local old_fn_system
+  local old_vim_system
   local old_executable
+  local old_ui_open
   local old_preload
 
   before_each(function()
     captured = {
       errors = {},
+      infos = {},
+      systems = {},
+      open_urls = {},
     }
 
-    old_system = vim.fn.system
+    old_fn_system = vim.fn.system
+    old_vim_system = vim.system
     old_executable = vim.fn.executable
+    old_ui_open = vim.ui.open
     old_preload = {
       ['forge.action'] = package.preload['forge.action'],
       ['forge.client'] = package.preload['forge.client'],
@@ -31,6 +38,39 @@ describe('create_issue', function()
         return 1
       end
       return 0
+    end
+
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'git@github.com:owner/repo.git\n'
+      end
+      return ''
+    end
+
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      table.insert(captured.systems, key)
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    vim.ui.open = function(url)
+      table.insert(captured.open_urls, url)
+      return true
     end
 
     package.preload['forge.action'] = function()
@@ -81,6 +121,9 @@ describe('create_issue', function()
     package.preload['forge.github'] = function()
       return {
         cli = 'gh',
+        create_issue_web_cmd = function()
+          return { 'create-issue-web' }
+        end,
         issue_template_paths = function()
           return { '.github/ISSUE_TEMPLATE/' }
         end,
@@ -90,7 +133,9 @@ describe('create_issue', function()
     package.preload['forge.logger'] = function()
       return {
         debug = function() end,
-        info = function() end,
+        info = function(msg)
+          table.insert(captured.infos, msg)
+        end,
         warn = function(msg)
           table.insert(captured.warnings or {}, msg)
         end,
@@ -122,8 +167,10 @@ describe('create_issue', function()
   end)
 
   after_each(function()
-    vim.fn.system = old_system
+    vim.fn.system = old_fn_system
+    vim.system = old_vim_system
     vim.fn.executable = old_executable
+    vim.ui.open = old_ui_open
 
     package.preload['forge.action'] = old_preload['forge.action']
     package.preload['forge.client'] = old_preload['forge.client']
@@ -243,5 +290,69 @@ describe('create_issue', function()
     captured.picker.back()
 
     assert.equals(1, back_calls)
+  end)
+
+  it('reports success when the web issue command succeeds', function()
+    require('forge').create_issue({ web = true })
+
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.infos, 'opened issue creation in browser')
+    end)
+
+    assert.is_true(vim.tbl_contains(captured.systems, 'create-issue-web'))
+  end)
+
+  it('reports an error when the web issue command fails', function()
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      table.insert(captured.systems, key)
+      if key == 'create-issue-web' then
+        result.code = 1
+        result.stderr = 'issue web failed'
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    require('forge').create_issue({ web = true })
+
+    vim.wait(100, function()
+      return #captured.errors > 0
+    end)
+
+    assert.same({ 'issue web failed' }, captured.errors)
+    assert.is_false(vim.tbl_contains(captured.infos, 'opened issue creation in browser'))
+  end)
+
+  it('reports browser open failures for URL-based web issue flows', function()
+    package.preload['forge.github'] = function()
+      return {
+        cli = 'gh',
+        issue_template_paths = function()
+          return { '.github/ISSUE_TEMPLATE/' }
+        end,
+      }
+    end
+
+    vim.ui.open = function(url)
+      table.insert(captured.open_urls, url)
+      return nil, 'open failed'
+    end
+
+    require('forge').create_issue({ web = true })
+
+    assert.same({ 'open failed' }, captured.errors)
+    assert.same({ 'https://github.com/owner/repo/issues/new' }, captured.open_urls)
   end)
 end)

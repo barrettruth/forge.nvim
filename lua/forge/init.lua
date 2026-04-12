@@ -55,6 +55,46 @@ local function git_root()
   return root
 end
 
+local function cmd_error(result, fallback)
+  local msg = vim.trim(result.stderr or '')
+  if msg == '' then
+    msg = vim.trim(result.stdout or '')
+  end
+  if msg == '' then
+    msg = fallback
+  end
+  return msg
+end
+
+local function open_web_create(label, cmd, url)
+  local log = require('forge.logger')
+  local success_msg = ('opened %s creation in browser'):format(label)
+  local fail_msg = ('failed to open %s creation in browser'):format(label)
+  if cmd then
+    log.info(('opening %s creation in browser...'):format(label))
+    vim.system(cmd, { text = true }, function(result)
+      vim.schedule(function()
+        if result.code == 0 then
+          log.info(success_msg)
+        else
+          log.error(cmd_error(result, fail_msg))
+        end
+      end)
+    end)
+    return
+  end
+  if not url or url == '' then
+    log.error(fail_msg)
+    return
+  end
+  local _, err = vim.ui.open(url)
+  if err then
+    log.error(err)
+    return
+  end
+  log.info(success_msg)
+end
+
 local builtin_hosts = {
   github = { 'github' },
   gitlab = { 'gitlab' },
@@ -340,10 +380,9 @@ function M.create_pr(opts)
                     log.error('push failed')
                     return
                   end
-                  local web_cmd = f:create_pr_web_cmd(ref)
-                  if web_cmd then
-                    vim.system(web_cmd)
-                  end
+                  local web_cmd = f.create_pr_web_cmd and f:create_pr_web_cmd(ref) or nil
+                  local web_url = f.create_pr_web_url and f:create_pr_web_url(ref) or nil
+                  open_web_create(f.labels.pr_one, web_cmd, web_url)
                 end)
               end
             )
@@ -480,15 +519,12 @@ function M.create_issue(opts)
   local ref = opts.scope or M.current_scope(f.name)
 
   if opts.web then
-    if f.create_issue_web_cmd then
-      local cmd = f:create_issue_web_cmd(ref)
-      if cmd then
-        vim.system(cmd)
-      end
-    else
-      local url = M.remote_web_url(ref) .. '/issues/new'
-      vim.ui.open(url)
+    local cmd = f.create_issue_web_cmd and f:create_issue_web_cmd(ref) or nil
+    local url = M.remote_web_url(ref)
+    if url ~= '' then
+      url = url .. '/issues/new'
     end
+    open_web_create('issue', cmd, url)
     return
   end
 

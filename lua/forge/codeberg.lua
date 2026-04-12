@@ -440,8 +440,8 @@ function M:create_pr_cmd(title, body, base, _draft, _reviewers, labels, assignee
   return cmd
 end
 
----@return string[]?
-function M:create_pr_web_cmd(ref)
+---@return string
+function M:create_pr_web_url(ref)
   local branch = vim.trim(vim.fn.system('git branch --show-current'))
   local base_url = forge.remote_web_url(ref)
   local default = vim.trim(
@@ -452,8 +452,7 @@ function M:create_pr_web_cmd(ref)
   if default == '' then
     default = 'main'
   end
-  vim.ui.open(('%s/compare/%s...%s'):format(base_url, default, branch))
-  return nil
+  return ('%s/compare/%s...%s'):format(base_url, default, branch)
 end
 
 ---@param title string
