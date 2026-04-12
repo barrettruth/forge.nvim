@@ -1151,6 +1151,21 @@ describe('pickers', function()
     assert.same({ 'no log available - job was not started' }, logger_messages.info)
   end)
 
+  it('builds checks entries with live display renderers', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all', {
+      {
+        name = 'lint',
+        bucket = 'pass',
+        link = 'https://example.com/check',
+      },
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_function(captured.entries[1].render_display)
+    assert.same({ { 'lint' } }, captured.entries[1].render_display(120))
+  end)
+
   it('uses subject-first prompts for filtered checks', function()
     local pickers = require('forge.pickers')
     pickers.checks(fake_ci_forge(), '42', 'fail', {

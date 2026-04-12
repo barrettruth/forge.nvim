@@ -423,6 +423,18 @@ describe('parse_summary_json', function()
     assert.equals('ForgeFail', result.hls[1][1].group)
   end)
 
+  it('prefers displayTitle over workflow name in the summary header', function()
+    local result = parse_summary_json({
+      name = 'quality',
+      displayTitle = 'fix(pr): use fetched metadata in edit compose (#203)',
+      status = 'completed',
+      conclusion = 'success',
+      jobs = {},
+    })
+    assert.equals('fix(pr): use fetched metadata in edit compose (#203)', result.lines[1])
+    assert.equals('ForgePass', result.hls[1][1].group)
+  end)
+
   it('handles empty jobs list', function()
     local result = parse_summary_json({
       name = 'Empty',

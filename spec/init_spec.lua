@@ -415,6 +415,80 @@ describe('format_runs', function()
   end)
 end)
 
+describe('format_checks', function()
+  it('drops elapsed metadata before truncating moderate check names in narrow layouts', function()
+    local rows = forge.format_checks({
+      {
+        name = 'Markdown Format Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+    }, { width = 24 })
+
+    local result = flatten(rows[1])
+    assert.truthy(result:find('Markdown Format Check', 1, true))
+    assert.falsy(result:find('25s', 1, true))
+  end)
+
+  it('uses spare width for longer check names instead of capping at the typical width', function()
+    local rows = forge.format_checks({
+      {
+        name = 'changes',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Lua Format Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Lua Lint Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Lua Type Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Lua Test Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Vimdoc Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Markdown Format Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+      {
+        name = 'Nix Format Check',
+        bucket = 'pass',
+        startedAt = '2024-01-01T00:00:00Z',
+        completedAt = '2024-01-01T00:00:25Z',
+      },
+    }, { width = 100 })
+
+    local result = flatten(rows[7])
+    assert.truthy(result:find('Markdown Format Check', 1, true))
+    assert.falsy(result:find('Markdown Format...', 1, true))
+  end)
+end)
+
 describe('format_release', function()
   local fields = {
     tag = 'tagName',

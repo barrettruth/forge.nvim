@@ -16,6 +16,7 @@ package.preload['fzf-lua.utils'] = function()
     end,
     fzf_winobj = function()
       return {
+        fzf_winid = vim.api.nvim_get_current_win(),
         close = function()
           close_calls = close_calls + 1
         end,
@@ -28,6 +29,19 @@ package.preload['fzf-lua.utils'] = function()
 end
 
 local captured
+
+local function collect_lines(lines)
+  if type(lines) ~= 'function' then
+    return vim.deepcopy(lines)
+  end
+  local collected = {}
+  lines(function(line)
+    if line then
+      collected[#collected + 1] = line
+    end
+  end)
+  return collected
+end
 
 package.preload['fzf-lua'] = function()
   return {
@@ -281,7 +295,7 @@ describe('fzf picker', function()
     assert.is_not_nil(captured)
     assert.is_function(captured.lines)
 
-    local function collect_lines()
+    local function collect_streamed_lines()
       local lines = {}
       captured.lines(function(line)
         if line then
@@ -291,8 +305,35 @@ describe('fzf picker', function()
       return lines
     end
 
-    assert.same({ 'check one\t1', 'check two\t2' }, collect_lines())
-    assert.same({ 'check one\t1', 'check two\t2' }, collect_lines())
+    assert.same({ 'check one\t1', 'check two\t2' }, collect_streamed_lines())
+    assert.same({ 'check one\t1', 'check two\t2' }, collect_streamed_lines())
+  end)
+
+  it('renders entries against the live picker width when available', function()
+    local old_win_get_width = vim.api.nvim_win_get_width
+    vim.api.nvim_win_get_width = function()
+      return 40
+    end
+
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'CI> ',
+      entries = {
+        {
+          display = { { 'Markdown Form...' } },
+          render_display = function(width)
+            return { { width >= 40 and 'Markdown Format Check' or 'Markdown Form...' } }
+          end,
+          value = 'check-1',
+        },
+      },
+      actions = {},
+      picker_name = 'ci',
+    })
+
+    assert.is_function(captured.lines)
+    assert.same({ 'Markdown Format Check\t1' }, collect_lines(captured.lines))
+    vim.api.nvim_win_get_width = old_win_get_width
   end)
 
   it('renders worktree rows with visible labels and hidden selection ids', function()

@@ -139,6 +139,18 @@ describe('github', function()
       gh:normalize_run({ databaseId = 1, status = 'in_progress' }).status
     )
   end)
+
+  it('prefers displayTitle for normalized run names', function()
+    local run = gh:normalize_run({
+      databaseId = 123,
+      name = 'quality',
+      displayTitle = 'fix(ci): add load more for repo runs (#196)',
+      headBranch = 'main',
+      status = 'completed',
+      conclusion = 'success',
+    })
+    assert.equals('fix(ci): add load more for repo runs (#196)', run.name)
+  end)
 end)
 
 describe('github browse', function()

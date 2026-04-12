@@ -310,7 +310,7 @@ end
 ---@return string[]
 function M:summary_json_cmd(id, scope)
   local jq = table.concat({
-    '{name,status,conclusion,event,url,',
+    '{displayTitle,name,status,conclusion,event,url,',
     'jobs:[.jobs[]|{databaseId,name,status,conclusion,url,',
     'startedAt,completedAt,',
     'steps:[.steps[]|{name,status,conclusion,number}]}]}',
@@ -323,7 +323,7 @@ function M:summary_json_cmd(id, scope)
     '-R',
     nwo(scope),
     '--json',
-    'name,status,conclusion,event,url,jobs',
+    'displayTitle,name,status,conclusion,event,url,jobs',
     '--jq',
     jq,
   }
@@ -380,7 +380,7 @@ function M:normalize_run(entry)
   end
   return {
     id = tostring(entry.databaseId or ''),
-    name = entry.name or '',
+    name = entry.displayTitle or entry.name or '',
     branch = entry.headBranch or '',
     status = status,
     event = entry.event or '',
