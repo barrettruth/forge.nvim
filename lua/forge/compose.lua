@@ -288,7 +288,7 @@ function M.open_issue(f, result, ref)
   b:add_line('%s', milestone_prefix)
 
   b:add_line('')
-  b:add_line('  An empty title or body aborts creation.')
+  b:add_line('  An empty title aborts creation.')
   b:add_line('-->')
 
   b:apply(buf, comment_start)
@@ -311,12 +311,6 @@ function M.open_issue(f, result, ref)
         return
       end
       local issue_body = vim.trim(table.concat(content_lines, '\n', 3))
-      if issue_body == '' then
-        log.warn('aborting: empty body')
-        vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
-        return
-      end
       if body ~= '' and template.normalize_body(issue_body) == template.normalize_body(body) then
         log.warn('aborting: body unchanged from template')
         vim.bo[buf].modified = false

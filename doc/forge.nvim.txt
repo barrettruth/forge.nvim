@@ -838,7 +838,7 @@ Layout: ~
   `<!--`        Metadata comment block (forge, labels, assignees).
   `-->`         End of metadata
 
-Write (`:w`) to create the issue. An empty title or body aborts creation. The
+Write (`:w`) to create the issue. An empty title aborts creation. The
 issue URL is copied to the `+` register on success.
 
 Metadata fields: ~
