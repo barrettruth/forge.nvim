@@ -29,7 +29,6 @@ describe('health', function()
       ['forge'] = package.preload['forge'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['fzf-lua'] = package.preload['fzf-lua'],
-      ['diffs'] = package.preload['diffs'],
     }
 
     vim.fn.executable = function(bin)
@@ -98,7 +97,6 @@ describe('health', function()
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['fzf-lua'] = old_preload['fzf-lua']
-    package.preload['diffs'] = old_preload['diffs']
 
     package.loaded['forge'] = nil
     package.loaded['forge.picker'] = nil

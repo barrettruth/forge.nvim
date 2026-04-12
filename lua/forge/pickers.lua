@@ -616,12 +616,6 @@ local function pr_action_fns(f, pr)
     worktree = function()
       ops.pr_worktree(f, pr)
     end,
-    review = function(opts)
-      ops.pr_review(f, pr, opts)
-    end,
-    diff = function(opts)
-      ops.pr_review(f, pr, opts)
-    end,
     ci = function(opts)
       ops.pr_ci(f, pr, opts)
     end,
@@ -1251,15 +1245,6 @@ function M.pr(state, f, opts)
       end,
     },
     {
-      name = 'review',
-      label = 'review',
-      fn = function(entry)
-        if entry and not entry.load_more then
-          pr_action_fns(f, entry.value).review({ back = opts.back })
-        end
-      end,
-    },
-    {
       name = 'worktree',
       label = 'worktree',
       close = false,
@@ -1855,15 +1840,6 @@ function M.branches(ctx, opts)
         end,
       },
       {
-        name = 'review',
-        label = 'review',
-        fn = function(entry)
-          if entry then
-            require('forge.review').start_branch(ctx, entry.value.name, { back = opts.back })
-          end
-        end,
-      },
-      {
         name = 'delete',
         label = 'delete',
         fn = function(entry)
@@ -2027,15 +2003,6 @@ function M.commits(ctx, branch, opts)
             '--decorate=short',
             entry.value.sha,
           })
-        end,
-      },
-      {
-        name = 'review',
-        label = 'review',
-        fn = function(entry)
-          if entry and not entry.load_more then
-            require('forge.review').start_commit(ctx, entry.value.sha, { back = opts.back })
-          end
         end,
       },
       {

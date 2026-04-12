@@ -26,7 +26,6 @@ describe('shared operations', function()
       ['forge'] = package.preload['forge'],
       ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.review'] = package.preload['forge.review'],
       ['forge.term'] = package.preload['forge.term'],
     }
 
@@ -106,22 +105,10 @@ describe('shared operations', function()
       }
     end
 
-    package.preload['forge.review'] = function()
-      return {
-        start_session = function(session)
-          captured.sessions[#captured.sessions + 1] = session
-        end,
-        open_index = function()
-          captured.opened = captured.opened + 1
-        end,
-      }
-    end
-
     package.loaded['forge'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
-    package.loaded['forge.review'] = nil
     package.loaded['forge.term'] = nil
   end)
 
@@ -133,38 +120,13 @@ describe('shared operations', function()
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
-    package.preload['forge.review'] = old_preload['forge.review']
     package.preload['forge.term'] = old_preload['forge.term']
 
     package.loaded['forge'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
-    package.loaded['forge.review'] = nil
     package.loaded['forge.term'] = nil
-  end)
-
-  it('starts PR review sessions through the shared operation', function()
-    local ops = require('forge.ops')
-    ops.pr_review({
-      labels = { pr_one = 'PR' },
-      checkout_cmd = function(_, num)
-        return { 'checkout', num }
-      end,
-      pr_base_cmd = function(_, num)
-        return { 'pr-base', num }
-      end,
-    }, { num = '42' })
-
-    vim.wait(100, function()
-      return captured.opened == 1
-    end)
-
-    assert.same({ 'checkout 42', 'pr-base 42' }, captured.commands)
-    assert.equals('origin/main', captured.sessions[1].subject.base_ref)
-    assert.equals('feature', captured.sessions[1].subject.head_ref)
-    assert.equals('/repo', captured.sessions[1].repo_root)
-    assert.equals(1, captured.opened)
   end)
 
   it('runs PR close commands and success callbacks through the shared operation', function()

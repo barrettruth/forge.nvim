@@ -43,13 +43,6 @@ function M.check()
     vim.health.error('tree-sitter yaml parser not found (required for YAML issue form templates)')
   end
 
-  local has_diffs = pcall(require, 'diffs')
-  if has_diffs then
-    vim.health.ok('diffs.nvim found (review mode available)')
-  else
-    vim.health.info('diffs.nvim not found (review mode disabled)')
-  end
-
   local forge_mod = require('forge')
   for name, source in pairs(forge_mod.registered_sources()) do
     if name ~= 'github' and name ~= 'gitlab' and name ~= 'codeberg' then

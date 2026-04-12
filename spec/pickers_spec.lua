@@ -191,9 +191,6 @@ describe('pickers', function()
         pr_worktree = function(_, pr)
           table.insert(op_calls, { name = 'pr_worktree', pr = pr })
         end,
-        pr_review = function(_, pr, opts)
-          table.insert(op_calls, { name = 'pr_review', pr = pr, opts = opts })
-        end,
         pr_ci = function(_, pr, opts)
           table.insert(op_calls, { name = 'pr_ci', pr = pr, opts = opts })
         end,
@@ -440,19 +437,6 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('worktree'), 'close'))
     assert.is_nil(rawget(action_by_name('checkout'), 'close'))
     assert.is_nil(rawget(action_by_name('manage'), 'close'))
-  end)
-
-  it('routes PR review actions through forge.ops', function()
-    local pickers = require('forge.pickers')
-    pickers.pr('open', fake_forge())
-
-    action_by_name('review').fn(captured.entries[1])
-
-    assert.same({
-      name = 'pr_review',
-      pr = { num = '42', scope = nil },
-      opts = {},
-    }, op_calls[1])
   end)
 
   it('shows edit inside the more picker', function()

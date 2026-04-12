@@ -29,7 +29,6 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr` [state=...] [repo=...]............................|:Forge-pr|
     `:Forge pr create` [modifiers]......................|:Forge-pr-create|
     `:Forge pr checkout` {num} [repo=...]............|:Forge-pr-checkout|
-    `:Forge pr review` {num} [repo=...]..................|:Forge-pr-review|
     `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
     `:Forge pr ci` {num}........................................|:Forge-pr-ci|
     `:Forge pr browse` {num}................................|:Forge-pr-browse|
@@ -53,20 +52,10 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge release browse` {tag} [repo=...]............|:Forge-release-browse|
     `:Forge release delete` {tag} [repo=...]............|:Forge-release-delete|
     `:Forge browse` [repo=...] [rev=...] [target=...]..........|:Forge-browse|
-    `:Forge review branch` [{branch}]......................|:Forge-review-branch|
-    `:Forge review commit` [{sha}]..........................|:Forge-review-commit|
-    `:Forge review files`..................................|:Forge-review-files|
-    `:Forge review end`....................................|:Forge-review-end|
-    `:Forge review next-file`..........................|:Forge-review-next-file|
-    `:Forge review prev-file`..........................|:Forge-review-prev-file|
-    `:Forge review next-hunk`..........................|:Forge-review-next-hunk|
-    `:Forge review prev-hunk`..........................|:Forge-review-prev-hunk|
-    `:Forge review toggle`..............................|:Forge-review-toggle|
     `:Forge clear`..............................................|:Forge-clear|
     PLUG MAPPINGS.............................................|forge-plug|
     PICKERS....................................................|forge-pickers|
     WORKFLOW SURFACE.........................................|forge-workflow|
-    REVIEW......................................................|forge-review|
     COMPOSE BUFFER.............................................|forge-compose|
     HIGHLIGHTS..............................................|forge-highlights|
     SOURCES....................................................|forge-sources|
@@ -88,8 +77,6 @@ Requirements: ~
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
-- vim-fugitive (optional, for split review)
-- diffs.nvim (optional, for review mode)
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
@@ -258,7 +245,6 @@ Top-level keys: ~
       keys = {
         back = '<c-o>',
         pr = {
-          review = '<c-d>',
           worktree = '<c-w>',
           ci = '<c-t>',
           browse = '<c-x>',
@@ -288,14 +274,12 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         branch = {
-          review = '<c-d>',
           delete = '<c-s>',
           browse = '<c-x>',
           yank = '<c-y>',
           refresh = '<c-r>',
         },
         commit = {
-          review = '<c-d>',
           browse = '<c-x>',
           yank = '<c-y>',
           refresh = '<c-r>',
@@ -322,13 +306,10 @@ Top-level keys: ~
     Return to the parent picker when available. This action is active only on
     nested pickers and is not shown in header hints.
 
-  `keys.pr.review` is the canonical PR review binding. `keys.pr.diff` is
-  still accepted as a legacy alias.
-
   Additional picker groups:
-    `keys.branch` supports `review`, `delete`, `browse`, `yank`, and
+    `keys.branch` supports `delete`, `browse`, `yank`, and
     `refresh`.
-    `keys.commit` supports `review`, `browse`, `yank`, and `refresh`.
+    `keys.commit` supports `browse`, `yank`, and `refresh`.
     `keys.worktree` supports `add`, `delete`, `yank`, and `refresh`.
     `keys.log` supports `close`, step/error navigation, `browse`, and
     `refresh` for CI log and summary buffers.
@@ -416,7 +397,6 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     - omitted default verbs such as `:Forge pr`, `:Forge issue`, `:Forge ci`,
       `:Forge release`, and `:Forge browse`
     - legacy `--name` / `--name=value` forms for modifiers
-    - `:Forge pr diff` as a legacy alias for `:Forge pr review`
     - `:Forge browse --root` and `:Forge browse --commit`
 
 BANG SEMANTICS                                            *forge-command-bang*
@@ -448,11 +428,6 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr checkout` {num} [repo=...]                     *:Forge-pr-checkout*
     Check out the branch for PR `{num}`.
 
-`:Forge pr review` {num} [repo=...]                         *:Forge-pr-review*
-    Start a review for PR `{num}` (|forge-review|).
-
-`:Forge pr diff` {num}                                        *:Forge-pr-diff*
-    Legacy alias for `:Forge pr review {num}`.
 
 `:Forge pr worktree` {num} [repo=...]                     *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
@@ -481,7 +456,7 @@ BANG SEMANTICS                                            *forge-command-bang*
     Mark PR `{num}` as draft when the forge supports draft toggles.
 
 `:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
-    Mark PR `{num}` as ready for review when supported by the forge.
+    Mark PR `{num}` as ready when supported by the forge.
 
 `:Forge issue` [state=...] [repo=...]                           *:Forge-issue*
     Open the issue list picker for the collaboration repo. Defaults to
@@ -548,37 +523,6 @@ BANG SEMANTICS                                            *forge-command-bang*
     (no modifiers)     Open the current file and line(s) on the current
                        branch. In visual mode, the selected line range is
                        included.
-
-`:Forge review branch` [{branch}]                       *:Forge-review-branch*
-    Start a branch review session. Defaults to the current branch and
-    compares it against the detected default base branch.
-
-`:Forge review commit` [{sha}]                          *:Forge-review-commit*
-    Start a commit review session. Defaults to the current `HEAD` commit
-    and compares it against its first parent.
-
-`:Forge review end`                                        *:Forge-review-end*
-    End the current review session.
-
-`:Forge review files`                                    *:Forge-review-files*
-    Open the changed-files review index for the active review session.
-
-`:Forge review next-file`                            *:Forge-review-next-file*
-    Open the next file in the active review session, wrapping at the end.
-
-`:Forge review prev-file`                            *:Forge-review-prev-file*
-    Open the previous file in the active review session, wrapping at the
-    beginning.
-
-`:Forge review next-hunk`                            *:Forge-review-next-hunk*
-    Jump to the next hunk in the active review view.
-
-`:Forge review prev-hunk`                            *:Forge-review-prev-hunk*
-    Jump to the previous hunk in the active review view.
-
-`:Forge review toggle`                                  *:Forge-review-toggle*
-    Toggle between patch and file-context view (|forge-review|).
-
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
@@ -588,14 +532,13 @@ All subcommands support tab completion.
 PLUG MAPPINGS                                                     *forge-plug*
 
 forge.nvim exposes stateless |<Plug>| mappings for root launchers, exact
-routes, configurable section aliases, and review actions. They are intended
+routes, and configurable section aliases. They are intended
 for user-defined mappings and do not add any additional Ex commands.
 
 Examples: >lua
     vim.keymap.set('n', '<leader>gf', '<Plug>(forge)')
     vim.keymap.set('n', '<leader>gP', '<Plug>(forge-prs-open)')
     vim.keymap.set({'n', 'x'}, '<leader>gb', '<Plug>(forge-browse-contextual)')
-    vim.keymap.set('n', '<leader>gr', '<Plug>(forge-review-toggle)')
 <
 
 Alias plugs call `require('forge').open()` with the section name (`"prs"`,
@@ -656,20 +599,6 @@ Exact route plugs: ~
                                                         current branch
   `<Plug>(forge-worktrees-list)`               `n`        Open worktrees
 
-Review plugs: ~
-                                                           *forge-plug-review*
-  Mapping                                  Modes      Action ~
-  `<Plug>(forge-review-files)`              `n`        Open the review index
-  `<Plug>(forge-review-next-file)`          `n`        Open the next review
-                                                       file
-  `<Plug>(forge-review-prev-file)`          `n`        Open the previous
-                                                       review file
-  `<Plug>(forge-review-next-hunk)`          `n`        Jump to the next hunk
-  `<Plug>(forge-review-prev-hunk)`          `n`        Jump to the previous
-                                                       hunk
-  `<Plug>(forge-review-toggle)`             `n`        Toggle review mode
-  `<Plug>(forge-review-end)`                `n`        End review mode
-
 ==============================================================================
 PICKERS                                                        *forge-pickers*
 
@@ -690,7 +619,6 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
   `more`        `<cr>`           Open more picker
-  `review`      `<c-d>`          Start review (|forge-review|)
   `worktree`    `<c-w>`          Create worktree from PR
   `ci`          `<c-t>`          Open CI checks picker for this PR
   `browse`      `<c-x>`          Open PR in browser
@@ -735,7 +663,6 @@ markers, upstream, and tip commit summary. `*` marks the current branch and
   Action      Default Key    Description ~
   `switch`      `<cr>`           Switch to the selected branch, or jump to its
                                 worktree when the row is marked `+`
-  `review`      `<c-d>`          Start branch review
   `delete`      `<c-s>`          Delete a non-current branch after `[y/N]`
                                 confirmation
   `browse`      `<c-x>`          Open branch in browser
@@ -750,7 +677,6 @@ the list matches the remote tip. `git show` is the primary action.
 
   Action      Default Key    Description ~
   `show`        `<cr>`           Open `git show` in a terminal split
-  `review`      `<c-d>`          Start commit review
   `browse`      `<c-x>`          Open commit in browser
   `yank`        `<c-y>`          Copy commit SHA to `+` register
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -799,7 +725,7 @@ Architecture: ~
 
 Default root route inventory: ~
   `PRs` -> `prs.open`
-    Scope/actions: open reviews; review, worktree, ci
+    Scope/actions: open PRs; worktree, ci
     Shell-outs: `gh pr list`, `glab mr list`, `tea pulls list`
 
   `Issues` -> `issues.open`
@@ -811,11 +737,11 @@ Default root route inventory: ~
     Shell-outs: `gh run list`, `glab ci list`, `tea api ".../actions/runs"`
 
   `Branches` -> `branches.local`
-    Scope/actions: local refs; switch, review, browse
+    Scope/actions: local refs; switch, browse
     Shell-outs: `git for-each-ref`, `git switch <branch>`
 
   `Commits` -> `commits.current_branch`
-    Scope/actions: current branch history; `git show`, review, browse
+    Scope/actions: current branch history; `git show`, browse
     Shell-outs: `git log`, `git show --stat --patch --decorate=short <sha>`
 
   `Worktrees` -> `worktrees.list`
@@ -840,64 +766,6 @@ Built-in picker backend capabilities: ~
   Action header hints              yes
 
 `fzf-lua` shows action hints in the header and powers nested picker workflows.
-
-==============================================================================
-REVIEW                                                          *forge-review*
-
-Review mode provides explicit patch and file-context views for PRs and
-commits. diffs.nvim powers patch view and vim-fugitive powers file-context
-view.
-
-Starting a review: ~
-- `<c-d>` on a PR in the PR picker
-- `<c-d>` on a branch or commit in the corresponding picker
-- `:Forge pr review {num}`
-- `:Forge review branch {branch}`
-- `:Forge review commit {sha}`
-
-Changed-files index: ~
-  Starting review opens a picker-backed changed-files index for the active
-  review session. Selecting a file opens it in the current review mode.
-  `:Forge review files` returns to this index.
-
-Patch view (default file view): ~
-  diffs.nvim renders a file-scoped unified diff against the review base.
-
-File-context view: ~
-  `:Forge review toggle` switches the current file to a side-by-side
-  fugitive split (`:Gvdiffsplit`). Run again to return to patch view.
-
-Navigation: ~
-  `:Forge review next-file` / `:Forge review prev-file` move through the
-  active review session's files and reopen the target in the current review
-  mode.
-  `:Forge review next-hunk` / `:Forge review prev-hunk` move through hunks
-  in the active review view.
-
-Ending a review: ~
-  `:Forge review end`.
-
-State: ~
-  `require('forge.review').state` holds: >lua
-    { base = 'origin/main', mode = 'unified' }
-<
-  `base` is `nil` when no review is active.
-  `require('forge.review').current()` returns the active session: >lua
-    {
-      subject = {
-        kind = 'pr',
-        id = '42',
-        label = 'PR #42',
-        base_ref = 'origin/main',
-        head_ref = 'pr-42',
-      },
-      mode = 'patch',
-      files = {},
-      current_file = nil,
-      materialization = 'checkout',
-      repo_root = '/path/to/repo',
-    }
-<
 
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*
@@ -1233,7 +1101,6 @@ Reports on: ~
 - Forge CLI availability (`gh`, `glab`, `tea`)
 - Picker backend (`fzf-lua`) and whether it is active
 - tree-sitter `yaml` parser availability
-- `diffs.nvim` installation (review mode)
 - Custom registered sources and their CLI availability
 
 ==============================================================================
@@ -1466,9 +1333,8 @@ PUBLIC API: `require('forge.pickers')` ~
                                                *forge.pickers.pr_action_fns()*
 `pr_action_fns(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
-    keyed by action name (`"checkout"`, `"review"`, `"worktree"`,
-    `"browse"`, `"ci"`, `"manage"`, `"edit"`). `"diff"` remains
-    available as a legacy alias.
+    keyed by action name (`"checkout"`, `"worktree"`, `"browse"`, `"ci"`,
+    `"manage"`, `"edit"`).
 
                                                  *forge.pickers.issue_close()*
 `issue_close(f, num)`
@@ -1477,40 +1343,6 @@ PUBLIC API: `require('forge.pickers')` ~
                                                 *forge.pickers.issue_reopen()*
 `issue_reopen(f, num)`
     Reopens issue `num`.
-
-PUBLIC API: `require('forge.review')` ~
-                                                        *forge.review.start()*
-`start(base, mode?)`
-    Starts a review session. `base` is the diff range (e.g.
-    `"origin/main"`, `"abc123^..abc123"`). `mode`: `"patch"` (default)
-    or `"context"`. Legacy `"unified"` and `"split"` values still map to
-    the same views.
-
-                                                      *forge.review.current()*
-`current()`
-    Returns the active review session, or `nil` if no review is active.
-
-                                                         *forge.review.stop()*
-`stop()`
-    Ends the current review session. Clears state.
-
-                                                       *forge.review.toggle()*
-`toggle()`
-    Toggles between patch and file-context view. No-op if no review is
-    active.
-
-                                                          *forge.review.nav()*
-`nav(nav_cmd)`
-    Returns `function`. Creates a navigation function for `nav_cmd`
-    (`"cnext"`, `"cprev"`, `"lnext"`, `"lprev"`). In split mode,
-    closes the split before navigating and reopens after. Wraps at
-    list boundaries.
-
-                                                          *forge.review.state*
-`state`
-    `table` with fields:
-      `base`   `string?`          The current diff range, or `nil`.
-      `mode`   `"unified"|"split"` Current view mode.
 
 ==============================================================================
  vim:tw=78:ts=8:ft=help:norl:

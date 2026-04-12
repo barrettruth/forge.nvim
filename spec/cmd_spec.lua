@@ -76,7 +76,6 @@ describe('command schema', function()
       'branches',
       'commits',
       'worktrees',
-      'review',
       'clear',
     }, cmd.family_names())
   end)
@@ -97,27 +96,14 @@ describe('command schema', function()
     assert.is_true(browse.implicit)
   end)
 
-  it('resolves legacy aliases to canonical verbs', function()
-    local diff = cmd.resolve('pr', 'diff')
-
-    assert.equals('review', diff.name)
-    assert.equals('diff', diff.alias)
-    assert.is_false(diff.implicit)
-  end)
-
-  it('parses normalized list and alias forms', function()
+  it('parses normalized list forms', function()
     local pr = assert(cmd.parse({ 'pr', '--state=closed' }))
-    local review = assert(cmd.parse({ 'pr', 'diff', '42' }))
     local ci = assert(cmd.parse({ 'ci', 'feature' }))
 
     assert.equals('pr', pr.family)
     assert.equals('list', pr.name)
     assert.same({}, pr.subjects)
     assert.same({ state = 'closed' }, pr.modifiers)
-
-    assert.equals('review', review.name)
-    assert.equals('diff', review.alias)
-    assert.same({ '42' }, review.subjects)
 
     assert.equals('list', ci.name)
     assert.same({ 'feature' }, ci.subjects)
@@ -208,14 +194,14 @@ describe('command schema', function()
   end)
 
   it('rejects unsupported bang before dispatch', function()
-    local _, err = cmd.parse({ 'pr', 'review', '42' }, { bang = true })
+    local _, err = cmd.parse({ 'pr', 'checkout', '42' }, { bang = true })
 
     assert.equals('E477', err.code)
     assert.equals('E477: No ! allowed', err.message)
   end)
 
   it('rejects invalid modifiers and duplicate modifiers', function()
-    local _, unknown = cmd.parse({ 'pr', 'review', '42', '--wat=1' })
+    local _, unknown = cmd.parse({ 'pr', 'checkout', '42', '--wat=1' })
     local _, duplicate = cmd.parse({ 'pr', '--state=open', 'state=closed' })
 
     assert.equals('unknown modifier: wat', unknown.message)

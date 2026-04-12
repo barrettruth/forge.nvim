@@ -34,7 +34,6 @@ local M = {}
 
 ---@class forge.PRPickerKeys
 ---@field checkout? string|false
----@field diff string|false
 ---@field worktree string|false
 ---@field ci string|false
 ---@field browse string|false
@@ -156,8 +155,6 @@ local DEFAULTS = {
   keys = {
     back = '<c-o>',
     pr = {
-      review = '<c-d>',
-      diff = '<c-d>',
       worktree = '<c-w>',
       ci = '<c-t>',
       browse = '<c-x>',
@@ -191,14 +188,12 @@ local DEFAULTS = {
       refresh = '<c-r>',
     },
     branch = {
-      review = '<c-d>',
       delete = '<c-s>',
       browse = '<c-x>',
       yank = '<c-y>',
       refresh = '<c-r>',
     },
     commit = {
-      review = '<c-d>',
       browse = '<c-x>',
       yank = '<c-y>',
       refresh = '<c-r>',
@@ -383,8 +378,6 @@ function M.config()
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({
         'checkout',
-        'review',
-        'diff',
         'worktree',
         'ci',
         'browse',
@@ -431,14 +424,14 @@ function M.config()
     local branch_keys = rawget(keys, 'branch')
     if branch_keys ~= nil then
       vim.validate('forge.keys.branch', branch_keys, 'table')
-      for _, k in ipairs({ 'review', 'delete', 'browse', 'yank', 'refresh' }) do
+      for _, k in ipairs({ 'delete', 'browse', 'yank', 'refresh' }) do
         vim.validate('forge.keys.branch.' .. k, branch_keys[k], key_or_false, 'string or false')
       end
     end
     local commit_keys = rawget(keys, 'commit')
     if commit_keys ~= nil then
       vim.validate('forge.keys.commit', commit_keys, 'table')
-      for _, k in ipairs({ 'review', 'browse', 'yank', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
         vim.validate('forge.keys.commit.' .. k, commit_keys[k], key_or_false, 'string or false')
       end
     end
@@ -486,22 +479,6 @@ function M.config()
 
   for name, route in pairs(cfg.routes) do
     vim.validate('forge.routes.' .. name, route, 'string')
-  end
-
-  if type(cfg.keys) == 'table' then
-    local pr_keys = rawget(cfg.keys, 'pr')
-    local user_keys = type(user.keys) == 'table' and user.keys or nil
-    local user_pr_keys = type(user_keys) == 'table' and rawget(user_keys, 'pr') or nil
-    if type(pr_keys) == 'table' then
-      if type(user_pr_keys) == 'table' and user_pr_keys.review ~= nil then
-        pr_keys.review = user_pr_keys.review
-      elseif type(user_pr_keys) == 'table' and user_pr_keys.diff ~= nil then
-        pr_keys.review = user_pr_keys.diff
-      elseif pr_keys.review == nil then
-        pr_keys.review = pr_keys.diff
-      end
-      pr_keys.diff = pr_keys.review
-    end
   end
 
   return cfg
