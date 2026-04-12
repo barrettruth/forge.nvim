@@ -35,6 +35,18 @@ local function fake_forge()
   }
 end
 
+local function use_named_current_buf(name)
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == name then
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
+  end
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, name)
+  return buf
+end
+
 describe('routes', function()
   before_each(function()
     captured = {}
@@ -278,7 +290,7 @@ describe('routes', function()
   end)
 
   it('treats special URI buffers as non-file context for contextual browse', function()
-    vim.api.nvim_buf_set_name(0, 'canola://issue/123')
+    use_named_current_buf('canola://issue/123')
 
     require('forge.routes').open('browse.contextual')
 

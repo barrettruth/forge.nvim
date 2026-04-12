@@ -118,6 +118,7 @@ function M.pick(opts)
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
+  local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
 
   if opts.back and keys.back then
@@ -132,6 +133,7 @@ function M.pick(opts)
   local lines
   if stream then
     lines = function(fzf_cb)
+      entries = vim.list_extend({}, seed_entries)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
