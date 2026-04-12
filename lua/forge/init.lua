@@ -289,6 +289,34 @@ function M.create_pr(opts)
     return
   end
 
+  local function with_base(cb)
+    log.info('resolving base branch...')
+    vim.system(f:default_branch_cmd(ref), { text = true }, function(base_result)
+      local base = vim.trim(base_result.stdout or '')
+      if base == '' then
+        base = 'main'
+      end
+      vim.schedule(function()
+        cb(base)
+      end)
+    end)
+  end
+
+  local function ensure_creatable(base, cb)
+    if branch == base then
+      log.warn('current branch already matches base ' .. base)
+      return
+    end
+    local has_diff = vim
+      .system({ 'git', 'diff', '--quiet', 'origin/' .. base .. '..HEAD' }, { text = true })
+      :wait().code ~= 0
+    if not has_diff then
+      log.warn('no changes from origin/' .. base)
+      return
+    end
+    cb(base)
+  end
+
   log.info('checking for existing ' .. f.labels.pr_one .. '...')
 
   vim.system(f:pr_for_branch_cmd(branch, ref), { text = true }, function(result)
@@ -300,36 +328,32 @@ function M.create_pr(opts)
       end
 
       if opts.web then
-        log.info('pushing...')
-        vim.system({ 'git', 'push', '-u', 'origin', branch }, { text = true }, function(push_result)
-          vim.schedule(function()
-            if push_result.code ~= 0 then
-              log.error('push failed')
-              return
-            end
-            local web_cmd = f:create_pr_web_cmd(ref)
-            if web_cmd then
-              vim.system(web_cmd)
-            end
+        with_base(function(base)
+          ensure_creatable(base, function()
+            log.info('pushing...')
+            vim.system(
+              { 'git', 'push', '-u', 'origin', branch },
+              { text = true },
+              function(push_result)
+                vim.schedule(function()
+                  if push_result.code ~= 0 then
+                    log.error('push failed')
+                    return
+                  end
+                  local web_cmd = f:create_pr_web_cmd(ref)
+                  if web_cmd then
+                    vim.system(web_cmd)
+                  end
+                end)
+              end
+            )
           end)
         end)
         return
       end
 
-      log.info('resolving base branch...')
-      vim.system(f:default_branch_cmd(ref), { text = true }, function(base_result)
-        local base = vim.trim(base_result.stdout or '')
-        if base == '' then
-          base = 'main'
-        end
-        vim.schedule(function()
-          local has_diff = vim
-            .system({ 'git', 'diff', '--quiet', 'origin/' .. base .. '..HEAD' }, { text = true })
-            :wait().code ~= 0
-          if not has_diff then
-            log.warn('no changes from origin/' .. base)
-            return
-          end
+      with_base(function(base)
+        ensure_creatable(base, function()
           if opts.instant then
             local title, body = template_mod.fill_from_commits(branch, base)
             compose_mod.push_and_create(

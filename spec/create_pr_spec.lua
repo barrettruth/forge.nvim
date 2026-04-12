@@ -10,6 +10,8 @@ describe('create_pr', function()
   before_each(function()
     captured = {
       errors = {},
+      warnings = {},
+      systems = {},
     }
 
     old_system = vim.system
@@ -55,6 +57,7 @@ describe('create_pr', function()
         stderr = '',
       }
       local key = table.concat(cmd, ' ')
+      table.insert(captured.systems, key)
       if key == 'pr-for-branch feature' then
         result.stdout = '\n'
       elseif key == 'default-branch' then
@@ -126,6 +129,9 @@ describe('create_pr', function()
         end,
         default_branch_cmd = function()
           return { 'default-branch' }
+        end,
+        create_pr_web_cmd = function()
+          return { 'create-pr-web' }
         end,
         template_paths = function()
           return { '.github/PULL_REQUEST_TEMPLATE/' }
@@ -238,5 +244,78 @@ describe('create_pr', function()
     captured.picker.back()
 
     assert.equals(1, back_calls)
+  end)
+
+  it('blocks web PR creation when the current branch already matches the base', function()
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'git@github.com:owner/repo.git\n'
+      end
+      if cmd == 'git branch --show-current' then
+        return 'main\n'
+      end
+      return ''
+    end
+
+    require('forge').create_pr({ web = true })
+
+    vim.wait(100, function()
+      return #captured.warnings > 0
+    end)
+
+    assert.same({ 'current branch already matches base main' }, captured.warnings)
+    assert.is_false(vim.tbl_contains(captured.systems, 'git push -u origin main'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'create-pr-web'))
+  end)
+
+  it('blocks web PR creation when there are no changes from the base branch', function()
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      table.insert(captured.systems, key)
+      if key == 'pr-for-branch feature' then
+        result.stdout = '\n'
+      elseif key == 'default-branch' then
+        result.stdout = 'main\n'
+      elseif key == 'git diff --quiet origin/main..HEAD' then
+        result.code = 0
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    require('forge').create_pr({ web = true })
+
+    vim.wait(100, function()
+      return #captured.warnings > 0
+    end)
+
+    assert.same({ 'no changes from origin/main' }, captured.warnings)
+    assert.is_false(vim.tbl_contains(captured.systems, 'git push -u origin feature'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'create-pr-web'))
+  end)
+
+  it('pushes and opens the web flow only when the branch is creatable', function()
+    require('forge').create_pr({ web = true })
+
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.systems, 'create-pr-web')
+    end)
+
+    assert.is_true(vim.tbl_contains(captured.systems, 'git push -u origin feature'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'create-pr-web'))
   end)
 end)
