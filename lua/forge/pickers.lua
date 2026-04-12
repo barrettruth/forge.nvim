@@ -625,6 +625,17 @@ local function pr_action_fns(f, pr)
   }
 end
 
+local function issue_action_fns(f, issue)
+  return {
+    browse = function()
+      ops.issue_browse(f, issue)
+    end,
+    edit = function()
+      ops.issue_edit(issue)
+    end,
+  }
+end
+
 ---@param f forge.Forge
 ---@param pr forge.PRRef
 local function pr_toggle_draft_action(f, pr, opts)
@@ -1411,7 +1422,7 @@ function M.issue(state, f, opts)
         if entry and entry.load_more then
           M.issue(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
         elseif entry then
-          ops.issue_browse(f, entry.value)
+          issue_action_fns(f, entry.value).browse()
         end
       end,
     },
@@ -1421,7 +1432,16 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
-          ops.issue_browse(f, entry.value)
+          issue_action_fns(f, entry.value).browse()
+        end
+      end,
+    },
+    {
+      name = 'edit',
+      label = 'edit',
+      fn = function(entry)
+        if entry and not entry.load_more then
+          issue_action_fns(f, entry.value).edit()
         end
       end,
     },

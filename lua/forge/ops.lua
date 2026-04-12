@@ -234,6 +234,11 @@ function M.issue_create(opts)
   require('forge').create_issue(opts)
 end
 
+function M.issue_edit(issue)
+  issue = normalize_issue_ref(issue)
+  require('forge').edit_issue(issue.num, issue.scope)
+end
+
 function M.issue_browse(f, issue)
   issue = normalize_issue_ref(issue)
   f:view_web(f.kinds.issue, issue.num, issue.scope)

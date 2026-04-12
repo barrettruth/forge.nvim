@@ -245,6 +245,36 @@ local function submit_issue(f, title, body, labels, assignees, milestone, buf, r
   )
 end
 
+local function update_issue(f, num, title, body, labels, assignees, milestone, original, buf, ref)
+  local log = require('forge.logger')
+  log.info('updating issue #' .. num .. '...')
+  vim.system(
+    f:update_issue_cmd(num, title, body, labels, assignees, milestone, original, ref),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code == 0 then
+          log.info(('updated issue #%s'):format(num))
+          require('forge').clear_list()
+          if buf and vim.api.nvim_buf_is_valid(buf) then
+            vim.bo[buf].modified = false
+            vim.api.nvim_buf_delete(buf, { force = true })
+          end
+        else
+          local msg = vim.trim(result.stderr or '')
+          if msg == '' then
+            msg = vim.trim(result.stdout or '')
+          end
+          if msg == '' then
+            msg = 'update failed'
+          end
+          log.error(msg)
+        end
+      end)
+    end
+  )
+end
+
 ---@param f forge.Forge
 ---@param result forge.TemplateResult?
 ---@param ref? forge.Scope
@@ -334,6 +364,86 @@ function M.open_issue(f, result, ref)
 
   vim.api.nvim_win_set_cursor(0, { 1, 2 })
   vim.cmd.startinsert({ bang = true })
+end
+
+function M.open_issue_edit(f, num, details, ref)
+  local buf = create_compose_buf(('forge://issue/%s/edit'):format(num))
+  vim.b[buf].forge_scope = ref
+
+  local b = ComposeBuilder.new()
+  b.lines = { '# ' .. details.title, '' }
+  if details.body ~= '' then
+    for _, line in ipairs(vim.split(details.body, '\n', { plain = true })) do
+      table.insert(b.lines, line)
+    end
+  else
+    table.insert(b.lines, '')
+  end
+
+  table.insert(b.lines, '')
+  local comment_start = #b.lines + 1
+
+  b:add_line('<!--')
+
+  local editing_prefix = '  Editing issue #' .. num .. ' via '
+  local ln = b:add_line('%s%s.', editing_prefix, f.name)
+  b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
+  b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
+
+  b:add_line('')
+  local labels_prefix = '  Labels: '
+  ln = b:add_line('%s%s', labels_prefix, table.concat(details.labels, ', '))
+  b:mark(ln, 2, 7, 'ForgeComposeLabel')
+
+  local assignees_prefix = '  Assignees: '
+  ln = b:add_line('%s%s', assignees_prefix, table.concat(details.assignees, ', '))
+  b:mark(ln, 2, 10, 'ForgeComposeLabel')
+
+  local milestone_prefix = '  Milestone: '
+  ln = b:add_line('%s%s', milestone_prefix, details.milestone)
+  b:mark(ln, 2, 10, 'ForgeComposeLabel')
+
+  b:add_line('')
+  b:add_line('  An empty title aborts editing.')
+  b:add_line('-->')
+
+  b:apply(buf, comment_start)
+
+  vim.api.nvim_create_autocmd('BufWriteCmd', {
+    buffer = buf,
+    callback = function()
+      local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local content_lines = extract_content(buf_lines)
+      local issue_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
+
+      local log = require('forge.logger')
+      if issue_title == '' then
+        log.warn('aborting: empty title')
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+      end
+
+      local issue_body = vim.trim(table.concat(content_lines, '\n', 3))
+      local meta = parse_comment_metadata(buf_lines)
+      update_issue(
+        f,
+        num,
+        issue_title,
+        issue_body,
+        meta.labels,
+        meta.assignees,
+        meta.milestone,
+        details,
+        buf,
+        ref
+      )
+    end,
+  })
+
+  vim.api.nvim_win_set_cursor(0, { 1, 2 })
+  vim.cmd('normal! v$h')
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-G>', true, false, true), 'n', false)
 end
 
 ---@param f forge.Forge

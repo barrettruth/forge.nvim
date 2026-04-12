@@ -240,17 +240,20 @@ describe('pickers', function()
         issue_browse = function(_, issue)
           table.insert(op_calls, { name = 'issue_browse', issue = issue })
         end,
+        issue_edit = function(issue)
+          table.insert(op_calls, { name = 'issue_edit', issue = issue })
+        end,
         issue_create = function(opts)
           require('forge').create_issue(opts)
         end,
         issue_close = function(_, issue, opts)
-          table.insert(op_calls, { name = 'issue_close', issue = issue })
+          table.insert(op_calls, { name = 'issue_close', issue = issue, opts = opts })
           if opts and opts.on_success then
             opts.on_success()
           end
         end,
         issue_reopen = function(_, issue, opts)
-          table.insert(op_calls, { name = 'issue_reopen', issue = issue })
+          table.insert(op_calls, { name = 'issue_reopen', issue = issue, opts = opts })
           if opts and opts.on_success then
             opts.on_success()
           end
@@ -781,6 +784,7 @@ describe('pickers', function()
     assert.is_not_nil(captured)
     assert.is_false(rawget(action_by_name('default'), 'close'))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('edit'), 'close'))
     assert.is_nil(rawget(action_by_name('close'), 'close'))
   end)
 
@@ -883,6 +887,7 @@ describe('pickers', function()
     end
     assert.equals('open', labels.default)
     assert.equals('web', labels.browse)
+    assert.equals('edit', labels.edit)
     assert.equals('toggle', labels.close)
     assert.equals('create', labels.create)
     assert.equals('filter', labels.filter)
@@ -940,6 +945,30 @@ describe('pickers', function()
     assert.equals('7', streamed[1].value.num)
     assert.equals('#7', streamed[1].display[1][1])
     assert.same(7, cache['issue:all'][1].number)
+  end)
+
+  it('dispatches flattened issue actions directly from the root picker', function()
+    cache['issue:open'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('open', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    local entry = captured.entries[1]
+    action_by_name('default').fn(entry)
+    action_by_name('edit').fn(entry)
+    action_by_name('close').fn(entry)
+
+    assert.same({ name = 'issue_browse', issue = { num = '42', scope = nil } }, op_calls[1])
+    assert.same({ name = 'issue_edit', issue = { num = '42', scope = nil } }, op_calls[2])
+    assert.same({ name = 'issue_close', issue = { num = '42', scope = nil } }, {
+      name = op_calls[3].name,
+      issue = op_calls[3].issue,
+    })
+    assert.is_function(op_calls[3].opts.on_success)
+    assert.is_function(op_calls[3].opts.on_failure)
   end)
 
   it('warms the next issue state after opening a cached list', function()
