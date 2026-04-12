@@ -378,13 +378,17 @@ describe('parse_summary_json', function()
         },
       },
     })
-    assert.equals('CI', result.lines[1])
-    assert.truthy(result.lines[3]:match('^lint'))
-    assert.truthy(result.lines[3]:match('1m 30s'))
-    assert.truthy(result.lines[4]:match('^test'))
+    assert.equals('p  CI', result.lines[1])
+    assert.truthy(result.lines[3]:match('^p  lint'))
+    assert.truthy(result.lines[3]:match('%[1m 30s%]'))
+    assert.truthy(result.lines[4]:match('^f  test'))
     assert.same({ id = '100', failed = false }, result.jobs[3])
     assert.same({ id = '200', failed = true }, result.jobs[4])
     assert.equals(2, #result.job_lnums)
+    assert.equals('ForgePass', result.hls[1][1].group)
+    assert.equals(3, result.hls[1][1].end_col)
+    assert.equals('ForgePass', result.hls[3][1].group)
+    assert.equals('ForgeFail', result.hls[4][1].group)
   end)
 
   it('shows step progress for in-progress jobs', function()
@@ -407,7 +411,7 @@ describe('parse_summary_json', function()
         },
       },
     })
-    assert.equals('Build', result.lines[1])
+    assert.equals('~  Build', result.lines[1])
     assert.truthy(result.lines[3]:match('%[2/4%]'))
   end)
 
@@ -418,7 +422,7 @@ describe('parse_summary_json', function()
       conclusion = 'failure',
       jobs = {},
     })
-    assert.equals('Deploy', result.lines[1])
+    assert.equals('f  Deploy', result.lines[1])
     assert.equals(1, #result.hls[1])
     assert.equals('ForgeFail', result.hls[1][1].group)
   end)
@@ -431,7 +435,7 @@ describe('parse_summary_json', function()
       conclusion = 'success',
       jobs = {},
     })
-    assert.equals('fix(pr): use fetched metadata in edit compose (#203)', result.lines[1])
+    assert.equals('p  fix(pr): use fetched metadata in edit compose (#203)', result.lines[1])
     assert.equals('ForgePass', result.hls[1][1].group)
   end)
 
@@ -461,8 +465,8 @@ describe('parse_summary_json', function()
         },
       },
     })
-    assert.equals('Pipeline', result.lines[1])
-    assert.equals('waiting', result.lines[3])
+    assert.equals('~  Pipeline', result.lines[1])
+    assert.equals('~  waiting', result.lines[3])
     assert.equals('ForgePending', result.hls[1][1].group)
     assert.equals('ForgePending', result.hls[3][1].group)
   end)
