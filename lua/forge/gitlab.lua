@@ -490,6 +490,8 @@ function M:parse_pr_details(json)
     title = json.title or '',
     body = json.description or '',
     draft = json.draft == true,
+    head_branch = json.source_branch or '',
+    base_branch = json.target_branch or '',
     labels = labels,
     assignees = assignees,
     reviewers = reviewers,

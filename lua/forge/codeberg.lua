@@ -426,6 +426,8 @@ function M:parse_pr_details(json)
     title = json.title or '',
     body = json.body or '',
     draft = false,
+    head_branch = type(json.head) == 'table' and (json.head.ref or '') or json.head or '',
+    base_branch = type(json.base) == 'table' and (json.base.ref or '') or json.base or '',
     labels = labels,
     assignees = assignees,
     reviewers = {},
