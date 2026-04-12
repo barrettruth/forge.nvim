@@ -88,8 +88,8 @@ local function fake_ci_forge()
     checks_json_cmd = function(_, num)
       return { 'checks', num }
     end,
-    list_runs_json_cmd = function(_, branch)
-      return { 'runs', branch or '' }
+    list_runs_json_cmd = function(_, branch, _, limit)
+      return { 'runs', branch or '', tostring(limit or '') }
     end,
     normalize_run = function(_, run)
       return run
@@ -1306,6 +1306,122 @@ describe('pickers', function()
 
     assert.equals('1', streamed[1].value.id)
     assert.equals('CI', streamed[1].display[1][1])
+  end)
+
+  it('adds a load more row when the CI run list exceeds the configured limit', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          runs = 2,
+        },
+      },
+    }
+
+    local old_system = vim.system
+    vim.system = function(_, _, cb)
+      if cb then
+        cb({
+          code = 0,
+          stdout = vim.json.encode({
+            { id = '1', name = 'Build', branch = 'main', status = 'success', url = 'https://e/1' },
+            { id = '2', name = 'Lint', branch = 'main', status = 'failure', url = 'https://e/2' },
+            { id = '3', name = 'Docs', branch = 'main', status = 'success', url = 'https://e/3' },
+          }),
+        })
+      end
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('1', streamed[1].value.id)
+    assert.equals('2', streamed[2].value.id)
+    assert.equals('Load more...', streamed[3].display[1][1])
+    assert.is_true(streamed[3].load_more)
+  end)
+
+  it('requests more CI runs when the load more row is activated', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          runs = 2,
+        },
+      },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    assert.is_not_nil(captured)
+    assert.equals('CI for main> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    assert.same({ 'runs', 'main', '3' }, calls[1].cmd)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { id = '1', name = 'Build', branch = 'main', status = 'success', url = 'https://e/1' },
+        { id = '2', name = 'Lint', branch = 'main', status = 'failure', url = 'https://e/2' },
+        { id = '3', name = 'Docs', branch = 'main', status = 'success', url = 'https://e/3' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+
+    action_by_name('log').fn(streamed[3])
+
+    assert.equals('CI for main> ', captured.prompt)
+    assert.same({}, captured.entries)
+    assert.same('function', type(captured.stream))
+
+    captured.stream(function() end)
+
+    vim.system = old_system
+
+    assert.same({ 'runs', 'main', '5' }, calls[2].cmd)
   end)
 
   it('ignores stale CI responses after switching filters during fetch', function()

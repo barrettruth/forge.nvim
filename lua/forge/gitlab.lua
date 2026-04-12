@@ -252,7 +252,7 @@ function M:watch_cmd(id, ref)
   return cmd
 end
 
-function M:list_runs_json_cmd(branch, ref)
+function M:list_runs_json_cmd(branch, ref, limit)
   local cmd = {
     'glab',
     'ci',
@@ -260,7 +260,7 @@ function M:list_runs_json_cmd(branch, ref)
     '--output',
     'json',
     '--per-page',
-    tostring(forge.config().display.limits.runs),
+    tostring(limit or forge.config().display.limits.runs),
     '-R',
     repo_arg(ref),
   }
