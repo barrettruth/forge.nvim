@@ -109,11 +109,28 @@ describe('health', function()
 
     assert.same({ 'forge.nvim' }, captured.starts)
     assert.is_true(vim.tbl_contains(captured.oks, 'git found'))
-    assert.is_true(vim.tbl_contains(captured.oks, 'fzf-lua found (active)'))
+    assert.is_true(
+      vim.tbl_contains(captured.oks, 'fzf-lua found (active) (interactive picker UI enabled)')
+    )
     assert.is_true(
       vim.tbl_contains(
         captured.errors,
         'tree-sitter yaml parser not found (required for YAML issue form templates)'
+      )
+    )
+  end)
+
+  it('warns when the interactive picker UI backend is unavailable', function()
+    package.preload['fzf-lua'] = nil
+    package.loaded['fzf-lua'] = nil
+    package.loaded['forge.health'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(
+      vim.tbl_contains(
+        captured.warns,
+        'fzf-lua not found (interactive picker UI disabled; direct :Forge commands still available)'
       )
     )
   end)

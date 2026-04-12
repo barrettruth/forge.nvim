@@ -351,17 +351,26 @@ describe(':Forge command', function()
     end
   end)
 
-  it('dispatches git-local route subcommands', function()
+  it('warns instead of opening interactive surfaces for missing or UI-only commands', function()
+    vim.cmd('Forge')
+    vim.cmd('Forge pr')
+    vim.cmd('Forge ci')
+    vim.cmd('Forge release')
     vim.cmd('Forge branches')
     vim.cmd('Forge commits feature')
     vim.cmd('Forge worktrees')
 
-    assert.equals('branches', captured.opens[1].route)
-    assert.is_nil(captured.opens[1].opts)
-    assert.equals('commits', captured.opens[2].route)
-    assert.same({ branch = 'feature' }, captured.opens[2].opts)
-    assert.equals('worktrees', captured.opens[3].route)
-    assert.is_nil(captured.opens[3].opts)
+    assert.same({
+      'missing command',
+      'missing action',
+      'missing action',
+      'missing action',
+      'unknown command: branches',
+      'unknown command: commits',
+      'unknown command: worktrees',
+    }, captured.warnings)
+    assert.is_nil(captured.opens[1])
+    assert.is_nil(captured.ops_calls[1])
   end)
 
   it('uses explicit browse defaults for omitted targets', function()
@@ -528,15 +537,19 @@ describe(':Forge command', function()
     }, captured.edit_issue)
   end)
 
-  it('applies collaboration and ci default scopes to list commands', function()
-    vim.cmd('Forge pr')
-    vim.cmd('Forge ci')
+  it('rejects explicit list verbs with no picker dispatch side effects', function()
+    vim.cmd('Forge pr list')
+    vim.cmd('Forge issue list')
+    vim.cmd('Forge ci list')
+    vim.cmd('Forge release list')
 
-    assert.equals('prs', captured.opens[1].route)
-    assert.equals('owner/upstream', captured.opens[1].opts.scope.slug)
-    assert.equals('ci.current_branch', captured.opens[2].route)
-    assert.equals('owner/current', captured.opens[2].opts.scope.slug)
-    assert.equals('main', captured.opens[2].opts.branch)
+    assert.same({
+      'unknown pr action: list',
+      'unknown issue action: list',
+      'unknown action: list',
+      'unknown release action: list',
+    }, captured.warnings)
+    assert.is_nil(captured.opens[1])
   end)
 
   it('rejects unsupported bang with E477 and no side effects', function()
@@ -629,21 +642,27 @@ describe(':Forge command', function()
     local families = vim.fn.getcompletion('Forge ', 'cmdline')
     local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
     local issue = vim.fn.getcompletion('Forge issue ', 'cmdline')
+    local release = vim.fn.getcompletion('Forge release ', 'cmdline')
     local pr_create = vim.fn.getcompletion('Forge pr create ', 'cmdline')
     local issue_create = vim.fn.getcompletion('Forge issue create ', 'cmdline')
 
     assert.is_true(vim.tbl_contains(families, 'pr'))
     assert.is_true(vim.tbl_contains(families, 'ci'))
     assert.is_true(vim.tbl_contains(families, 'browse'))
+    assert.is_false(vim.tbl_contains(families, 'branches'))
+    assert.is_false(vim.tbl_contains(families, 'commits'))
+    assert.is_false(vim.tbl_contains(families, 'worktrees'))
 
-    assert.is_true(vim.tbl_contains(pr, 'list'))
+    assert.is_true(vim.tbl_contains(pr, 'create'))
     assert.is_true(vim.tbl_contains(pr, 'approve'))
     assert.is_true(vim.tbl_contains(pr, 'merge'))
     assert.is_true(vim.tbl_contains(pr, 'draft'))
     assert.is_true(vim.tbl_contains(pr, 'ready'))
-    assert.is_true(vim.tbl_contains(pr, 'state='))
-    assert.is_true(vim.tbl_contains(pr, 'repo='))
+    assert.is_false(vim.tbl_contains(pr, 'state='))
+    assert.is_false(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(issue, 'edit'))
+    assert.is_true(vim.tbl_contains(release, 'browse'))
+    assert.is_true(vim.tbl_contains(release, 'delete'))
 
     assert.is_true(vim.tbl_contains(pr_create, 'head='))
     assert.is_true(vim.tbl_contains(pr_create, 'base='))
@@ -659,8 +678,8 @@ describe(':Forge command', function()
   end)
 
   it('completes modifier values for repo, revision, and target addresses', function()
-    local repos = vim.fn.getcompletion('Forge pr list repo=', 'cmdline')
-    local revs = vim.fn.getcompletion('Forge ci list rev=', 'cmdline')
+    local repos = vim.fn.getcompletion('Forge pr create repo=', 'cmdline')
+    local revs = vim.fn.getcompletion('Forge browse rev=', 'cmdline')
     local heads = vim.fn.getcompletion('Forge pr create head=', 'cmdline')
     local target_revs = vim.fn.getcompletion('Forge browse target=work@', 'cmdline')
 
@@ -683,11 +702,9 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(target_revs, 'target=work@feature:'))
   end)
 
-  it('completes git-local subcommands and commit refs', function()
-    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge br', 'cmdline'), 'branches'))
-    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge comm', 'cmdline'), 'commits'))
-    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge work', 'cmdline'), 'worktrees'))
-    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge commits ', 'cmdline'), 'main'))
-    assert.is_true(vim.tbl_contains(vim.fn.getcompletion('Forge commits f', 'cmdline'), 'feature'))
+  it('does not complete picker-only command families', function()
+    assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge br', 'cmdline'), 'branches'))
+    assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge comm', 'cmdline'), 'commits'))
+    assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge work', 'cmdline'), 'worktrees'))
   end)
 end)
