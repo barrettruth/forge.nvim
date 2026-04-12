@@ -339,6 +339,79 @@ describe('git sections', function()
     )
   end)
 
+  it('falls back to the local branch when the upstream log fetch fails and trims commit fields', function()
+    local ctx = {
+      forge = {
+        browse_commit = function(_, sha)
+          captured.browse_commit = sha
+        end,
+      },
+    }
+    local current_system = vim.system
+    vim.system = function(cmd, _, cb)
+      local key = table.concat(cmd, ' ')
+      captured.last_system = key
+      captured.systems[#captured.systems + 1] = key
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+
+      if key == 'git for-each-ref --format=%(upstream:short) refs/heads/main' then
+        result.stdout = 'origin/main\n'
+      elseif key == 'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main' then
+        result.code = 128
+        result.stderr = 'fatal: bad revision origin/main'
+      elseif key == 'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e main' then
+        local now = os.time()
+        result.stdout = record({
+          'abc123456789',
+          'abc1234',
+          'Add routes',
+          'Barrett',
+          tostring(now - 7200),
+        }) .. '\n' .. record({
+          'def567890123',
+          'def5678',
+          'Add sections',
+          'B',
+          tostring(now - 3600),
+        })
+      end
+
+      if cb then
+        cb(result)
+      end
+
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    require('forge.pickers').commits(ctx, 'main')
+    vim.wait(100, function()
+      return captured.picker ~= nil and captured.last_system == 'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e main'
+    end)
+    vim.system = current_system
+
+    assert.equals(
+      'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e main',
+      captured.last_system
+    )
+    assert.same({
+      { 'def5678', 'ForgeCommitHash' },
+      { ' Add sections' },
+      { ' B       ', 'ForgeCommitAuthor' },
+      { ' 1h', 'ForgeCommitTime' },
+    }, captured.picker.entries[2].display)
+
+    captured.picker.actions[2].fn(captured.picker.entries[2])
+    assert.equals('def567890123', captured.browse_commit)
+  end)
+
   it('adds a load more row when the commit list exceeds the configured limit', function()
     vim.g.forge = {
       display = {
