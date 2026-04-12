@@ -139,6 +139,10 @@ describe(':Forge command', function()
           captured.cleared = true
         end,
         file_loc = function()
+          local name = vim.api.nvim_buf_get_name(0)
+          if name:match('^%w[%w+.-]*://') then
+            return ''
+          end
           return 'lua/forge/init.lua'
         end,
         open = function(route, opts)
@@ -264,6 +268,9 @@ describe(':Forge command', function()
           return true
         end,
         browse_file = function(f, file_loc, branch, scope)
+          if vim.trim(file_loc or '') == '' or vim.trim(branch or '') == '' then
+            return false
+          end
           table.insert(captured.ops_calls, {
             name = 'browse_file',
             file_loc = file_loc,
@@ -374,6 +381,30 @@ describe(':Forge command', function()
 
     assert.equals('browse.branch', captured.opens[1].route)
     assert.equals('browse.commit', captured.opens[2].route)
+  end)
+
+  it('uses explicit rev branch browsing when special buffers have no file location', function()
+    vim.api.nvim_buf_set_name(0, 'canola://issue/123')
+
+    vim.cmd('Forge browse rev=@main')
+
+    assert.same({
+      name = 'browse_branch',
+      branch = 'main',
+      opts = {
+        scope = {
+          kind = 'github',
+          host = 'github.com',
+          owner = 'owner',
+          repo = 'current',
+          slug = 'owner/current',
+          repo_arg = 'owner/current',
+          web_url = 'https://github.com/owner/current',
+        },
+      },
+    }, captured.ops_calls[1])
+    assert.equals('browse.branch', captured.opens[1].route)
+    assert.equals('main', captured.opens[1].opts.branch)
   end)
 
   it('dispatches normalized create and clear commands through the command layer', function()

@@ -13,9 +13,19 @@ end
 local function has_file_buffer()
   local buf_name = vim.api.nvim_buf_get_name(0)
   return buf_name ~= ''
+    and not buf_name:match('^%w[%w+.-]*://')
     and not buf_name:match('^fugitive://')
     and not buf_name:match('^term://')
     and not buf_name:match('^diffs://')
+end
+
+local function in_repo_file(root)
+  if not has_file_buffer() then
+    return false
+  end
+  local buf_name = vim.fs.normalize(vim.api.nvim_buf_get_name(0))
+  local prefix = vim.fs.normalize(root) .. '/'
+  return buf_name:sub(1, #prefix) == prefix
 end
 
 providers.current = function()
@@ -25,7 +35,7 @@ providers.current = function()
   end
 
   local forge_mod = require('forge')
-  local has_file = has_file_buffer()
+  local has_file = in_repo_file(root)
 
   return {
     id = 'current',
