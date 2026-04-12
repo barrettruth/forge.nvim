@@ -18,8 +18,15 @@ local function log_to_file(level_name, msg)
 end
 
 local function notify(msg, level)
-  vim.notify('[forge]: ' .. msg, level)
-  vim.cmd.redraw()
+  local run = function()
+    vim.notify('[forge]: ' .. msg, level)
+    vim.cmd.redraw()
+  end
+  if vim.in_fast_event() then
+    vim.schedule(run)
+    return
+  end
+  run()
 end
 
 function M.debug(msg)
