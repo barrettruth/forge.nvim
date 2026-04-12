@@ -529,7 +529,9 @@ BANG SEMANTICS                                            *forge-command-bang*
     `--root`           Legacy compatibility flag for the repository root.
     `--commit`         Legacy compatibility flag for the current HEAD commit.
     (no modifiers)     Open the current file on the current branch. In visual
-                       mode, the selected line range is included.
+                       mode, the selected line range is included. In non-file
+                       buffers, this falls back to the repo root on the
+                       current branch.
 
 `:Forge review branch` [{branch}]                       *:Forge-review-branch*
     Start a branch review session. Defaults to the current branch and
