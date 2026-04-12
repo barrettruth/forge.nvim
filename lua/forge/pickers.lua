@@ -2235,19 +2235,24 @@ function M.worktrees(ctx, opts)
               reopen()
               return
             end
-            confirm_input('Delete worktree ' .. item.path .. '?', confirm.worktree_delete, function()
-              run_git_cmd(
-                'deleting worktree ' .. item.path,
-                { 'git', 'worktree', 'remove', item.path },
-                'deleted worktree ' .. item.path,
-                'worktree delete failed',
-                function()
-                  forge_mod.clear_list(cache_key)
-                  reopen()
-                end,
-                reopen
-              )
-            end, reopen)
+            confirm_input(
+              'Delete worktree ' .. item.path .. '?',
+              confirm.worktree_delete,
+              function()
+                run_git_cmd(
+                  'deleting worktree ' .. item.path,
+                  { 'git', 'worktree', 'remove', item.path },
+                  'deleted worktree ' .. item.path,
+                  'worktree delete failed',
+                  function()
+                    forge_mod.clear_list(cache_key)
+                    reopen()
+                  end,
+                  reopen
+                )
+              end,
+              reopen
+            )
           end,
         },
         {
