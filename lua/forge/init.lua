@@ -201,7 +201,7 @@ function M.file_loc()
     end
     return ('%s:%d-%d'):format(file, s, e)
   end
-  return ('%s:%d'):format(file, vim.fn.line('.'))
+  return file
 end
 
 ---@return string

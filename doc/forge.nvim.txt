@@ -524,13 +524,42 @@ BANG SEMANTICS                                            *forge-command-bang*
 
 `:Forge browse` [repo=...] [rev=...] [target=...]              *:Forge-browse*
     Open a browser target on the forge. Without explicit target modifiers,
-    this defaults to the current file location on the current branch in
-    the current repo.
+    this defaults to the current file on the current branch in the current
+    repo.
     `--root`           Legacy compatibility flag for the repository root.
     `--commit`         Legacy compatibility flag for the current HEAD commit.
-    (no modifiers)     Open the current file and line(s) on the current
-                       branch. In visual mode, the selected line range is
-                       included.
+    (no modifiers)     Open the current file on the current branch. In visual
+                       mode, the selected line range is included.
+
+`:Forge review branch` [{branch}]                       *:Forge-review-branch*
+    Start a branch review session. Defaults to the current branch and
+    compares it against the detected default base branch.
+
+`:Forge review commit` [{sha}]                          *:Forge-review-commit*
+    Start a commit review session. Defaults to the current `HEAD` commit
+    and compares it against its first parent.
+
+`:Forge review end`                                        *:Forge-review-end*
+    End the current review session.
+
+`:Forge review files`                                    *:Forge-review-files*
+    Open the changed-files review index for the active review session.
+
+`:Forge review next-file`                            *:Forge-review-next-file*
+    Open the next file in the active review session, wrapping at the end.
+
+`:Forge review prev-file`                            *:Forge-review-prev-file*
+    Open the previous file in the active review session, wrapping at the
+    beginning.
+
+`:Forge review next-hunk`                            *:Forge-review-next-hunk*
+    Jump to the next hunk in the active review view.
+
+`:Forge review prev-hunk`                            *:Forge-review-prev-hunk*
+    Jump to the previous hunk in the active review view.
+
+`:Forge review toggle`                                  *:Forge-review-toggle*
+    Toggle between patch and file-context view (|forge-review|).
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
@@ -1214,12 +1243,11 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 
                                                             *forge.file_loc()*
 `file_loc()`
-    Current buffer file path relative to git root with line number(s). In
-    visual mode, includes the selected line range (e.g.
-    `"src/foo.lua:10-20"`).
+    Current buffer file path relative to git root. In visual mode, includes
+    the selected line range (e.g. `"src/foo.lua:10-20"`).
 
     Return: ~
-        (`string`) Relative file location with line number or range
+        (`string`) Relative file path, or file path with selected range
 
                                                       *forge.remote_web_url()*
 `remote_web_url()`
