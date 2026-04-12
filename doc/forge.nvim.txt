@@ -333,16 +333,19 @@ Top-level keys: ~
   formatting.
 
   `display.icons`                                 *forge-config-display-icons*
-    `table`  Status icons used in picker lines.
+    `table`  Status icons used in picker lines. Defaults use ASCII mnemonic
+             status codes for semantic state. Structural picker markers such
+             as current branch/worktree (`*`) and linked worktree (`+`)
+             remain symbolic and are not part of this table.
 
     Key         Default   Used for ~
     `open`        `"o"`       Open PRs/issues
     `merged`      `"m"`       Merged PRs
-    `closed`      `"x"`       Closed PRs/issues
-    `pass`        `"*"`       Passed checks/runs
-    `fail`        `"x"`       Failed checks/runs
+    `closed`      `"c"`       Closed PRs/issues
+    `pass`        `"p"`       Passed checks/runs
+    `fail`        `"f"`       Failed checks/runs
     `pending`     `"~"`       In-progress checks/runs
-    `skip`        `"-"`       Skipped/cancelled runs
+    `skip`        `"s"`       Skipped/cancelled runs
     `unknown`     `"?"`       Unknown status
 
   `display.widths`                               *forge-config-display-widths*
@@ -922,9 +925,11 @@ Picker lines: ~
   `ForgeSkip`                `Comment`            Skipped/cancelled CI icon
   `ForgeBranch`              `Special`            Branch names and git refs
   `ForgeBranchCurrent`       `Special` + bold     Current branch label
+  `ForgeAuthor`              `Identifier`         Author metadata in picker rows
+  `ForgeTime`                `Comment`            Relative-time metadata in picker rows
   `ForgeCommitHash`          `Number`             Commit hash text
   `ForgeCommitTime`          `Comment`            Commit age metadata
-  `ForgeCommitAuthor`        `Comment`            Commit author metadata
+  `ForgeCommitAuthor`        `Identifier`         Commit author metadata
   `ForgeDim`                 `Comment`            Secondary picker metadata
 
 Log viewer: ~

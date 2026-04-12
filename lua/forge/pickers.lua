@@ -331,7 +331,7 @@ local function branch_display(item, plan)
   local name_hl = nil
   if item.current then
     marker = '* '
-    marker_hl = 'ForgePass'
+    marker_hl = 'ForgeBranchCurrent'
     name_hl = 'ForgeBranchCurrent'
   elseif item.worktree_path then
     marker = '+ '
@@ -439,7 +439,10 @@ end
 local function worktree_display(item, plan)
   local label = worktree_label(item)
   return layout.render(plan, {
-    marker = { item.current and '* ' or '  ', item.current and 'ForgePass' or 'ForgeDim' },
+    marker = {
+      item.current and '* ' or '  ',
+      item.current and 'ForgeBranchCurrent' or 'ForgeDim',
+    },
     label = {
       label,
       item.current and item.branch ~= '' and 'ForgeBranchCurrent'

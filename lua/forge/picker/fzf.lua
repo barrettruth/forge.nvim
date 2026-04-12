@@ -7,6 +7,7 @@ local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
 local no_bg_highlights = {
   ForgeBranch = true,
   ForgeBranchCurrent = true,
+  ForgeMerged = true,
 }
 
 local special_keys = {

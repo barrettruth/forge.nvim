@@ -9,7 +9,7 @@ package.preload['fzf-lua.utils'] = function()
       if group == 'FzfLuaHeaderBind' or group == 'FzfLuaHeaderText' then
         return ('[%s:%s]'):format(group, text)
       end
-      if group == 'ForgeBranch' or group == 'ForgeBranchCurrent' then
+      if group == 'ForgeBranch' or group == 'ForgeBranchCurrent' or group == 'ForgeMerged' then
         return ('\27[48;2;255;255;255m\27[38;2;1;2;3m%s\27[0m'):format(text)
       end
       return text, '\27[38;2;1;2;3m'
@@ -236,7 +236,7 @@ describe('fzf picker', function()
       entries = {
         {
           display = {
-            { '* ', 'ForgePass' },
+            { '* ', 'ForgeBranchCurrent' },
             { 'main', 'ForgeBranchCurrent' },
             { ' [origin/main]', 'Directory' },
           },
@@ -253,7 +253,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same(1, #captured.lines)
-    assert.truthy(captured.lines[1]:find('^%* ', 1))
+    assert.truthy(captured.lines[1]:find('^\27%[38;2;1;2;3m%* \27%[0m', 1))
     assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3mmain\27%[0m', 1))
     assert.truthy(captured.lines[1]:find(' %[origin/main%]\t1$', 1))
   end)
@@ -302,7 +302,7 @@ describe('fzf picker', function()
       entries = {
         {
           display = {
-            { '* ', 'ForgePass' },
+            { '* ', 'ForgeBranchCurrent' },
             { '/repo-feature', 'Directory' },
             { ' feature', 'ForgeBranch' },
             { ' abc1234', 'ForgeCommitHash' },
@@ -335,7 +335,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same(2, #captured.lines)
-    assert.truthy(captured.lines[1]:find('^%* /repo%-feature', 1))
+    assert.truthy(captured.lines[1]:find('^\27%[38;2;1;2;3m%* \27%[0m/repo%-feature', 1))
     assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3m feature\27%[0m', 1))
     assert.truthy(captured.lines[1]:find(' abc1234\t1$', 1))
     assert.equals('  /repo-bisect detached def5678\t2', captured.lines[2])
@@ -570,14 +570,14 @@ describe('fzf picker', function()
     assert.same({ '#2\t2' }, lines)
   end)
 
-  it('strips branch background ANSI so the selected row highlight can win', function()
+  it('strips merged and branch background ANSI so the selected row highlight can win', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'CI> ',
       entries = {
         {
           display = {
-            { '*', 'ForgePass' },
+            { 'm', 'ForgeMerged' },
             { ' build ' },
             { 'feature/test', 'ForgeBranch' },
             { ' main', 'ForgeBranchCurrent' },
