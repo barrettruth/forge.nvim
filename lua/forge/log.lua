@@ -132,6 +132,48 @@ local function summary_status(prefix)
   return labels[prefix]
 end
 
+local function summary_status_group(status)
+  local groups = {
+    success = 'ForgePass',
+    failure = 'ForgeFail',
+    skipped = 'ForgeLogDim',
+    cancelled = 'ForgeLogDim',
+    in_progress = 'ForgePending',
+    queued = 'ForgePending',
+  }
+  return groups[status] or 'ForgePending'
+end
+
+local function summary_status_icon(status)
+  local icons = require('forge').config().display.icons
+  status = (status or ''):lower()
+  if status == 'success' then
+    return icons.pass
+  end
+  if status == 'failure' or status == 'failed' then
+    return icons.fail
+  end
+  if
+    status == 'in_progress'
+    or status == 'running'
+    or status == 'pending'
+    or status == 'queued'
+  then
+    return icons.pending
+  end
+  if status == 'cancelled' or status == 'canceled' or status == 'skipped' then
+    return icons.skip
+  end
+  return icons.unknown
+end
+
+local function duration_label(duration)
+  if not duration or duration == '' then
+    return nil
+  end
+  return ('[%s]'):format(duration)
+end
+
 ---@param started string?
 ---@param completed string?
 ---@return string?
@@ -519,7 +561,7 @@ local function render(buf, parsed)
       local hl = line.conclusion == 'failure' and 'ForgeFail' or 'ForgeLogStep'
       local ext_opts = { line_hl_group = hl }
       if line.duration then
-        ext_opts.virt_text = { { line.duration, 'ForgeLogDim' } }
+        ext_opts.virt_text = { { duration_label(line.duration), 'ForgeLogDim' } }
         ext_opts.virt_text_pos = 'eol'
       end
       vim.api.nvim_buf_set_extmark(buf, ns, lnum, 0, ext_opts)
@@ -661,7 +703,7 @@ function M._foldtext()
     return line
   end
   local hl = meta.conclusion == 'failure' and 'ForgeFail' or 'ForgeLogStep'
-  local dur = meta.duration
+  local dur = duration_label(meta.duration)
   local width = vim.api.nvim_win_get_width(0)
   local pad = math.max(1, width - vim.fn.strdisplaywidth(line) - #dur - 1)
   return {
@@ -899,18 +941,8 @@ local function parse_summary(raw_lines)
   return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
 end
 
-local json_status_hl = {
-  success = 'ForgePass',
-  failure = 'ForgeFail',
-  skipped = 'ForgeLogDim',
-  cancelled = 'ForgeLogDim',
-  in_progress = 'ForgePending',
-  queued = 'ForgePending',
-}
-
-local function summary_hls(text, status)
-  local hl_grp = json_status_hl[status] or 'ForgePending'
-  return { { col = 0, end_col = #text, group = hl_grp } }
+local function summary_hls(prefix, status)
+  return { { col = 0, end_col = #prefix, group = summary_status_group(status) } }
 end
 
 local function parse_summary_json(data)
@@ -920,19 +952,21 @@ local function parse_summary_json(data)
   local job_lnums = {}
 
   local run_status = (data.conclusion and data.conclusion ~= '') and data.conclusion or data.status
-  local header = data.displayTitle or data.name or 'run'
+  local header_prefix = summary_status_icon(run_status) .. '  '
+  local header = header_prefix .. (data.displayTitle or data.name or 'run')
   lines[#lines + 1] = header
-  hls_list[#hls_list + 1] = summary_hls(header, run_status)
+  hls_list[#hls_list + 1] = summary_hls(header_prefix, run_status)
 
   lines[#lines + 1] = ''
   hls_list[#hls_list + 1] = {}
 
   for _, job in ipairs(data.jobs or {}) do
     local jstatus = (job.conclusion and job.conclusion ~= '') and job.conclusion or job.status
-    local line = job.name or 'job'
-    local dur = format_duration(job.startedAt, job.completedAt)
+    local prefix = summary_status_icon(jstatus) .. '  '
+    local line = prefix .. (job.name or 'job')
+    local dur = duration_label(format_duration(job.startedAt, job.completedAt))
     if dur then
-      line = line .. ('  (%s)'):format(dur)
+      line = line .. '  ' .. dur
     end
     if jstatus == 'in_progress' and job.steps then
       local done, total = 0, 0
@@ -948,7 +982,7 @@ local function parse_summary_json(data)
       end
     end
     lines[#lines + 1] = line
-    hls_list[#hls_list + 1] = summary_hls(line, jstatus)
+    hls_list[#hls_list + 1] = summary_hls(prefix, jstatus)
 
     local job_id = tostring(job.databaseId or '')
     if job_id ~= '' then
