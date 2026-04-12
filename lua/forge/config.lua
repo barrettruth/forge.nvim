@@ -3,7 +3,7 @@ local M = {}
 ---@alias forge.Split 'horizontal'|'vertical'
 
 ---@class forge.Config
----@field picker 'fzf-lua'|'auto'
+---@field picker 'fzf-lua'|'vim-ui'|'auto'
 ---@field debug boolean|string?
 ---@field split forge.Split
 ---@field ci forge.CIConfig
@@ -314,7 +314,7 @@ function M.config()
   local picker_backends = require('forge.picker').backends
   vim.validate('forge.picker', cfg.picker, function(v)
     return v == 'auto' or picker_backends[v] ~= nil
-  end, "'auto' or 'fzf-lua'")
+  end, "'auto', 'fzf-lua', or 'vim-ui'")
   vim.validate('forge.client', cfg.client, 'string')
   vim.validate('forge.context', cfg.context, 'string')
   vim.validate('forge.debug', cfg.debug, function(v)

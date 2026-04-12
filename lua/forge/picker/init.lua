@@ -23,9 +23,10 @@ local M = {}
 
 M.backends = {
   ['fzf-lua'] = 'forge.picker.fzf',
+  ['vim-ui'] = 'forge.picker.ui',
 }
 
-M.detect_order = { 'fzf-lua' }
+M.detect_order = { 'fzf-lua', 'vim-ui' }
 
 local root_search_terms = {
   ['prs.all'] = { 'prs', 'pull', 'requests', 'reviews' },
@@ -154,11 +155,12 @@ local function detect()
     return name
   end
   for _, backend in ipairs(M.detect_order) do
-    if pcall(require, backend) then
+    local mod_path = M.backends[backend]
+    if mod_path and pcall(require, mod_path) then
       return backend
     end
   end
-  return M.detect_order[1]
+  return 'vim-ui'
 end
 
 ---@param entry forge.PickerEntry

@@ -29,6 +29,7 @@ describe('health', function()
       ['forge'] = package.preload['forge'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['fzf-lua'] = package.preload['fzf-lua'],
+      ['forge.picker.ui'] = package.preload['forge.picker.ui'],
     }
 
     vim.fn.executable = function(bin)
@@ -68,14 +69,18 @@ describe('health', function()
 
     package.preload['forge.picker'] = function()
       return {
+        backends = { ['fzf-lua'] = 'fzf-lua', ['vim-ui'] = 'forge.picker.ui' },
         backend = function()
           return 'fzf-lua'
         end,
-        detect_order = { 'fzf-lua' },
+        detect_order = { 'fzf-lua', 'vim-ui' },
       }
     end
 
     package.preload['fzf-lua'] = function()
+      return {}
+    end
+    package.preload['forge.picker.ui'] = function()
       return {}
     end
 
@@ -83,6 +88,7 @@ describe('health', function()
     package.loaded['forge.picker'] = nil
     package.loaded['forge.health'] = nil
     package.loaded['fzf-lua'] = nil
+    package.loaded['forge.picker.ui'] = nil
   end)
 
   after_each(function()
@@ -97,11 +103,13 @@ describe('health', function()
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['fzf-lua'] = old_preload['fzf-lua']
+    package.preload['forge.picker.ui'] = old_preload['forge.picker.ui']
 
     package.loaded['forge'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.health'] = nil
     package.loaded['fzf-lua'] = nil
+    package.loaded['forge.picker.ui'] = nil
   end)
 
   it('reports a missing yaml parser as a health error', function()
@@ -110,11 +118,32 @@ describe('health', function()
     assert.same({ 'forge.nvim' }, captured.starts)
     assert.is_true(vim.tbl_contains(captured.oks, 'git found'))
     assert.is_true(vim.tbl_contains(captured.oks, 'fzf-lua found (active)'))
+    assert.is_true(vim.tbl_contains(captured.oks, 'vim-ui found'))
     assert.is_true(
       vim.tbl_contains(
         captured.errors,
         'tree-sitter yaml parser not found (required for YAML issue form templates)'
       )
     )
+  end)
+
+  it('falls back to vim-ui when fzf-lua is unavailable', function()
+    package.preload['forge.picker'] = function()
+      return {
+        backends = { ['fzf-lua'] = 'forge.picker.fzf', ['vim-ui'] = 'forge.picker.ui' },
+        backend = function()
+          return 'vim-ui'
+        end,
+        detect_order = { 'fzf-lua', 'vim-ui' },
+      }
+    end
+    package.preload['fzf-lua'] = nil
+    package.loaded['forge.picker'] = nil
+    package.loaded['forge.health'] = nil
+    package.loaded['fzf-lua'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(vim.tbl_contains(captured.oks, 'vim-ui found (active)'))
   end)
 end)

@@ -71,12 +71,14 @@ remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
-- fzf-lua
 - tree-sitter `yaml` parser
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
+
+`fzf-lua` is optional. When it is unavailable, forge.nvim falls back to
+`vim.ui.select`.
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
@@ -95,8 +97,8 @@ Top-level keys: ~
 
 `picker`                                                 *forge-config-picker*
   `string`  (default `"auto"`)
-    Picker backend to use. One of `"auto"` or `"fzf-lua"`. When `"auto"`,
-    forge.nvim tries fzf-lua.
+    Picker backend to use. One of `"auto"`, `"fzf-lua"`, or `"vim-ui"`.
+    When `"auto"`, forge.nvim prefers fzf-lua and falls back to vim.ui.select.
 
 `client`                                                 *forge-config-client*
   `string`  (default `"picker"`)
@@ -1172,7 +1174,7 @@ HEALTH                                                          *forge-health*
 Reports on: ~
 - `git` availability
 - Forge CLI availability (`gh`, `glab`, `tea`)
-- Picker backend (`fzf-lua`) and whether it is active
+- Picker backends (`fzf-lua`, `vim-ui`) and which one is active
 - tree-sitter `yaml` parser availability
 - Custom registered sources and their CLI availability
 

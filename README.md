@@ -19,7 +19,6 @@ without leaving your editor.
 
 - Neovim 0.10.0+
 - tree-sitter `yaml` parser for YAML issue form templates
-- [fzf-lua](https://github.com/ibhagwan/fzf-lua)
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
@@ -60,9 +59,11 @@ vim.g.forge = {
 ```lua
 {
   'barrettruth/forge.nvim',
-  dependencies = { 'ibhagwan/fzf-lua' },
 }
 ```
+
+`fzf-lua` is optional. When it is not installed, forge.nvim falls back to
+`vim.ui.select`.
 
 **Q: How do I create a PR?**
 

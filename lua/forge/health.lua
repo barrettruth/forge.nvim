@@ -26,14 +26,15 @@ function M.check()
   local backend = picker_mod.backend()
   local found_any = false
   for _, name in ipairs(picker_mod.detect_order) do
-    if pcall(require, name) then
+    local mod_path = picker_mod.backends[name]
+    if mod_path and pcall(require, mod_path) then
       local suffix = backend == name and ' (active)' or ''
       vim.health.ok(name .. ' found' .. suffix)
       found_any = true
     end
   end
   if not found_any then
-    vim.health.error('no picker backend found (install fzf-lua)')
+    vim.health.error('no picker backend found')
   end
 
   local has_yaml = pcall(vim.treesitter.language.inspect, 'yaml')
