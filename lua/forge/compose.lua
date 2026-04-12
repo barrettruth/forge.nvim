@@ -67,6 +67,12 @@ local function create_compose_buf(name)
   return buf
 end
 
+local function add_discard_hints(builder)
+  builder:add_line('  Write (:w) submits this buffer.')
+  builder:add_line('  Quit or delete without ! keeps modified-buffer protection.')
+  builder:add_line('  Use :q!, :bd!, or :bwipeout! to discard it.')
+end
+
 ---@param buf_lines string[]
 ---@return string[] content_lines
 local function extract_content(buf_lines)
@@ -318,6 +324,7 @@ function M.open_issue(f, result, ref)
   b:add_line('%s', milestone_prefix)
 
   b:add_line('')
+  add_discard_hints(b)
   b:add_line('  An empty title aborts creation.')
   b:add_line('-->')
 
@@ -404,6 +411,7 @@ function M.open_issue_edit(f, num, details, ref)
   b:mark(ln, 2, 10, 'ForgeComposeLabel')
 
   b:add_line('')
+  add_discard_hints(b)
   b:add_line('  An empty title aborts editing.')
   b:add_line('-->')
 
@@ -530,6 +538,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref)
     stat_end = #b.lines
   end
   b:add_line('')
+  add_discard_hints(b)
   b:add_line('  An empty title or body aborts creation.')
   b:add_line('-->')
 
@@ -777,6 +786,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
     stat_end = #b.lines
   end
   b:add_line('')
+  add_discard_hints(b)
   b:add_line('  An empty title or body aborts editing.')
   b:add_line('-->')
 
