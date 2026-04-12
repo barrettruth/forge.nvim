@@ -619,9 +619,6 @@ local function pr_action_fns(f, pr)
     ci = function(opts)
       ops.pr_ci(f, pr, opts)
     end,
-    manage = function(parent)
-      ops.pr_manage(f, pr, parent)
-    end,
     edit = function()
       ops.pr_edit(pr)
     end,
@@ -630,97 +627,14 @@ end
 
 ---@param f forge.Forge
 ---@param pr forge.PRRef
-local function pr_manage_picker(f, pr, parent)
-  local forge_mod = require('forge')
-  local num = pr.num
-  local ref = pr.scope
-  local kind = f.labels.pr_one
-  log.info('loading more for ' .. kind .. ' #' .. num .. '...')
-
-  local info = forge_mod.repo_info(f, ref)
-  local can_write = info.permission == 'ADMIN'
-    or info.permission == 'MAINTAIN'
-    or info.permission == 'WRITE'
-  local pr_state = f:pr_state(num, ref)
-  local is_open = pr_state.state == 'OPEN' or pr_state.state == 'OPENED'
-
-  local entries = {}
-  local action_map = {}
-  local function reopen_self()
-    pr_manage_picker(f, { num = num, scope = ref }, parent)
+local function pr_toggle_draft_action(f, pr, opts)
+  opts = opts or {}
+  local is_draft = rawget(pr, 'is_draft')
+  if is_draft == nil then
+    local pr_state = f:pr_state(pr.num, pr.scope)
+    is_draft = pr_state.is_draft == true
   end
-
-  local function add(label, fn)
-    table.insert(entries, {
-      display = { { label } },
-      value = label,
-    })
-    action_map[label] = fn
-  end
-
-  add('Edit', function()
-    ops.pr_edit(pr)
-  end)
-
-  if can_write and is_open then
-    add('Approve', function()
-      ops.pr_approve(f, pr, { on_success = reopen_self, on_failure = reopen_self })
-    end)
-  end
-
-  if can_write and is_open then
-    for _, method in ipairs(info.merge_methods) do
-      add('Merge (' .. method .. ')', function()
-        ops.pr_merge(f, pr, method, {
-          on_success = parent and parent.refresh or reopen_self,
-          on_failure = reopen_self,
-        })
-      end)
-    end
-  end
-
-  if is_open then
-    add('Close', function()
-      ops.pr_close(f, pr, {
-        on_success = parent and parent.refresh or reopen_self,
-        on_failure = reopen_self,
-      })
-    end)
-  else
-    add('Reopen', function()
-      ops.pr_reopen(f, pr, {
-        on_success = parent and parent.refresh or reopen_self,
-        on_failure = reopen_self,
-      })
-    end)
-  end
-
-  if f:draft_toggle_cmd(num, pr_state.is_draft, ref) then
-    add(pr_state.is_draft and 'Mark as ready' or 'Mark as draft', function()
-      ops.pr_toggle_draft(f, pr, pr_state.is_draft, {
-        on_success = reopen_self,
-        on_failure = reopen_self,
-      })
-    end)
-  end
-
-  picker.pick({
-    prompt = ('%s #%s More> '):format(kind, num),
-    entries = entries,
-    actions = {
-      {
-        name = 'default',
-        label = 'run',
-        fn = function(entry)
-          if entry and action_map[entry.value] then
-            action_map[entry.value]()
-          end
-        end,
-      },
-    },
-    picker_name = '_menu',
-    back = parent and parent.back or nil,
-  })
+  ops.pr_toggle_draft(f, pr, is_draft, opts)
 end
 
 ---@param f forge.Forge
@@ -1181,10 +1095,16 @@ function M.pr(state, f, opts)
     for i, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
       local s = (pr[pr_fields.state] or ''):lower()
+      local draft_field = rawget(pr_fields, 'is_draft')
       state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
-        value = { num = num, scope = ref },
+        value = {
+          num = num,
+          scope = ref,
+          state = pr[pr_fields.state],
+          is_draft = draft_field and pr[draft_field] or nil,
+        },
         ordinal = (pr[pr_fields.title] or '') .. ' #' .. num,
       })
     end
@@ -1223,23 +1143,11 @@ function M.pr(state, f, opts)
   local actions = {
     {
       name = 'default',
-      label = 'more',
+      label = 'checkout',
       fn = function(entry)
         if entry and entry.load_more then
           M.pr(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
         elseif entry then
-          pr_manage_picker(f, entry.value, {
-            refresh = reopen_list,
-            back = back_to_list,
-          })
-        end
-      end,
-    },
-    {
-      name = 'checkout',
-      label = 'checkout',
-      fn = function(entry)
-        if entry and not entry.load_more then
           pr_action_fns(f, entry.value).checkout()
         end
       end,
@@ -1274,23 +1182,35 @@ function M.pr(state, f, opts)
       end,
     },
     {
-      name = 'manage',
-      label = 'more',
-      fn = function(entry)
-        if entry and not entry.load_more then
-          ops.pr_manage(f, entry.value, {
-            refresh = reopen_list,
-            back = back_to_list,
-          })
-        end
-      end,
-    },
-    {
       name = 'edit',
       label = 'edit',
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).edit()
+        end
+      end,
+    },
+    {
+      name = 'approve',
+      label = 'approve',
+      fn = function(entry)
+        if entry and not entry.load_more then
+          ops.pr_approve(f, entry.value, {
+            on_success = reopen_list,
+            on_failure = reopen_list,
+          })
+        end
+      end,
+    },
+    {
+      name = 'merge',
+      label = 'merge',
+      fn = function(entry)
+        if entry and not entry.load_more then
+          ops.pr_merge(f, entry.value, nil, {
+            on_success = reopen_list,
+            on_failure = reopen_list,
+          })
         end
       end,
     },
@@ -1303,7 +1223,7 @@ function M.pr(state, f, opts)
     },
     {
       name = 'close',
-      label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
+      label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'close/reopen',
       fn = function(entry)
         if entry and not entry.load_more then
           pr_toggle_state(
@@ -1313,6 +1233,18 @@ function M.pr(state, f, opts)
             reopen_list,
             entry.value.scope
           )
+        end
+      end,
+    },
+    {
+      name = 'draft',
+      label = 'draft/ready',
+      fn = function(entry)
+        if entry and not entry.load_more and f.capabilities.draft then
+          pr_toggle_draft_action(f, entry.value, {
+            on_success = reopen_list,
+            on_failure = reopen_list,
+          })
         end
       end,
     },
@@ -1588,12 +1520,6 @@ function M.issue(state, f, opts)
       return placeholder_entry('Failed to fetch issues')
     end,
   })
-end
-
----@param f forge.Forge
----@param pr forge.PRRefLike
-function M.pr_manage(f, pr, parent)
-  pr_manage_picker(f, normalize_pr_ref(pr), parent)
 end
 
 ---@param f forge.Forge
