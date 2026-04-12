@@ -44,6 +44,8 @@
 ---@field title string
 ---@field body string
 ---@field draft boolean
+---@field head_branch string
+---@field base_branch string
 ---@field reviewers string[]
 ---@field labels string[]
 ---@field assignees string[]

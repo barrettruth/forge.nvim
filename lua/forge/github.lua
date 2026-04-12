@@ -476,7 +476,7 @@ function M:fetch_pr_details_cmd(num, scope)
     '-R',
     nwo(scope),
     '--json',
-    'title,body,isDraft,labels,assignees,reviewRequests,milestone,url',
+    'title,body,isDraft,headRefName,baseRefName,labels,assignees,reviewRequests,milestone,url',
   }
 end
 
@@ -585,6 +585,8 @@ function M:parse_pr_details(json)
     title = json.title or '',
     body = json.body or '',
     draft = json.isDraft == true,
+    head_branch = json.headRefName or '',
+    base_branch = json.baseRefName or '',
     labels = labels,
     assignees = assignees,
     reviewers = reviewers,

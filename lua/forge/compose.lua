@@ -691,10 +691,9 @@ end
 ---@param f forge.Forge
 ---@param num string
 ---@param details forge.PRDetails
----@param branch string
----@param base string
+---@param current_branch string
 ---@param ref? forge.Scope
-function M.open_pr_edit(f, num, details, branch, base, ref)
+function M.open_pr_edit(f, num, details, current_branch, ref)
   local buf = create_compose_buf(('forge://pr/%s/edit'):format(num))
   vim.b[buf].forge_scope = ref
 
@@ -712,7 +711,12 @@ function M.open_pr_edit(f, num, details, branch, base, ref)
   local comment_start = #b.lines + 1
 
   local pr_kind = f.labels.pr_full:gsub('s$', '')
-  local diff_stat = vim.fn.system('git diff --stat origin/' .. base .. '..HEAD'):gsub('%s+$', '')
+  local branch = details.head_branch ~= '' and details.head_branch or current_branch
+  local base = details.base_branch ~= '' and details.base_branch or 'main'
+  local diff_stat = ''
+  if current_branch ~= '' and branch == current_branch then
+    diff_stat = vim.fn.system('git diff --stat origin/' .. base .. '..HEAD'):gsub('%s+$', '')
+  end
 
   b:add_line('<!--')
 

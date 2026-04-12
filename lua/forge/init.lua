@@ -480,11 +480,7 @@ function M.edit_pr(num, ref)
   end
   ref = ref or M.current_scope(f.name)
 
-  local branch = vim.trim(vim.fn.system('git branch --show-current'))
-  if branch == '' then
-    log.warn('detached HEAD')
-    return
-  end
+  local current_branch = vim.trim(vim.fn.system('git branch --show-current'))
 
   log.info(('fetching %s #%s...'):format(f.labels.pr_one, num))
 
@@ -503,14 +499,8 @@ function M.edit_pr(num, ref)
       return
     end
     local details = f:parse_pr_details(json)
-    vim.system(f:pr_base_cmd(num, ref), { text = true }, function(base_result)
-      local base = vim.trim(base_result.stdout or '')
-      if base == '' then
-        base = 'main'
-      end
-      vim.schedule(function()
-        compose_mod.open_pr_edit(f, num, details, branch, base, ref)
-      end)
+    vim.schedule(function()
+      compose_mod.open_pr_edit(f, num, details, current_branch, ref)
     end)
   end)
 end
