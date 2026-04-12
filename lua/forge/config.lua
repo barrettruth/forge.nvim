@@ -7,6 +7,7 @@ local M = {}
 ---@field debug boolean|string?
 ---@field split forge.Split
 ---@field ci forge.CIConfig
+---@field confirm forge.ConfirmConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
 ---@field display forge.DisplayConfig
@@ -15,6 +16,10 @@ local M = {}
 ---@field lines integer
 ---@field split forge.Split?
 ---@field refresh integer
+
+---@class forge.ConfirmConfig
+---@field branch_delete boolean
+---@field worktree_delete boolean
 
 ---@class forge.SourceConfig
 ---@field hosts string[]
@@ -114,6 +119,10 @@ local DEFAULTS = {
   debug = false,
   split = 'horizontal',
   ci = { lines = 1000, refresh = 5 },
+  confirm = {
+    branch_delete = true,
+    worktree_delete = true,
+  },
   targets = {
     aliases = {},
     ci = {
@@ -316,6 +325,9 @@ function M.config()
   vim.validate('forge.split', cfg.split, function(v)
     return v == 'horizontal' or v == 'vertical'
   end, "'horizontal' or 'vertical'")
+  vim.validate('forge.confirm', cfg.confirm, 'table')
+  vim.validate('forge.confirm.branch_delete', cfg.confirm.branch_delete, 'boolean')
+  vim.validate('forge.confirm.worktree_delete', cfg.confirm.worktree_delete, 'boolean')
   vim.validate('forge.display', cfg.display, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, 'number')

@@ -28,6 +28,8 @@ describe('config', function()
     local cfg = forge.config()
     assert.equals(1000, cfg.ci.lines)
     assert.equals('horizontal', cfg.split)
+    assert.is_true(cfg.confirm.branch_delete)
+    assert.is_true(cfg.confirm.worktree_delete)
     assert.same({}, cfg.targets.aliases)
     assert.equals('current', cfg.targets.ci.repo)
     assert.equals(45, cfg.display.widths.title)
@@ -64,9 +66,15 @@ describe('config', function()
   end)
 
   it('deep-merges partial user config', function()
-    vim.g.forge = { ci = { lines = 500 }, display = { icons = { open = '>' } } }
+    vim.g.forge = {
+      ci = { lines = 500 },
+      confirm = { branch_delete = false },
+      display = { icons = { open = '>' } },
+    }
     local cfg = forge.config()
     assert.equals(500, cfg.ci.lines)
+    assert.is_false(cfg.confirm.branch_delete)
+    assert.is_true(cfg.confirm.worktree_delete)
     assert.equals('>', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
     assert.equals(45, cfg.display.widths.title)
@@ -695,6 +703,8 @@ describe('config validation', function()
     vim.g.forge = { split = 'horizontal' }
     local cfg = forge.config()
     assert.equals('horizontal', cfg.split)
+    assert.is_true(cfg.confirm.branch_delete)
+    assert.is_true(cfg.confirm.worktree_delete)
   end)
 
   it('accepts vertical split', function()
@@ -707,6 +717,8 @@ describe('config validation', function()
     vim.g.forge = { split = 'horizontal', ci = { split = 'vertical' } }
     local cfg = forge.config()
     assert.equals('horizontal', cfg.split)
+    assert.is_true(cfg.confirm.branch_delete)
+    assert.is_true(cfg.confirm.worktree_delete)
     assert.equals('vertical', cfg.ci.split)
   end)
 
@@ -731,6 +743,13 @@ describe('config validation', function()
 
   it('rejects non-number ci.refresh', function()
     vim.g.forge = { ci = { refresh = 'fast' } }
+    assert.has_error(function()
+      forge.config()
+    end)
+  end)
+
+  it('rejects invalid delete confirmation config', function()
+    vim.g.forge = { confirm = { branch_delete = 'nope' } }
     assert.has_error(function()
       forge.config()
     end)
