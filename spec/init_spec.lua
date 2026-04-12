@@ -36,10 +36,12 @@ describe('config', function()
     assert.equals(100, cfg.display.limits.pulls)
     assert.equals(100, cfg.display.limits.commits)
     assert.equals('o', cfg.display.icons.open)
-    assert.is_nil(cfg.keys.pr.checkout)
-    assert.is_nil(cfg.keys.pr.manage)
-    assert.is_nil(cfg.keys.pr.edit)
-    assert.is_nil(cfg.keys.pr.close)
+    assert.equals('<c-e>', cfg.keys.pr.edit)
+    assert.equals('<c-a>', cfg.keys.pr.approve)
+    assert.equals('<c-g>', cfg.keys.pr.merge)
+    assert.equals('<c-n>', cfg.keys.pr.create)
+    assert.equals('<c-s>', cfg.keys.pr.close)
+    assert.equals('<c-d>', cfg.keys.pr.draft)
     assert.equals('<c-o>', cfg.keys.back)
     assert.equals('<tab>', cfg.keys.pr.filter)
     assert.equals('<tab>', cfg.keys.issue.filter)
@@ -609,7 +611,7 @@ describe('config validation', function()
   end)
 
   it('rejects non-string key binding', function()
-    vim.g.forge = { keys = { pr = { checkout = 42 } } }
+    vim.g.forge = { keys = { pr = { edit = 42 } } }
     assert.has_error(function()
       forge.config()
     end)
@@ -655,9 +657,9 @@ describe('config validation', function()
   end)
 
   it('accepts false for individual key binding', function()
-    vim.g.forge = { keys = { pr = { checkout = false } } }
+    vim.g.forge = { keys = { pr = { edit = false } } }
     local cfg = forge.config()
-    assert.is_false(cfg.keys.pr.checkout)
+    assert.is_false(cfg.keys.pr.edit)
   end)
 
   it('rejects keys as a string', function()

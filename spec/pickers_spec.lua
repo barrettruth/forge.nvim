@@ -13,6 +13,7 @@ local function fake_forge()
   return {
     labels = { pr = 'PRs', pr_one = 'PR' },
     kinds = { pr = 'pull_request' },
+    capabilities = { draft = true },
     pr_fields = {
       number = 'number',
       title = 'title',
@@ -193,10 +194,6 @@ describe('pickers', function()
         end,
         pr_ci = function(_, pr, opts)
           table.insert(op_calls, { name = 'pr_ci', pr = pr, opts = opts })
-        end,
-        pr_manage = function(_, pr, parent)
-          table.insert(op_calls, { name = 'pr_manage', pr = pr, parent = parent })
-          require('forge.pickers').pr_manage(fake_forge(), pr, parent)
         end,
         pr_edit = function(pr)
           table.insert(op_calls, { name = 'pr_edit', pr = pr })
@@ -403,10 +400,12 @@ describe('pickers', function()
 
   it('uses more as the default PR action without a separate default key binding', function()
     local cfg = require('forge.config').config()
-    assert.is_nil(cfg.keys.pr.checkout)
-    assert.is_nil(cfg.keys.pr.manage)
-    assert.is_nil(cfg.keys.pr.edit)
-    assert.is_nil(cfg.keys.pr.close)
+    assert.equals('<c-e>', cfg.keys.pr.edit)
+    assert.equals('<c-a>', cfg.keys.pr.approve)
+    assert.equals('<c-g>', cfg.keys.pr.merge)
+    assert.equals('<c-n>', cfg.keys.pr.create)
+    assert.equals('<c-s>', cfg.keys.pr.close)
+    assert.equals('<c-d>', cfg.keys.pr.draft)
     assert.equals('<tab>', cfg.keys.ci.filter)
 
     local pickers = require('forge.pickers')
@@ -418,10 +417,14 @@ describe('pickers', function()
     for _, def in ipairs(captured.actions) do
       labels[def.name] = def.label
     end
-    assert.equals('more', labels.default)
-    assert.equals('more', labels.manage)
+    assert.equals('checkout', labels.default)
     assert.equals('worktree', labels.worktree)
+    assert.equals('edit', labels.edit)
+    assert.equals('approve', labels.approve)
+    assert.equals('merge', labels.merge)
     assert.equals('create', labels.create)
+    assert.equals('close', labels.close)
+    assert.equals('draft/ready', labels.draft)
     assert.equals('filter', labels.filter)
     assert.equals('prev', labels.filter_prev)
     assert.equals('refresh', labels.refresh)
@@ -432,53 +435,42 @@ describe('pickers', function()
     pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('more', action_by_name('default').label)
+    assert.equals('checkout', action_by_name('default').label)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_false(rawget(action_by_name('worktree'), 'close'))
-    assert.is_nil(rawget(action_by_name('checkout'), 'close'))
-    assert.is_nil(rawget(action_by_name('manage'), 'close'))
+    assert.is_nil(rawget(action_by_name('approve'), 'close'))
+    assert.is_nil(rawget(action_by_name('merge'), 'close'))
   end)
 
-  it('shows edit inside the more picker', function()
+  it('dispatches flattened PR actions directly from the root picker', function()
     local pickers = require('forge.pickers')
-    pickers.pr_manage(fake_forge(), '42')
+    pickers.pr('open', fake_forge())
 
     assert.is_not_nil(captured)
-    assert.equals('PR #42 More> ', captured.prompt)
-    assert.equals('_menu', captured.picker_name)
+    local entry = captured.entries[1]
+    action_by_name('default').fn(entry)
+    action_by_name('edit').fn(entry)
+    action_by_name('approve').fn(entry)
+    action_by_name('merge').fn(entry)
+    action_by_name('close').fn(entry)
+    action_by_name('draft').fn(entry)
 
-    local labels = {}
-    for _, entry in ipairs(captured.entries) do
-      labels[#labels + 1] = entry.display[1][1]
-    end
-    assert.same({ 'Edit', 'Approve', 'Merge (merge)', 'Close', 'Mark as draft' }, labels)
-  end)
-
-  it('passes back callbacks through nested PR menus', function()
-    local pickers = require('forge.pickers')
-    local back_calls = 0
-
-    pickers.pr('open', fake_forge(), {
-      back = function()
-        back_calls = back_calls + 1
-      end,
-    })
-
-    assert.is_not_nil(captured)
-    action_by_name('default').fn(captured.entries[1])
-
-    assert.equals('PR #42 More> ', captured.prompt)
-    assert.equals('_menu', captured.picker_name)
-    assert.is_function(captured.back)
-
-    captured.back()
-
-    assert.equals('Open PRs (1)> ', captured.prompt)
-    assert.is_function(captured.back)
-
-    captured.back()
-
-    assert.equals(1, back_calls)
+    assert.same({
+      { name = 'pr_checkout', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
+      { name = 'pr_edit', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
+      { name = 'pr_approve', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
+      {
+        name = 'pr_merge',
+        pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
+        method = nil,
+      },
+      { name = 'pr_close', pr = { num = '42', scope = nil } },
+      {
+        name = 'pr_toggle_draft',
+        pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
+        is_draft = false,
+      },
+    }, op_calls)
   end)
 
   it('shows an explicit empty PR row instead of a blank picker', function()

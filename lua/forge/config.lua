@@ -33,14 +33,15 @@ local M = {}
 ---@field log forge.LogViewerKeys?
 
 ---@class forge.PRPickerKeys
----@field checkout? string|false
 ---@field worktree string|false
 ---@field ci string|false
 ---@field browse string|false
----@field manage? string|false
----@field edit? string|false
+---@field edit string|false
+---@field approve string|false
+---@field merge string|false
 ---@field create string|false
----@field close? string|false
+---@field close string|false
+---@field draft string|false
 ---@field filter string|false
 ---@field filter_prev string|false
 ---@field refresh string|false
@@ -158,7 +159,12 @@ local DEFAULTS = {
       worktree = '<c-w>',
       ci = '<c-t>',
       browse = '<c-x>',
-      create = '<c-a>',
+      edit = '<c-e>',
+      approve = '<c-a>',
+      merge = '<c-g>',
+      create = '<c-n>',
+      close = '<c-s>',
+      draft = '<c-d>',
       filter = '<tab>',
       filter_prev = false,
       refresh = '<c-r>',
@@ -377,14 +383,15 @@ function M.config()
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({
-        'checkout',
         'worktree',
         'ci',
         'browse',
-        'manage',
         'edit',
+        'approve',
+        'merge',
         'create',
         'close',
+        'draft',
         'filter',
         'filter_prev',
         'refresh',

@@ -177,9 +177,6 @@ describe(':Forge command', function()
           table.insert(captured.ops_calls, { name = 'pr_browse', pr = pr })
           f:view_web(f.kinds.pr, pr.num, pr.scope)
         end,
-        pr_manage = function(_, pr)
-          table.insert(captured.ops_calls, { name = 'pr_manage', pr = pr })
-        end,
         pr_approve = function(_, pr)
           table.insert(captured.ops_calls, { name = 'pr_approve', pr = pr })
         end,
@@ -292,7 +289,6 @@ describe(':Forge command', function()
         end,
         checks = function() end,
         ci = function() end,
-        pr_manage = function() end,
         pr_close = function(_, num)
           table.insert(captured.closed_prs, num)
         end,

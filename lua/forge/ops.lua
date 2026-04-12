@@ -157,10 +157,6 @@ function M.pr_ci(f, pr, opts)
   end
 end
 
-function M.pr_manage(f, pr, parent)
-  require('forge.pickers').pr_manage(f, normalize_pr_ref(pr), parent)
-end
-
 function M.pr_close(f, pr, opts)
   pr = normalize_pr_ref(pr)
   run_forge_cmd(

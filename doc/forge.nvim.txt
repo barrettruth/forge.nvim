@@ -32,7 +32,6 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
     `:Forge pr ci` {num}........................................|:Forge-pr-ci|
     `:Forge pr browse` {num}................................|:Forge-pr-browse|
-    `:Forge pr manage` {num}................................|:Forge-pr-manage|
     `:Forge pr approve` {num}..............................|:Forge-pr-approve|
     `:Forge pr merge` {num} [`method=`]....................|:Forge-pr-merge|
     `:Forge pr draft` {num}..................................|:Forge-pr-draft|
@@ -248,14 +247,24 @@ Top-level keys: ~
           worktree = '<c-w>',
           ci = '<c-t>',
           browse = '<c-x>',
-          create = '<c-a>',
+          edit = '<c-e>',
+          approve = '<c-a>',
+          merge = '<c-g>',
+          create = '<c-n>',
+          close = '<c-s>',
+          draft = '<c-d>',
           filter = '<tab>',
           refresh = '<c-r>',
         },
         issue = {
           browse = '<c-x>',
           close = '<c-s>',
-          create = '<c-a>',
+          edit = '<c-e>',
+          approve = '<c-a>',
+          merge = '<c-g>',
+          create = '<c-n>',
+          close = '<c-s>',
+          draft = '<c-d>',
           filter = '<tab>',
           refresh = '<c-r>',
         },
@@ -305,6 +314,10 @@ Top-level keys: ~
   `keys.back`
     Return to the parent picker when available. This action is active only on
     nested pickers and is not shown in header hints.
+
+  `keys.pr` supports secondary bindings for `worktree`, `ci`, `browse`,
+  `edit`, `approve`, `merge`, `create`, `close`, `draft`, and `refresh`.
+  The primary PR action remains `<cr>` checkout.
 
   Additional picker groups:
     `keys.branch` supports `delete`, `browse`, `yank`, and
@@ -428,7 +441,6 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr checkout` {num} [repo=...]                     *:Forge-pr-checkout*
     Check out the branch for PR `{num}`.
 
-
 `:Forge pr worktree` {num} [repo=...]                     *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
 
@@ -437,10 +449,6 @@ BANG SEMANTICS                                            *forge-command-bang*
 
 `:Forge pr browse` {num} [repo=...]                         *:Forge-pr-browse*
     Open PR `{num}` in the browser.
-
-`:Forge pr manage` {num} [repo=...]                         *:Forge-pr-manage*
-    Open the more picker for PR `{num}` (edit, approve, merge, close,
-    reopen, draft toggle).
 
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
@@ -618,11 +626,16 @@ placeholder row instead of appearing blank.
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
-  `more`        `<cr>`           Open more picker
+  `checkout`    `<cr>`           Check out the selected PR
   `worktree`    `<c-w>`          Create worktree from PR
   `ci`          `<c-t>`          Open CI checks picker for this PR
   `browse`      `<c-x>`          Open PR in browser
-  `create`      `<c-a>`          Create new PR (|forge-compose|)
+  `edit`        `<c-e>`          Edit the selected PR
+  `approve`     `<c-a>`          Approve the selected PR
+  `merge`       `<c-g>`          Merge the selected PR
+  `create`      `<c-n>`          Create new PR (|forge-compose|)
+  `close`       `<c-s>`          Close or reopen the selected PR
+  `draft`       `<c-d>`          Toggle draft/ready for the selected PR
   `filter`      `<tab>`          Cycle state: open -> closed -> all
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
@@ -704,11 +717,6 @@ prerelease badges are shown for forges that support them (GitHub, Codeberg).
   `delete`      `<c-d>`          Delete release (with confirmation)
   `filter`      `<tab>`          Cycle filter: all -> draft -> prerelease
   `refresh`     `<c-r>`          Clear cache and re-fetch
-
-                                                         *forge-picker-manage*
-MORE PICKER ~ Contextual actions for a specific PR, shown based on permissions
-and state: Edit, Approve, Merge (per available method: squash, rebase, merge),
-Close/Reopen, Mark as draft/Mark as ready.
 
 ==============================================================================
 WORKFLOW SURFACE                                              *forge-workflow*
@@ -1326,15 +1334,11 @@ PUBLIC API: `require('forge.pickers')` ~
     Opens the release list picker. `state`: `"all"`, `"draft"`, or
     `"prerelease"`. `f`: `forge.Forge`.
 
-                                                   *forge.pickers.pr_manage()*
-`pr_manage(f, num)`
-    Opens the more picker for PR `num`.
-
                                                *forge.pickers.pr_action_fns()*
 `pr_action_fns(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
     keyed by action name (`"checkout"`, `"worktree"`, `"browse"`, `"ci"`,
-    `"manage"`, `"edit"`).
+    `"edit"`).
 
                                                  *forge.pickers.issue_close()*
 `issue_close(f, num)`
