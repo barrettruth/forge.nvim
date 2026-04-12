@@ -559,7 +559,7 @@ BANG SEMANTICS                                            *forge-command-bang*
     Jump to the previous hunk in the active review view.
 
 `:Forge review toggle`                                  *:Forge-review-toggle*
-    Toggle between patch and file-context view (|forge-review|).
+    Toggle between patch and file-context view.
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
