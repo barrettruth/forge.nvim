@@ -140,9 +140,34 @@ function M.pick(opts)
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
+  local entry_source = rawget(opts, 'entry_source')
+  local initial_stream_only = rawget(opts, 'initial_stream_only') == true
   local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
-  local live_width = stream ~= nil
+  local live_width = stream ~= nil or type(entry_source) == 'function'
+  local streamed = false
+
+  local function source_entries()
+    if type(entry_source) == 'function' then
+      return vim.list_extend({}, entry_source() or {})
+    end
+    return vim.list_extend({}, seed_entries)
+  end
+
+  local function action_reloads(def)
+    if type(entry_source) == 'function' then
+      return true
+    end
+    if not picker_mod.closes(def) then
+      return true
+    end
+    for _, entry in ipairs(source_entries()) do
+      if not picker_mod.closes(def, entry) then
+        return true
+      end
+    end
+    return false
+  end
 
   if not live_width then
     for _, entry in ipairs(entries) do
@@ -165,7 +190,7 @@ function M.pick(opts)
   local lines
   if live_width then
     lines = function(fzf_cb)
-      entries = vim.list_extend({}, seed_entries)
+      entries = source_entries()
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
@@ -174,7 +199,8 @@ function M.pick(opts)
           fzf_cb(line)
         end
       end
-      if stream then
+      if stream and (not initial_stream_only or not streamed) then
+        streamed = true
         stream(function(entry)
           if not entry then
             fzf_cb(nil)
@@ -207,14 +233,29 @@ function M.pick(opts)
       or def.name == 'back' and keys.back
       or bindings[def.name]
     if key then
+      local reloads = action_reloads(def)
       local action_fn = function(selected)
         if not selected[1] then
+          if reloads and picker_mod.closes(def) then
+            local utils = require('fzf-lua.utils')
+            local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
+            if win and type(win.close) == 'function' then
+              win:close()
+            end
+            if type(utils.clear_CTX) == 'function' then
+              utils.clear_CTX()
+            end
+            vim.schedule(function()
+              def.fn(nil)
+            end)
+            return
+          end
           def.fn(nil)
           return
         end
         local idx = selected_index(selected[1])
         local entry = picker_mod.selected(idx and entries[idx] or nil)
-        if picker_mod.closes(def, entry) and not picker_mod.closes(def) then
+        if reloads and picker_mod.closes(def, entry) then
           local utils = require('fzf-lua.utils')
           local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
           if win and type(win.close) == 'function' then
@@ -230,10 +271,10 @@ function M.pick(opts)
         end
         def.fn(entry)
       end
-      if picker_mod.closes(def) then
-        fzf_actions[to_fzf_key(key)] = action_fn
-      else
+      if reloads then
         fzf_actions[to_fzf_key(key)] = { fn = action_fn, reload = true }
+      else
+        fzf_actions[to_fzf_key(key)] = action_fn
       end
     end
   end

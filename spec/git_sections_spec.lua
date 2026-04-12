@@ -497,9 +497,6 @@ describe('git sections', function()
     assert.is_true(captured.picker.entries[3].load_more)
 
     captured.picker.actions[1].fn(captured.picker.entries[3])
-    vim.wait(100, function()
-      return captured.picker and captured.picker.prompt == 'Commits on main (4)> '
-    end)
     vim.system = current_system
 
     assert.equals(

@@ -152,6 +152,8 @@ function M.pick_json(opts)
       actions = opts.actions,
       picker_name = opts.picker_name,
       back = opts.back,
+      entry_source = opts.entry_source,
+      initial_stream_only = opts.initial_stream_only,
       stream = function(emit)
         request(emit)
       end,
