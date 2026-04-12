@@ -4,6 +4,7 @@ local captured
 local cache
 local issue_create_calls
 local issue_create_opts
+local logger_messages
 local op_calls
 local pr_create_calls
 local pr_create_opts
@@ -129,6 +130,12 @@ describe('pickers', function()
     captured = nil
     issue_create_calls = 0
     issue_create_opts = nil
+    logger_messages = {
+      info = {},
+      warn = {},
+      error = {},
+      debug = {},
+    }
     op_calls = {}
     pr_create_calls = 0
     pr_create_opts = nil
@@ -164,10 +171,18 @@ describe('pickers', function()
     end
     package.preload['forge.logger'] = function()
       return {
-        info = function() end,
-        error = function() end,
-        debug = function() end,
-        warn = function() end,
+        info = function(msg)
+          table.insert(logger_messages.info, msg)
+        end,
+        error = function(msg)
+          table.insert(logger_messages.error, msg)
+        end,
+        debug = function(msg)
+          table.insert(logger_messages.debug, msg)
+        end,
+        warn = function(msg)
+          table.insert(logger_messages.warn, msg)
+        end,
       }
     end
     package.preload['forge.picker'] = function()
@@ -1087,6 +1102,24 @@ describe('pickers', function()
         scope = nil,
       },
     }, op_calls[2])
+  end)
+
+  it('shows an info notification when skipped checks have no logs', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all', {
+      {
+        name = 'lint',
+        link = 'https://example.com/actions/runs/123/job/456',
+        bucket = 'skipping',
+        run_id = '123',
+        job_id = '456',
+      },
+    })
+
+    assert.is_not_nil(captured)
+    action_by_name('log').fn(captured.entries[1])
+
+    assert.same({ 'no log available - job was not started' }, logger_messages.info)
   end)
 
   it('uses subject-first prompts for filtered checks', function()
