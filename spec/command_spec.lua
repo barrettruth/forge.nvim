@@ -12,8 +12,6 @@ describe(':Forge command', function()
       ops_calls = {},
       pr_action_num = nil,
       pr_action_scope = nil,
-      reviews = {},
-      review_actions = {},
       warnings = {},
       closed_prs = {},
       closed_issues = {},
@@ -24,7 +22,6 @@ describe(':Forge command', function()
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.ops'] = package.preload['forge.ops'],
       ['forge.pickers'] = package.preload['forge.pickers'],
-      ['forge.review'] = package.preload['forge.review'],
     }
     old_systemlist = vim.fn.systemlist
     old_system = vim.system
@@ -170,9 +167,6 @@ describe(':Forge command', function()
         pr_checkout = function(_, pr)
           table.insert(captured.ops_calls, { name = 'pr_checkout', pr = pr })
         end,
-        pr_review = function(_, pr, opts)
-          table.insert(captured.ops_calls, { name = 'pr_review', pr = pr, opts = opts })
-        end,
         pr_worktree = function(_, pr)
           table.insert(captured.ops_calls, { name = 'pr_worktree', pr = pr })
         end,
@@ -292,9 +286,6 @@ describe(':Forge command', function()
           captured.pr_action_num = ref.num
           captured.pr_action_scope = ref.scope
           return {
-            review = function()
-              table.insert(captured.reviews, ref.num)
-            end,
             checkout = function() end,
             worktree = function() end,
           }
@@ -310,38 +301,6 @@ describe(':Forge command', function()
           table.insert(captured.closed_issues, num)
         end,
         issue_reopen = function() end,
-      }
-    end
-
-    package.preload['forge.review'] = function()
-      return {
-        toggle = function()
-          table.insert(captured.review_actions, 'toggle')
-        end,
-        stop = function()
-          table.insert(captured.review_actions, 'end')
-        end,
-        files = function()
-          table.insert(captured.review_actions, 'files')
-        end,
-        next_file = function()
-          table.insert(captured.review_actions, 'next-file')
-        end,
-        prev_file = function()
-          table.insert(captured.review_actions, 'prev-file')
-        end,
-        next_hunk = function()
-          table.insert(captured.review_actions, 'next-hunk')
-        end,
-        prev_hunk = function()
-          table.insert(captured.review_actions, 'prev-hunk')
-        end,
-        start_branch = function(_, branch)
-          table.insert(captured.review_actions, 'branch:' .. branch)
-        end,
-        start_commit = function(_, sha)
-          table.insert(captured.review_actions, 'commit:' .. sha)
-        end,
       }
     end
 
@@ -361,7 +320,6 @@ describe(':Forge command', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
-    package.loaded['forge.review'] = nil
 
     dofile(vim.fn.getcwd() .. '/plugin/forge.lua')
   end)
@@ -373,56 +331,14 @@ describe(':Forge command', function()
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.ops'] = old_preload['forge.ops']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
-    package.preload['forge.review'] = old_preload['forge.review']
     package.loaded['forge'] = nil
     package.loaded['forge.cmd'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
-    package.loaded['forge.review'] = nil
     if vim.api.nvim_get_commands({ builtin = false }).Forge then
       vim.api.nvim_del_user_command('Forge')
     end
-  end)
-
-  it('dispatches :Forge pr review to the PR review action', function()
-    vim.cmd('Forge pr review 42')
-
-    assert.same({
-      name = 'pr_review',
-      pr = { num = '42', scope = nil },
-      opts = nil,
-    }, captured.ops_calls[1])
-  end)
-
-  it('keeps :Forge pr diff as an alias for the PR review action', function()
-    vim.cmd('Forge pr diff 7')
-
-    assert.same({
-      name = 'pr_review',
-      pr = { num = '7', scope = nil },
-      opts = nil,
-    }, captured.ops_calls[1])
-  end)
-
-  it('dispatches review navigation subcommands', function()
-    vim.cmd('Forge review files')
-    vim.cmd('Forge review next-file')
-    vim.cmd('Forge review prev-file')
-    vim.cmd('Forge review next-hunk')
-    vim.cmd('Forge review prev-hunk')
-
-    assert.same(
-      { 'files', 'next-file', 'prev-file', 'next-hunk', 'prev-hunk' },
-      captured.review_actions
-    )
-  end)
-
-  it('dispatches branch and commit review launchers', function()
-    vim.cmd('Forge review branch feature')
-    vim.cmd('Forge review commit deadbeef')
-
-    assert.same({ 'branch:feature', 'commit:deadbeef' }, captured.review_actions)
   end)
 
   it('dispatches git-local route subcommands', function()
@@ -499,7 +415,7 @@ describe(':Forge command', function()
   end)
 
   it('rejects unsupported bang with E477 and no side effects', function()
-    local ok, err = pcall(vim.cmd, 'Forge! pr review 42')
+    local ok, err = pcall(vim.cmd, 'Forge! pr checkout 42')
 
     assert.is_false(ok)
     assert.matches('E477: No ! allowed', err)

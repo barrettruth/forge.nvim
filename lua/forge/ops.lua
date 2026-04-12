@@ -145,51 +145,6 @@ function M.pr_worktree(f, pr)
   end)
 end
 
-function M.pr_review(f, pr, opts)
-  pr = normalize_pr_ref(pr)
-  opts = opts or {}
-  local review = require('forge.review')
-  local kind = f.labels.pr_one
-  local repo_root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-
-  log.info(('reviewing %s #%s...'):format(kind, pr.num))
-  vim.system(f:checkout_cmd(pr.num, pr.scope), { text = true }, function(co_result)
-    if co_result.code ~= 0 then
-      vim.schedule(function()
-        log.debug('checkout skipped, proceeding with review')
-      end)
-    end
-
-    vim.system(f:pr_base_cmd(pr.num, pr.scope), { text = true }, function(base_result)
-      vim.schedule(function()
-        local base = trim(base_result.stdout)
-        if base == '' or base_result.code ~= 0 then
-          base = 'main'
-        end
-        local range = require('forge').remote_ref(pr.scope, base) or ('origin/' .. base)
-        local head = vim.trim(vim.fn.system('git branch --show-current'))
-        review.start_session({
-          subject = {
-            kind = 'pr',
-            id = pr.num,
-            label = ('%s #%s'):format(kind, pr.num),
-            base_ref = range,
-            head_ref = head,
-          },
-          mode = 'patch',
-          files = {},
-          current_file = nil,
-          materialization = co_result.code == 0 and 'checkout' or 'current',
-          repo_root = repo_root,
-          back = opts.back,
-        })
-        review.open_index()
-        log.debug(('review ready for %s #%s against %s'):format(kind, pr.num, base))
-      end)
-    end)
-  end)
-end
-
 function M.pr_ci(f, pr, opts)
   pr = normalize_pr_ref(pr)
   opts = vim.tbl_extend('force', opts or {}, { scope = pr.scope })

@@ -107,7 +107,6 @@ describe('git sections', function()
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['forge.term'] = package.preload['forge.term'],
-      ['forge.review'] = package.preload['forge.review'],
     }
 
     package.preload['forge.logger'] = function()
@@ -145,17 +144,6 @@ describe('git sections', function()
       }
     end
 
-    package.preload['forge.review'] = function()
-      return {
-        start_branch = function(_, name)
-          captured.review_branch = name
-        end,
-        start_commit = function(_, sha)
-          captured.review_commit = sha
-        end,
-      }
-    end
-
     package.preload['forge'] = function()
       return {
         config = require('forge.config').config,
@@ -181,7 +169,6 @@ describe('git sections', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.term'] = nil
-    package.loaded['forge.review'] = nil
     package.loaded['forge.pickers'] = nil
   end)
 
@@ -194,12 +181,10 @@ describe('git sections', function()
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['forge.term'] = old_preload['forge.term']
-    package.preload['forge.review'] = old_preload['forge.review']
     package.loaded['forge'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.term'] = nil
-    package.loaded['forge.review'] = nil
     package.loaded['forge.pickers'] = nil
   end)
 
@@ -223,9 +208,8 @@ describe('git sections', function()
     assert.equals('default', captured.picker.actions[1].name)
     assert.equals('switch', captured.picker.actions[1].label)
     assert.equals('browse', captured.picker.actions[2].name)
-    assert.equals('review', captured.picker.actions[3].name)
-    assert.equals('delete', captured.picker.actions[4].name)
-    assert.equals('yank', captured.picker.actions[5].name)
+    assert.equals('delete', captured.picker.actions[3].name)
+    assert.equals('yank', captured.picker.actions[4].name)
     assert.same({ '* ', 'ForgePass' }, captured.picker.entries[1].display[1])
     assert.same({ 'main   ', 'ForgeBranchCurrent' }, captured.picker.entries[1].display[2])
     assert.equals('[origin/main]', vim.trim(captured.picker.entries[1].display[3][1]))
@@ -268,9 +252,6 @@ describe('git sections', function()
 
     captured.picker.actions[2].fn(worktree_entry)
     assert.equals('feature', captured.browse_branch)
-
-    captured.picker.actions[3].fn(worktree_entry)
-    assert.equals('feature', captured.review_branch)
   end)
 
   it('lists current branch commits and shows commit output', function()
@@ -290,7 +271,7 @@ describe('git sections', function()
     assert.equals('Commits on main (2)> ', captured.picker.prompt)
     assert.equals('show', captured.picker.actions[1].label)
     assert.equals('web', captured.picker.actions[2].label)
-    assert.equals('review', captured.picker.actions[3].label)
+    assert.equals('copy', captured.picker.actions[3].label)
     assert.equals(
       'git log --max-count=101 --format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e origin/main',
       captured.last_system
@@ -321,9 +302,6 @@ describe('git sections', function()
 
     captured.picker.actions[2].fn(entry)
     assert.equals('abc123456789', captured.browse_commit)
-
-    captured.picker.actions[3].fn(entry)
-    assert.equals('abc123456789', captured.review_commit)
   end)
 
   it('falls back to the local branch when no upstream is configured', function()

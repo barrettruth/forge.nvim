@@ -33,10 +33,8 @@ local families = {
     name = 'pr',
     surface = 'forge',
     default_verb = 'list',
-    aliases = { diff = 'review' },
     verb_order = {
       'list',
-      'review',
       'checkout',
       'worktree',
       'browse',
@@ -56,10 +54,6 @@ local families = {
         subject = { min = 0, max = 0 },
         modifiers = { 'state', 'repo' },
         modifier_values = { state = { 'open', 'closed', 'all' } },
-      },
-      review = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
       },
       checkout = {
         subject = { kind = 'pr', min = 1, max = 1 },
@@ -238,59 +232,6 @@ local families = {
     },
   },
   {
-    name = 'review',
-    surface = 'local',
-    verb_order = {
-      'branch',
-      'commit',
-      'files',
-      'next-file',
-      'prev-file',
-      'next-hunk',
-      'prev-hunk',
-      'toggle',
-      'end',
-    },
-    verbs = {
-      branch = {
-        subject = { kind = 'branch', min = 0, max = 1 },
-        modifiers = {},
-      },
-      commit = {
-        subject = { kind = 'sha', min = 0, max = 1 },
-        modifiers = {},
-      },
-      files = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-      ['next-file'] = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-      ['prev-file'] = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-      ['next-hunk'] = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-      ['prev-hunk'] = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-      toggle = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-      ['end'] = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-    },
-  },
-  {
     name = 'clear',
     surface = 'local',
     default_verb = 'run',
@@ -351,16 +292,10 @@ local function subject_error(family, verb, missing)
   if family == 'ci' then
     return missing and 'missing run id' or 'too many arguments'
   end
-  if family == 'review' then
-    return missing and 'missing review target' or 'too many arguments'
-  end
   return missing and 'missing argument' or 'too many arguments'
 end
 
-local function missing_verb_error(family)
-  if family == 'review' then
-    return 'missing review action (end, toggle, files, next-file, prev-file, next-hunk, prev-hunk, branch, commit)'
-  end
+local function missing_verb_error(_)
   return 'missing action'
 end
 
@@ -373,9 +308,6 @@ local function unknown_verb_error(family, verb)
   end
   if family == 'release' then
     return 'unknown release action: ' .. verb
-  end
-  if family == 'review' then
-    return 'unknown review action: ' .. verb
   end
   return 'unknown action: ' .. verb
 end
@@ -579,10 +511,6 @@ local function dispatch_pr(command)
     ops.pr_checkout(f, { num = num, scope = scope })
     return
   end
-  if command.name == 'review' then
-    ops.pr_review(f, { num = num, scope = scope })
-    return
-  end
   if command.name == 'worktree' then
     ops.pr_worktree(f, { num = num, scope = scope })
     return
@@ -770,55 +698,6 @@ local function dispatch_worktrees()
   require('forge').open('worktrees')
 end
 
-local function dispatch_review(command)
-  local review = require('forge.review')
-  if command.name == 'end' then
-    review.stop()
-    return
-  end
-  if command.name == 'toggle' then
-    review.toggle()
-    return
-  end
-  if command.name == 'files' then
-    review.files()
-    return
-  end
-  if command.name == 'next-file' then
-    review.next_file()
-    return
-  end
-  if command.name == 'prev-file' then
-    review.prev_file()
-    return
-  end
-  if command.name == 'next-hunk' then
-    review.next_hunk()
-    return
-  end
-  if command.name == 'prev-hunk' then
-    review.prev_hunk()
-    return
-  end
-  if not require_git_or_warn() then
-    return
-  end
-  local forge_mod = require('forge')
-  local ctx, err = forge_mod.current_context()
-  if not ctx then
-    warn(err or 'failed to resolve review context')
-    return
-  end
-  if command.name == 'branch' then
-    review.start_branch(ctx, command.subjects[1] or ctx.branch)
-    return
-  end
-  if command.name == 'commit' then
-    review.start_commit(ctx, command.subjects[1] or ctx.head)
-    return
-  end
-end
-
 local dispatchers = {
   pr = dispatch_pr,
   issue = dispatch_issue,
@@ -828,7 +707,6 @@ local dispatchers = {
   branches = dispatch_branches,
   commits = dispatch_commits,
   worktrees = dispatch_worktrees,
-  review = dispatch_review,
   clear = function()
     require('forge').clear_cache()
     require('forge.logger').info('cache cleared')

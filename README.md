@@ -11,10 +11,8 @@ without leaving your editor.
 - PR lifecycle: list, create, checkout, worktree,, merge, approve, and more
 - Issue management: list, browse, close/reopen, state filtering
 - CI/CD: view runs per-branch or repo-wide, stream logs, filter by status
-- Code review via [diffs.nvim](https://github.com/barrettruth/diffs.nvim) with
-  unified/split toggle and quickfix navigation
 - Local git sections for branches, commits, and worktrees with branch/commit
-  review, `git show`, switching, and forge web actions
+  `git show`, switching, and forge web actions
 - File/line permalink generation and yanking
 
 ## Requirements
@@ -25,8 +23,6 @@ without leaving your editor.
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
-- (Optional) [diffs.nvim](https://github.com/barrettruth/diffs.nvim) for review
-  mode
 
 ## Installation
 
