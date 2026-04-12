@@ -272,8 +272,8 @@ local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
       state = { icon, group },
       number = { numbers[i], 'ForgeNumber' },
       title = titles[i],
-      author = { authors[i], 'ForgeDim' },
-      age = { ages[i], 'ForgeDim' },
+      author = { authors[i], 'ForgeAuthor' },
+      age = { ages[i], 'ForgeTime' },
     })
   end
   return rows
@@ -329,7 +329,7 @@ function M.format_checks(checks, opts)
     rows[i] = layout.render(plan, {
       state = { icon, group },
       name = names[i],
-      elapsed = { elapsed[i], 'ForgeDim' },
+      elapsed = { elapsed[i], 'ForgeTime' },
     })
   end
   return rows
@@ -406,7 +406,7 @@ function M.format_runs(runs, opts)
       name = names[i],
       branch = { branches[i], 'ForgeBranch' },
       event = { events[i], 'ForgeDim' },
-      age = { ages[i], 'ForgeDim' },
+      age = { ages[i], 'ForgeTime' },
     })
   end
   return rows
@@ -479,7 +479,7 @@ function M.format_releases(entries, fields, opts)
       state = { icon, group },
       tag = { tags[i], 'ForgeBranch' },
       title = titles[i],
-      age = { ages[i], 'ForgeDim' },
+      age = { ages[i], 'ForgeTime' },
     })
   end
   return rows

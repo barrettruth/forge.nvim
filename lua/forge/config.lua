@@ -226,11 +226,11 @@ local DEFAULTS = {
     icons = {
       open = 'o',
       merged = 'm',
-      closed = 'x',
-      pass = '*',
-      fail = 'x',
+      closed = 'c',
+      pass = 'p',
+      fail = 'f',
       pending = '~',
-      skip = '-',
+      skip = 's',
       unknown = '?',
     },
     widths = {
@@ -274,9 +274,11 @@ local hl_defaults = {
     local hl = vim.api.nvim_get_hl(0, { name = 'Special', link = false })
     return vim.tbl_extend('force', hl, { bold = true })
   end,
+  ForgeAuthor = 'Identifier',
+  ForgeTime = 'Comment',
   ForgeCommitHash = 'Number',
   ForgeCommitTime = 'Comment',
-  ForgeCommitAuthor = 'Comment',
+  ForgeCommitAuthor = 'Identifier',
   ForgeDim = 'Comment',
   ForgeLogJob = 'Title',
   ForgeLogStep = 'Function',
