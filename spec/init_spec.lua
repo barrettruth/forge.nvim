@@ -148,6 +148,12 @@ describe('file_loc', function()
 
     assert.equals('tmp/file-loc-visual.lua:1-2', forge.file_loc())
   end)
+
+  it('returns no file location for special URI buffers', function()
+    vim.api.nvim_buf_set_name(0, 'canola://issue/123')
+
+    assert.equals('', forge.file_loc())
+  end)
 end)
 
 describe('format_pr', function()

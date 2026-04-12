@@ -661,7 +661,11 @@ local function dispatch_browse(command)
       return
     end
     local rev = effective_rev(command)
-    if rev and rev.rev and ops.browse_file(f, require('forge').file_loc(), rev.rev, scope) then
+    if rev and rev.rev then
+      if ops.browse_file(f, require('forge').file_loc(), rev.rev, scope) then
+        return
+      end
+      ops.browse_branch(rev.rev, { scope = scope })
       return
     end
     ops.browse_contextual({ scope = scope })

@@ -103,6 +103,10 @@ describe('routes', function()
           return fake_forge()
         end,
         file_loc = function()
+          local name = vim.api.nvim_buf_get_name(0)
+          if name:match('^%w[%w+.-]*://') then
+            return ''
+          end
           return 'lua/forge/init.lua'
         end,
       }
@@ -267,6 +271,15 @@ describe('routes', function()
   end)
 
   it('uses branch browsing for contextual browse without a file buffer', function()
+    require('forge.routes').open('browse.contextual')
+
+    assert.same({ branch = 'main', scope = nil }, captured.browse_branch)
+    assert.is_nil(captured.browse)
+  end)
+
+  it('treats special URI buffers as non-file context for contextual browse', function()
+    vim.api.nvim_buf_set_name(0, 'canola://issue/123')
+
     require('forge.routes').open('browse.contextual')
 
     assert.same({ branch = 'main', scope = nil }, captured.browse_branch)

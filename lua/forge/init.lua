@@ -188,7 +188,16 @@ function M.file_loc()
   if not root then
     return vim.fn.expand('%:t')
   end
-  local file = vim.api.nvim_buf_get_name(0):sub(#root + 2)
+  local buf_name = vim.api.nvim_buf_get_name(0)
+  if buf_name == '' or buf_name:match('^%w[%w+.-]*://') then
+    return ''
+  end
+  local root_prefix = vim.fs.normalize(root) .. '/'
+  local path = vim.fs.normalize(buf_name)
+  if path:sub(1, #root_prefix) ~= root_prefix then
+    return ''
+  end
+  local file = path:sub(#root_prefix + 1)
   local mode = vim.fn.mode()
   if mode:match('[vV]') or mode == '\22' then
     local s = vim.fn.line('v')
