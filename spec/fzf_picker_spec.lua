@@ -635,6 +635,10 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same('function', type(captured.lines))
+    assert.equals('2', captured.opts.fzf_opts['--with-nth'])
+    assert.equals('3', captured.opts.fzf_opts['--accept-nth'])
+    assert.equals('1', captured.opts.fzf_opts['--id-nth'])
+    assert.equals('', captured.opts.fzf_opts['--track'])
 
     local first = {}
     captured.lines(function(line)
@@ -652,8 +656,14 @@ describe('fzf picker', function()
       end
     end)
 
-    assert.same({ '#1\t1' }, first)
-    assert.same({ '#1\t1', '#2\t2' }, second)
+    assert.same({ '1\t#1\t1' }, first)
+    assert.same({ '1\t#1\t1', '2\t#2\t2' }, second)
+
+    captured.opts.actions.enter.fn({ '2' })
+    vim.wait(100, function()
+      return selected ~= false
+    end)
+    assert.equals('2', selected.value)
   end)
 
   it('skips rows whose rendered display is blank', function()
