@@ -134,7 +134,7 @@
 ---@field watch_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field run_status_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field live_tail_cmd (fun(self: forge.Forge, run_id: string, job_id: string?, scope?: forge.Scope): string[])?
----@field list_runs_json_cmd fun(self: forge.Forge, branch: string?, scope?: forge.Scope): string[]
+---@field list_runs_json_cmd fun(self: forge.Forge, branch: string?, scope?: forge.Scope, limit?: integer): string[]
 ---@field list_runs_cmd fun(self: forge.Forge, branch: string?, scope?: forge.Scope): string
 ---@field normalize_run fun(self: forge.Forge, entry: table): forge.CIRun
 ---@field run_log_cmd fun(self: forge.Forge, id: string, failed_only: boolean, scope?: forge.Scope): string[]

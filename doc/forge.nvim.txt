@@ -357,7 +357,9 @@ Top-level keys: ~
     `branch`      `25`
 
   `display.limits`                               *forge-config-display-limits*
-    `table`  Maximum items fetched per list API call.
+    `table`  Maximum items fetched per list API call. Repo CI runs use the
+             `runs` limit as their initial page size and show `Load more...`
+             when additional runs are available.
 
     Key         Default ~
     `pulls`       `100`
@@ -496,7 +498,9 @@ BANG SEMANTICS                                            *forge-command-bang*
 
 `:Forge ci` [repo=...] [rev=...] [target=...] [all]                *:Forge-ci*
     Open the CI runs picker. Defaults to the current branch in the repo
-    selected by `targets.ci.repo`.
+    selected by `targets.ci.repo`. Repo CI runs respect
+    `display.limits.runs` and expose `Load more...` when more runs are
+    available.
     `all`              Show runs for all branches.
 
 `:Forge ci log` {run-id} [repo=...]                            *:Forge-ci-log*
@@ -687,6 +691,10 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
                                                              *forge-picker-ci*
 CI PICKER ~ Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide
 CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
+
+For repo-wide CI runs, Forge fetches an initial page using
+`display.limits.runs`. When more runs are available, the picker shows a
+`Load more...` row on `<cr>`.
 
 On GitHub, `<cr>` on a run opens a summary buffer showing all jobs with
 status, durations, and annotations. Press `<cr>` on a job line to open its

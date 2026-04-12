@@ -242,12 +242,12 @@ function M:live_tail_cmd(run_id, job_id, ref)
   return cmd
 end
 
-function M:list_runs_json_cmd(branch, ref)
-  local limit = tostring(forge.config().display.limits.runs)
+function M:list_runs_json_cmd(branch, ref, limit)
+  local limit_arg = tostring(limit or forge.config().display.limits.runs)
   local cmd = 'tea api --repo '
     .. repo_arg(ref)
     .. ' "/repos/{owner}/{repo}/actions/runs?limit='
-    .. limit
+    .. limit_arg
   if branch then
     cmd = cmd .. '&branch=' .. branch
   end
