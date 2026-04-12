@@ -456,12 +456,17 @@ local function parse_commits(output)
   local commits = {}
   for _, fields in ipairs(split_records(output)) do
     if #fields >= 5 then
+      local sha = vim.trim(fields[1])
+      local short_sha = vim.trim(fields[2])
+      local subject = vim.trim(fields[3])
+      local author = vim.trim(fields[4])
+      local timestamp = vim.trim(fields[5])
       commits[#commits + 1] = {
-        sha = fields[1],
-        short_sha = fields[2],
-        subject = fields[3],
-        author = fields[4],
-        relative = format.relative_time_from_unix(fields[5]),
+        sha = sha,
+        short_sha = short_sha,
+        subject = subject,
+        author = author,
+        relative = format.relative_time_from_unix(timestamp),
       }
     end
   end
@@ -2074,7 +2079,7 @@ function M.commits(ctx, branch, opts)
     return
   end
 
-  local function fetch_commits(ref)
+  local function fetch_commits(ref, fallback_ref)
     log.info('fetching commits for ' .. branch .. '...')
     vim.system({
       'git',
@@ -2083,6 +2088,10 @@ function M.commits(ctx, branch, opts)
       '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
       ref,
     }, { text = true }, function(result)
+      if result.code ~= 0 and fallback_ref and fallback_ref ~= ref then
+        fetch_commits(fallback_ref)
+        return
+      end
       vim.schedule(function()
         if result.code ~= 0 then
           log.error(cmd_error(result, 'failed to fetch commits'))
@@ -2109,7 +2118,7 @@ function M.commits(ctx, branch, opts)
       if result.code == 0 then
         local upstream = vim.trim(result.stdout or '')
         if upstream ~= '' then
-          fetch_commits(upstream)
+          fetch_commits(upstream, branch)
           return
         end
       end
