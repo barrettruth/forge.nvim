@@ -507,6 +507,40 @@ describe('fzf picker', function()
     assert.is_true(selected.load_more)
   end)
 
+  it('keeps close=true actions open when the selected row requests it', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { 'Load more...' } },
+          value = nil,
+          load_more = true,
+          keep_open = true,
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'checkout',
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('table', type(captured.opts.actions.enter))
+    assert.is_true(captured.opts.actions.enter.reload)
+
+    captured.opts.actions.enter.fn({ '1' })
+
+    assert.equals(0, close_calls)
+    assert.is_true(selected.load_more)
+  end)
+
   it('streams entries and resolves streamed selections', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
@@ -554,6 +588,72 @@ describe('fzf picker', function()
 
     captured.opts.actions.enter({ '2' })
     assert.equals('2', selected.value)
+  end)
+
+  it('rebuilds dynamic entry sources each time the source function runs', function()
+    local picker = require('forge.picker.fzf')
+    local phase = 1
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { '#1' } },
+          value = '1',
+        },
+      },
+      entry_source = function()
+        if phase == 1 then
+          return {
+            {
+              display = { { '#1' } },
+              value = '1',
+            },
+          }
+        end
+        return {
+          {
+            display = { { '#1' } },
+            value = '1',
+          },
+          {
+            display = { { '#2' } },
+            value = '2',
+          },
+        }
+      end,
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(entry)
+            selected = entry
+          end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('function', type(captured.lines))
+
+    local first = {}
+    captured.lines(function(line)
+      if line ~= nil then
+        first[#first + 1] = line
+      end
+    end)
+
+    phase = 2
+
+    local second = {}
+    captured.lines(function(line)
+      if line ~= nil then
+        second[#second + 1] = line
+      end
+    end)
+
+    assert.same({ '#1\t1' }, first)
+    assert.same({ '#1\t1', '#2\t2' }, second)
   end)
 
   it('skips rows whose rendered display is blank', function()

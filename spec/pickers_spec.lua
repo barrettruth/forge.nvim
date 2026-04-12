@@ -704,12 +704,50 @@ describe('pickers', function()
     )
     assert.equals('Load more...', captured.entries[3].display[1][1])
     assert.is_true(captured.entries[3].load_more)
+  end)
+
+  it('fetches more PRs in place when the load more row is activated', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          pulls = 2,
+        },
+      },
+    }
+    cache['pr:open'] = {
+      { number = 42, title = 'Newer', state = 'OPEN', author = 'bob', created_at = '' },
+      { number = 13, title = 'Middle', state = 'OPEN', author = 'cora', created_at = '' },
+      { number = 7, title = 'Older', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return {
+            code = 0,
+            stdout = vim.json.encode({
+              { number = 42, title = 'Newer', state = 'OPEN', author = 'bob', created_at = '' },
+              { number = 13, title = 'Middle', state = 'OPEN', author = 'cora', created_at = '' },
+              { number = 7, title = 'Older', state = 'OPEN', author = 'alice', created_at = '' },
+              { number = 3, title = 'Oldest', state = 'OPEN', author = 'drew', created_at = '' },
+            }),
+          }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
 
     action_by_name('default').fn(captured.entries[3])
+    vim.system = old_system
 
-    assert.equals('Open PRs> ', captured.prompt)
-    assert.same({}, captured.entries)
-    assert.same('function', type(captured.stream))
+    assert.equals(2, #calls)
+    assert.same({ 'prs', 'closed' }, calls[1].cmd)
+    assert.same({ 'prs', 'open' }, calls[2].cmd)
   end)
 
   it('warms the next PR state after opening a cached list', function()
@@ -829,6 +867,50 @@ describe('pickers', function()
     )
     assert.equals('Load more...', captured.entries[3].display[1][1])
     assert.is_true(captured.entries[3].load_more)
+  end)
+
+  it('fetches more issues in place when the load more row is activated', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          issues = 2,
+        },
+      },
+    }
+    cache['issue:all'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 12, title = 'Docs', state = 'OPEN', author = 'bob', created_at = '' },
+      { number = 3, title = 'Polish', state = 'OPEN', author = 'cora', created_at = '' },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return {
+            code = 0,
+            stdout = vim.json.encode({
+              { number = 12, title = 'Docs', state = 'OPEN', author = 'bob', created_at = '' },
+              { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+              { number = 3, title = 'Polish', state = 'OPEN', author = 'cora', created_at = '' },
+              { number = 1, title = 'Older', state = 'OPEN', author = 'drew', created_at = '' },
+            }),
+          }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.issue('all', fake_issue_forge())
+
+    action_by_name('default').fn(captured.entries[3])
+    vim.system = old_system
+
+    assert.equals(2, #calls)
+    assert.same({ 'issues', 'open' }, calls[1].cmd)
+    assert.same({ 'issues', 'all' }, calls[2].cmd)
   end)
 
   it('keeps the issue header affordance on the default open action only', function()
@@ -1456,12 +1538,6 @@ describe('pickers', function()
     end)
 
     action_by_name('log').fn(streamed[3])
-
-    assert.equals('CI for main> ', captured.prompt)
-    assert.same({}, captured.entries)
-    assert.same('function', type(captured.stream))
-
-    captured.stream(function() end)
 
     vim.system = old_system
 

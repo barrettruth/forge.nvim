@@ -7,6 +7,7 @@ local M = {}
 ---@field value any
 ---@field ordinal string?
 ---@field placeholder boolean?
+---@field keep_open? boolean
 ---@field force_close boolean?
 
 ---@class forge.PickerActionDef
@@ -20,6 +21,8 @@ local M = {}
 ---@field actions forge.PickerActionDef[]
 ---@field picker_name string
 ---@field back fun()?
+---@field entry_source? fun(): forge.PickerEntry[]?
+---@field initial_stream_only? boolean
 
 M.backends = {
   ['fzf-lua'] = 'forge.picker.fzf',
@@ -196,6 +199,9 @@ function M.selected(entry)
 end
 
 function M.closes(def, entry)
+  if entry and entry.keep_open then
+    return false
+  end
   if entry and entry.force_close then
     return true
   end

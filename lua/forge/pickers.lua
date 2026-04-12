@@ -45,16 +45,22 @@ local function placeholder_entry(text)
 end
 
 ---@param next_limit integer
+---@param keep_open boolean?
 ---@return forge.PickerEntry
-local function load_more_entry(next_limit)
-  return {
+local function load_more_entry(next_limit, keep_open)
+  local entry = {
     display = { { 'Load more...', 'ForgeDim' } },
     value = nil,
     ordinal = 'Load more',
     load_more = true,
     next_limit = next_limit,
-    force_close = true,
   }
+  if keep_open then
+    entry.keep_open = true
+  else
+    entry.force_close = true
+  end
+  return entry
 end
 
 ---@param entries forge.PickerEntry[]
@@ -119,6 +125,12 @@ end
 local function clear_list_cache(forge_mod, key)
   forge_mod.clear_list(key)
   picker_session.invalidate(key)
+end
+
+local function fetch_json_now(cmd)
+  local result = vim.system(cmd, { text = true }):wait()
+  local ok, data = picker_session.decode_json(result)
+  return ok, data, result
 end
 
 local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
@@ -923,6 +935,9 @@ function M.ci(f, branch, filter, opts)
     pending = 'Running',
   }
   local scope_label = branch or 'all branches'
+  local live_load_more = picker.backend() == 'fzf-lua'
+  local current_limit = visible_limit
+  local current_runs
 
   local function ci_prompt(count)
     local filter_label = prompt_labels[filter]
@@ -934,17 +949,18 @@ function M.ci(f, branch, filter, opts)
     return title .. '> '
   end
 
-  local function build_ci_entries(runs)
+  local function build_ci_entries(runs, limit)
+    limit = limit or current_limit
     local normalized = {}
     for _, entry in ipairs(runs) do
       local run = f:normalize_run(entry)
       run.scope = run.scope or ref
       table.insert(normalized, run)
     end
-    local has_more = #normalized > visible_limit
+    local has_more = #normalized > limit
     local filtered = forge_mod.filter_runs(normalized, filter)
-    if #filtered > visible_limit then
-      filtered = vim.list_slice(filtered, 1, visible_limit)
+    if #filtered > limit then
+      filtered = vim.list_slice(filtered, 1, limit)
     end
     local count = #filtered
     local rows_for = cached_rows(function(width)
@@ -964,7 +980,7 @@ function M.ci(f, branch, filter, opts)
       })
     end
     if has_more then
-      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
     end
     local filter_label = labels[filter] or filter
     local empty_text
@@ -980,6 +996,16 @@ function M.ci(f, branch, filter, opts)
     return with_placeholder(entries, empty_text), count
   end
 
+  local function load_more_runs(next_limit)
+    local ok, runs = fetch_json_now(f:list_runs_json_cmd(branch, ref, next_limit + 1))
+    if not ok then
+      log.error('failed to fetch CI runs')
+      return
+    end
+    current_runs = runs
+    current_limit = next_limit
+  end
+
   local actions = {
     {
       name = 'log',
@@ -989,7 +1015,11 @@ function M.ci(f, branch, filter, opts)
           return
         end
         if entry.load_more then
-          M.ci(f, branch, filter, { limit = entry.next_limit, back = opts.back, scope = ref })
+          if live_load_more then
+            load_more_runs(entry.next_limit)
+          else
+            M.ci(f, branch, filter, { limit = entry.next_limit, back = opts.back, scope = ref })
+          end
           return
         end
         ops.ci_log(f, entry.value)
@@ -1023,7 +1053,7 @@ function M.ci(f, branch, filter, opts)
           f,
           branch,
           next_ci_filter[filter] or 'all',
-          { limit = visible_limit, back = opts.back, scope = ref }
+          { limit = current_limit, back = opts.back, scope = ref }
         )
       end,
     },
@@ -1035,7 +1065,7 @@ function M.ci(f, branch, filter, opts)
           f,
           branch,
           prev_ci_filter[filter] or 'all',
-          { limit = visible_limit, back = opts.back, scope = ref }
+          { limit = current_limit, back = opts.back, scope = ref }
         )
       end,
     },
@@ -1043,28 +1073,28 @@ function M.ci(f, branch, filter, opts)
       name = 'failed',
       label = 'failed',
       fn = function()
-        M.ci(f, branch, 'fail', { limit = visible_limit, back = opts.back, scope = ref })
+        M.ci(f, branch, 'fail', { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'passed',
       label = 'passed',
       fn = function()
-        M.ci(f, branch, 'pass', { limit = visible_limit, back = opts.back, scope = ref })
+        M.ci(f, branch, 'pass', { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'running',
       label = 'running',
       fn = function()
-        M.ci(f, branch, 'pending', { limit = visible_limit, back = opts.back, scope = ref })
+        M.ci(f, branch, 'pending', { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'all',
       label = 'all',
       fn = function()
-        M.ci(f, branch, 'all', { limit = visible_limit, back = opts.back, scope = ref })
+        M.ci(f, branch, 'all', { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
@@ -1072,17 +1102,24 @@ function M.ci(f, branch, filter, opts)
       label = 'refresh',
       fn = function()
         log.info('refreshing CI runs...')
-        M.ci(f, branch, filter, { limit = visible_limit, back = opts.back, scope = ref })
+        M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
   }
 
   local function open_ci_picker(runs)
-    local entries, count = build_ci_entries(runs)
+    current_runs = runs
+    local entries, count = build_ci_entries(runs, current_limit)
 
     picker.pick({
       prompt = ci_prompt(count),
       entries = entries,
+      entry_source = live_load_more and function()
+        if not current_runs then
+          return {}
+        end
+        return build_ci_entries(current_runs, current_limit)
+      end or nil,
       actions = actions,
       picker_name = 'ci',
       back = opts.back,
@@ -1102,9 +1139,16 @@ function M.ci(f, branch, filter, opts)
       on_fetch = function()
         log.info('fetching CI runs...')
       end,
+      entry_source = live_load_more and function()
+        if not current_runs then
+          return {}
+        end
+        return build_ci_entries(current_runs, current_limit)
+      end or nil,
+      initial_stream_only = live_load_more,
       build_entries = function(runs)
-        local entries = build_ci_entries(runs)
-        return entries
+        current_runs = runs
+        return build_ci_entries(runs, current_limit)
       end,
       open = open_ci_picker,
       on_failure = function()
@@ -1139,8 +1183,12 @@ function M.pr(state, f, opts)
   local num_field = pr_fields.number
   local show_state = state ~= 'open'
   local state_map = {}
+  local live_load_more = picker.backend() == 'fzf-lua'
+  local current_limit = visible_limit
+  local current_prs
 
-  local function build_pr_entries(prs)
+  local function build_pr_entries(prs, limit)
+    limit = limit or current_limit
     for key in pairs(state_map) do
       state_map[key] = nil
     end
@@ -1148,9 +1196,9 @@ function M.pr(state, f, opts)
     table.sort(prs, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
     end)
-    local has_more = #prs > visible_limit
+    local has_more = #prs > limit
     if has_more then
-      prs = vim.list_slice(prs, 1, visible_limit)
+      prs = vim.list_slice(prs, 1, limit)
     end
     local entries = {}
     local rows_for = cached_rows(function(width)
@@ -1178,20 +1226,30 @@ function M.pr(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
       or ('No %s %s'):format(state, f.labels.pr)
     return with_placeholder(entries, empty_text), count
   end
 
+  local function load_more_prs(next_limit)
+    local ok, prs = fetch_json_now(f:list_pr_json_cmd(state, next_limit + 1, ref))
+    if not ok then
+      log.error('failed to fetch ' .. f.labels.pr)
+      return
+    end
+    current_prs = prs
+    current_limit = next_limit
+  end
+
   local function reopen_list()
     clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
-    M.pr(state, f, { limit = visible_limit, back = opts.back, scope = ref })
+    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
   local function back_to_list()
-    M.pr(state, f, { limit = visible_limit, back = opts.back, scope = ref })
+    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
   local function maybe_prefetch_next()
@@ -1214,7 +1272,11 @@ function M.pr(state, f, opts)
       label = 'checkout',
       fn = function(entry)
         if entry and entry.load_more then
-          M.pr(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
+          if live_load_more then
+            load_more_prs(entry.next_limit)
+          else
+            M.pr(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
+          end
         elseif entry then
           pr_action_fns(f, entry.value).checkout()
         end
@@ -1320,14 +1382,14 @@ function M.pr(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.pr(next_state, f, { limit = visible_limit, back = opts.back, scope = ref })
+        M.pr(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.pr(prev_state, f, { limit = visible_limit, back = opts.back, scope = ref })
+        M.pr(prev_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
@@ -1335,17 +1397,24 @@ function M.pr(state, f, opts)
       label = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
-        M.pr(state, f, { limit = visible_limit, back = opts.back, scope = ref })
+        M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
   }
 
   local function open_pr_list(prs)
-    local entries, count = build_pr_entries(prs)
+    current_prs = prs
+    local entries, count = build_pr_entries(prs, current_limit)
 
     picker.pick({
       prompt = ('%s %s (%d)> '):format(state_label, f.labels.pr, count),
       entries = entries,
+      entry_source = live_load_more and function()
+        if not current_prs then
+          return {}
+        end
+        return build_pr_entries(current_prs, current_limit)
+      end or nil,
       actions = actions,
       picker_name = 'pr',
       back = opts.back,
@@ -1354,6 +1423,10 @@ function M.pr(state, f, opts)
   end
 
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
+  if cached and live_load_more then
+    open_pr_list(cached)
+    return
+  end
   picker_session.pick_json({
     key = cache_key,
     cached = cached,
@@ -1370,6 +1443,7 @@ function M.pr(state, f, opts)
       log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
     end,
     on_success = function(prs)
+      current_prs = prs
       if use_cache then
         forge_mod.set_list(cache_key, prs)
       end
@@ -1377,9 +1451,16 @@ function M.pr(state, f, opts)
         maybe_prefetch_next()
       end
     end,
+    entry_source = live_load_more and function()
+      if not current_prs then
+        return {}
+      end
+      return build_pr_entries(current_prs, current_limit)
+    end or nil,
+    initial_stream_only = live_load_more,
     build_entries = function(prs)
-      local entries = build_pr_entries(prs)
-      return entries
+      current_prs = prs
+      return build_pr_entries(prs, current_limit)
     end,
     open = open_pr_list,
     on_failure = function()
@@ -1411,8 +1492,12 @@ function M.issue(state, f, opts)
   local num_field = issue_fields.number
   local issue_show_state = state == 'all'
   local state_map = {}
+  local live_load_more = picker.backend() == 'fzf-lua'
+  local current_limit = visible_limit
+  local current_issues
 
-  local function build_issue_entries(issues)
+  local function build_issue_entries(issues, limit)
+    limit = limit or current_limit
     for key in pairs(state_map) do
       state_map[key] = nil
     end
@@ -1420,9 +1505,9 @@ function M.issue(state, f, opts)
     table.sort(issues, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
     end)
-    local has_more = #issues > visible_limit
+    local has_more = #issues > limit
     if has_more then
-      issues = vim.list_slice(issues, 1, visible_limit)
+      issues = vim.list_slice(issues, 1, limit)
     end
     local state_field = issue_fields.state
     local entries = {}
@@ -1445,16 +1530,26 @@ function M.issue(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
       or ('No %s %s'):format(state, f.labels.issue)
     return with_placeholder(entries, empty_text), count
   end
 
+  local function load_more_issues(next_limit)
+    local ok, issues = fetch_json_now(f:list_issue_json_cmd(state, next_limit + 1, ref))
+    if not ok then
+      log.error('failed to fetch issues')
+      return
+    end
+    current_issues = issues
+    current_limit = next_limit
+  end
+
   local function reopen_list()
     clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
-    M.issue(state, f, { limit = visible_limit, back = opts.back, scope = ref })
+    M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
   local function maybe_prefetch_next()
@@ -1478,7 +1573,11 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and entry.load_more then
-          M.issue(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
+          if live_load_more then
+            load_more_issues(entry.next_limit)
+          else
+            M.issue(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
+          end
         elseif entry then
           issue_action_fns(f, entry.value).browse()
         end
@@ -1529,14 +1628,14 @@ function M.issue(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.issue(next_state, f, { limit = visible_limit, back = opts.back, scope = ref })
+        M.issue(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.issue(prev_state, f, { limit = visible_limit, back = opts.back, scope = ref })
+        M.issue(prev_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
@@ -1544,17 +1643,24 @@ function M.issue(state, f, opts)
       label = 'refresh',
       fn = function()
         clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
-        M.issue(state, f, { limit = visible_limit, back = opts.back, scope = ref })
+        M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
   }
 
   local function open_issue_list(issues)
-    local entries, count = build_issue_entries(issues)
+    current_issues = issues
+    local entries, count = build_issue_entries(issues, current_limit)
 
     picker.pick({
       prompt = ('%s %s (%d)> '):format(state_label, f.labels.issue, count),
       entries = entries,
+      entry_source = live_load_more and function()
+        if not current_issues then
+          return {}
+        end
+        return build_issue_entries(current_issues, current_limit)
+      end or nil,
       actions = actions,
       picker_name = 'issue',
       back = opts.back,
@@ -1563,6 +1669,10 @@ function M.issue(state, f, opts)
   end
 
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
+  if cached and live_load_more then
+    open_issue_list(cached)
+    return
+  end
   picker_session.pick_json({
     key = cache_key,
     cached = cached,
@@ -1579,6 +1689,7 @@ function M.issue(state, f, opts)
       log.info('fetching issue list (' .. state .. ')...')
     end,
     on_success = function(issues)
+      current_issues = issues
       if use_cache then
         forge_mod.set_list(cache_key, issues)
       end
@@ -1586,9 +1697,16 @@ function M.issue(state, f, opts)
         maybe_prefetch_next()
       end
     end,
+    entry_source = live_load_more and function()
+      if not current_issues then
+        return {}
+      end
+      return build_issue_entries(current_issues, current_limit)
+    end or nil,
+    initial_stream_only = live_load_more,
     build_entries = function(issues)
-      local entries = build_issue_entries(issues)
-      return entries
+      current_issues = issues
+      return build_issue_entries(issues, current_limit)
     end,
     open = open_issue_list,
     on_failure = function()
@@ -1977,14 +2095,19 @@ function M.commits(ctx, branch, opts)
   local forge_mod = require('forge')
   local limit_step = require('forge.config').config().display.limits.commits
   local visible_limit = opts.limit or limit_step
-  local fetch_limit = visible_limit + 1
   local use_cache = visible_limit == limit_step
   local cache_key = forge_mod.list_key('commit', branch)
+  local live_load_more = picker.backend() == 'fzf-lua'
+  local current_limit = visible_limit
+  local current_commits
+  local active_ref = branch
+  local fetch_commits
 
-  local function open_commit_list(commits)
-    local has_more = #commits > visible_limit
+  local function build_commit_entries(commits, limit)
+    limit = limit or current_limit
+    local has_more = #commits > limit
     if has_more then
-      commits = vim.list_slice(commits, 1, visible_limit)
+      commits = vim.list_slice(commits, 1, limit)
     end
     local rows_for = cached_rows(function(width)
       local plan = commit_layout(commits, width)
@@ -2006,9 +2129,15 @@ function M.commits(ctx, branch, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
+      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
     end
     entries = with_placeholder(entries, 'No commits in ' .. branch .. ' history')
+    return entries, count
+  end
+
+  local function open_commit_list(commits)
+    current_commits = commits
+    local entries, count = build_commit_entries(commits, current_limit)
 
     local actions = {
       {
@@ -2019,7 +2148,25 @@ function M.commits(ctx, branch, opts)
             return
           end
           if entry.load_more then
-            M.commits(ctx, branch, { limit = entry.next_limit, back = opts.back })
+            if live_load_more then
+              local result = vim
+                .system({
+                  'git',
+                  'log',
+                  '--max-count=' .. (entry.next_limit + 1),
+                  '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
+                  active_ref,
+                }, { text = true })
+                :wait()
+              if result.code ~= 0 then
+                log.error(cmd_error(result, 'failed to fetch commits'))
+                return
+              end
+              current_limit = entry.next_limit
+              current_commits = parse_commits(result.stdout or '')
+            else
+              M.commits(ctx, branch, { limit = entry.next_limit, back = opts.back })
+            end
             return
           end
           require('forge.term').open({
@@ -2049,7 +2196,7 @@ function M.commits(ctx, branch, opts)
         label = 'refresh',
         fn = function()
           forge_mod.clear_list(cache_key)
-          M.commits(ctx, branch, { limit = visible_limit, back = opts.back })
+          M.commits(ctx, branch, { limit = current_limit, back = opts.back })
         end,
       },
     }
@@ -2070,6 +2217,12 @@ function M.commits(ctx, branch, opts)
     picker.pick({
       prompt = ('Commits on %s (%d)> '):format(branch, count),
       entries = entries,
+      entry_source = live_load_more and function()
+        if not current_commits then
+          return {}
+        end
+        return build_commit_entries(current_commits, current_limit)
+      end or nil,
       actions = actions,
       picker_name = 'commit',
       back = opts.back,
@@ -2078,29 +2231,32 @@ function M.commits(ctx, branch, opts)
 
   local function unpack_cached(cached)
     if type(cached) == 'table' and cached.entries then
-      return cached.entries, branch
+      return cached.entries, cached.ref or branch
     end
     return cached, branch
   end
 
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
   if cached then
-    local commits = unpack_cached(cached)
+    local commits, ref_name = unpack_cached(cached)
+    active_ref = ref_name
     open_commit_list(commits)
     return
   end
 
-  local function fetch_commits(ref, fallback_ref)
+  fetch_commits = function(ref, fallback_ref, next_limit)
+    active_ref = ref
+    local request_limit = next_limit or current_limit
     log.info('fetching commits for ' .. branch .. '...')
     vim.system({
       'git',
       'log',
-      '--max-count=' .. fetch_limit,
+      '--max-count=' .. (request_limit + 1),
       '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ct%x1e',
       ref,
     }, { text = true }, function(result)
       if result.code ~= 0 and fallback_ref and fallback_ref ~= ref then
-        fetch_commits(fallback_ref)
+        fetch_commits(fallback_ref, nil, request_limit)
         return
       end
       vim.schedule(function()
@@ -2109,9 +2265,12 @@ function M.commits(ctx, branch, opts)
           return
         end
         local commits = parse_commits(result.stdout or '')
+        current_limit = request_limit
+        current_commits = commits
         if use_cache then
           forge_mod.set_list(cache_key, {
             entries = commits,
+            ref = ref,
           })
         end
         open_commit_list(commits)
