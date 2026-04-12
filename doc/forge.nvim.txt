@@ -824,6 +824,10 @@ Built-in picker backend capabilities: ~
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*
 
+Compose and edit buffers behave like native `acwrite` buffers. Write (`:w`)
+submits the current buffer. Quit or delete without `!` keeps modified-buffer
+protection. Use `:q!`, `:bd!`, or `:bwipeout!` to discard the buffer.
+
 Creating a PR (without `--fill` or `--web`) opens a compose buffer at
 `forge://pr/new` with filetype `markdown` and buftype `acwrite`.
 
