@@ -61,13 +61,26 @@ describe('create_pr', function()
         stderr = '',
       }
       local key = table.concat(cmd, ' ')
+      local fail = {
+        ['git config branch.feature.pushRemote'] = true,
+        ['git config remote.pushDefault'] = true,
+        ['git remote get-url upstream'] = true,
+        ['git diff --quiet origin/main..HEAD'] = true,
+      }
       table.insert(captured.systems, key)
+      if fail[key] then
+        result.code = 1
+      end
       if key == 'pr-for-branch feature' then
         result.stdout = '\n'
       elseif key == 'default-branch' then
         result.stdout = 'main\n'
-      elseif key == 'git diff --quiet origin/main..HEAD' then
-        result.code = 1
+      elseif key == 'git rev-parse --abbrev-ref feature@{upstream}' then
+        result.stdout = 'origin/feature\n'
+      elseif key == 'git remote' then
+        result.stdout = 'origin\nupstream\n'
+      elseif key == 'git remote get-url origin' then
+        result.stdout = 'git@github.com:owner/repo.git\n'
       end
       if cb then
         cb(result)
@@ -126,6 +139,7 @@ describe('create_pr', function()
 
     package.preload['forge.github'] = function()
       return {
+        name = 'github',
         cli = 'gh',
         labels = { pr_one = 'PR' },
         pr_for_branch_cmd = function(_, branch)
@@ -134,7 +148,13 @@ describe('create_pr', function()
         default_branch_cmd = function()
           return { 'default-branch' }
         end,
-        create_pr_web_cmd = function()
+        create_pr_web_cmd = function(_, scope, head_scope, head_branch, base_branch)
+          captured.web_create = {
+            scope = scope,
+            head_scope = head_scope,
+            head_branch = head_branch,
+            base_branch = base_branch,
+          }
           return { 'create-pr-web' }
         end,
         template_paths = function()
@@ -271,6 +291,43 @@ describe('create_pr', function()
       end
       return ''
     end
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      local fail = {
+        ['git config branch.main.pushRemote'] = true,
+        ['git config remote.pushDefault'] = true,
+        ['git remote get-url upstream'] = true,
+        ['git diff --quiet origin/main..HEAD'] = true,
+      }
+      table.insert(captured.systems, key)
+      if fail[key] then
+        result.code = 1
+      end
+      if key == 'pr-for-branch main' then
+        result.stdout = '\n'
+      elseif key == 'default-branch' then
+        result.stdout = 'main\n'
+      elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
+        result.stdout = 'origin/main\n'
+      elseif key == 'git remote' then
+        result.stdout = 'origin\nupstream\n'
+      elseif key == 'git remote get-url origin' then
+        result.stdout = 'git@github.com:owner/repo.git\n'
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
 
     require('forge').create_pr({ web = true })
 
@@ -281,6 +338,81 @@ describe('create_pr', function()
     assert.same({ 'current branch already matches base main' }, captured.warnings)
     assert.is_false(vim.tbl_contains(captured.systems, 'git push -u origin main'))
     assert.is_false(vim.tbl_contains(captured.systems, 'create-pr-web'))
+  end)
+
+  it('allows web PR creation when the branch matches the base name in a different repo', function()
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'git@github.com:owner/fork.git\n'
+      end
+      if cmd == 'git branch --show-current' then
+        return 'main\n'
+      end
+      return ''
+    end
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      local fail = {
+        ['git config branch.main.pushRemote'] = true,
+        ['git config remote.pushDefault'] = true,
+        ['git diff --quiet upstream/main..HEAD'] = true,
+      }
+      table.insert(captured.systems, key)
+      if fail[key] then
+        result.code = 1
+      end
+      if key == 'pr-for-branch main' then
+        result.stdout = '\n'
+      elseif key == 'default-branch' then
+        result.stdout = 'main\n'
+      elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
+        result.stdout = 'origin/main\n'
+      elseif key == 'git remote' then
+        result.stdout = 'origin\nupstream\n'
+      elseif key == 'git remote get-url origin' then
+        result.stdout = 'git@github.com:owner/fork.git\n'
+      elseif key == 'git remote get-url upstream' then
+        result.stdout = 'git@github.com:owner/repo.git\n'
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    require('forge').create_pr({
+      web = true,
+      scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'repo',
+        slug = 'owner/repo',
+        repo_arg = 'owner/repo',
+        web_url = 'https://github.com/owner/repo',
+      },
+    })
+
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
+    end)
+
+    assert.same({}, captured.warnings)
+    assert.is_true(vim.tbl_contains(captured.systems, 'git diff --quiet upstream/main..HEAD'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'git push -u origin main'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'create-pr-web'))
   end)
 
   it('blocks web PR creation when there are no changes from the base branch', function()
@@ -330,6 +462,78 @@ describe('create_pr', function()
     assert.is_true(vim.tbl_contains(captured.systems, 'git push -u origin feature'))
     assert.is_true(vim.tbl_contains(captured.systems, 'create-pr-web'))
     assert.is_true(vim.tbl_contains(captured.infos, 'opened PR creation in browser'))
+    assert.equals('feature', captured.web_create.head_branch)
+    assert.equals('main', captured.web_create.base_branch)
+  end)
+
+  it('uses explicit head and base overrides for web PR creation', function()
+    vim.system = function(cmd, _, cb)
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      local key = table.concat(cmd, ' ')
+      local fail = {
+        ['git diff --quiet upstream/stable..topic'] = true,
+      }
+      table.insert(captured.systems, key)
+      if fail[key] then
+        result.code = 1
+      end
+      if key == 'pr-for-branch topic' then
+        result.stdout = '\n'
+      elseif key == 'git remote' then
+        result.stdout = 'origin\nupstream\n'
+      elseif key == 'git remote get-url origin' then
+        result.stdout = 'git@github.com:owner/fork.git\n'
+      elseif key == 'git remote get-url upstream' then
+        result.stdout = 'git@github.com:owner/repo.git\n'
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    require('forge').create_pr({
+      web = true,
+      head_branch = 'topic',
+      head_scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'fork',
+        slug = 'owner/fork',
+        repo_arg = 'owner/fork',
+        web_url = 'https://github.com/owner/fork',
+      },
+      base_branch = 'stable',
+      base_scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'repo',
+        slug = 'owner/repo',
+        repo_arg = 'owner/repo',
+        web_url = 'https://github.com/owner/repo',
+      },
+    })
+
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
+    end)
+
+    assert.is_true(vim.tbl_contains(captured.systems, 'git diff --quiet upstream/stable..topic'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'git push -u origin topic'))
+    assert.equals('topic', captured.web_create.head_branch)
+    assert.equals('stable', captured.web_create.base_branch)
+    assert.equals('owner/repo', captured.web_create.scope.slug)
+    assert.equals('owner/fork', captured.web_create.head_scope.slug)
   end)
 
   it('reports an error when the web PR command fails', function()

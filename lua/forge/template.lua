@@ -15,11 +15,12 @@ function M.normalize_body(s)
 end
 
 ---@param branch string
----@param base string
+---@param base_ref string
+---@param head_ref string
 ---@return string title, string body
-function M.fill_from_commits(branch, base)
+function M.fill_from_commits(branch, base_ref, head_ref)
   local result = vim
-    .system({ 'git', 'log', 'origin/' .. base .. '..HEAD', '--format=%s%n%b%x00' }, { text = true })
+    .system({ 'git', 'log', base_ref .. '..' .. head_ref, '--format=%s%n%b%x00' }, { text = true })
     :wait()
   local raw = vim.trim(result.stdout or '')
   if raw == '' then

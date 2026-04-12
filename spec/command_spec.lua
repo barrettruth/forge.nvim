@@ -432,9 +432,68 @@ describe(':Forge command', function()
         repo_arg = 'owner/upstream',
         web_url = 'https://github.com/owner/upstream',
       },
+      head_branch = 'main',
+      head_scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'current',
+        slug = 'owner/current',
+        repo_arg = 'owner/current',
+        web_url = 'https://github.com/owner/current',
+      },
+      base_branch = nil,
+      base_scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'upstream',
+        slug = 'owner/upstream',
+        repo_arg = 'owner/upstream',
+        web_url = 'https://github.com/owner/upstream',
+      },
     }, captured.create_pr)
     assert.same({ web = false, blank = true, template = 'bug', scope = nil }, captured.create_issue)
     assert.is_true(captured.cleared)
+  end)
+
+  it('passes explicit create head and base targets through the command layer', function()
+    vim.cmd('Forge pr create head=origin@topic base=upstream@release')
+
+    assert.same({
+      draft = false,
+      instant = false,
+      web = false,
+      scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'upstream',
+        slug = 'owner/upstream',
+        repo_arg = 'owner/upstream',
+        web_url = 'https://github.com/owner/upstream',
+      },
+      head_branch = 'topic',
+      head_scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'current',
+        slug = 'owner/current',
+        repo_arg = 'owner/current',
+        web_url = 'https://github.com/owner/current',
+      },
+      base_branch = 'release',
+      base_scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'upstream',
+        slug = 'owner/upstream',
+        repo_arg = 'owner/upstream',
+        web_url = 'https://github.com/owner/upstream',
+      },
+    }, captured.create_pr)
   end)
 
   it('dispatches issue edit through forge.ops with scoped parity', function()

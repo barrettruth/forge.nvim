@@ -679,12 +679,33 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
 end
 
 ---@return string[]
-function M:create_pr_web_cmd(scope)
+function M:create_pr_web_cmd(scope, head_scope, head_branch, base_branch)
   local cmd = { 'gh', 'pr', 'create', '--web' }
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
     table.insert(cmd, repo)
+  end
+  if base_branch and base_branch ~= '' then
+    table.insert(cmd, '--base')
+    table.insert(cmd, base_branch)
+  end
+  local head = head_branch
+  if
+    head
+    and head ~= ''
+    and head_scope
+    and scope
+    and forge.scope_key(head_scope) ~= ''
+    and forge.scope_key(head_scope) ~= forge.scope_key(scope)
+    and head_scope.owner
+    and head_scope.owner ~= ''
+  then
+    head = head_scope.owner .. ':' .. head
+  end
+  if head and head ~= '' then
+    table.insert(cmd, '--head')
+    table.insert(cmd, head)
   end
   return cmd
 end
@@ -717,15 +738,13 @@ function M:create_issue_cmd(title, body, labels, assignees, milestone, scope)
   return cmd
 end
 
----@return string[]
-function M:create_issue_web_cmd(scope)
-  local cmd = { 'gh', 'issue', 'create', '--web' }
-  local repo = nwo(scope)
-  if repo ~= '' then
-    table.insert(cmd, '-R')
-    table.insert(cmd, repo)
+---@return string?
+function M:create_issue_web_url(scope)
+  local url = forge.remote_web_url(scope)
+  if url == '' then
+    return nil
   end
-  return cmd
+  return url .. '/issues/new'
 end
 
 ---@return string[]

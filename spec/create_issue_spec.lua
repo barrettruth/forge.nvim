@@ -120,6 +120,7 @@ describe('create_issue', function()
 
     package.preload['forge.github'] = function()
       return {
+        name = 'github',
         cli = 'gh',
         create_issue_web_cmd = function()
           return { 'create-issue-web' }
@@ -129,6 +130,8 @@ describe('create_issue', function()
         end,
       }
     end
+    package.loaded['forge'] = nil
+    package.loaded['forge.github'] = nil
 
     package.preload['forge.logger'] = function()
       return {
@@ -338,6 +341,7 @@ describe('create_issue', function()
   it('reports browser open failures for URL-based web issue flows', function()
     package.preload['forge.github'] = function()
       return {
+        name = 'github',
         cli = 'gh',
         issue_template_paths = function()
           return { '.github/ISSUE_TEMPLATE/' }
@@ -354,5 +358,28 @@ describe('create_issue', function()
 
     assert.same({ 'open failed' }, captured.errors)
     assert.same({ 'https://github.com/owner/repo/issues/new' }, captured.open_urls)
+  end)
+
+  it('prefers URL-based web issue flows over command-based ones when both exist', function()
+    package.preload['forge.github'] = function()
+      return {
+        cli = 'gh',
+        create_issue_web_cmd = function()
+          return { 'create-issue-web' }
+        end,
+        create_issue_web_url = function()
+          return 'https://github.com/owner/repo/issues/new'
+        end,
+        issue_template_paths = function()
+          return { '.github/ISSUE_TEMPLATE/' }
+        end,
+      }
+    end
+
+    require('forge').create_issue({ web = true })
+
+    assert.same({}, captured.systems)
+    assert.same({ 'https://github.com/owner/repo/issues/new' }, captured.open_urls)
+    assert.same({ 'opened issue creation in browser' }, captured.infos)
   end)
 end)
