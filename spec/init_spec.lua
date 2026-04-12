@@ -618,13 +618,13 @@ end)
 
 describe('filter_runs', function()
   local runs = {
-    { name = 'a', status = 'success' },
-    { name = 'b', status = 'failure' },
-    { name = 'c', status = 'in_progress' },
-    { name = 'd', status = 'cancelled' },
+    { name = 'a', status = 'success', created_at = '2024-01-01T00:00:00Z' },
+    { name = 'b', status = 'failure', created_at = '2024-01-03T00:00:00Z' },
+    { name = 'c', status = 'in_progress', created_at = '2024-01-02T00:00:00Z' },
+    { name = 'd', status = 'cancelled', created_at = '2023-12-31T00:00:00Z' },
   }
 
-  it('returns all runs sorted by severity when filter is nil', function()
+  it('returns all runs in descending created_at order when filter is nil', function()
     local result = forge.filter_runs(vim.deepcopy(runs), nil)
     assert.equals(4, #result)
     assert.equals('b', result[1].name)
@@ -643,6 +643,17 @@ describe('filter_runs', function()
     local result = forge.filter_runs(vim.deepcopy(runs), 'pending')
     assert.equals(1, #result)
     assert.equals('c', result[1].name)
+  end)
+
+  it('preserves provider order when created_at is missing', function()
+    local result = forge.filter_runs({
+      { name = 'first', status = 'success', created_at = '' },
+      { name = 'second', status = 'failure', created_at = '' },
+      { name = 'third', status = 'in_progress', created_at = '' },
+    }, nil)
+    assert.equals('first', result[1].name)
+    assert.equals('second', result[2].name)
+    assert.equals('third', result[3].name)
   end)
 end)
 

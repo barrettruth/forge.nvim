@@ -86,10 +86,42 @@ local function entry_display(entry, width)
   return entry.display or {}
 end
 
-local function render_line(index, entry, width)
+local function track_id(entry, index)
+  local explicit = rawget(entry, 'track_id')
+  if type(explicit) == 'string' and explicit ~= '' then
+    return explicit
+  end
+  if entry.load_more then
+    return '__load_more__'
+  end
+  if entry.placeholder then
+    return '__placeholder__:' .. (entry.ordinal or tostring(index))
+  end
+  local value = entry.value
+  if type(value) == 'string' or type(value) == 'number' then
+    return tostring(value)
+  end
+  if type(value) == 'table' then
+    for _, key in ipairs({ 'id', 'num', 'tag', 'sha', 'path', 'name', 'run_id' }) do
+      local item = rawget(value, key)
+      if item ~= nil and tostring(item) ~= '' then
+        return tostring(item)
+      end
+    end
+  end
+  if type(entry.ordinal) == 'string' and entry.ordinal ~= '' then
+    return entry.ordinal
+  end
+  return tostring(index)
+end
+
+local function render_line(index, entry, width, tracked)
   local text = render(entry_display(entry, width))
   if vim.trim(text) == '' then
     return nil
+  end
+  if tracked then
+    return ('%s\t%s\t%d'):format(track_id(entry, index), text, index)
   end
   return ('%s\t%d'):format(text, index)
 end
@@ -145,6 +177,7 @@ function M.pick(opts)
   local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
   local live_width = stream ~= nil or type(entry_source) == 'function'
+  local tracked = type(entry_source) == 'function'
   local streamed = false
 
   local function source_entries()
@@ -194,7 +227,7 @@ function M.pick(opts)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
-        local line = render_line(i, entry, picker_width())
+        local line = render_line(i, entry, picker_width(), tracked)
         if line then
           fzf_cb(line)
         end
@@ -208,7 +241,7 @@ function M.pick(opts)
           end
           next_index = next_index + 1
           entries[next_index] = entry
-          local line = render_line(next_index, entry, picker_width())
+          local line = render_line(next_index, entry, picker_width(), tracked)
           if line then
             fzf_cb(line)
           end
@@ -220,7 +253,7 @@ function M.pick(opts)
   else
     lines = {}
     for i, entry in ipairs(entries) do
-      local line = render_line(i, entry)
+      local line = render_line(i, entry, nil, tracked)
       if line then
         lines[#lines + 1] = line
       end
@@ -286,9 +319,11 @@ function M.pick(opts)
       ['--ansi'] = '',
       ['--header'] = render_header(actions, bindings),
       ['--no-multi'] = '',
-      ['--with-nth'] = '1',
-      ['--accept-nth'] = '2',
+      ['--with-nth'] = tracked and '2' or '1',
+      ['--accept-nth'] = tracked and '3' or '2',
       ['--delimiter'] = '\t',
+      ['--track'] = tracked and '' or nil,
+      ['--id-nth'] = tracked and '1' or nil,
     },
     actions = fzf_actions,
   })

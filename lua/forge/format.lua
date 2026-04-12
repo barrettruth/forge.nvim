@@ -546,6 +546,28 @@ end
 ---@param filter string?
 ---@return forge.CIRun[]
 function M.filter_runs(runs, filter)
+  local indexed = {}
+  for i, run in ipairs(runs) do
+    indexed[i] = { run = run, index = i }
+  end
+  table.sort(indexed, function(a, b)
+    local ta = a.run.created_at or ''
+    local tb = b.run.created_at or ''
+    if ta == tb then
+      return a.index < b.index
+    end
+    if ta == '' then
+      return false
+    end
+    if tb == '' then
+      return true
+    end
+    return ta > tb
+  end)
+  for i, item in ipairs(indexed) do
+    runs[i] = item.run
+  end
+
   local bucket_for = function(run)
     local status = (run.status or ''):lower()
     if status == 'success' then
@@ -569,12 +591,6 @@ function M.filter_runs(runs, filter)
   end
 
   if not filter or filter == 'all' then
-    table.sort(runs, function(a, b)
-      local order = { fail = 1, pending = 2, pass = 3, cancel = 4, skipping = 5 }
-      local oa = order[bucket_for(a)] or 9
-      local ob = order[bucket_for(b)] or 9
-      return oa < ob
-    end)
     return runs
   end
 
