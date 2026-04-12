@@ -867,11 +867,14 @@ end
 ---@param f forge.Forge
 ---@param branch string?
 ---@param filter string?
----@param opts? forge.PickerBackOpts
+---@param opts? forge.PickerLimitOpts
 function M.ci(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
   local forge_mod = require('forge')
+  local limit_step = forge_mod.config().display.limits.runs
+  local visible_limit = opts.limit or limit_step
+  local fetch_limit = visible_limit + 1
   local ref = scoped_forge_ref(f, opts.scope)
   local request_key =
     forge_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
@@ -905,7 +908,11 @@ function M.ci(f, branch, filter, opts)
       run.scope = run.scope or ref
       table.insert(normalized, run)
     end
+    local has_more = #normalized > visible_limit
     local filtered = forge_mod.filter_runs(normalized, filter)
+    if #filtered > visible_limit then
+      filtered = vim.list_slice(filtered, 1, visible_limit)
+    end
     local count = #filtered
     local displays = forge_mod.format_runs(filtered, { width = layout.picker_width() })
 
@@ -916,6 +923,9 @@ function M.ci(f, branch, filter, opts)
         value = run,
         ordinal = run.name .. ' ' .. run.branch,
       })
+    end
+    if has_more then
+      entries[#entries + 1] = load_more_entry(visible_limit + limit_step)
     end
     local filter_label = labels[filter] or filter
     local empty_text
@@ -939,6 +949,10 @@ function M.ci(f, branch, filter, opts)
         if not entry then
           return
         end
+        if entry.load_more then
+          M.ci(f, branch, filter, { limit = entry.next_limit, back = opts.back, scope = ref })
+          return
+        end
         ops.ci_log(f, entry.value)
       end,
     },
@@ -946,7 +960,7 @@ function M.ci(f, branch, filter, opts)
       name = 'watch',
       label = 'watch',
       fn = function(entry)
-        if not entry then
+        if not entry or entry.load_more then
           return
         end
         ops.ci_watch(f, entry.value)
@@ -957,7 +971,7 @@ function M.ci(f, branch, filter, opts)
       label = 'web',
       close = false,
       fn = function(entry)
-        if entry and entry.value.url ~= '' then
+        if entry and not entry.load_more and entry.value.url ~= '' then
           vim.ui.open(entry.value.url)
         end
       end,
@@ -966,42 +980,52 @@ function M.ci(f, branch, filter, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.ci(f, branch, next_ci_filter[filter] or 'all', { back = opts.back, scope = ref })
+        M.ci(
+          f,
+          branch,
+          next_ci_filter[filter] or 'all',
+          { limit = visible_limit, back = opts.back, scope = ref }
+        )
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.ci(f, branch, prev_ci_filter[filter] or 'all', { back = opts.back, scope = ref })
+        M.ci(
+          f,
+          branch,
+          prev_ci_filter[filter] or 'all',
+          { limit = visible_limit, back = opts.back, scope = ref }
+        )
       end,
     },
     {
       name = 'failed',
       label = 'failed',
       fn = function()
-        M.ci(f, branch, 'fail', { back = opts.back, scope = ref })
+        M.ci(f, branch, 'fail', { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'passed',
       label = 'passed',
       fn = function()
-        M.ci(f, branch, 'pass', { back = opts.back, scope = ref })
+        M.ci(f, branch, 'pass', { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'running',
       label = 'running',
       fn = function()
-        M.ci(f, branch, 'pending', { back = opts.back, scope = ref })
+        M.ci(f, branch, 'pending', { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'all',
       label = 'all',
       fn = function()
-        M.ci(f, branch, 'all', { back = opts.back, scope = ref })
+        M.ci(f, branch, 'all', { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
     {
@@ -1009,7 +1033,7 @@ function M.ci(f, branch, filter, opts)
       label = 'refresh',
       fn = function()
         log.info('refreshing CI runs...')
-        M.ci(f, branch, filter, { back = opts.back, scope = ref })
+        M.ci(f, branch, filter, { limit = visible_limit, back = opts.back, scope = ref })
       end,
     },
   }
@@ -1034,7 +1058,7 @@ function M.ci(f, branch, filter, opts)
       picker_name = 'ci',
       back = opts.back,
       cmd = function()
-        return f:list_runs_json_cmd(branch, ref)
+        return f:list_runs_json_cmd(branch, ref, fetch_limit)
       end,
       on_fetch = function()
         log.info('fetching CI runs...')

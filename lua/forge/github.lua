@@ -325,7 +325,7 @@ function M:run_log_cmd(id, failed_only, scope)
   }
 end
 
-function M:list_runs_json_cmd(branch, scope)
+function M:list_runs_json_cmd(branch, scope, limit)
   local cmd = {
     'gh',
     'run',
@@ -333,7 +333,7 @@ function M:list_runs_json_cmd(branch, scope)
     '--json',
     'databaseId,name,headBranch,status,conclusion,event,url,createdAt',
     '--limit',
-    tostring(forge.config().display.limits.runs),
+    tostring(limit or forge.config().display.limits.runs),
   }
   local repo = nwo(scope)
   if repo ~= '' then
