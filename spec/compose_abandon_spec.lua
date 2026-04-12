@@ -101,7 +101,6 @@ describe('compose abandon behavior', function()
   local function pr_forge()
     return {
       labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
-      capabilities = { draft = true, reviewers = true },
       name = 'github',
     }
   end
@@ -148,13 +147,8 @@ describe('compose abandon behavior', function()
     compose.open_pr_edit(pr_forge(), '23', {
       title = 'PR title',
       body = 'PR body',
-      draft = false,
       head_branch = 'feature',
       base_branch = 'main',
-      reviewers = {},
-      labels = {},
-      assignees = {},
-      milestone = '',
     }, 'feature')
 
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)

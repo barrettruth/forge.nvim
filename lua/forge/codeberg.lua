@@ -14,7 +14,6 @@ local M = {
   },
   capabilities = {
     draft = false,
-    reviewers = false,
     per_pr_checks = true,
     ci_json = true,
   },
@@ -350,12 +349,8 @@ end
 ---@param num string
 ---@param title string
 ---@param body string
----@param _reviewers string[]?
----@param _labels string[]?
----@param _assignees string[]?
----@param _milestone string?
 ---@return string[]
-function M:update_pr_cmd(num, title, body, _reviewers, _labels, _assignees, _milestone, ref)
+function M:update_pr_cmd(num, title, body, ref)
   return {
     'tea',
     'pr',
@@ -410,28 +405,11 @@ end
 ---@param json table
 ---@return forge.PRDetails
 function M:parse_pr_details(json)
-  local labels = {}
-  for _, l in ipairs(json.labels or {}) do
-    table.insert(labels, l.name or '')
-  end
-  local assignees = {}
-  for _, a in ipairs(json.assignees or {}) do
-    table.insert(assignees, a.login or '')
-  end
-  local milestone = ''
-  if type(json.milestone) == 'table' and json.milestone.title then
-    milestone = json.milestone.title
-  end
   return {
     title = json.title or '',
     body = json.body or '',
-    draft = false,
     head_branch = type(json.head) == 'table' and (json.head.ref or '') or json.head or '',
     base_branch = type(json.base) == 'table' and (json.base.ref or '') or json.base or '',
-    labels = labels,
-    assignees = assignees,
-    reviewers = {},
-    milestone = milestone,
   }
 end
 
@@ -466,7 +444,7 @@ function M:completion_cmd(field, ref)
       '-c',
       'tea api --repo ' .. repo_arg(ref) .. " '/repos/{owner}/{repo}/labels' | jq -r '.[].name'",
     }
-  elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
+  elseif field == 'assignees' or field == 'mentions' then
     return {
       'sh',
       '-c',
@@ -501,12 +479,8 @@ end
 ---@param body string
 ---@param base string
 ---@param _draft boolean
----@param _reviewers string[]?
----@param labels string[]?
----@param assignees string[]?
----@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, _draft, _reviewers, labels, assignees, milestone, ref)
+function M:create_pr_cmd(title, body, base, _draft, ref)
   local cmd = {
     'tea',
     'pr',
@@ -520,18 +494,6 @@ function M:create_pr_cmd(title, body, base, _draft, _reviewers, labels, assignee
     '--repo',
     repo_arg(ref),
   }
-  if labels and #labels > 0 then
-    table.insert(cmd, '--labels')
-    table.insert(cmd, table.concat(labels, ','))
-  end
-  if assignees and #assignees > 0 then
-    table.insert(cmd, '--assignees')
-    table.insert(cmd, table.concat(assignees, ','))
-  end
-  if milestone and milestone ~= '' then
-    table.insert(cmd, '--milestone')
-    table.insert(cmd, milestone)
-  end
   return cmd
 end
 

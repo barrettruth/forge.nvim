@@ -801,19 +801,11 @@ Layout: ~
   Line 1      PR title (pre-filled from single commit subject or branch)
   Line 2      Empty separator
   Lines 3+    PR body (from commit body or discovered PR template)
-  `<!--`        Metadata comment block (branch, forge, draft, reviewers,
-              diff stat). Editable.
+  `<!--`        Informational comment block (branch, forge, diff stat).
   `-->`         End of metadata
 
 Write (`:w`) to push the branch and create the PR. An empty title or body
 aborts creation. The PR URL is copied to the `+` register on success.
-
-Metadata fields: ~
-  `Draft: true`      Create as draft. `false` = not draft.
-  `Reviewers:`       Comma or space separated usernames.
-  `Labels:`          Comma or space separated label names.
-  `Assignees:`       Comma or space separated usernames.
-  `Milestone:`       Milestone name.
 
 Creating an issue (without `--web`) opens a compose buffer at
 `forge://issue/new` with filetype `markdown` and buftype `acwrite`.
@@ -875,12 +867,11 @@ Compose buffer: ~
   `ForgeComposeComment`      `Comment`          Comment block lines
   `ForgeComposeBranch`       `Special`          Branch names
   `ForgeComposeForge`        `Label`            Forge name
-  `ForgeComposeDraft`        `DiagnosticWarn`   Draft status value
   `ForgeComposeFile`         `Directory`        File paths in diff stat
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
   `ForgeComposeHeader`       `PreProc`          Section headers
-  `ForgeComposeLabel`        `Label`            Metadata labels (Draft:, etc.)
+  `ForgeComposeLabel`        `Label`            Metadata labels (Labels:, etc.)
 
 Picker lines: ~
 
@@ -938,10 +929,6 @@ support for features that vary:
   PR list/filter               yes       yes       yes
   PR create                    yes       yes       yes
   PR create (draft)            yes       yes        -
-  PR create (reviewers)        yes       yes        -
-  PR create (labels)           yes       yes       yes
-  PR create (assignees)        yes       yes       yes
-  PR create (milestone)        yes       yes       yes
   PR draft toggle              yes       yes        -
   Per-PR CI checks             yes       yes       yes*
   Per-check log viewing        yes       yes        -
@@ -964,9 +951,8 @@ support for features that vary:
     forge-native CI (GitHub Actions or GitLab pipelines).
 
 Features marked `-` are unavailable due to CLI or API limitations. When a
-feature is unsupported, forge.nvim either hides the option (draft and reviewer
-fields in the compose buffer) or falls back gracefully (log action shows a
-notification and suggests browse).
+feature is unsupported, forge.nvim either hides the option or falls back
+gracefully (log action shows a notification and suggests browse).
 
 Each source declares its capabilities in a `capabilities` table. See
 |forge-Forge-interface|.
@@ -1005,7 +991,6 @@ Fields: ~
                                  `ci = string }` -- display labels.
   `capabilities`   `table`        Feature flags (see |forge-compatibility|):
                                  `draft`           Create/toggle draft PRs.
-                                 `reviewers`       Assign reviewers on create.
                                  `per_pr_checks`   CI checks scoped to a PR.
                                  `ci_json`         Structured CI run data.
 
@@ -1059,7 +1044,7 @@ All methods receive `self` as the first argument (use `:` syntax).
   `close_issue_cmd(num)`               `string[]` cmd to close issue.
   `reopen_issue_cmd(num)`              `string[]` cmd to reopen issue.
   `create_pr_cmd(title, body,`          `string[]` cmd to create a PR.
-    `base, draft, reviewers?)`
+    `base, draft)`
   `create_issue_cmd(title, body,`       `string[]` cmd to create an issue.
     `labels?, assignees?)`
   `issue_template_paths()`              `string[]` repo-relative paths to
@@ -1108,7 +1093,6 @@ Skeleton: >lua
       },
       capabilities = {
         draft = false,
-        reviewers = false,
         per_pr_checks = false,
         ci_json = false,
       },

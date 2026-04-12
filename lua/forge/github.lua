@@ -15,7 +15,6 @@ local M = {
   },
   capabilities = {
     draft = true,
-    reviewers = true,
     per_pr_checks = true,
     ci_json = true,
   },
@@ -476,7 +475,7 @@ function M:fetch_pr_details_cmd(num, scope)
     '-R',
     nwo(scope),
     '--json',
-    'title,body,isDraft,headRefName,baseRefName,labels,assignees,reviewRequests,milestone,url',
+    'title,body,headRefName,baseRefName,url',
   }
 end
 
@@ -496,33 +495,13 @@ end
 ---@param num string
 ---@param title string
 ---@param body string
----@param reviewers string[]?
----@param labels string[]?
----@param assignees string[]?
----@param milestone string?
 ---@return string[]
-function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone, scope)
+function M:update_pr_cmd(num, title, body, scope)
   local cmd = { 'gh', 'pr', 'edit', num, '--title', title, '--body', body }
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
     table.insert(cmd, repo)
-  end
-  for _, r in ipairs(reviewers or {}) do
-    table.insert(cmd, '--add-reviewer')
-    table.insert(cmd, r)
-  end
-  for _, l in ipairs(labels or {}) do
-    table.insert(cmd, '--add-label')
-    table.insert(cmd, l)
-  end
-  for _, a in ipairs(assignees or {}) do
-    table.insert(cmd, '--add-assignee')
-    table.insert(cmd, a)
-  end
-  if milestone and milestone ~= '' then
-    table.insert(cmd, '--milestone')
-    table.insert(cmd, milestone)
   end
   return cmd
 end
@@ -565,32 +544,11 @@ end
 ---@param json table
 ---@return forge.PRDetails
 function M:parse_pr_details(json)
-  local labels = {}
-  for _, l in ipairs(json.labels or {}) do
-    table.insert(labels, l.name or '')
-  end
-  local assignees = {}
-  for _, a in ipairs(json.assignees or {}) do
-    table.insert(assignees, a.login or '')
-  end
-  local reviewers = {}
-  for _, r in ipairs(json.reviewRequests or {}) do
-    table.insert(reviewers, r.login or '')
-  end
-  local milestone = ''
-  if type(json.milestone) == 'table' and json.milestone.title then
-    milestone = json.milestone.title
-  end
   return {
     title = json.title or '',
     body = json.body or '',
-    draft = json.isDraft == true,
     head_branch = json.headRefName or '',
     base_branch = json.baseRefName or '',
-    labels = labels,
-    assignees = assignees,
-    reviewers = reviewers,
-    milestone = milestone,
   }
 end
 
@@ -621,7 +579,7 @@ end
 function M:completion_cmd(field, scope)
   if field == 'labels' then
     return { 'gh', 'label', 'list', '-R', nwo(scope), '--json', 'name', '--jq', '.[].name' }
-  elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
+  elseif field == 'assignees' or field == 'mentions' then
     return { 'gh', 'api', 'repos/' .. nwo(scope) .. '/collaborators', '--jq', '.[].login' }
   elseif field == 'milestone' then
     return { 'gh', 'api', 'repos/' .. nwo(scope) .. '/milestones', '--jq', '.[].title' }
@@ -644,12 +602,8 @@ end
 ---@param body string
 ---@param base string
 ---@param draft boolean
----@param reviewers string[]?
----@param labels string[]?
----@param assignees string[]?
----@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone, scope)
+function M:create_pr_cmd(title, body, base, draft, scope)
   local cmd = { 'gh', 'pr', 'create', '--title', title, '--body', body, '--base', base }
   local repo = nwo(scope)
   if repo ~= '' then
@@ -658,22 +612,6 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
   end
   if draft then
     table.insert(cmd, '--draft')
-  end
-  for _, r in ipairs(reviewers or {}) do
-    table.insert(cmd, '--reviewer')
-    table.insert(cmd, r)
-  end
-  for _, l in ipairs(labels or {}) do
-    table.insert(cmd, '--label')
-    table.insert(cmd, l)
-  end
-  for _, a in ipairs(assignees or {}) do
-    table.insert(cmd, '--assignee')
-    table.insert(cmd, a)
-  end
-  if milestone and milestone ~= '' then
-    table.insert(cmd, '--milestone')
-    table.insert(cmd, milestone)
   end
   return cmd
 end

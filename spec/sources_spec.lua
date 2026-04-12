@@ -52,7 +52,7 @@ describe('github', function()
   end)
 
   it('builds create_pr_cmd', function()
-    local cmd = gh:create_pr_cmd('title', 'body', 'main', false, nil)
+    local cmd = gh:create_pr_cmd('title', 'body', 'main', false)
     assert.truthy(vim.tbl_contains(cmd, '--title'))
     assert.truthy(vim.tbl_contains(cmd, '--base'))
     assert.falsy(vim.tbl_contains(cmd, '--draft'))
@@ -80,18 +80,7 @@ describe('github', function()
   end)
 
   it('adds draft flag to create_pr_cmd', function()
-    assert.truthy(vim.tbl_contains(gh:create_pr_cmd('t', 'b', 'main', true, nil), '--draft'))
-  end)
-
-  it('adds reviewers to create_pr_cmd', function()
-    local cmd = gh:create_pr_cmd('t', 'b', 'main', false, { 'alice', 'bob' })
-    local count = 0
-    for _, v in ipairs(cmd) do
-      if v == '--reviewer' then
-        count = count + 1
-      end
-    end
-    assert.equals(2, count)
+    assert.truthy(vim.tbl_contains(gh:create_pr_cmd('t', 'b', 'main', true), '--draft'))
   end)
 
   it('builds checkout_cmd', function()
@@ -312,7 +301,7 @@ describe('gitlab', function()
   end)
 
   it('builds create_pr_cmd with --description and --target-branch', function()
-    local cmd = gl:create_pr_cmd('title', 'desc', 'develop', false, nil)
+    local cmd = gl:create_pr_cmd('title', 'desc', 'develop', false)
     assert.truthy(vim.tbl_contains(cmd, '--description'))
     assert.truthy(vim.tbl_contains(cmd, '--target-branch'))
     assert.truthy(vim.tbl_contains(cmd, '--yes'))
@@ -398,10 +387,9 @@ describe('codeberg', function()
     assert.falsy(vim.tbl_contains(cmd, '--style'))
   end)
 
-  it('ignores draft and reviewers in create_pr_cmd', function()
-    local cmd = cb:create_pr_cmd('title', 'body', 'main', true, { 'alice' })
+  it('ignores draft in create_pr_cmd', function()
+    local cmd = cb:create_pr_cmd('title', 'body', 'main', true)
     assert.falsy(vim.tbl_contains(cmd, '--draft'))
-    assert.falsy(vim.tbl_contains(cmd, '--reviewer'))
     assert.truthy(vim.tbl_contains(cmd, '--base'))
   end)
 

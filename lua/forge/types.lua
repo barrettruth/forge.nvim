@@ -43,13 +43,8 @@
 ---@class forge.PRDetails
 ---@field title string
 ---@field body string
----@field draft boolean
 ---@field head_branch string
 ---@field base_branch string
----@field reviewers string[]
----@field labels string[]
----@field assignees string[]
----@field milestone string
 
 ---@class forge.IssueDetails
 ---@field title string
@@ -110,7 +105,6 @@
 
 ---@class forge.Capabilities
 ---@field draft boolean
----@field reviewers boolean
 ---@field per_pr_checks boolean
 ---@field ci_json boolean
 
@@ -153,8 +147,8 @@
 ---@field close_issue_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field reopen_issue_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field draft_toggle_cmd fun(self: forge.Forge, num: string, is_draft: boolean, scope?: forge.Scope): string[]?
----@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?, scope?: forge.Scope): string[]
----@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, reviewers: string[]?, labels: string[]?, assignees: string[]?, milestone: string?, scope?: forge.Scope): string[]
+---@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, scope?: forge.Scope): string[]
+---@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, scope?: forge.Scope): string[]
 ---@field fetch_pr_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field parse_pr_details fun(self: forge.Forge, json: table): forge.PRDetails
 ---@field fetch_issue_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]

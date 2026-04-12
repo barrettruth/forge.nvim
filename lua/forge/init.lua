@@ -483,10 +483,6 @@ function M.create_pr(opts)
               base,
               opts.draft or false,
               nil,
-              nil,
-              nil,
-              nil,
-              nil,
               base_scope,
               push_to
             )

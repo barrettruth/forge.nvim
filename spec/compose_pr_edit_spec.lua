@@ -37,20 +37,14 @@ describe('compose pr edit', function()
     compose.open_pr_edit(
       {
         labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
-        capabilities = { draft = true, reviewers = true },
         name = 'github',
       },
       '23',
       {
         title = 'PR title',
         body = 'PR body',
-        draft = false,
         head_branch = 'real-pr-head',
         base_branch = 'main',
-        reviewers = { 'bob' },
-        labels = { 'bug' },
-        assignees = { 'alice' },
-        milestone = 'v1',
       },
       'other-local-branch'
     )
@@ -58,6 +52,11 @@ describe('compose pr edit', function()
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     assert.is_truthy(vim.tbl_contains(lines, '  On branch real-pr-head against main.'))
     assert.is_false(vim.tbl_contains(lines, '  On branch other-local-branch against main.'))
+    assert.is_false(vim.tbl_contains(lines, '  Draft: false'))
+    assert.is_false(vim.tbl_contains(lines, '  Reviewers: bob'))
+    assert.is_false(vim.tbl_contains(lines, '  Labels: bug'))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: alice'))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: v1'))
   end)
 
   it('hides the local diff stat when the checked-out branch differs from the PR head', function()
@@ -72,20 +71,14 @@ describe('compose pr edit', function()
     compose.open_pr_edit(
       {
         labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
-        capabilities = { draft = true, reviewers = true },
         name = 'github',
       },
       '23',
       {
         title = 'PR title',
         body = 'PR body',
-        draft = false,
         head_branch = 'real-pr-head',
         base_branch = 'main',
-        reviewers = {},
-        labels = {},
-        assignees = {},
-        milestone = '',
       },
       'other-local-branch'
     )

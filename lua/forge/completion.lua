@@ -11,14 +11,10 @@ local last_context
 ---@param line string
 ---@return string?
 local function detect_field(line)
-  if line:match('^%s*Draft:') then
-    return 'draft'
-  elseif line:match('^%s*Labels:') then
+  if line:match('^%s*Labels:') then
     return 'labels'
   elseif line:match('^%s*Assignees:') then
     return 'assignees'
-  elseif line:match('^%s*Reviewers:') then
-    return 'reviewers'
   elseif line:match('^%s*Milestone:') then
     return 'milestone'
   end
@@ -66,10 +62,6 @@ end
 ---@param scope? table
 ---@return string[]
 local function fetch(field, f, scope)
-  if field == 'draft' then
-    return { 'true', 'false' }
-  end
-
   local now = os.time()
   local key = f.name .. ':' .. field .. ':' .. require('forge').scope_key(scope)
   local entry = cache[key]

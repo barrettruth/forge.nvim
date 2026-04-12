@@ -63,19 +63,6 @@ describe('edit_pr', function()
           body = 'PR body',
           headRefName = 'real-pr-head',
           baseRefName = 'main',
-          isDraft = false,
-          labels = {
-            { name = 'bug' },
-          },
-          assignees = {
-            { login = 'alice' },
-          },
-          reviewRequests = {
-            { login = 'bob' },
-          },
-          milestone = {
-            title = 'v1',
-          },
         })
       end
       if cb then
@@ -149,13 +136,8 @@ describe('edit_pr', function()
           return {
             title = json.title,
             body = json.body,
-            draft = json.isDraft == true,
             head_branch = json.headRefName,
             base_branch = json.baseRefName,
-            labels = { 'bug' },
-            assignees = { 'alice' },
-            reviewers = { 'bob' },
-            milestone = 'v1',
           }
         end,
       }
@@ -231,13 +213,8 @@ describe('edit_pr', function()
       details = {
         title = 'PR title',
         body = 'PR body',
-        draft = false,
         head_branch = 'real-pr-head',
         base_branch = 'main',
-        labels = { 'bug' },
-        assignees = { 'alice' },
-        reviewers = { 'bob' },
-        milestone = 'v1',
       },
       current_branch = 'other-local-branch',
       scope = nil,
