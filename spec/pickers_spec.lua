@@ -1485,6 +1485,77 @@ describe('pickers', function()
     assert.is_true(streamed[3].load_more)
   end)
 
+  it('keeps repo CI all ordered chronologically instead of regrouping by status', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          runs = 3,
+        },
+      },
+    }
+
+    local old_system = vim.system
+    vim.system = function(_, _, cb)
+      if cb then
+        cb({
+          code = 0,
+          stdout = vim.json.encode({
+            {
+              id = '1',
+              name = 'Newest pass',
+              branch = 'main',
+              status = 'success',
+              url = 'https://e/1',
+              created_at = '2024-01-03T00:00:00Z',
+            },
+            {
+              id = '2',
+              name = 'Middle fail',
+              branch = 'main',
+              status = 'failure',
+              url = 'https://e/2',
+              created_at = '2024-01-02T00:00:00Z',
+            },
+            {
+              id = '3',
+              name = 'Oldest running',
+              branch = 'main',
+              status = 'running',
+              url = 'https://e/3',
+              created_at = '2024-01-01T00:00:00Z',
+            },
+          }),
+        })
+      end
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('1', streamed[1].value.id)
+    assert.equals('2', streamed[2].value.id)
+    assert.equals('3', streamed[3].value.id)
+  end)
+
   it('requests more CI runs when the load more row is activated', function()
     vim.g.forge = {
       display = {

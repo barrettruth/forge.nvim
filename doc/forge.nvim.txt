@@ -704,7 +704,8 @@ CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
 
 For repo-wide CI runs, Forge fetches an initial page using
 `display.limits.runs`. When more runs are available, the picker shows a
-`Load more...` row on `<cr>`.
+`Load more...` row on `<cr>`. The `all` view is shown newest-first, and
+loading more appends older runs below the current list.
 
 On GitHub, `<cr>` on a run opens a summary buffer showing all jobs with
 status, durations, and annotations. Press `<cr>` on a job line to open its
