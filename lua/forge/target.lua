@@ -294,14 +294,6 @@ function M.current_rev(opts)
   return M.branch_rev(M.current_branch(), M.current_repo(opts))
 end
 
-function M.ci_rev(opts)
-  local repo = type(opts) == 'table'
-      and opts.ci_repo == 'collaboration'
-      and M.collaboration_repo(opts)
-    or M.current_repo(opts)
-  return M.branch_rev(M.current_branch(), repo)
-end
-
 function M.push_rev(opts)
   return M.branch_rev(M.current_branch(), M.push_repo(opts))
 end

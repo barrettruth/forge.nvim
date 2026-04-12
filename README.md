@@ -19,7 +19,7 @@ without leaving your editor.
 
 - Neovim 0.10.0+
 - tree-sitter `yaml` parser for YAML issue form templates
-- [fzf-lua](https://github.com/ibhagwan/fzf-lua)
+- [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive picker workflows
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
@@ -64,8 +64,13 @@ vim.g.forge = {
 }
 ```
 
+Install `fzf-lua` if you want the interactive picker surface via mappings such
+as `<Plug>(forge)` or Lua entrypoints such as `require('forge').open()`. Direct
+`:Forge` action commands do not depend on picker backends.
+
 **Q: How do I create a PR?**
 
-`<c-g>` to open the picker, select Pull Requests, then `ctrl-a` to compose. Or
-from a fugitive buffer: `cpr` (compose), `cpd` (draft), `cpf` (instant from
-commits), `cpw` (push and open web).
+Run `:Forge pr create`. Or use the interactive picker surface with `<c-g>`,
+then select Pull Requests and use `ctrl-a` to compose. From a fugitive buffer:
+`cpr` (compose), `cpd` (draft), `cpf` (instant from commits), `cpw` (push and
+open web).

@@ -28,12 +28,14 @@ function M.check()
   for _, name in ipairs(picker_mod.detect_order) do
     if pcall(require, name) then
       local suffix = backend == name and ' (active)' or ''
-      vim.health.ok(name .. ' found' .. suffix)
+      vim.health.ok(name .. ' found' .. suffix .. ' (interactive picker UI enabled)')
       found_any = true
     end
   end
   if not found_any then
-    vim.health.error('no picker backend found (install fzf-lua)')
+    vim.health.warn(
+      'fzf-lua not found (interactive picker UI disabled; direct :Forge commands still available)'
+    )
   end
 
   local has_yaml = pcall(vim.treesitter.language.inspect, 'yaml')

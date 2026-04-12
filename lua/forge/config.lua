@@ -126,9 +126,6 @@ local DEFAULTS = {
   },
   targets = {
     aliases = {},
-    ci = {
-      repo = 'current',
-    },
   },
   sources = {},
   contexts = {
@@ -346,13 +343,6 @@ function M.config()
   vim.validate('forge.targets.aliases', cfg.targets.aliases, 'table')
   if cfg.targets.default_repo ~= nil then
     vim.validate('forge.targets.default_repo', cfg.targets.default_repo, 'string')
-  end
-  local target_ci = cfg.targets.ci or {}
-  vim.validate('forge.targets.ci', target_ci, 'table')
-  if target_ci.repo ~= nil then
-    vim.validate('forge.targets.ci.repo', target_ci.repo, function(v)
-      return v == 'current' or v == 'collaboration'
-    end, "'current' or 'collaboration'")
   end
 
   vim.validate('forge.display.icons', cfg.display.icons, 'table')

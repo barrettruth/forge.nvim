@@ -73,40 +73,46 @@ describe('command schema', function()
       'ci',
       'release',
       'browse',
-      'branches',
-      'commits',
-      'worktrees',
       'clear',
     }, cmd.family_names())
   end)
 
-  it('resolves default verbs for implicit family forms', function()
+  it('only resolves implicit verbs for direct command families', function()
     local pr = cmd.resolve('pr')
     local issue = cmd.resolve('issue')
     local ci = cmd.resolve('ci')
+    local release = cmd.resolve('release')
     local browse = cmd.resolve('browse')
+    local clear = cmd.resolve('clear')
 
-    assert.equals('list', pr.name)
-    assert.is_true(pr.implicit)
-    assert.equals('list', issue.name)
-    assert.is_true(issue.implicit)
-    assert.equals('list', ci.name)
-    assert.is_true(ci.implicit)
+    assert.is_nil(pr)
+    assert.is_nil(issue)
+    assert.is_nil(ci)
+    assert.is_nil(release)
     assert.equals('open', browse.name)
     assert.is_true(browse.implicit)
+    assert.equals('run', clear.name)
+    assert.is_true(clear.implicit)
   end)
 
-  it('parses normalized list forms', function()
-    local pr = assert(cmd.parse({ 'pr', '--state=closed' }))
-    local ci = assert(cmd.parse({ 'ci', 'feature' }))
+  it('rejects implicit picker forms and parses explicit direct actions', function()
+    local create = assert(cmd.parse({ 'pr', 'create', 'draft' }))
+    local ci = assert(cmd.parse({ 'ci', 'log', '123' }))
+    local _, pr_missing = cmd.parse({ 'pr' })
+    local _, ci_missing = cmd.parse({ 'ci' })
+    local _, pr_list = cmd.parse({ 'pr', 'list' })
 
-    assert.equals('pr', pr.family)
-    assert.equals('list', pr.name)
-    assert.same({}, pr.subjects)
-    assert.same({ state = 'closed' }, pr.modifiers)
+    assert.equals('pr', create.family)
+    assert.equals('create', create.name)
+    assert.same({ draft = true }, create.modifiers)
 
-    assert.equals('list', ci.name)
-    assert.same({ 'feature' }, ci.subjects)
+    assert.equals('ci', ci.family)
+    assert.equals('log', ci.name)
+    assert.same({ '123' }, ci.subjects)
+
+    assert.equals('missing action', pr_missing.message)
+    assert.equals('missing action', ci_missing.message)
+    assert.equals('unknown pr action: list', pr_list.message)
   end)
 
   it('attaches parsed target-bearing modifiers to normalized commands', function()
@@ -128,14 +134,9 @@ describe('command schema', function()
     assert.same({ start_line = 10, end_line = 20 }, browse.parsed_modifiers.target.range)
   end)
 
-  it('attaches default target policy for omitted addresses', function()
-    local pr = assert(cmd.parse({ 'pr' }))
+  it('attaches default target policy for omitted direct-action addresses', function()
     local create = assert(cmd.parse({ 'pr', 'create' }))
-    local ci = assert(cmd.parse({ 'ci' }))
     local browse = assert(cmd.parse({ 'browse' }))
-
-    assert.same({ repo = 'collaboration' }, pr.default_policy)
-    assert.equals('owner/upstream', pr.default_targets.repo.slug)
 
     assert.same({
       repo = 'collaboration',
@@ -146,10 +147,6 @@ describe('command schema', function()
     assert.equals('owner/current', create.default_targets.head.repo.slug)
     assert.is_true(create.default_targets.base.default_branch)
     assert.equals('owner/upstream', create.default_targets.base.repo.slug)
-
-    assert.same({ repo = 'collaboration', rev = 'current_branch' }, ci.default_policy)
-    assert.equals('feature', ci.default_targets.rev.rev)
-    assert.equals('owner/upstream', ci.default_targets.rev.repo.slug)
 
     assert.same(
       { repo = 'current', rev = 'current_branch', target = 'contextual' },
@@ -169,12 +166,12 @@ describe('command schema', function()
   end)
 
   it('exposes per-verb modifiers for canonical operations', function()
-    assert.same({ 'state', 'repo' }, cmd.modifier_names('pr', 'list'))
     assert.same(
       { 'repo', 'head', 'base', 'draft', 'fill', 'web' },
       cmd.modifier_names('pr', 'create')
     )
-    assert.same({ 'repo', 'rev', 'target', 'all' }, cmd.modifier_names('ci', 'list'))
+    assert.same({ 'repo' }, cmd.modifier_names('ci', 'log'))
+    assert.same({ 'repo', 'web', 'blank', 'template' }, cmd.modifier_names('issue', 'create'))
     assert.same({ 'repo', 'method' }, cmd.modifier_names('pr', 'merge'))
   end)
 
@@ -184,12 +181,8 @@ describe('command schema', function()
   end)
 
   it('exposes modifier value metadata where the grammar constrains it', function()
-    local pr_list = cmd.resolve('pr', 'list')
-    local release_list = cmd.resolve('release', 'list')
     local method = cmd.modifier('method')
 
-    assert.same({ 'open', 'closed', 'all' }, pr_list.modifier_values.state)
-    assert.same({ 'all', 'draft', 'prerelease' }, release_list.modifier_values.state)
     assert.same({ 'merge', 'squash', 'rebase' }, method.values)
   end)
 
@@ -202,10 +195,10 @@ describe('command schema', function()
 
   it('rejects invalid modifiers and duplicate modifiers', function()
     local _, unknown = cmd.parse({ 'pr', 'checkout', '42', '--wat=1' })
-    local _, duplicate = cmd.parse({ 'pr', '--state=open', 'state=closed' })
+    local _, duplicate = cmd.parse({ 'pr', 'create', 'repo=origin', 'repo=upstream' })
 
     assert.equals('unknown modifier: wat', unknown.message)
-    assert.equals('duplicate modifier: state', duplicate.message)
+    assert.equals('duplicate modifier: repo', duplicate.message)
   end)
 
   it('returns nil or empty data for unknown lookups', function()

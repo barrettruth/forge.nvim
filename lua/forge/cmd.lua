@@ -32,9 +32,7 @@ local families = {
   {
     name = 'pr',
     surface = 'forge',
-    default_verb = 'list',
     verb_order = {
-      'list',
       'checkout',
       'worktree',
       'browse',
@@ -49,11 +47,6 @@ local families = {
       'ready',
     },
     verbs = {
-      list = {
-        subject = { min = 0, max = 0 },
-        modifiers = { 'state', 'repo' },
-        modifier_values = { state = { 'open', 'closed', 'all' } },
-      },
       checkout = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -108,14 +101,8 @@ local families = {
   {
     name = 'issue',
     surface = 'forge',
-    default_verb = 'list',
-    verb_order = { 'list', 'browse', 'close', 'reopen', 'create', 'edit' },
+    verb_order = { 'browse', 'close', 'reopen', 'create', 'edit' },
     verbs = {
-      list = {
-        subject = { min = 0, max = 0 },
-        modifiers = { 'state', 'repo' },
-        modifier_values = { state = { 'open', 'closed', 'all' } },
-      },
       browse = {
         subject = { kind = 'issue', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -142,13 +129,8 @@ local families = {
   {
     name = 'ci',
     surface = 'forge',
-    default_verb = 'list',
-    verb_order = { 'list', 'log', 'watch' },
+    verb_order = { 'log', 'watch' },
     verbs = {
-      list = {
-        subject = { kind = 'rev', min = 0, max = 1 },
-        modifiers = { 'repo', 'rev', 'target', 'all' },
-      },
       log = {
         subject = { kind = 'run', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -162,14 +144,8 @@ local families = {
   {
     name = 'release',
     surface = 'forge',
-    default_verb = 'list',
-    verb_order = { 'list', 'browse', 'delete' },
+    verb_order = { 'browse', 'delete' },
     verbs = {
-      list = {
-        subject = { min = 0, max = 0 },
-        modifiers = { 'state', 'repo' },
-        modifier_values = { state = { 'all', 'draft', 'prerelease' } },
-      },
       browse = {
         subject = { kind = 'release', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -191,42 +167,6 @@ local families = {
         subject = { min = 0, max = 0 },
         modifiers = { 'repo', 'rev', 'target' },
         legacy_modifiers = { 'root', 'commit' },
-      },
-    },
-  },
-  {
-    name = 'branches',
-    surface = 'local',
-    default_verb = 'list',
-    verb_order = { 'list' },
-    verbs = {
-      list = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
-      },
-    },
-  },
-  {
-    name = 'commits',
-    surface = 'local',
-    default_verb = 'list',
-    verb_order = { 'list' },
-    verbs = {
-      list = {
-        subject = { kind = 'branch', min = 0, max = 1 },
-        modifiers = {},
-      },
-    },
-  },
-  {
-    name = 'worktrees',
-    surface = 'local',
-    default_verb = 'list',
-    verb_order = { 'list' },
-    verbs = {
-      list = {
-        subject = { min = 0, max = 0 },
-        modifiers = {},
       },
     },
   },
@@ -328,20 +268,16 @@ local function target_parse_opts()
   if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
     return {
       resolve_repo = true,
-      ci_repo = 'current',
     }
   end
   local cfg = forge.config()
   local targets = type(cfg) == 'table' and cfg.targets or nil
   local aliases = type(targets) == 'table' and targets.aliases or nil
   local default_repo = type(targets) == 'table' and targets.default_repo or nil
-  local ci = type(targets) == 'table' and targets.ci or nil
-  local ci_repo = type(ci) == 'table' and ci.repo or nil
   return {
     resolve_repo = true,
     aliases = type(aliases) == 'table' and aliases or {},
     default_repo = type(default_repo) == 'string' and default_repo or nil,
-    ci_repo = ci_repo == 'collaboration' and 'collaboration' or 'current',
   }
 end
 
@@ -361,15 +297,9 @@ local function repo_target(value)
   return value.repo
 end
 
-local function default_policy(command, parse_opts)
+local function default_policy(command, _)
   local policy = {}
-  if
-    not command.parsed_modifiers.repo
-    and (
-      (command.family == 'pr' and (command.name == 'list' or command.name == 'create'))
-      or (command.name == 'list' and (command.family == 'issue' or command.family == 'release'))
-    )
-  then
+  if not command.parsed_modifiers.repo and command.family == 'pr' and command.name == 'create' then
     policy.repo = 'collaboration'
   end
   if command.family == 'pr' and command.name == 'create' then
@@ -378,22 +308,6 @@ local function default_policy(command, parse_opts)
     end
     if not command.parsed_modifiers.base then
       policy.base = 'collaboration_default_branch'
-    end
-  elseif command.family == 'ci' and command.name == 'list' then
-    if
-      not repo_target(command.parsed_modifiers.target)
-      and not repo_target(command.parsed_modifiers.rev)
-      and not command.parsed_modifiers.repo
-    then
-      policy.repo = parse_opts.ci_repo
-    end
-    if
-      command.modifiers.all ~= true
-      and not command.parsed_modifiers.target
-      and not command.parsed_modifiers.rev
-      and command.subjects[1] == nil
-    then
-      policy.rev = 'current_branch'
     end
   elseif command.family == 'browse' and command.name == 'open' then
     if
@@ -489,10 +403,6 @@ local function dispatch_pr(command)
   end
   local num = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
-  if command.name == 'list' then
-    ops.pr_list(command.modifiers.state, { scope = scope })
-    return
-  end
   if command.name == 'create' then
     local target = require('forge.target')
     local head = command.parsed_modifiers.head or command.default_targets.head
@@ -566,10 +476,6 @@ local function dispatch_issue(command)
   end
   local num = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
-  if command.name == 'list' then
-    ops.issue_list(command.modifiers.state, { scope = scope })
-    return
-  end
   if command.name == 'create' then
     local template = command.modifiers.template
     ops.issue_create({
@@ -608,18 +514,6 @@ local function dispatch_ci(command)
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
-  if command.name == 'list' then
-    local branch = nil
-    if command.modifiers.all ~= true then
-      local rev = command.parsed_modifiers.target and command.parsed_modifiers.target.rev
-        or command.parsed_modifiers.rev
-        or command.subjects[1] and { rev = command.subjects[1] }
-        or command.default_targets.rev
-      branch = rev and rev.rev or nil
-    end
-    ops.ci_list(command.modifiers.all and nil or branch, { scope = scope })
-    return
-  end
   if command.name == 'log' then
     ops.ci_log(f, { id = command.subjects[1], scope = scope })
     return
@@ -641,10 +535,6 @@ local function dispatch_release(command)
   end
   local tag = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
-  if command.name == 'list' then
-    ops.release_list(command.modifiers.state, { scope = scope })
-    return
-  end
   if command.name == 'browse' then
     ops.release_browse(f, { tag = tag, scope = scope })
     return
@@ -687,36 +577,12 @@ local function dispatch_browse(command)
   end
 end
 
-local function dispatch_branches()
-  if not require_git_or_warn() then
-    return
-  end
-  require('forge').open('branches')
-end
-
-local function dispatch_commits(command)
-  if not require_git_or_warn() then
-    return
-  end
-  require('forge').open('commits', { branch = command.subjects[1] })
-end
-
-local function dispatch_worktrees()
-  if not require_git_or_warn() then
-    return
-  end
-  require('forge').open('worktrees')
-end
-
 local dispatchers = {
   pr = dispatch_pr,
   issue = dispatch_issue,
   ci = dispatch_ci,
   release = dispatch_release,
   browse = dispatch_browse,
-  branches = dispatch_branches,
-  commits = dispatch_commits,
-  worktrees = dispatch_worktrees,
   clear = function()
     require('forge').clear_cache()
     require('forge.logger').info('cache cleared')
@@ -968,8 +834,8 @@ end
 function M.run(opts)
   opts = opts or {}
   if vim.trim(opts.args or '') == '' then
-    require('forge').open()
-    return true
+    warn('missing command')
+    return false
   end
 
   local command, err = M.parse(split_words(opts.args), { bang = opts.bang })
