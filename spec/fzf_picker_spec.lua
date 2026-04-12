@@ -258,6 +258,43 @@ describe('fzf picker', function()
     assert.truthy(captured.lines[1]:find(' %[origin/main%]\t1$', 1))
   end)
 
+  it('does not duplicate streamed rows when the source is invoked again', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'CI> ',
+      entries = {},
+      actions = {},
+      picker_name = 'ci',
+      stream = function(emit)
+        emit({
+          display = { { 'check one' } },
+          value = 'check-1',
+        })
+        emit({
+          display = { { 'check two' } },
+          value = 'check-2',
+        })
+        emit(nil)
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_function(captured.lines)
+
+    local function collect_lines()
+      local lines = {}
+      captured.lines(function(line)
+        if line then
+          table.insert(lines, line)
+        end
+      end)
+      return lines
+    end
+
+    assert.same({ 'check one\t1', 'check two\t2' }, collect_lines())
+    assert.same({ 'check one\t1', 'check two\t2' }, collect_lines())
+  end)
+
   it('renders worktree rows with visible labels and hidden selection ids', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
