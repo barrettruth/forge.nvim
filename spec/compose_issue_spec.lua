@@ -87,7 +87,9 @@ describe('compose issue create', function()
     package.loaded['forge.template'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-      if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == 'forge://issue/new' then
+      if
+        vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == 'forge://issue/new'
+      then
         vim.api.nvim_buf_delete(buf, { force = true })
       end
     end
