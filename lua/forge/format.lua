@@ -297,7 +297,7 @@ function M.format_checks(checks, opts)
     names[#names + 1] = check.name or ''
     elapsed[#elapsed + 1] = elapsed_for(check)
   end
-  local name_pref, name_max = elastic_width(widths.name, names, 10)
+  local name_pref, name_max = elastic_width(widths.name, names, 18, { max_quantile = 1 })
   local plan = layout.plan({
     width = opts and opts.width or layout.picker_width(),
     columns = {
@@ -305,7 +305,7 @@ function M.format_checks(checks, opts)
       {
         key = 'name',
         gap = '  ',
-        min = 10,
+        min = 18,
         preferred = name_pref,
         max = name_max,
         shrink = 2,

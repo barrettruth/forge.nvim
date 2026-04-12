@@ -920,7 +920,7 @@ local function parse_summary_json(data)
   local job_lnums = {}
 
   local run_status = (data.conclusion and data.conclusion ~= '') and data.conclusion or data.status
-  local header = data.name or 'run'
+  local header = data.displayTitle or data.name or 'run'
   lines[#lines + 1] = header
   hls_list[#hls_list + 1] = summary_hls(header, run_status)
 

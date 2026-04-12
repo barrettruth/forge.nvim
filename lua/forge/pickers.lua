@@ -67,6 +67,19 @@ local function with_placeholder(entries, text)
   return { placeholder_entry(text) }
 end
 
+local function cached_rows(build)
+  local cache = {}
+  return function(width)
+    width = width or layout.picker_width()
+    local rows = cache[width]
+    if rows == nil then
+      rows = build(width)
+      cache[width] = rows
+    end
+    return rows
+  end
+end
+
 local function scoped_forge_ref(f, ref)
   if ref then
     return ref
@@ -196,7 +209,7 @@ local function display_path(path, width)
   return rendered
 end
 
-local function branch_layout(branches)
+local function branch_layout(branches, width)
   local branch_limit = 25
   local subject_limit = 45
   local ok, forge = pcall(require, 'forge')
@@ -219,7 +232,7 @@ local function branch_layout(branches)
     elastic_width(branch_limit, upstreams, 8, { max_quantile = 1 })
   local subject_pref, subject_max = elastic_width(subject_limit, subjects, 12)
   return layout.plan({
-    width = layout.picker_width(),
+    width = width or layout.picker_width(),
     columns = {
       { key = 'marker', fixed = 2 },
       {
@@ -263,7 +276,7 @@ local function branch_layout(branches)
   })
 end
 
-local function commit_layout(commits)
+local function commit_layout(commits, width)
   local title_limit = 45
   local author_limit = 15
   local ok, forge = pcall(require, 'forge')
@@ -286,7 +299,7 @@ local function commit_layout(commits)
   local subject_pref, subject_max = elastic_width(title_limit, subjects, 12)
   local author_pref, author_max = elastic_width(author_limit, authors, 8, { max_quantile = 1 })
   return layout.plan({
-    width = layout.picker_width(),
+    width = width or layout.picker_width(),
     columns = {
       { key = 'sha', fixed = math.max(7, layout.max_width(shas)) },
       {
@@ -369,7 +382,7 @@ local function worktree_label(item)
   return ''
 end
 
-local function worktree_layout(worktrees)
+local function worktree_layout(worktrees, width)
   local path_limit = 35
   local label_limit = 25
   local ok, forge = pcall(require, 'forge')
@@ -396,7 +409,7 @@ local function worktree_layout(worktrees)
   local label_pref = elastic_width(label_limit, labels, 8)
   local label_max = math.max(label_pref, layout.max_width(labels))
   return layout.plan({
-    width = layout.picker_width(),
+    width = width or layout.picker_width(),
     columns = {
       { key = 'marker', fixed = 2 },
       {
@@ -689,11 +702,17 @@ function M.checks(f, num, filter, cached_checks, opts)
   local function build_check_entries(checks)
     local filtered = forge_mod.filter_checks(checks, filter)
     local count = #filtered
-    local displays = forge_mod.format_checks(filtered, { width = layout.picker_width() })
+    local rows_for = cached_rows(function(width)
+      return forge_mod.format_checks(filtered, { width = width })
+    end)
+    local displays = rows_for()
     local entries = {}
     for i, c in ipairs(filtered) do
       table.insert(entries, {
         display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = c,
         ordinal = c.name or '',
       })
@@ -928,12 +947,18 @@ function M.ci(f, branch, filter, opts)
       filtered = vim.list_slice(filtered, 1, visible_limit)
     end
     local count = #filtered
-    local displays = forge_mod.format_runs(filtered, { width = layout.picker_width() })
+    local rows_for = cached_rows(function(width)
+      return forge_mod.format_runs(filtered, { width = width })
+    end)
+    local displays = rows_for()
 
     local entries = {}
     for i, run in ipairs(filtered) do
       table.insert(entries, {
         display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = run,
         ordinal = run.name .. ' ' .. run.branch,
       })
@@ -1128,8 +1153,10 @@ function M.pr(state, f, opts)
       prs = vim.list_slice(prs, 1, visible_limit)
     end
     local entries = {}
-    local displays =
-      forge_mod.format_prs(prs, pr_fields, show_state, { width = layout.picker_width() })
+    local rows_for = cached_rows(function(width)
+      return forge_mod.format_prs(prs, pr_fields, show_state, { width = width })
+    end)
+    local displays = rows_for()
     for i, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
       local s = (pr[pr_fields.state] or ''):lower()
@@ -1137,6 +1164,9 @@ function M.pr(state, f, opts)
       state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = {
           num = num,
           scope = ref,
@@ -1396,18 +1426,19 @@ function M.issue(state, f, opts)
     end
     local state_field = issue_fields.state
     local entries = {}
-    local displays = forge_mod.format_issues(
-      issues,
-      issue_fields,
-      issue_show_state,
-      { width = layout.picker_width() }
-    )
+    local rows_for = cached_rows(function(width)
+      return forge_mod.format_issues(issues, issue_fields, issue_show_state, { width = width })
+    end)
+    local displays = rows_for()
     for i, issue in ipairs(issues) do
       local n = tostring(issue[num_field] or '')
       local s = (issue[state_field] or ''):lower()
       state_map[n] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = { num = n, scope = ref },
         ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
       })
@@ -1638,12 +1669,17 @@ function M.release(state, f, opts)
     end
 
     local entries = {}
-    local displays =
-      forge_mod.format_releases(filtered, rel_fields, { width = layout.picker_width() })
+    local rows_for = cached_rows(function(width)
+      return forge_mod.format_releases(filtered, rel_fields, { width = width })
+    end)
+    local displays = rows_for()
     for i, rel in ipairs(filtered) do
       local tag = tostring(rel[rel_fields.tag] or '')
       table.insert(entries, {
         display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = { tag = tag, rel = rel, scope = ref },
         ordinal = tag .. ' ' .. (rel[rel_fields.title] or ''),
       })
@@ -1776,11 +1812,20 @@ function M.branches(ctx, opts)
   local cache_key = forge_mod.list_key('branch', 'local-refs-v2')
 
   local function open_branch_list(branches)
-    local plan = branch_layout(branches)
+    local rows_for = cached_rows(function(width)
+      local plan = branch_layout(branches, width)
+      return vim.tbl_map(function(item)
+        return branch_display(item, plan)
+      end, branches)
+    end)
+    local displays = rows_for()
     local entries = {}
-    for _, item in ipairs(branches) do
+    for i, item in ipairs(branches) do
       entries[#entries + 1] = {
-        display = branch_display(item, plan),
+        display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = item,
       }
     end
@@ -1941,11 +1986,20 @@ function M.commits(ctx, branch, opts)
     if has_more then
       commits = vim.list_slice(commits, 1, visible_limit)
     end
-    local plan = commit_layout(commits)
+    local rows_for = cached_rows(function(width)
+      local plan = commit_layout(commits, width)
+      return vim.tbl_map(function(item)
+        return commit_display(item, plan)
+      end, commits)
+    end)
+    local displays = rows_for()
     local entries = {}
-    for _, item in ipairs(commits) do
+    for i, item in ipairs(commits) do
       entries[#entries + 1] = {
-        display = commit_display(item, plan),
+        display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = item,
         ordinal = item.sha .. ' ' .. item.subject .. ' ' .. item.author,
       }
@@ -2092,11 +2146,20 @@ function M.worktrees(ctx, opts)
   local cache_key = forge_mod.list_key('worktree', 'list')
 
   local function open_worktree_list(worktrees)
-    local plan = worktree_layout(worktrees)
+    local rows_for = cached_rows(function(width)
+      local plan = worktree_layout(worktrees, width)
+      return vim.tbl_map(function(item)
+        return worktree_display(item, plan)
+      end, worktrees)
+    end)
+    local displays = rows_for()
     local entries = {}
-    for _, item in ipairs(worktrees) do
+    for i, item in ipairs(worktrees) do
       entries[#entries + 1] = {
-        display = worktree_display(item, plan),
+        display = displays[i],
+        render_display = function(width)
+          return rows_for(width)[i]
+        end,
         value = item,
       }
     end

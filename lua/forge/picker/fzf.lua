@@ -65,8 +65,29 @@ local function render(segments)
   return table.concat(parts)
 end
 
-local function render_line(index, entry)
-  local text = render(entry.display)
+local function picker_width()
+  local utils = require('fzf-lua.utils')
+  local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
+  local winid = win and rawget(win, 'fzf_winid') or nil
+  if type(winid) == 'number' and winid > 0 then
+    local ok, width = pcall(vim.api.nvim_win_get_width, winid)
+    if ok and type(width) == 'number' and width > 0 then
+      return width
+    end
+  end
+  return require('forge.layout').picker_width()
+end
+
+local function entry_display(entry, width)
+  local display = rawget(entry, 'render_display')
+  if type(display) == 'function' then
+    return display(width)
+  end
+  return entry.display or {}
+end
+
+local function render_line(index, entry, width)
+  local text = render(entry_display(entry, width))
   if vim.trim(text) == '' then
     return nil
   end
@@ -121,6 +142,16 @@ function M.pick(opts)
   local stream = rawget(opts, 'stream')
   local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
+  local live_width = stream ~= nil
+
+  if not live_width then
+    for _, entry in ipairs(entries) do
+      if type(rawget(entry, 'render_display')) == 'function' then
+        live_width = true
+        break
+      end
+    end
+  end
 
   if opts.back and keys.back then
     actions[#actions + 1] = {
@@ -132,29 +163,33 @@ function M.pick(opts)
   end
 
   local lines
-  if stream then
+  if live_width then
     lines = function(fzf_cb)
       entries = vim.list_extend({}, seed_entries)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
-        local line = render_line(i, entry)
+        local line = render_line(i, entry, picker_width())
         if line then
           fzf_cb(line)
         end
       end
-      stream(function(entry)
-        if not entry then
-          fzf_cb(nil)
-          return
-        end
-        next_index = next_index + 1
-        entries[next_index] = entry
-        local line = render_line(next_index, entry)
-        if line then
-          fzf_cb(line)
-        end
-      end)
+      if stream then
+        stream(function(entry)
+          if not entry then
+            fzf_cb(nil)
+            return
+          end
+          next_index = next_index + 1
+          entries[next_index] = entry
+          local line = render_line(next_index, entry, picker_width())
+          if line then
+            fzf_cb(line)
+          end
+        end)
+      else
+        fzf_cb(nil)
+      end
     end
   else
     lines = {}
