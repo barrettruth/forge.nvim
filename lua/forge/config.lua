@@ -156,6 +156,7 @@ local DEFAULTS = {
   },
   keys = {
     back = '<c-o>',
+    forward = '<c-i>',
     pr = {
       worktree = '<c-w>',
       ci = '<c-t>',
@@ -384,6 +385,7 @@ function M.config()
   if type(cfg.keys) == 'table' then
     local keys = cfg.keys --[[@as forge.KeysConfig]]
     vim.validate('forge.keys.back', keys.back, key_or_false, 'string or false')
+    vim.validate('forge.keys.forward', keys.forward, key_or_false, 'string or false')
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({

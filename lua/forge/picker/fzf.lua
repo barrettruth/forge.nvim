@@ -13,6 +13,12 @@ local no_bg_highlights = {
 local special_keys = {
   ['<cr>'] = { fzf = 'enter', header = '<cr>' },
   ['<tab>'] = { fzf = 'tab', header = '<tab>' },
+  ['<c-i>'] = { fzf = 'tab', header = '^I' },
+}
+
+local history = {
+  stack = {},
+  index = 0,
 }
 
 local function strip_bg_ansi(text)
@@ -129,6 +135,93 @@ local function render_header(actions, bindings)
   return table.concat(parts, '|')
 end
 
+local function clone_opts(opts)
+  local copy = {}
+  for k, v in pairs(opts) do
+    if k ~= '_forge_history_replay' then
+      copy[k] = v
+    end
+  end
+  return copy
+end
+
+local function current_snapshot()
+  return history.stack[history.index]
+end
+
+local function has_back_history()
+  return history.index > 1
+end
+
+local function has_forward_history()
+  return history.index > 0 and history.index < #history.stack
+end
+
+local function same_picker(opts, current)
+  return current and opts.picker_name == current.picker_name and opts.back == current.back
+end
+
+local function remember_picker(opts)
+  if rawget(opts, '_forge_history_replay') then
+    return
+  end
+
+  local snapshot = { opts = clone_opts(opts) }
+  if opts.back == nil or history.index == 0 then
+    history.stack = { snapshot }
+    history.index = 1
+    return
+  end
+
+  local current = current_snapshot()
+  if current and same_picker(opts, current.opts) then
+    history.stack[history.index] = snapshot
+    return
+  end
+
+  for i = #history.stack, history.index + 1, -1 do
+    history.stack[i] = nil
+  end
+  history.index = history.index + 1
+  history.stack[history.index] = snapshot
+end
+
+local function reopen_history(index)
+  local snapshot = history.stack[index]
+  if not snapshot then
+    return false
+  end
+  history.index = index
+  local opts = clone_opts(snapshot.opts)
+  opts._forge_history_replay = true
+  M.pick(opts)
+  return true
+end
+
+local function action_key(def, bindings, keys)
+  return def.name == 'default' and '<cr>'
+    or def.name == 'back' and keys.back
+    or def.name == 'forward' and keys.forward
+    or bindings[def.name]
+end
+
+local function has_key_conflict(actions, bindings, keys, name)
+  local key = action_key({ name = name }, bindings, keys)
+  if not key then
+    return false
+  end
+  local mapped = to_fzf_key(key)
+  for _, def in ipairs(actions) do
+    if def.name ~= name then
+      local other = action_key(def, bindings, keys)
+      if other and to_fzf_key(other) == mapped then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 ---@param opts forge.PickerOpts
 function M.pick(opts)
   local cfg = require('forge').config()
@@ -144,6 +237,8 @@ function M.pick(opts)
   local actions = vim.deepcopy(opts.actions or {})
   local live_width = stream ~= nil
 
+  remember_picker(opts)
+
   if not live_width then
     for _, entry in ipairs(entries) do
       if type(rawget(entry, 'render_display')) == 'function' then
@@ -153,11 +248,26 @@ function M.pick(opts)
     end
   end
 
-  if opts.back and keys.back then
+  if (opts.back or has_back_history()) and keys.back then
     actions[#actions + 1] = {
       name = 'back',
       fn = function()
-        opts.back()
+        if not reopen_history(history.index - 1) and opts.back then
+          opts.back()
+        end
+      end,
+    }
+  end
+
+  if
+    has_forward_history()
+    and keys.forward
+    and not has_key_conflict(actions, bindings, keys, 'forward')
+  then
+    actions[#actions + 1] = {
+      name = 'forward',
+      fn = function()
+        reopen_history(history.index + 1)
       end,
     }
   end
@@ -203,9 +313,7 @@ function M.pick(opts)
 
   local fzf_actions = {}
   for _, def in ipairs(actions) do
-    local key = def.name == 'default' and '<cr>'
-      or def.name == 'back' and keys.back
-      or bindings[def.name]
+    local key = action_key(def, bindings, keys)
     if key then
       local action_fn = function(selected)
         if not selected[1] then

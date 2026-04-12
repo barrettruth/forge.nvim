@@ -171,6 +171,172 @@ describe('fzf picker', function()
     assert.equals(1, back_calls)
   end)
 
+  it('reopens previous pickers on back and next pickers on forward history', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Forge> ',
+      entries = {
+        {
+          display = { { 'Branches' } },
+          value = 'branches.local',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function()
+            picker.pick({
+              prompt = 'Branches> ',
+              entries = {
+                {
+                  display = { { 'main' } },
+                  value = 'main',
+                },
+              },
+              actions = {
+                { name = 'default', label = 'switch', fn = function() end },
+              },
+              picker_name = 'branch',
+              back = function() end,
+            })
+          end,
+        },
+      },
+      picker_name = '_menu',
+    })
+
+    assert.is_not_nil(captured)
+    captured.opts.actions.enter({ '1' })
+
+    assert.equals('Branches> ', captured.opts.prompt)
+    assert.is_function(captured.opts.actions['ctrl-o'])
+
+    captured.opts.actions['ctrl-o']({})
+
+    assert.equals('Forge> ', captured.opts.prompt)
+    assert.is_function(captured.opts.actions.tab)
+
+    captured.opts.actions.tab({})
+
+    assert.equals('Branches> ', captured.opts.prompt)
+  end)
+
+  it('does not bind forward when ctrl-i would collide with tab actions', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = {
+        {
+          display = { { '#7' }, { ' Bug' } },
+          value = '7',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function()
+            local back = function() end
+            picker.pick({
+              prompt = 'Details> ',
+              entries = {
+                {
+                  display = { { 'Edit' } },
+                  value = 'edit',
+                },
+              },
+              actions = {
+                { name = 'default', label = 'run', fn = function() end },
+              },
+              picker_name = '_menu',
+              back = back,
+            })
+          end,
+        },
+        { name = 'filter', label = 'filter', fn = function() end },
+      },
+      picker_name = 'issue',
+    })
+
+    assert.is_not_nil(captured)
+    captured.opts.actions.enter({ '1' })
+
+    assert.equals('Details> ', captured.opts.prompt)
+    captured.opts.actions['ctrl-o']({})
+
+    assert.equals('Issues> ', captured.opts.prompt)
+    assert.is_function(captured.opts.actions.tab)
+    assert.is_nil(captured.opts.actions['ctrl-i'])
+  end)
+
+  it('replaces same-picker reloads instead of adding extra back history', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Forge> ',
+      entries = {
+        {
+          display = { { 'Issues' } },
+          value = 'issues.open',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function()
+            local back = function() end
+            picker.pick({
+              prompt = 'Issues> ',
+              entries = {
+                {
+                  display = { { '#7' }, { ' Bug' } },
+                  value = '7',
+                },
+              },
+              actions = {
+                {
+                  name = 'filter',
+                  label = 'filter',
+                  fn = function()
+                    picker.pick({
+                      prompt = 'Closed Issues> ',
+                      entries = {
+                        {
+                          display = { { '#8' }, { ' Closed bug' } },
+                          value = '8',
+                        },
+                      },
+                      actions = {
+                        { name = 'filter', label = 'filter', fn = function() end },
+                      },
+                      picker_name = 'issue',
+                      back = back,
+                    })
+                  end,
+                },
+              },
+              picker_name = 'issue',
+              back = back,
+            })
+          end,
+        },
+      },
+      picker_name = '_menu',
+    })
+
+    assert.is_not_nil(captured)
+    captured.opts.actions.enter({ '1' })
+
+    assert.equals('Issues> ', captured.opts.prompt)
+    captured.opts.actions.tab({})
+
+    assert.equals('Closed Issues> ', captured.opts.prompt)
+    captured.opts.actions['ctrl-o']({})
+
+    assert.equals('Forge> ', captured.opts.prompt)
+  end)
+
   it('renders headers for git-local pickers without the legacy prefix', function()
     local picker = require('forge.picker.fzf')
     picker.pick({

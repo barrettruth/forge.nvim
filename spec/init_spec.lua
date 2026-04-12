@@ -66,6 +66,7 @@ describe('config', function()
     assert.equals('<c-s>', cfg.keys.pr.close)
     assert.equals('<c-d>', cfg.keys.pr.draft)
     assert.equals('<c-o>', cfg.keys.back)
+    assert.equals('<c-i>', cfg.keys.forward)
     assert.equals('<tab>', cfg.keys.pr.filter)
     assert.equals('<c-e>', cfg.keys.issue.edit)
     assert.equals('<tab>', cfg.keys.issue.filter)
@@ -120,6 +121,7 @@ describe('config', function()
     vim.g.forge = {
       keys = {
         back = false,
+        forward = false,
         branch = { browse = '<c-b>' },
         commit = { yank = false },
         worktree = { refresh = '<c-f>' },
@@ -127,6 +129,7 @@ describe('config', function()
     }
     local cfg = forge.config()
     assert.is_false(cfg.keys.back)
+    assert.is_false(cfg.keys.forward)
     assert.equals('<c-s>', cfg.keys.branch.delete)
     assert.equals('<c-b>', cfg.keys.branch.browse)
     assert.equals('<c-y>', cfg.keys.branch.yank)
