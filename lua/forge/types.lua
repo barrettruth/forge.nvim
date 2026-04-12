@@ -64,6 +64,10 @@
 ---@field web boolean?
 ---@field back fun()?
 ---@field scope forge.Scope?
+---@field head_branch string?
+---@field head_scope forge.Scope?
+---@field base_branch string?
+---@field base_scope forge.Scope?
 
 ---@class forge.CreateIssueOpts
 ---@field web boolean?
@@ -156,8 +160,8 @@
 ---@field fetch_issue_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field parse_issue_details fun(self: forge.Forge, json: table): forge.IssueDetails
 ---@field completion_cmd (fun(self: forge.Forge, field: string, scope?: forge.Scope): string[]?)?
----@field create_pr_web_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]?
----@field create_pr_web_url (fun(self: forge.Forge, scope?: forge.Scope): string?)?
+---@field create_pr_web_cmd (fun(self: forge.Forge, scope?: forge.Scope, head_scope?: forge.Scope, head_branch?: string, base_branch?: string): string[]?)?
+---@field create_pr_web_url (fun(self: forge.Forge, scope?: forge.Scope, head_scope?: forge.Scope, head_branch?: string, base_branch?: string): string?)?
 ---@field default_branch_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string, scope?: forge.Scope): string[])?
 ---@field template_paths fun(self: forge.Forge): string[]
@@ -169,3 +173,4 @@
 ---@field update_issue_cmd fun(self: forge.Forge, num: string, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?, original: forge.IssueDetails, scope?: forge.Scope): string[]
 ---@field issue_template_paths fun(self: forge.Forge): string[]
 ---@field create_issue_web_cmd (fun(self: forge.Forge, scope?: forge.Scope): string[]?)?
+---@field create_issue_web_url (fun(self: forge.Forge, scope?: forge.Scope): string?)?

@@ -436,13 +436,20 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
                                                             *:Forge-pr-create*
     Create a new PR.
-    Default targets: `head=` is the current branch push context and
-    `base=` is the collaboration repo default branch.
+    PR creation commands are branch-relative. Default targets: `head=` is
+    the current branch push context and `base=` is the collaboration repo
+    default branch.
     (no modifiers)     Open the compose buffer (|forge-compose|).
     `draft`            Open compose buffer with draft pre-set.
     `fill`             Create instantly from commits (skip compose).
-    `web`              Push and open the forge's web create-PR page.
+    `web`              Push and open the forge's web create-PR page for the
+                       resolved `head=` / `base=` pair.
     `draft fill`       Create draft instantly.
+
+    All other `:Forge pr` actions are PR-relative: command-line use
+    requires `{num}`, and picker/buffer actions operate on the visible PR
+    context. Forge does not remember a hidden "current PR" between
+    commands.
 
 `:Forge pr checkout` {num} [repo=...]                     *:Forge-pr-checkout*
     Check out the branch for PR `{num}`.

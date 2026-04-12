@@ -536,16 +536,19 @@ function M:create_pr_cmd(title, body, base, _draft, _reviewers, labels, assignee
 end
 
 ---@return string
-function M:create_pr_web_url(ref)
-  local branch = vim.trim(vim.fn.system('git branch --show-current'))
+function M:create_pr_web_url(ref, _, head_branch, base_branch)
+  local branch = head_branch or vim.trim(vim.fn.system('git branch --show-current'))
   local base_url = forge.remote_web_url(ref)
-  local default = vim.trim(
-    vim.fn.system(
-      "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
+  local default = base_branch
+  if not default or default == '' then
+    default = vim.trim(
+      vim.fn.system(
+        "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
+      )
     )
-  )
-  if default == '' then
-    default = 'main'
+    if default == '' then
+      default = 'main'
+    end
   end
   return ('%s/compare/%s...%s'):format(base_url, default, branch)
 end

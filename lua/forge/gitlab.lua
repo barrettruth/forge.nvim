@@ -608,8 +608,25 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
 end
 
 ---@return string[]
-function M:create_pr_web_cmd(ref)
-  return { 'glab', 'mr', 'create', '--web', '-R', repo_arg(ref) }
+function M:create_pr_web_cmd(ref, head_scope, head_branch, base_branch)
+  local cmd = { 'glab', 'mr', 'create', '--web', '-R', repo_arg(ref) }
+  if
+    head_scope
+    and forge.scope_key(head_scope) ~= ''
+    and forge.scope_key(head_scope) ~= forge.scope_key(ref)
+  then
+    table.insert(cmd, '--head')
+    table.insert(cmd, repo_arg(head_scope))
+  end
+  if head_branch and head_branch ~= '' then
+    table.insert(cmd, '--source-branch')
+    table.insert(cmd, head_branch)
+  end
+  if base_branch and base_branch ~= '' then
+    table.insert(cmd, '--target-branch')
+    table.insert(cmd, base_branch)
+  end
+  return cmd
 end
 
 ---@param title string

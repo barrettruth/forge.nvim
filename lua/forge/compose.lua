@@ -148,6 +148,7 @@ end
 ---@param pr_milestone string?
 ---@param buf integer?
 ---@param ref? forge.Scope
+---@param push_target string?
 local function push_and_create(
   f,
   branch,
@@ -160,61 +161,66 @@ local function push_and_create(
   pr_assignees,
   pr_milestone,
   buf,
-  ref
+  ref,
+  push_target
 )
   local log = require('forge.logger')
   log.info('pushing and creating ' .. f.labels.pr_one .. '...')
-  vim.system({ 'git', 'push', '-u', 'origin', branch }, { text = true }, function(push_result)
-    if push_result.code ~= 0 then
-      local msg = vim.trim(push_result.stderr or '')
-      if msg == '' then
-        msg = 'push failed'
-      end
-      vim.schedule(function()
-        log.error(msg)
-      end)
-      return
-    end
-    vim.system(
-      f:create_pr_cmd(
-        title,
-        body,
-        pr_base,
-        pr_draft,
-        pr_reviewers,
-        pr_labels,
-        pr_assignees,
-        pr_milestone,
-        ref
-      ),
-      { text = true },
-      function(create_result)
+  vim.system(
+    { 'git', 'push', '-u', push_target ~= '' and push_target or 'origin', branch },
+    { text = true },
+    function(push_result)
+      if push_result.code ~= 0 then
+        local msg = vim.trim(push_result.stderr or '')
+        if msg == '' then
+          msg = 'push failed'
+        end
         vim.schedule(function()
-          if create_result.code == 0 then
-            local url = vim.trim(create_result.stdout or '')
-            if url ~= '' then
-              vim.fn.setreg('+', url)
-            end
-            log.info(('created %s -> %s'):format(f.labels.pr_one, url))
-            require('forge').clear_list()
-            if buf and vim.api.nvim_buf_is_valid(buf) then
-              vim.bo[buf].modified = false
-              vim.api.nvim_buf_delete(buf, { force = true })
-            end
-          else
-            local msg = vim.trim(create_result.stderr or '')
-            if msg == '' then
-              msg = vim.trim(create_result.stdout or '')
-            end
-            if msg == '' then
-              msg = 'creation failed'
-            end
-            log.error(msg)
-          end
+          log.error(msg)
         end)
+        return
       end
-    )
-  end)
+      vim.system(
+        f:create_pr_cmd(
+          title,
+          body,
+          pr_base,
+          pr_draft,
+          pr_reviewers,
+          pr_labels,
+          pr_assignees,
+          pr_milestone,
+          ref
+        ),
+        { text = true },
+        function(create_result)
+          vim.schedule(function()
+            if create_result.code == 0 then
+              local url = vim.trim(create_result.stdout or '')
+              if url ~= '' then
+                vim.fn.setreg('+', url)
+              end
+              log.info(('created %s -> %s'):format(f.labels.pr_one, url))
+              require('forge').clear_list()
+              if buf and vim.api.nvim_buf_is_valid(buf) then
+                vim.bo[buf].modified = false
+                vim.api.nvim_buf_delete(buf, { force = true })
+              end
+            else
+              local msg = vim.trim(create_result.stderr or '')
+              if msg == '' then
+                msg = vim.trim(create_result.stdout or '')
+              end
+              if msg == '' then
+                msg = 'creation failed'
+              end
+              log.error(msg)
+            end
+          end)
+        end
+      )
+    end
+  )
 end
 
 local function submit_issue(f, title, body, labels, assignees, milestone, buf, ref)
@@ -460,8 +466,13 @@ end
 ---@param draft boolean
 ---@param tmpl forge.TemplateResult?
 ---@param ref? forge.Scope
-function M.open_pr(f, branch, base, draft, tmpl, ref)
-  local title, commit_body = template.fill_from_commits(branch, base)
+---@param push_target string?
+---@param base_ref string?
+---@param head_ref string?
+function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, head_ref)
+  base_ref = base_ref or ('origin/' .. base)
+  head_ref = head_ref or 'HEAD'
+  local title, commit_body = template.fill_from_commits(branch, base_ref, head_ref)
   local body = (tmpl and tmpl.body) or commit_body
 
   local buf = create_compose_buf('forge://pr/new')
@@ -481,7 +492,8 @@ function M.open_pr(f, branch, base, draft, tmpl, ref)
   local comment_start = #b.lines + 1
 
   local pr_kind = f.labels.pr_full:gsub('s$', '')
-  local diff_stat = vim.fn.system('git diff --stat origin/' .. base .. '..HEAD'):gsub('%s+$', '')
+  local diff_stat =
+    vim.fn.system('git diff --stat ' .. base_ref .. '..' .. head_ref):gsub('%s+$', '')
 
   b:add_line('<!--')
 
@@ -526,10 +538,10 @@ function M.open_pr(f, branch, base, draft, tmpl, ref)
   local stat_start, stat_end
   if diff_stat ~= '' then
     b:add_line('')
-    local changes_prefix = '  Changes not in origin/'
-    ln = b:add_line('%s%s:', changes_prefix, base)
+    local changes_prefix = '  Changes not in '
+    ln = b:add_line('%s%s:', changes_prefix, base_ref)
     b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
-    b:mark(ln, #changes_prefix, #base, 'ForgeComposeBranch')
+    b:mark(ln, #changes_prefix, #base_ref, 'ForgeComposeBranch')
     b:add_line('')
     stat_start = #b.lines + 1
     for _, sl in ipairs(vim.split(diff_stat, '\n', { plain = true })) do
@@ -613,7 +625,8 @@ function M.open_pr(f, branch, base, draft, tmpl, ref)
         meta.assignees,
         meta.milestone,
         buf,
-        ref
+        ref,
+        push_target
       )
     end,
   })

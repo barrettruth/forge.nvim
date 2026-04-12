@@ -494,11 +494,18 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'create' then
+    local target = require('forge.target')
+    local head = command.parsed_modifiers.head or command.default_targets.head
+    local base = command.parsed_modifiers.base or command.default_targets.base
     ops.pr_create({
       draft = command.modifiers.draft == true,
       instant = command.modifiers.fill == true,
       web = command.modifiers.web == true,
       scope = scope,
+      head_branch = head and head.rev or nil,
+      head_scope = target.repo_scope(repo_target(head), f.name),
+      base_branch = base and base.rev or nil,
+      base_scope = target.repo_scope(repo_target(base), f.name) or scope,
     })
     return
   end

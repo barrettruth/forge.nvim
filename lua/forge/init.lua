@@ -66,6 +66,63 @@ local function cmd_error(result, fallback)
   return msg
 end
 
+local function system_text(cmd)
+  local result = vim.system(cmd, { text = true }):wait()
+  if result.code ~= 0 then
+    return ''
+  end
+  return vim.trim(result.stdout or '')
+end
+
+local function push_remote_name(branch)
+  local remote = system_text({ 'git', 'config', 'branch.' .. branch .. '.pushRemote' })
+  if remote == '' then
+    remote = system_text({ 'git', 'config', 'remote.pushDefault' })
+  end
+  if remote == '' then
+    local upstream = system_text({ 'git', 'rev-parse', '--abbrev-ref', branch .. '@{upstream}' })
+    remote = upstream:match('^([^/]+)/') or ''
+  end
+  if remote == '' then
+    local remotes = system_text({ 'git', 'remote' })
+    remote = vim.split(remotes, '\n', { plain = true, trimempty = true })[1] or ''
+  end
+  return remote
+end
+
+local function remote_scope(forge_name, remote)
+  if remote == '' then
+    return nil
+  end
+  local url = system_text({ 'git', 'remote', 'get-url', remote })
+  if url == '' then
+    return nil
+  end
+  return scope_mod.from_url(forge_name, url)
+end
+
+local function push_target(branch, scope)
+  if scope_mod.key(scope) ~= '' then
+    return scope_mod.remote_name(scope) or scope_mod.git_url(scope) or ''
+  end
+  return push_remote_name(branch)
+end
+
+local function branch_ref(branch, current_branch)
+  if branch ~= '' and branch == current_branch and current_branch ~= '' then
+    return 'HEAD'
+  end
+  return branch
+end
+
+local function base_ref(scope, base)
+  local ref = scope_mod.remote_ref(scope, base)
+  if ref and ref ~= '' then
+    return ref
+  end
+  return 'origin/' .. base
+end
+
 local function open_web_create(label, cmd, url)
   local log = require('forge.logger')
   local success_msg = ('opened %s creation in browser'):format(label)
@@ -330,17 +387,26 @@ function M.create_pr(opts)
     log.warn('no forge detected')
     return
   end
-  local ref = opts.scope or M.current_scope(f.name)
+  local ref = opts.base_scope or opts.scope or M.current_scope(f.name)
+  local base_scope = opts.base_scope or ref
 
-  local branch = vim.trim(vim.fn.system('git branch --show-current'))
+  local current_branch = vim.trim(vim.fn.system('git branch --show-current'))
+  local branch = opts.head_branch or current_branch
   if branch == '' then
     log.warn('detached HEAD')
     return
   end
+  local head_scope = opts.head_scope or remote_scope(f.name, push_remote_name(branch))
+  local push_to = push_target(branch, head_scope)
+  local head_ref = branch_ref(branch, current_branch)
 
   local function with_base(cb)
+    if opts.base_branch and opts.base_branch ~= '' then
+      cb(opts.base_branch)
+      return
+    end
     log.info('resolving base branch...')
-    vim.system(f:default_branch_cmd(ref), { text = true }, function(base_result)
+    vim.system(f:default_branch_cmd(base_scope), { text = true }, function(base_result)
       local base = vim.trim(base_result.stdout or '')
       if base == '' then
         base = 'main'
@@ -352,27 +418,28 @@ function M.create_pr(opts)
   end
 
   local function ensure_creatable(base, cb)
-    if branch == base then
+    local target_ref = base_ref(base_scope, base)
+    if branch == base and scope_mod.same(head_scope, base_scope) then
       log.warn('current branch already matches base ' .. base)
       return
     end
     local has_diff = vim
-      .system({ 'git', 'diff', '--quiet', 'origin/' .. base .. '..HEAD' }, { text = true })
+      .system({ 'git', 'diff', '--quiet', target_ref .. '..' .. head_ref }, { text = true })
       :wait().code ~= 0
     if not has_diff then
-      log.warn('no changes from origin/' .. base)
+      log.warn('no changes from ' .. target_ref)
       return
     end
-    cb(base)
+    cb(base, target_ref)
   end
 
   log.info('checking for existing ' .. f.labels.pr_one .. '...')
 
-  vim.system(f:pr_for_branch_cmd(branch, ref), { text = true }, function(result)
+  vim.system(f:pr_for_branch_cmd(branch, base_scope), { text = true }, function(result)
     local num = vim.trim(result.stdout or '')
     vim.schedule(function()
       if num ~= '' and num ~= 'null' then
-        M.edit_pr(num, ref)
+        M.edit_pr(num, base_scope)
         return
       end
 
@@ -381,7 +448,7 @@ function M.create_pr(opts)
           ensure_creatable(base, function()
             log.info('pushing...')
             vim.system(
-              { 'git', 'push', '-u', 'origin', branch },
+              { 'git', 'push', '-u', push_to ~= '' and push_to or 'origin', branch },
               { text = true },
               function(push_result)
                 vim.schedule(function()
@@ -389,8 +456,12 @@ function M.create_pr(opts)
                     log.error('push failed')
                     return
                   end
-                  local web_cmd = f.create_pr_web_cmd and f:create_pr_web_cmd(ref) or nil
-                  local web_url = f.create_pr_web_url and f:create_pr_web_url(ref) or nil
+                  local web_cmd = f.create_pr_web_cmd
+                      and f:create_pr_web_cmd(base_scope, head_scope, branch, base)
+                    or nil
+                  local web_url = f.create_pr_web_url
+                      and f:create_pr_web_url(base_scope, head_scope, branch, base)
+                    or nil
                   open_web_create(f.labels.pr_one, web_cmd, web_url)
                 end)
               end
@@ -401,9 +472,9 @@ function M.create_pr(opts)
       end
 
       with_base(function(base)
-        ensure_creatable(base, function()
+        ensure_creatable(base, function(_, target_ref)
           if opts.instant then
-            local title, body = template_mod.fill_from_commits(branch, base)
+            local title, body = template_mod.fill_from_commits(branch, target_ref, head_ref)
             compose_mod.push_and_create(
               f,
               branch,
@@ -416,7 +487,8 @@ function M.create_pr(opts)
               nil,
               nil,
               nil,
-              ref
+              base_scope,
+              push_to
             )
           else
             local root = git_root() or ''
@@ -427,7 +499,17 @@ function M.create_pr(opts)
               return
             end
             if tmpl or not templates then
-              compose_mod.open_pr(f, branch, base, draft, tmpl, ref)
+              compose_mod.open_pr(
+                f,
+                branch,
+                base,
+                draft,
+                tmpl,
+                base_scope,
+                push_to,
+                target_ref,
+                head_ref
+              )
             else
               local picker = require('forge.picker')
               local entries = {}
@@ -452,7 +534,17 @@ function M.create_pr(opts)
                           log.error(load_err)
                           return
                         end
-                        compose_mod.open_pr(f, branch, base, draft, template, ref)
+                        compose_mod.open_pr(
+                          f,
+                          branch,
+                          base,
+                          draft,
+                          template,
+                          base_scope,
+                          push_to,
+                          target_ref,
+                          head_ref
+                        )
                       end
                     end,
                   },
@@ -551,10 +643,14 @@ function M.create_issue(opts)
   local ref = opts.scope or M.current_scope(f.name)
 
   if opts.web then
-    local cmd = f.create_issue_web_cmd and f:create_issue_web_cmd(ref) or nil
-    local url = M.remote_web_url(ref)
-    if url ~= '' then
-      url = url .. '/issues/new'
+    local url = f.create_issue_web_url and f:create_issue_web_url(ref) or nil
+    local cmd = nil
+    if not url or url == '' then
+      cmd = f.create_issue_web_cmd and f:create_issue_web_cmd(ref) or nil
+      url = M.remote_web_url(ref)
+      if url ~= '' then
+        url = url .. '/issues/new'
+      end
     end
     open_web_create('issue', cmd, url)
     return
