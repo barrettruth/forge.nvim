@@ -26,7 +26,6 @@ CONTENTS                                                 *forge.nvim-contents*
     COMMAND COMPLETION................................|forge-command-completion|
     CANONICAL SYNTAX AND COMPATIBILITY..............|forge-command-compatibility|
     BANG SEMANTICS.........................................|forge-command-bang|
-    `:Forge pr` [state=...] [repo=...]............................|:Forge-pr|
     `:Forge pr create` [modifiers]......................|:Forge-pr-create|
     `:Forge pr checkout` {num} [repo=...]............|:Forge-pr-checkout|
     `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
@@ -36,19 +35,13 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr merge` {num} [`method=`]....................|:Forge-pr-merge|
     `:Forge pr draft` {num}..................................|:Forge-pr-draft|
     `:Forge pr ready` {num}..................................|:Forge-pr-ready|
-    `:Forge issue` [state=...] [repo=...]......................|:Forge-issue|
     `:Forge issue browse` {num} [repo=...]................|:Forge-issue-browse|
     `:Forge issue close` {num} [repo=...]..................|:Forge-issue-close|
     `:Forge issue reopen` {num} [repo=...]................|:Forge-issue-reopen|
     `:Forge issue create` [modifiers]......................|:Forge-issue-create|
     `:Forge issue edit` {num} [repo=...]....................|:Forge-issue-edit|
-    `:Forge ci` [repo=...] [rev=...] [target=...] [all]..........|:Forge-ci|
     `:Forge ci log` {run-id} [repo=...]......................|:Forge-ci-log|
     `:Forge ci watch` {run-id} [repo=...]..................|:Forge-ci-watch|
-    `:Forge branches`........................................|:Forge-branches|
-    `:Forge commits` [{branch}]..............................|:Forge-commits|
-    `:Forge worktrees`......................................|:Forge-worktrees|
-    `:Forge release` [state=...] [repo=...]....................|:Forge-release|
     `:Forge release browse` {tag} [repo=...]............|:Forge-release-browse|
     `:Forge release delete` {tag} [repo=...]............|:Forge-release-delete|
     `:Forge browse` [repo=...] [rev=...] [target=...]..........|:Forge-browse|
@@ -71,12 +64,15 @@ remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
-- fzf-lua
+- fzf-lua for interactive picker workflows
 - tree-sitter `yaml` parser
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
+
+Direct `:Forge` action commands work without `fzf-lua`. The interactive picker
+surface requires it.
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
@@ -95,8 +91,8 @@ Top-level keys: ~
 
 `picker`                                                 *forge-config-picker*
   `string`  (default `"auto"`)
-    Picker backend to use. One of `"auto"` or `"fzf-lua"`. When `"auto"`,
-    forge.nvim tries fzf-lua.
+    Picker backend to use for interactive picker workflows. One of `"auto"`
+    or `"fzf-lua"`. When `"auto"`, forge.nvim tries fzf-lua.
 
 `client`                                                 *forge-config-client*
   `string`  (default `"picker"`)
@@ -163,19 +159,12 @@ Top-level keys: ~
     `host/owner/repo`. When unset, forge.nvim falls back to `upstream`,
     then `origin`.
 
-  `targets.ci.repo`      `string`  (default `"current"`)
-    Default repo policy for `:Forge ci` when no explicit repo is given.
-    One of `"current"` or `"collaboration"`.
-
   Example: >lua
       vim.g.forge = {
         targets = {
           default_repo = 'upstream',
           aliases = {
             work = 'github.com/barrettruth/forge.nvim',
-          },
-          ci = {
-            repo = 'collaboration',
           },
         },
       }
@@ -375,7 +364,10 @@ Top-level keys: ~
 COMMANDS                                                              *:Forge*
 
 `:Forge`                                                      *:Forge-no-args*
-    Open the root workflow surface (|forge-picker|).
+    The `:Forge` command surface is action-oriented. It does not open picker
+    UIs. `:Forge` with no arguments warns with `missing command`.
+    Use |forge-plug| mappings such as `<Plug>(forge)` or
+    `require('forge').open()` for the interactive picker surface.
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
@@ -385,10 +377,6 @@ TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Default policy:
     - collaboration repo = `targets.default_repo`, else `upstream`, else
       `origin`
-    - `:Forge pr`, `:Forge issue`, and `:Forge release` default to the
-      collaboration repo
-    - `:Forge ci` defaults to the current branch and uses `targets.ci.repo`
-      for its repo policy
     - `:Forge pr create` defaults `head=` to the current branch push
       context and `base=` to the collaboration repo default branch
     - `:Forge browse` defaults to the current file/line selection on the
@@ -413,10 +401,11 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
 
     Compatibility sugar is still accepted, but it is not the primary
     interface:
-    - omitted default verbs such as `:Forge pr`, `:Forge issue`, `:Forge ci`,
-      `:Forge release`, and `:Forge browse`
     - legacy `--name` / `--name=value` forms for modifiers
     - `:Forge browse --root` and `:Forge browse --commit`
+
+    Commands that need interactive selection are intentionally not exposed
+    through `:Forge`; use the interactive picker surface instead.
 
 BANG SEMANTICS                                            *forge-command-bang*
     `!` is only accepted on mutating commands with an explicit force variant:
@@ -425,13 +414,6 @@ BANG SEMANTICS                                            *forge-command-bang*
     - `:Forge! release delete`
 
     All other `!` forms fail with `E477: No ! allowed`.
-
-`:Forge pr` [state=...] [repo=...]                                 *:Forge-pr*
-    Open the PR list picker for the collaboration repo. Defaults to open
-    PRs.
-    `state=open`       Show open PRs (default).
-    `state=closed`     Show closed PRs.
-    `state=all`        Show all PRs.
 
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
                                                             *:Forge-pr-create*
@@ -479,13 +461,6 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
     Mark PR `{num}` as ready when supported by the forge.
 
-`:Forge issue` [state=...] [repo=...]                           *:Forge-issue*
-    Open the issue list picker for the collaboration repo. Defaults to
-    open issues.
-    `state=open`       Show open issues (default).
-    `state=closed`     Show closed issues.
-    `state=all`        Show all issues.
-
 `:Forge issue browse` {num} [repo=...]                   *:Forge-issue-browse*
     Open issue `{num}` in the browser.
 
@@ -506,33 +481,12 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge issue edit` {num} [repo=...]                       *:Forge-issue-edit*
     Open the issue edit compose flow for issue `{num}`.
 
-`:Forge ci` [repo=...] [rev=...] [target=...] [all]                *:Forge-ci*
-    Open the CI runs picker. Defaults to the current branch in the repo
-    selected by `targets.ci.repo`. Repo CI runs respect
-    `display.limits.runs` and expose `Load more...` when more runs are
-    available.
-    `all`              Show runs for all branches.
-
 `:Forge ci log` {run-id} [repo=...]                            *:Forge-ci-log*
     Open logs for CI run `{run-id}`.
 
 `:Forge ci watch` {run-id} [repo=...]                        *:Forge-ci-watch*
     Open the forge's live watch view for CI run `{run-id}` when
     supported.
-
-`:Forge branches`                                            *:Forge-branches*
-    Open the local branch picker (|forge-picker-branch|).
-
-`:Forge commits` [{branch}]                                   *:Forge-commits*
-    Open the commit picker for `{branch}`. Defaults to the current branch
-    when omitted (|forge-picker-commit|).
-
-`:Forge worktrees`                                          *:Forge-worktrees*
-    Open the worktree picker (|forge-picker-worktree|).
-
-`:Forge release` [state=...] [repo=...]                       *:Forge-release*
-    Open the release list picker for the collaboration repo
-    (|forge-picker-release|).
 
 `:Forge release browse` {tag} [repo=...]               *:Forge-release-browse*
     Open release `{tag}` in the browser.
@@ -699,8 +653,8 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                              *forge-picker-ci*
-CI PICKER ~ Used for both per-PR checks (`:Forge pr ci {num}`) and repo-wide
-CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
+CI PICKER ~ Used for both per-PR checks (`:Forge pr ci {num}`) and interactive
+repo/current-branch CI routes. Both share the `keys.ci` bindings.
 
 For repo-wide CI runs, Forge fetches an initial page using
 `display.limits.runs`. When more runs are available, the picker shows a
@@ -780,10 +734,14 @@ label-only entries so the top level stays compact, while the nested pickers
 and help docs carry the workflow detail.
 
 Architecture: ~
-- Root `:Forge` entries go through `require('forge.client').open_root()`.
+- Interactive root entries go through `require('forge.client').open_root()`.
 - Nested pickers go through `require('forge.picker').pick()`.
 - `require('forge.client').register()` can replace the root workflow surface.
 - Nested pickers use the built-in `fzf-lua` adapter.
+
+The interactive workflow surface is separate from `:Forge`. Use mappings such
+as `<Plug>(forge)` or Lua entrypoints such as `require('forge').open()` to
+launch it.
 
 Default root route inventory: ~
   `PRs` -> `prs.open`
@@ -1173,7 +1131,7 @@ HEALTH                                                          *forge-health*
 Reports on: ~
 - `git` availability
 - Forge CLI availability (`gh`, `glab`, `tea`)
-- Picker backend (`fzf-lua`) and whether it is active
+- Interactive picker UI backend (`fzf-lua`) availability
 - tree-sitter `yaml` parser availability
 - Custom registered sources and their CLI availability
 

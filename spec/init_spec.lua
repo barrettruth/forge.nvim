@@ -47,7 +47,6 @@ describe('config', function()
     assert.is_true(cfg.confirm.branch_delete)
     assert.is_true(cfg.confirm.worktree_delete)
     assert.same({}, cfg.targets.aliases)
-    assert.equals('current', cfg.targets.ci.repo)
     assert.equals(45, cfg.display.widths.title)
     assert.equals(100, cfg.display.limits.pulls)
     assert.equals(100, cfg.display.limits.commits)
@@ -769,13 +768,6 @@ describe('config validation', function()
     end)
   end)
 
-  it('rejects invalid ci repo policy', function()
-    vim.g.forge = { targets = { ci = { repo = 'fork' } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
   it('accepts target alias and collaboration defaults', function()
     vim.g.forge = {
       targets = {
@@ -783,15 +775,11 @@ describe('config validation', function()
         aliases = {
           work = 'github.com/owner/repo',
         },
-        ci = {
-          repo = 'collaboration',
-        },
       },
     }
     local cfg = forge.config()
     assert.equals('upstream', cfg.targets.default_repo)
     assert.equals('github.com/owner/repo', cfg.targets.aliases.work)
-    assert.equals('collaboration', cfg.targets.ci.repo)
   end)
 
   it('accepts false for individual key binding', function()
