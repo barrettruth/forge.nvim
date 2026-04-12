@@ -5,6 +5,8 @@ CONTENTS                                                 *forge.nvim-contents*
     INTRODUCTION..........................................|forge.nvim| |forge|
     CONFIGURATION...............................................|forge-config|
     `picker`.............................................|forge-config-picker|
+    `client`.............................................|forge-config-client|
+    `context`...........................................|forge-config-context|
     `debug`...............................................|forge-config-debug|
     `split`...............................................|forge-config-split|
     `ci`.....................................................|forge-config-ci|
@@ -109,6 +111,19 @@ Top-level keys: ~
     Picker backend to use. One of `"auto"` or `"fzf-lua"`. When `"auto"`,
     forge.nvim tries fzf-lua.
 
+`client`                                                 *forge-config-client*
+  `string`  (default `"picker"`)
+    Root workflow surface client. The default `"picker"` client opens the
+    built-in root picker. Custom clients can replace the root surface via
+    `require('forge').register_client()`.
+
+`context`                                               *forge-config-context*
+  `string`  (default `"current"`)
+    Named route-resolution context used by the root workflow surface.
+    The built-in `"current"` provider resolves the current git/forge context.
+    Custom providers can be registered via
+    `require('forge').register_context_provider()`.
+
 `debug`                                                   *forge-config-debug*
   `boolean|string`  (default `false`)
     Enable debug logging. When `true`, debug messages are shown via
@@ -131,7 +146,7 @@ Top-level keys: ~
   `ci.split`        `string?`  (default `nil`, inherits from `split`)
     Split direction for CI views. Overrides the global `split`.
 
-`targets`                                             *forge-config-targets*
+`targets`                                               *forge-config-targets*
   `targets.aliases`      `table<string, string>`  (default `{}`)
     Symbolic target aliases used by the normalized `:Forge` command
     modifiers (`repo=`, repo-bearing `rev=`, `target=`, `head=`, and
@@ -274,6 +289,15 @@ Top-level keys: ~
           yank = '<c-y>',
           refresh = '<c-r>',
         },
+        log = {
+          close = 'q',
+          next_step = ']]',
+          prev_step = '[[',
+          next_error = ']e',
+          prev_error = '[e',
+          browse = 'gx',
+          refresh = '<c-r>',
+        },
       }
 <
 
@@ -285,9 +309,12 @@ Top-level keys: ~
   still accepted as a legacy alias.
 
   Additional picker groups:
-    `keys.branch` supports `review`, `delete`, `browse`, `yank`, and `refresh`.
+    `keys.branch` supports `review`, `delete`, `browse`, `yank`, and
+    `refresh`.
     `keys.commit` supports `review`, `browse`, `yank`, and `refresh`.
     `keys.worktree` supports `add`, `delete`, `yank`, and `refresh`.
+    `keys.log` supports `close`, step/error navigation, `browse`, and
+    `refresh` for CI log and summary buffers.
 
 `display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
@@ -323,6 +350,7 @@ Top-level keys: ~
     Key         Default ~
     `pulls`       `100`
     `issues`      `100`
+    `commits`     `100`
     `runs`        `30`
     `releases`    `30`
 
@@ -332,7 +360,7 @@ COMMANDS                                                              *:Forge*
 `:Forge`                                                      *:Forge-no-args*
     Open the root workflow surface (|forge-picker|).
 
-TARGET DEFAULTS AND OVERRIDES                            *forge-target-defaults*
+TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
     `rev=...`, `target=...`, `head=...`, and `base=...`. Explicit target
     modifiers override default policy.
@@ -360,7 +388,7 @@ COMMAND COMPLETION                                  *forge-command-completion*
     - `target=` suggests repo/revision prefixes and leaves path completion
       after `:` for future work
 
-CANONICAL SYNTAX AND COMPATIBILITY                  *forge-command-compatibility*
+CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     The documented `:Forge` interface is the canonical Ex-style form:
     - `family verb`
     - `key=value` modifiers such as `state=closed` or `repo=upstream`
@@ -374,7 +402,7 @@ CANONICAL SYNTAX AND COMPATIBILITY                  *forge-command-compatibility
     - `:Forge pr diff` as a legacy alias for `:Forge pr review`
     - `:Forge browse --root` and `:Forge browse --commit`
 
-BANG SEMANTICS                                           *forge-command-bang*
+BANG SEMANTICS                                            *forge-command-bang*
     `!` is only accepted on mutating commands with an explicit force variant:
     - `:Forge! pr close`
     - `:Forge! issue close`
@@ -382,7 +410,7 @@ BANG SEMANTICS                                           *forge-command-bang*
 
     All other `!` forms fail with `E477: No ! allowed`.
 
-`:Forge pr` [state=...] [repo=...]                              *:Forge-pr*
+`:Forge pr` [state=...] [repo=...]                                 *:Forge-pr*
     Open the PR list picker for the collaboration repo. Defaults to open
     PRs.
     `state=open`       Show open PRs (default).
@@ -390,7 +418,7 @@ BANG SEMANTICS                                           *forge-command-bang*
     `state=all`        Show all PRs.
 
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
-                                                          *:Forge-pr-create*
+                                                            *:Forge-pr-create*
     Create a new PR.
     Default targets: `head=` is the current branch push context and
     `base=` is the collaboration repo default branch.
@@ -400,98 +428,98 @@ BANG SEMANTICS                                           *forge-command-bang*
     `web`              Push and open the forge's web create-PR page.
     `draft fill`       Create draft instantly.
 
-`:Forge pr checkout` {num} [repo=...]                    *:Forge-pr-checkout*
+`:Forge pr checkout` {num} [repo=...]                     *:Forge-pr-checkout*
     Check out the branch for PR `{num}`.
 
-`:Forge pr review` {num} [repo=...]                        *:Forge-pr-review*
+`:Forge pr review` {num} [repo=...]                         *:Forge-pr-review*
     Start a review for PR `{num}` (|forge-review|).
 
 `:Forge pr diff` {num}                                        *:Forge-pr-diff*
     Legacy alias for `:Forge pr review {num}`.
 
-`:Forge pr worktree` {num} [repo=...]                    *:Forge-pr-worktree*
+`:Forge pr worktree` {num} [repo=...]                     *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
 
-`:Forge pr ci` {num} [repo=...]                                *:Forge-pr-ci*
+`:Forge pr ci` {num} [repo=...]                                 *:Forge-pr-ci*
     Open the CI checks picker for PR `{num}`.
 
-`:Forge pr browse` {num} [repo=...]                        *:Forge-pr-browse*
+`:Forge pr browse` {num} [repo=...]                         *:Forge-pr-browse*
     Open PR `{num}` in the browser.
 
-`:Forge pr manage` {num} [repo=...]                        *:Forge-pr-manage*
+`:Forge pr manage` {num} [repo=...]                         *:Forge-pr-manage*
     Open the more picker for PR `{num}` (edit, approve, merge, close,
     reopen, draft toggle).
 
-`:Forge pr approve` {num} [repo=...]                      *:Forge-pr-approve*
+`:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
 
-`:Forge pr merge` {num} [repo=...] [`method=`]            *:Forge-pr-merge*
+`:Forge pr merge` {num} [repo=...] [`method=`]               *:Forge-pr-merge*
     Merge PR `{num}`. When `method=` is omitted, the forge CLI uses its
     default merge behavior.
     `method=merge`     Merge commit.
     `method=squash`    Squash merge.
     `method=rebase`    Rebase merge.
 
-`:Forge pr draft` {num} [repo=...]                          *:Forge-pr-draft*
+`:Forge pr draft` {num} [repo=...]                           *:Forge-pr-draft*
     Mark PR `{num}` as draft when the forge supports draft toggles.
 
-`:Forge pr ready` {num} [repo=...]                          *:Forge-pr-ready*
+`:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
     Mark PR `{num}` as ready for review when supported by the forge.
 
-`:Forge issue` [state=...] [repo=...]                          *:Forge-issue*
+`:Forge issue` [state=...] [repo=...]                           *:Forge-issue*
     Open the issue list picker for the collaboration repo. Defaults to
     open issues.
     `state=open`       Show open issues (default).
     `state=closed`     Show closed issues.
     `state=all`        Show all issues.
 
-`:Forge issue browse` {num} [repo=...]                  *:Forge-issue-browse*
+`:Forge issue browse` {num} [repo=...]                   *:Forge-issue-browse*
     Open issue `{num}` in the browser.
 
-`:Forge issue close` {num} [repo=...]                    *:Forge-issue-close*
+`:Forge issue close` {num} [repo=...]                     *:Forge-issue-close*
     Close issue `{num}`.
 
-`:Forge issue reopen` {num} [repo=...]                  *:Forge-issue-reopen*
+`:Forge issue reopen` {num} [repo=...]                   *:Forge-issue-reopen*
     Reopen issue `{num}`.
 
 `:Forge issue create` [repo=...] [web] [blank] [template=...]
-                                                          *:Forge-issue-create*
+                                                         *:Forge-issue-create*
     Create a new issue.
     (no modifiers)     Open the compose buffer.
     `web`              Open the forge's web create-issue page.
     `blank`            Start from a blank issue template when supported.
     `template=...`     Use the named issue template.
 
-`:Forge ci` [repo=...] [rev=...] [target=...] [all]              *:Forge-ci*
+`:Forge ci` [repo=...] [rev=...] [target=...] [all]                *:Forge-ci*
     Open the CI runs picker. Defaults to the current branch in the repo
     selected by `targets.ci.repo`.
     `all`              Show runs for all branches.
 
-`:Forge ci log` {run-id} [repo=...]                          *:Forge-ci-log*
+`:Forge ci log` {run-id} [repo=...]                            *:Forge-ci-log*
     Open logs for CI run `{run-id}`.
 
-`:Forge ci watch` {run-id} [repo=...]                      *:Forge-ci-watch*
+`:Forge ci watch` {run-id} [repo=...]                        *:Forge-ci-watch*
     Open the forge's live watch view for CI run `{run-id}` when
     supported.
 
-`:Forge branches`                                        *:Forge-branches*
+`:Forge branches`                                            *:Forge-branches*
     Open the local branch picker (|forge-picker-branch|).
 
-`:Forge commits` [{branch}]                              *:Forge-commits*
+`:Forge commits` [{branch}]                                   *:Forge-commits*
     Open the commit picker for `{branch}`. Defaults to the current branch
     when omitted (|forge-picker-commit|).
 
-`:Forge worktrees`                                      *:Forge-worktrees*
+`:Forge worktrees`                                          *:Forge-worktrees*
     Open the worktree picker (|forge-picker-worktree|).
 
-`:Forge release` [state=...] [repo=...]                      *:Forge-release*
+`:Forge release` [state=...] [repo=...]                       *:Forge-release*
     Open the release list picker for the collaboration repo
     (|forge-picker-release|).
 
-`:Forge release browse` {tag} [repo=...]              *:Forge-release-browse*
+`:Forge release browse` {tag} [repo=...]               *:Forge-release-browse*
     Open release `{tag}` in the browser.
 
-`:Forge release delete` {tag} [repo=...]              *:Forge-release-delete*
+`:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
     Delete release `{tag}` (with confirmation prompt).
 
 `:Forge browse` [repo=...] [rev=...] [target=...]              *:Forge-browse*
@@ -504,11 +532,11 @@ BANG SEMANTICS                                           *forge-command-bang*
                        branch. In visual mode, the selected line range is
                        included.
 
-`:Forge review branch` [{branch}]                        *:Forge-review-branch*
+`:Forge review branch` [{branch}]                       *:Forge-review-branch*
     Start a branch review session. Defaults to the current branch and
     compares it against the detected default base branch.
 
-`:Forge review commit` [{sha}]                            *:Forge-review-commit*
+`:Forge review commit` [{sha}]                          *:Forge-review-commit*
     Start a commit review session. Defaults to the current `HEAD` commit
     and compares it against its first parent.
 
@@ -540,7 +568,7 @@ BANG SEMANTICS                                           *forge-command-bang*
 All subcommands support tab completion.
 
 ==============================================================================
-PLUG MAPPINGS                                                    *forge-plug*
+PLUG MAPPINGS                                                     *forge-plug*
 
 forge.nvim exposes stateless |<Plug>| mappings for root launchers, exact
 routes, configurable section aliases, and review actions. They are intended
@@ -563,7 +591,7 @@ normal and visual mode. When invoked in visual mode, contextual browse targets
 include the selected line range just like |:Forge-browse|.
 
 Alias plugs: ~
-                                                          *forge-plug-alias*
+                                                            *forge-plug-alias*
   Mapping                          Modes      Action ~
   `<Plug>(forge)`                    `n`        Open the root picker
   `<Plug>(forge-prs)`                `n`        Open the configured `prs`
@@ -584,7 +612,7 @@ Alias plugs: ~
                                               section route
 
 Exact route plugs: ~
-                                                          *forge-plug-routes*
+                                                           *forge-plug-routes*
   Mapping                                    Modes      Action ~
   `<Plug>(forge-prs-open)`                     `n`        Open open PRs
   `<Plug>(forge-prs-closed)`                   `n`        Open closed PRs
@@ -612,7 +640,7 @@ Exact route plugs: ~
   `<Plug>(forge-worktrees-list)`               `n`        Open worktrees
 
 Review plugs: ~
-                                                          *forge-plug-review*
+                                                           *forge-plug-review*
   Mapping                                  Modes      Action ~
   `<Plug>(forge-review-files)`              `n`        Open the review index
   `<Plug>(forge-review-next-file)`          `n`        Open the next review
@@ -635,11 +663,10 @@ Browse, Releases. Items that require a forge are hidden when no forge is
 detected. Browse file and line targets require a named buffer on a branch.
 
 When using fzf-lua, picker headers use fzf-lua's `FzfLuaHeaderBind` and
-`FzfLuaHeaderText` highlight groups.
-Headers emphasize primary item actions; list controls remain available but are
-not all shown.
-Prompts show workflow context, primary action, and item count. Empty data
-pickers render a placeholder row instead of appearing blank.
+`FzfLuaHeaderText` highlight groups. Headers emphasize primary item actions;
+list controls remain available but are not all shown. Prompts show workflow
+context, primary action, and item count. Empty data pickers render a
+placeholder row instead of appearing blank.
 
                                                              *forge-picker-pr*
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
@@ -671,8 +698,8 @@ CI runs (`:Forge ci`). Both share the `keys.ci` bindings.
 On GitHub, `<cr>` on a run opens a summary buffer showing all jobs with
 status, durations, and annotations. Press `<cr>` on a job line to open its
 full log. On GitLab and Codeberg, in-progress jobs open a live-tailing
-terminal (`glab ci trace`, `tea actions runs logs --follow`); completed
-jobs render in a buffer with highlighting and folds left open by default.
+terminal (`glab ci trace`, `tea actions runs logs --follow`); completed jobs
+render in a buffer with highlighting and folds left open by default.
 
 In-progress views auto-refresh at the `ci.refresh` interval.
 
@@ -734,16 +761,16 @@ prerelease badges are shown for forges that support them (GitHub, Codeberg).
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                          *forge-picker-manage*
-MORE PICKER ~ Contextual actions for a specific PR, shown based on
-permissions and state: Edit, Approve, Merge (per available method: squash,
-rebase, merge), Close/Reopen, Mark as draft/Mark as ready.
+MORE PICKER ~ Contextual actions for a specific PR, shown based on permissions
+and state: Edit, Approve, Merge (per available method: squash, rebase, merge),
+Close/Reopen, Mark as draft/Mark as ready.
 
 ==============================================================================
 WORKFLOW SURFACE                                              *forge-workflow*
 
 `:Forge` is a workflow surface, not just a route list. The root picker uses
-label-only entries so the top level stays compact, while the nested pickers and
-help docs carry the workflow detail.
+label-only entries so the top level stays compact, while the nested pickers
+and help docs carry the workflow detail.
 
 Architecture: ~
 - Root `:Forge` entries go through `require('forge.client').open_root()`.
@@ -887,8 +914,8 @@ Layout: ~
   `<!--`        Metadata comment block (forge, labels, assignees).
   `-->`         End of metadata
 
-Write (`:w`) to create the issue. An empty title or body aborts creation.
-The issue URL is copied to the `+` register on success.
+Write (`:w`) to create the issue. An empty title or body aborts creation. The
+issue URL is copied to the `+` register on success.
 
 Metadata fields: ~
   `Labels:`          Comma or space separated label names.
@@ -1196,16 +1223,20 @@ API                                                                *forge-api*
 PUBLIC API: `require('forge')` ~
                                                               *forge.detect()*
 `detect()`
-    Returns `forge.Forge?`. Detects the forge for the current git
-    repository by inspecting the `origin` remote URL. Returns `nil` if
-    not in a git repo, no matching source, or the CLI is not installed.
-    Results are cached per git root.
+    Detects the forge for the current git repository by inspecting the
+    `origin` remote URL. Returns `nil` if not in a git repo, no matching
+    source, or the CLI is not installed. Results are cached per git root.
+
+    Return: ~
+        (`forge.Forge?`) Detected forge, or `nil`
 
                                                               *forge.config()*
 `config()`
-    Returns `table`. The resolved configuration, merging `vim.g.forge`
-    over defaults. If `vim.g.forge.keys` is `false`, `cfg.keys` is
-    `false`.
+    The resolved configuration, merging `vim.g.forge` over defaults. If
+    `vim.g.forge.keys` is `false`, `cfg.keys` is `false`.
+
+    Return: ~
+        (`table`) Resolved configuration
 
 SHARED OPERATIONS: `require('forge.ops')` ~
     Picker actions and `:Forge` command dispatch share semantic forge
@@ -1217,9 +1248,40 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 `register(name, source)`
     Registers a custom `forge.Forge` source under `name`.
 
+                                                     *forge.register_source()*
+`register_source(name, source)`
+    Alias for `register(name, source)`.
+
+                                                     *forge.register_client()*
+`register_client(name, client)`
+    Registers a custom root workflow surface client under `name`.
+
+                                           *forge.register_context_provider()*
+`register_context_provider(name, provider)`
+    Registers a named route-resolution context provider.
+
+                                                     *forge.register_action()*
+`register_action(name, action)`
+    Registers a custom root workflow action.
+
+                                                          *forge.run_action()*
+`run_action(name, opts?)`
+    Runs a registered action by name.
+
                                                   *forge.registered_sources()*
 `registered_sources()`
-    Returns `table<string, forge.Forge>`. All registered sources.
+    Return: ~
+        (`table<string, forge.Forge>`) All registered sources
+
+                                                                *forge.open()*
+`open(route?, opts?)`
+    Opens the root workflow surface when `route` is omitted, or dispatches
+    the given route/section when provided.
+
+                                                     *forge.current_context()*
+`current_context()`
+    Return: ~
+        (`forge.RouteContext`) Active route-resolution context
 
                                                            *forge.create_pr()*
 `create_pr(opts?)`
@@ -1228,10 +1290,20 @@ SHARED OPERATIONS: `require('forge.ops')` ~
       `instant`   `boolean?`  Skip compose buffer, fill from commits.
       `web`       `boolean?`  Push and open web create page.
 
-                                                       *forge.create_issue()*
+                                                        *forge.create_issue()*
 `create_issue(opts?)`
     Creates an issue. `opts` is `forge.CreateIssueOpts?`:
       `web`       `boolean?`  Open web creation page.
+
+                                                             *forge.edit_pr()*
+`edit_pr(num, ref?)`
+    Opens the PR edit compose flow for PR `num`.
+
+                                                      *forge.template_slugs()*
+`template_slugs()`
+    Return: ~
+        (`string[]`) Available issue template slugs for the detected forge in
+        the current repository
 
                                                          *forge.clear_cache()*
 `clear_cache()`
@@ -1240,19 +1312,67 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 
                                                            *forge.repo_info()*
 `repo_info(f)`
-    Returns `forge.RepoInfo`. Fetches and caches repository info
-    (permissions, merge methods) for forge `f`.
+    Fetches and caches repository info (permissions, merge methods) for forge
+    `f`.
+
+    Return: ~
+        (`forge.RepoInfo`) Repository info for `f`
 
                                                             *forge.file_loc()*
 `file_loc()`
-    Returns `string`. Current buffer file path relative to git root with
-    line number(s). In visual mode, includes the selected line range
-    (e.g. `"src/foo.lua:10-20"`).
+    Current buffer file path relative to git root with line number(s). In
+    visual mode, includes the selected line range (e.g.
+    `"src/foo.lua:10-20"`).
+
+    Return: ~
+        (`string`) Relative file location with line number or range
 
                                                       *forge.remote_web_url()*
 `remote_web_url()`
-    Returns `string`. The HTTPS URL of the `origin` remote, normalized
-    from SSH or git URLs.
+    The HTTPS URL of the `origin` remote, normalized from SSH or git URLs.
+
+    Return: ~
+        (`string`) Normalized remote web URL
+
+                                                      *forge.scope_from_url()*
+`scope_from_url(name, url)`
+    Parses a forge scope from a hosted repo URL.
+
+    Return: ~
+        (`forge.Scope?`) Parsed scope, or `nil`
+
+                                                      *forge.scope_repo_arg()*
+`scope_repo_arg(scope)`
+    Repo argument form for a scope (for example `"owner/repo"` or
+    `"host/owner/repo"`).
+
+    Return: ~
+        (`string?`) Repo argument form for `scope`
+
+                                                           *forge.scope_key()*
+`scope_key(scope)`
+    Stable cache/comparison key for a scope.
+
+    Return: ~
+        (`string`) Stable scope key
+
+                                                       *forge.current_scope()*
+`current_scope(name?)`
+    Scope derived from the current repository's remote URL, optionally
+    forcing the forge name.
+
+    Return: ~
+        (`forge.Scope?`) Current repository scope, or `nil`
+
+                                                         *forge.remote_name()*
+`remote_name(scope)`
+    Return: ~
+        (`string?`) Preferred git remote name for `scope`, when known
+
+                                                          *forge.remote_ref()*
+`remote_ref(scope, branch)`
+    Return: ~
+        (`string?`) Remote tracking ref for `branch` within `scope`
 
                                                           *forge.clear_list()*
 `clear_list(key?)`
@@ -1261,11 +1381,13 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 
                                                             *forge.list_key()*
 `list_key(kind, state)`
-    Returns `string`. Cache key for list data, scoped to git root.
+    Return: ~
+        (`string`) Cache key for list data, scoped to git root
 
                                                             *forge.get_list()*
 `get_list(key)`
-    Returns `table[]?`. Cached list data for `key`.
+    Return: ~
+        (`table[]?`) Cached list data for `key`
 
                                                             *forge.set_list()*
 `set_list(key, data)`
