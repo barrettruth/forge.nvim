@@ -134,6 +134,9 @@ describe('edit_issue', function()
           return {
             title = json.title,
             body = json.body,
+            labels = { 'bug' },
+            assignees = { 'alice' },
+            milestone = 'v1',
           }
         end,
       }
@@ -209,6 +212,9 @@ describe('edit_issue', function()
       details = {
         title = 'Issue title',
         body = 'Issue body',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = 'v1',
       },
       scope = nil,
     }, captured.opened)

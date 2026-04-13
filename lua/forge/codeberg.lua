@@ -358,18 +358,50 @@ end
 ---@param json table
 ---@return forge.PRDetails
 function M:parse_pr_details(json)
+  local labels = {}
+  for _, l in ipairs(json.labels or {}) do
+    table.insert(labels, l.name or '')
+  end
+  local assignees = {}
+  for _, a in ipairs(json.assignees or {}) do
+    table.insert(assignees, a.login or '')
+  end
+  local milestone = ''
+  if type(json.milestone) == 'table' and json.milestone.title then
+    milestone = json.milestone.title
+  end
   return {
     title = json.title or '',
     body = json.body or '',
+    draft = false,
     head_branch = type(json.head) == 'table' and (json.head.ref or '') or json.head or '',
     base_branch = type(json.base) == 'table' and (json.base.ref or '') or json.base or '',
+    labels = labels,
+    assignees = assignees,
+    reviewers = {},
+    milestone = milestone,
   }
 end
 
 function M:parse_issue_details(json)
+  local labels = {}
+  for _, l in ipairs(json.labels or {}) do
+    table.insert(labels, l.name or '')
+  end
+  local assignees = {}
+  for _, a in ipairs(json.assignees or {}) do
+    table.insert(assignees, a.login or '')
+  end
+  local milestone = ''
+  if type(json.milestone) == 'table' and json.milestone.title then
+    milestone = json.milestone.title
+  end
   return {
     title = json.title or '',
     body = json.body or '',
+    labels = labels,
+    assignees = assignees,
+    milestone = milestone,
   }
 end
 
@@ -416,8 +448,6 @@ end
 ---@param title string
 ---@param body string
 ---@param labels string[]?
----@param assignees string[]?
----@param milestone string?
 ---@return string[]
 function M:create_issue_cmd(title, body, labels, ref)
   local cmd =
