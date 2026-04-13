@@ -58,25 +58,25 @@ describe('github', function()
     assert.falsy(vim.tbl_contains(cmd, '--draft'))
   end)
 
-  it('builds issue detail and update commands with metadata diffs', function()
+  it('builds issue detail and simplified issue commands', function()
     local details = gh:fetch_issue_details_cmd('23', { repo_arg = 'owner/repo' })
     assert.same({ 'gh', 'issue', 'view', '23' }, vim.list_slice(details, 1, 4))
     assert.truthy(vim.tbl_contains(details, '--json'))
 
-    local cmd = gh:update_issue_cmd('23', 'title', 'body', { 'bug', 'docs' }, { 'alice' }, '', {
-      labels = { 'bug', 'help wanted' },
-      assignees = { 'bob' },
-      milestone = 'v1',
-    }, { repo_arg = 'owner/repo' })
-    assert.truthy(vim.tbl_contains(cmd, '--add-label'))
-    assert.truthy(vim.tbl_contains(cmd, 'docs'))
-    assert.truthy(vim.tbl_contains(cmd, '--remove-label'))
-    assert.truthy(vim.tbl_contains(cmd, 'help wanted'))
-    assert.truthy(vim.tbl_contains(cmd, '--add-assignee'))
-    assert.truthy(vim.tbl_contains(cmd, 'alice'))
-    assert.truthy(vim.tbl_contains(cmd, '--remove-assignee'))
-    assert.truthy(vim.tbl_contains(cmd, 'bob'))
-    assert.truthy(vim.tbl_contains(cmd, '--remove-milestone'))
+    local create = gh:create_issue_cmd('title', 'body', { 'bug' }, {
+      repo_arg = 'owner/repo',
+    })
+    assert.truthy(vim.tbl_contains(create, '--label'))
+    assert.truthy(vim.tbl_contains(create, 'bug'))
+    assert.falsy(vim.tbl_contains(create, '--assignee'))
+    assert.falsy(vim.tbl_contains(create, '--milestone'))
+
+    local cmd = gh:update_issue_cmd('23', 'title', 'body', { repo_arg = 'owner/repo' })
+    assert.falsy(vim.tbl_contains(cmd, '--add-label'))
+    assert.falsy(vim.tbl_contains(cmd, '--remove-label'))
+    assert.falsy(vim.tbl_contains(cmd, '--add-assignee'))
+    assert.falsy(vim.tbl_contains(cmd, '--remove-assignee'))
+    assert.falsy(vim.tbl_contains(cmd, '--remove-milestone'))
   end)
 
   it('adds draft flag to create_pr_cmd', function()
@@ -307,24 +307,26 @@ describe('gitlab', function()
     assert.truthy(vim.tbl_contains(cmd, '--yes'))
   end)
 
-  it('builds issue detail and update commands', function()
+  it('builds issue detail and simplified issue commands', function()
     local details = gl:fetch_issue_details_cmd('23', { repo_arg = 'group/repo' })
     assert.same(
       { 'glab', 'issue', 'view', '23', '--output', 'json' },
       vim.list_slice(details, 1, 6)
     )
 
-    local cmd = gl:update_issue_cmd('23', 'title', 'body', { 'bug', 'docs' }, {}, '', {
-      labels = { 'bug', 'help wanted' },
-      assignees = { 'bob' },
-      milestone = 'v1',
-    }, { repo_arg = 'group/repo' })
-    assert.truthy(vim.tbl_contains(cmd, '--label'))
-    assert.truthy(vim.tbl_contains(cmd, 'docs'))
-    assert.truthy(vim.tbl_contains(cmd, '--unlabel'))
-    assert.truthy(vim.tbl_contains(cmd, 'help wanted'))
-    assert.truthy(vim.tbl_contains(cmd, '--unassign'))
-    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    local create = gl:create_issue_cmd('title', 'body', { 'bug' }, {
+      repo_arg = 'group/repo',
+    })
+    assert.truthy(vim.tbl_contains(create, '--label'))
+    assert.truthy(vim.tbl_contains(create, 'bug'))
+    assert.falsy(vim.tbl_contains(create, '--assignee'))
+    assert.falsy(vim.tbl_contains(create, '--milestone'))
+
+    local cmd = gl:update_issue_cmd('23', 'title', 'body', { repo_arg = 'group/repo' })
+    assert.falsy(vim.tbl_contains(cmd, '--label'))
+    assert.falsy(vim.tbl_contains(cmd, '--unlabel'))
+    assert.falsy(vim.tbl_contains(cmd, '--unassign'))
+    assert.falsy(vim.tbl_contains(cmd, '--milestone'))
   end)
 
   it('returns correct pr_json_fields', function()
@@ -420,20 +422,22 @@ describe('codeberg', function()
     assert.truthy(default_cmd[3]:find('/repos/{owner}/{repo}', 1, true))
   end)
 
-  it('builds issue update commands for tea', function()
-    local cmd = cb:update_issue_cmd('23', 'title', 'body', { 'bug', 'docs' }, { 'alice' }, '', {
-      labels = { 'bug', 'help wanted' },
-      assignees = {},
-      milestone = 'v1',
-    }, { repo_arg = 'forgejo/tea-test' })
+  it('builds simplified issue commands for tea', function()
+    local create = cb:create_issue_cmd('title', 'body', { 'bug' }, {
+      repo_arg = 'forgejo/tea-test',
+    })
+    assert.same({ 'tea', 'issues', 'create', '--title', 'title' }, vim.list_slice(create, 1, 5))
+    assert.truthy(vim.tbl_contains(create, '--labels'))
+    assert.truthy(vim.tbl_contains(create, 'bug'))
+    assert.falsy(vim.tbl_contains(create, '--assignees'))
+    assert.falsy(vim.tbl_contains(create, '--milestone'))
+
+    local cmd = cb:update_issue_cmd('23', 'title', 'body', { repo_arg = 'forgejo/tea-test' })
     assert.same({ 'tea', 'issues', 'edit', '23' }, vim.list_slice(cmd, 1, 4))
-    assert.truthy(vim.tbl_contains(cmd, '--add-labels'))
-    assert.truthy(vim.tbl_contains(cmd, 'docs'))
-    assert.truthy(vim.tbl_contains(cmd, '--remove-labels'))
-    assert.truthy(vim.tbl_contains(cmd, 'help wanted'))
-    assert.truthy(vim.tbl_contains(cmd, '--add-assignees'))
-    assert.truthy(vim.tbl_contains(cmd, 'alice'))
-    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.falsy(vim.tbl_contains(cmd, '--add-labels'))
+    assert.falsy(vim.tbl_contains(cmd, '--remove-labels'))
+    assert.falsy(vim.tbl_contains(cmd, '--add-assignees'))
+    assert.falsy(vim.tbl_contains(cmd, '--milestone'))
   end)
 
   it('uses tea releases commands for release list and delete', function()

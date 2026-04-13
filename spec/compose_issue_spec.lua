@@ -100,13 +100,11 @@ describe('compose issue create', function()
     local compose = require('forge.compose')
     local f = {
       name = 'github',
-      create_issue_cmd = function(_, title, body, labels, assignees, milestone, ref)
+      create_issue_cmd = function(_, title, body, labels, _assignees, _milestone, ref)
         captured.args = {
           title = title,
           body = body,
           labels = labels,
-          assignees = assignees,
-          milestone = milestone,
           ref = ref,
         }
         return { 'create-issue', title, body }
@@ -116,6 +114,10 @@ describe('compose issue create', function()
     compose.open_issue(f)
 
     local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_false(vim.tbl_contains(lines, '  Labels: '))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: '))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# test issue' })
     vim.cmd('write')
 
@@ -127,13 +129,52 @@ describe('compose issue create', function()
       title = 'test issue',
       body = '',
       labels = {},
-      assignees = {},
-      milestone = '',
       ref = nil,
     }, captured.args)
     assert.equals(1, captured.cleared)
     assert.same({}, captured.warns)
     assert.same({}, captured.errors)
+  end)
+
+  it('keeps template labels without rendering editable metadata', function()
+    local compose = require('forge.compose')
+    local f = {
+      name = 'github',
+      create_issue_cmd = function(_, title, body, labels, _assignees, _milestone, ref)
+        captured.args = {
+          title = title,
+          body = body,
+          labels = labels,
+          ref = ref,
+        }
+        return { 'create-issue', title, body }
+      end,
+    }
+
+    compose.open_issue(f, {
+      title = 'template issue',
+      body = '',
+      labels = { 'bug' },
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_false(vim.tbl_contains(lines, '  Labels: bug'))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: '))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
+    vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# template issue done' })
+    vim.cmd('write')
+
+    vim.wait(100, function()
+      return captured.args ~= nil and captured.cleared == 1
+    end)
+
+    assert.same({
+      title = 'template issue done',
+      body = '',
+      labels = { 'bug' },
+      ref = nil,
+    }, captured.args)
   end)
 
   it('submits issues when the clipboard register is unavailable', function()
@@ -272,7 +313,7 @@ describe('compose issue edit', function()
     vim.cmd('enew!')
   end)
 
-  it('submits issue edits with updated metadata and an empty body', function()
+  it('submits issue edits with an empty body', function()
     local compose = require('forge.compose')
     local original = {
       title = 'existing issue',
@@ -283,15 +324,21 @@ describe('compose issue edit', function()
     }
     local f = {
       name = 'github',
-      update_issue_cmd = function(_, num, title, body, labels, assignees, milestone, details, ref)
+      update_issue_cmd = function(
+        _,
+        num,
+        title,
+        body,
+        _labels,
+        _assignees,
+        _milestone,
+        _details,
+        ref
+      )
         captured.args = {
           num = num,
           title = title,
           body = body,
-          labels = labels,
-          assignees = assignees,
-          milestone = milestone,
-          details = details,
           ref = ref,
         }
         return { 'update-issue', num, title, body }
@@ -301,20 +348,11 @@ describe('compose issue edit', function()
     compose.open_issue_edit(f, '42', original)
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-      '# updated issue',
-      '',
-      '',
-      '<!--',
-      '  Editing issue #42 via github.',
-      '',
-      '  Labels: bug, docs',
-      '  Assignees: alice, bob',
-      '  Milestone: v2',
-      '',
-      '  An empty title aborts editing.',
-      '-->',
-    })
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_false(vim.tbl_contains(lines, '  Labels: bug'))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: alice'))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: v1'))
+    vim.api.nvim_buf_set_lines(buf, 0, 3, false, { '# updated issue', '', '' })
     vim.cmd('write')
 
     vim.wait(100, function()
@@ -325,10 +363,6 @@ describe('compose issue edit', function()
       num = '42',
       title = 'updated issue',
       body = '',
-      labels = { 'bug', 'docs' },
-      assignees = { 'alice', 'bob' },
-      milestone = 'v2',
-      details = original,
       ref = nil,
     }, captured.args)
     assert.equals(1, captured.cleared)
