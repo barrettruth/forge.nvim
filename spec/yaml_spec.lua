@@ -219,8 +219,17 @@ describe('render', function()
     assert.same({ 'bug' }, result.labels)
   end)
 
+  it('returns assignees', function()
+    local result = yaml.render({ assignees = { 'alice', 'bob' }, body = {} })
+    assert.same({ 'alice', 'bob' }, result.assignees)
+  end)
+
   it('wraps string labels into table', function()
     assert.same({ 'bug' }, yaml.render({ labels = 'bug', body = {} }).labels)
+  end)
+
+  it('wraps string assignees into table', function()
+    assert.same({ 'alice' }, yaml.render({ assignees = 'alice', body = {} }).assignees)
   end)
 
   describe('bug_report.yaml end-to-end', function()
