@@ -44,8 +44,8 @@ luarocks install forge.nvim
 ## Optional picker bindings
 
 Picker-style workflows are separate from the action-oriented `:Forge` command
-surface. For modern Neovim config, bind them with `require('forge').open()`
-or the provided `<Plug>` mappings:
+surface. For modern Neovim config, bind them with `require('forge').open()` or
+the provided `<Plug>` mappings:
 
 ```lua
 vim.keymap.set('n', '<leader>gg', function()
