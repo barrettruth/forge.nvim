@@ -7,13 +7,13 @@ without leaving your editor.
 
 ## Features
 
-- Automatic forge detection from git remote (`gh`, `glab`, `tea`)
-- PR lifecycle: list, create, checkout, worktree,, merge, approve, and more
-- Issue management: list, browse, close/reopen, state filtering
-- CI/CD: view runs per-branch or repo-wide, stream logs, filter by status
-- Local git sections for branches, commits, and worktrees with branch/commit
-  `git show`, switching, and forge web actions
-- File/line permalink generation and yanking
+- Pull request workflows: list, create, checkout, edit, worktree, merge,
+  approve, draft/ready
+- Issue workflows: list, create, edit, browse, close/reopen
+- CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
+- Local git sections for branches, commits, and worktrees
+- Forge web browsing and file/line permalinks
+- Automatic forge detection from git remote via `gh`, `glab`, or `tea`
 
 ## Requirements
 
@@ -28,9 +28,8 @@ Optional:
 - [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive picker
   workflows
 
-Direct `:Forge` action commands work without `fzf-lua`. Install it if you want
-the interactive picker UI opened by mappings such as `<Plug>(forge)` or
-`require('forge').open()`.
+Direct `:Forge` action commands work without `fzf-lua`. Install it only if you
+want the interactive picker UI.
 
 ## Installation
 
@@ -41,36 +40,26 @@ Install with your package manager of choice or via
 luarocks install forge.nvim
 ```
 
-## Optional picker bindings
+## Usage
 
-Picker-style workflows are separate from the action-oriented `:Forge` command
-surface. For modern Neovim config, bind them with `require('forge').open()` or
-the provided `<Plug>` mappings:
+Use direct commands for action-oriented workflows:
+
+```vim
+:Forge pr create
+:Forge pr checkout 123
+:Forge issue create
+:Forge issue edit 42
+:Forge ci log 456
+```
+
+If you use `fzf-lua`, you can also bind the picker surface with
+`require('forge').open()`:
 
 ```lua
 vim.keymap.set('n', '<leader>gg', function()
   require('forge').open()
 end, { desc = 'forge' })
-
-vim.keymap.set('n', '<leader>gp', function()
-  require('forge').open('prs')
-end, { desc = 'forge prs' })
-
-vim.keymap.set('n', '<leader>gi', function()
-  require('forge').open('issues')
-end, { desc = 'forge issues' })
-
-vim.keymap.set('n', '<leader>gc', function()
-  require('forge').open('ci')
-end, { desc = 'forge ci' })
-
-vim.keymap.set({ 'n', 'x' }, '<leader>gB', function()
-  require('forge').open('browse')
-end, { desc = 'forge browse' })
 ```
-
-Use `:Forge` itself for direct action commands such as `:Forge pr create`,
-`:Forge pr checkout 123`, or `:Forge ci log 456`.
 
 ## Documentation
 

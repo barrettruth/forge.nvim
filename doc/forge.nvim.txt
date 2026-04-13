@@ -998,9 +998,29 @@ Fields: ~
                                  `pr_one = string, pr_full = string,`
                                  `ci = string }` -- display labels.
   `capabilities`   `table`        Feature flags (see |forge-compatibility|):
-                                 `draft`           Create/toggle draft PRs.
+                                 `draft`           Draft PR support.
+                                 `reviewers`       Reviewer support.
                                  `per_pr_checks`   CI checks scoped to a PR.
                                  `ci_json`         Structured CI run data.
+  `submission`     `table?`       Optional per-kind create/update metadata
+                                 support table:
+                                 `{ issue = { create = {...},`
+                                 `update = {...} },`
+                                 `pr = { create = {...},`
+                                 `update = {...} } }`
+                                 with supported keys:
+                                 `labels`, `assignees`, `milestone`, `draft`,
+                                 `reviewers`.
+  `pr_fields`      `table`        PR field name mapping:
+                                 `{ number, title, branch, state,`
+                                 `author, created_at }`.
+  `issue_fields`   `table`        Issue field name mapping:
+                                 `{ number, title, state, author,`
+                                 `created_at }`.
+  `release_fields` `table`        Release field name mapping:
+                                 `{ tag, title, is_draft?,`
+                                 `is_prerelease?, is_latest?,`
+                                 `published_at }`.
 
 Required methods: ~
 
@@ -1009,33 +1029,17 @@ All methods receive `self` as the first argument (use `:` syntax).
   Method                              Returns ~
   `list_pr_json_cmd(state)`             `string[]` cmd to list PRs as JSON.
   `list_issue_json_cmd(state)`          `string[]` cmd to list issues as JSON.
-  `pr_json_fields()`                    `table` field name mapping:
-                                        `{ number, title, branch, state,`
-                                        `author, created_at }`.
-  `issue_json_fields()`                 `table` field name mapping:
-                                        `{ number, title, state, author,`
-                                        `created_at }`.
   `view_web(kind, num)`                 Opens PR/issue in browser.
   `browse(loc, branch)`                 Opens file location on remote.
-  `browse_root()`                       Opens repo root in browser.
-  `browse_branch(branch)`              Opens branch in browser.
-  `browse_commit(sha)`                 Opens commit in browser.
+  `browse_branch(branch)`               Opens branch in browser.
+  `browse_commit(sha)`                  Opens commit in browser.
   `checkout_cmd(num)`                   `string[]` cmd to checkout a PR.
   `fetch_pr(num)`                       `string[]` git fetch refspec for PR.
   `pr_base_cmd(num)`                    `string[]` cmd returning base branch.
-  `pr_for_branch_cmd(branch)`          `string[]` cmd returning PR number
+  `pr_for_branch_cmd(branch)`           `string[]` cmd returning PR number
                                         for a branch (empty = no PR).
   `checks_cmd(num)`                     `string` shell command for checks.
   `check_log_cmd(run_id, failed, id?)`  `string[]` cmd to view check log.
-  `steps_cmd(run_id)`                   `string[]?` cmd to fetch step JSON.
-  `view_cmd(id, opts?)`                `string[]?` cmd to view a run/job.
-                                        `opts`: `{ job_id?, log?, failed? }`.
-  `watch_cmd(id)`                       `string[]?` cmd to live-watch a run
-                                        in a terminal.
-  `run_status_cmd(id)`                  `string[]?` cmd returning JSON with
-                                        `status` and `conclusion` fields.
-  `live_tail_cmd(run_id, job_id?)`     `string[]?` cmd to live-tail a
-                                        specific job in a terminal.
   `list_runs_cmd(branch?)`             `string` shell command for CI runs.
   `normalize_run(entry)`                `forge.CIRun` normalized run entry.
   `run_log_cmd(id, failed_only)`       `string[]` cmd to view run log.
@@ -1052,9 +1056,13 @@ All methods receive `self` as the first argument (use `:` syntax).
   `close_issue_cmd(num)`               `string[]` cmd to close issue.
   `reopen_issue_cmd(num)`              `string[]` cmd to reopen issue.
   `create_pr_cmd(title, body,`          `string[]` cmd to create a PR.
-    `base, draft)`
+    `base, draft, scope?, metadata?)`
+  `update_pr_cmd(num, title, body,`     `string[]` cmd to update a PR.
+    `scope?, metadata?, previous?)`
   `create_issue_cmd(title, body,`       `string[]` cmd to create an issue.
-    `labels?, assignees?)`
+    `labels?, scope?, metadata?)`
+  `update_issue_cmd(num, title, body,`  `string[]` cmd to update an issue.
+    `scope?, metadata?, previous?)`
   `issue_template_paths()`              `string[]` repo-relative paths to
                                         issue templates.
   `default_branch_cmd()`                `string[]` cmd returning default
@@ -1065,16 +1073,23 @@ All methods receive `self` as the first argument (use `:` syntax).
                                         Return `nil` if unsupported.
   `list_releases_json_cmd()`           `string[]` cmd to list releases as
                                         JSON.
-  `release_json_fields()`              `table` field name mapping:
-                                        `{ tag, title, is_draft?,`
-                                        `is_prerelease?, is_latest?,`
-                                        `published_at }`.
   `browse_release(tag)`                Opens release in browser.
   `delete_release_cmd(tag)`            `string[]` cmd to delete release.
 
 Optional methods: ~
 
   Method                              Fallback ~
+  `steps_cmd(run_id)`                   `string[]?` cmd to fetch step JSON.
+  `view_cmd(id, opts?)`                `string[]?` cmd to view a run/job.
+                                        `opts`: `{ job_id?, log?, failed? }`.
+  `summary_json_cmd(id)`               `string[]?` JSON summary cmd for
+                                        richer CI/checks views.
+  `watch_cmd(id)`                       `string[]?` cmd to live-watch a run
+                                        in a terminal.
+  `run_status_cmd(id)`                  `string[]?` cmd returning JSON with
+                                        `status` and `conclusion` fields.
+  `live_tail_cmd(run_id, job_id?)`     `string[]?` cmd to live-tail a
+                                        specific job in a terminal.
   `list_runs_json_cmd(branch?)`        `string[]` JSON CI list cmd.
                                         If absent, Forge reports that
                                         structured CI data is unavailable
@@ -1085,9 +1100,14 @@ Optional methods: ~
                                         for that source.
   `create_pr_web_cmd()`                `string[]?` cmd to open web PR
                                         creation. Return `nil` to no-op.
+  `create_pr_web_url()`                `string?` URL for web PR creation.
+                                        Used when no command is needed.
   `create_issue_web_cmd()`             `string[]?` cmd to open web issue
                                         creation. If absent, falls back
                                         to opening `{remote}/issues/new`.
+  `create_issue_web_url()`             `string?` URL for web issue
+                                        creation. Used when no command is
+                                        needed.
 
 Skeleton: >lua
     local M = {
@@ -1103,6 +1123,7 @@ Skeleton: >lua
       },
       capabilities = {
         draft = false,
+        reviewers = false,
         per_pr_checks = false,
         ci_json = false,
       },
