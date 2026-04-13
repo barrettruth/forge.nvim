@@ -239,9 +239,9 @@ Top-level keys: ~
           ci = '<c-t>',
           browse = '<c-x>',
           edit = '<c-e>',
-          approve = '<c-a>',
+          approve = '<c-y>',
           merge = '<c-g>',
-          create = '<c-n>',
+          create = '<c-a>',
           close = '<c-s>',
           draft = '<c-d>',
           filter = '<tab>',
@@ -654,9 +654,9 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
   `ci`          `<c-t>`          Open CI checks picker for this PR
   `browse`      `<c-x>`          Open PR in browser
   `edit`        `<c-e>`          Edit the selected PR
-  `approve`     `<c-a>`          Approve the selected PR
+  `approve`     `<c-y>`          Approve the selected PR
   `merge`       `<c-g>`          Merge the selected PR
-  `create`      `<c-n>`          Create new PR (|forge-compose|)
+  `create`      `<c-a>`          Create new PR (|forge-compose|)
   `close`       `<c-s>`          Close or reopen the selected PR
   `draft`       `<c-d>`          Toggle draft/ready for the selected PR
   `filter`      `<tab>`          Cycle state: open -> closed -> all
