@@ -190,7 +190,8 @@ Top-level keys: ~
 
 `sections`                                             *forge-config-sections*
   `table<string, boolean>`  (default shown below)
-    Toggle root picker sections. Enabled sections appear in `:Forge`.
+    Toggle root picker sections. Enabled sections appear in the interactive
+    root picker opened by `require('forge').open()` or `<Plug>(forge)`.
 
   Defaults: >lua
       sections = {
@@ -552,6 +553,18 @@ Examples: >lua
     vim.keymap.set({'n', 'x'}, '<leader>gb', '<Plug>(forge-browse-contextual)')
 <
 
+Equivalent Lua bindings: >lua
+    vim.keymap.set('n', '<leader>gf', function()
+      require('forge').open()
+    end)
+    vim.keymap.set('n', '<leader>gP', function()
+      require('forge').open('prs')
+    end)
+    vim.keymap.set({'n', 'x'}, '<leader>gb', function()
+      require('forge').open('browse')
+    end)
+<
+
 Alias plugs call `require('forge').open()` with the section name (`"prs"`,
 `"issues"`, etc.), so they respect `vim.g.forge.routes`. Exact route plugs
 call `require('forge').open()` with the full route name and ignore route
@@ -564,7 +577,7 @@ include the selected line range just like |:Forge-browse|.
 Alias plugs: ~
                                                             *forge-plug-alias*
   Mapping                          Modes      Action ~
-  `<Plug>(forge)`                    `n`        Open the root picker
+  `<Plug>(forge)`                    `n`        Open the root workflow surface
   `<Plug>(forge-prs)`                `n`        Open the configured `prs`
                                               section route
   `<Plug>(forge-issues)`             `n`        Open the configured `issues`
@@ -729,19 +742,17 @@ prerelease badges are shown for forges that support them (GitHub, Codeberg).
 ==============================================================================
 WORKFLOW SURFACE                                              *forge-workflow*
 
-`:Forge` is a workflow surface, not just a route list. The root picker uses
-label-only entries so the top level stays compact, while the nested pickers
-and help docs carry the workflow detail.
+The interactive workflow surface is separate from the action-oriented `:Forge`
+command interface. Open it with `<Plug>(forge)` or
+`require('forge').open()`. The root picker uses label-only entries so the top
+level stays compact, while nested pickers and help docs carry the workflow
+detail.
 
 Architecture: ~
 - Interactive root entries go through `require('forge.client').open_root()`.
 - Nested pickers go through `require('forge.picker').pick()`.
 - `require('forge.client').register()` can replace the root workflow surface.
 - Nested pickers use the built-in `fzf-lua` adapter.
-
-The interactive workflow surface is separate from `:Forge`. Use mappings such
-as `<Plug>(forge)` or Lua entrypoints such as `require('forge').open()` to
-launch it.
 
 Default root route inventory: ~
   `PRs` -> `prs.open`
