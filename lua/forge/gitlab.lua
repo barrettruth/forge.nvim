@@ -416,34 +416,6 @@ function M:parse_issue_details(json)
   }
 end
 
----@param field string
----@return string[]?
-function M:completion_cmd(field, ref)
-  if field == 'mentions' then
-    return {
-      'sh',
-      '-c',
-      'glab api --hostname '
-        .. (hostname(ref) or 'gitlab.com')
-        .. " 'projects/"
-        .. project(ref)
-        .. "/members/all?per_page=100' | jq -r '.[].username'",
-    }
-  elseif field == 'issues' then
-    return {
-      'sh',
-      '-c',
-      "glab issue list --per-page 50 -F json -R '"
-        .. repo_arg(ref)
-        .. "' | jq -r '.[] | \"\\(.iid)\\t\\(.title)\"'"
-        .. " && glab mr list --per-page 50 -F json -R '"
-        .. repo_arg(ref)
-        .. "' | jq -r '.[] | \"\\(.iid)\\t\\(.title)\"'",
-    }
-  end
-  return nil
-end
-
 ---@param title string
 ---@param body string
 ---@param base string
