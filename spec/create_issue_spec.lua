@@ -14,6 +14,7 @@ describe('create_issue', function()
       infos = {},
       systems = {},
       open_urls = {},
+      warnings = {},
     }
 
     old_fn_system = vim.fn.system
@@ -200,54 +201,46 @@ describe('create_issue', function()
     package.loaded['forge.template'] = nil
   end)
 
-  it('offers Blank Issue alongside a single yaml template', function()
+  it('opens a blank issue compose instead of prompting when multiple templates exist', function()
     package.preload['forge.template'] = function()
       return {
-        entries = function()
-          return {
-            {
-              name = 'bug_report.yaml',
-              display = 'Bug Report',
-              is_yaml = true,
-              dir = '/repo/.github/ISSUE_TEMPLATE',
-            },
-          }
-        end,
-        load = function()
+        discover = function()
           return nil,
-            'tree-sitter yaml parser not found; install it to use YAML issue form templates'
+            {
+              {
+                name = 'bug_report.md',
+                display = 'Bug Report',
+                is_yaml = false,
+                dir = '/repo/.github/ISSUE_TEMPLATE',
+              },
+              {
+                name = 'feature_request.md',
+                display = 'Feature Request',
+                is_yaml = false,
+                dir = '/repo/.github/ISSUE_TEMPLATE',
+              },
+            },
+            nil
         end,
       }
     end
 
     require('forge').create_issue()
 
-    assert.is_not_nil(captured.picker)
-    assert.same('Bug Report', captured.picker.entries[1].display[1][1])
-    assert.same('Blank Issue', captured.picker.entries[2].display[1][1])
-    captured.picker.actions[1].fn(captured.picker.entries[2])
     assert.equals(1, captured.opened_calls)
     assert.is_nil(captured.opened)
+    assert.is_nil(captured.picker)
     assert.same({}, captured.errors)
   end)
 
   it(
-    'logs an error instead of opening a blank issue when a selected yaml template fails to load',
+    'logs an error instead of opening an issue when the discovered template fails to load',
     function()
       package.preload['forge.template'] = function()
         return {
-          entries = function()
-            return {
-              {
-                name = 'bug_report.yaml',
-                display = 'Bug Report',
-                is_yaml = true,
-                dir = '/repo/.github/ISSUE_TEMPLATE',
-              },
-            }
-          end,
-          load = function()
+          discover = function()
             return nil,
+              nil,
               'tree-sitter yaml parser not found; install it to use YAML issue form templates'
           end,
         }
@@ -255,10 +248,8 @@ describe('create_issue', function()
 
       require('forge').create_issue()
 
-      assert.is_not_nil(captured.picker)
-      captured.picker.actions[1].fn(captured.picker.entries[1])
-
       assert.is_nil(captured.opened_calls)
+      assert.is_nil(captured.picker)
       assert.same(
         { 'tree-sitter yaml parser not found; install it to use YAML issue form templates' },
         captured.errors
@@ -266,9 +257,7 @@ describe('create_issue', function()
     end
   )
 
-  it('preserves back on the issue template picker', function()
-    local back_calls = 0
-
+  it('uses an explicit issue template slug without invoking the picker', function()
     package.preload['forge.template'] = function()
       return {
         entries = function()
@@ -279,28 +268,26 @@ describe('create_issue', function()
               is_yaml = false,
               dir = '/repo/.github/ISSUE_TEMPLATE',
             },
+            {
+              name = 'feature_request.md',
+              display = 'Feature Request',
+              is_yaml = false,
+              dir = '/repo/.github/ISSUE_TEMPLATE',
+            },
           }
         end,
-        load = function()
-          return { body = 'template' }
+        load = function(entry)
+          return { body = entry.display }
         end,
       }
     end
 
-    require('forge').create_issue({
-      back = function()
-        back_calls = back_calls + 1
-      end,
-    })
+    require('forge').create_issue({ template = 'feature_request' })
 
-    assert.is_not_nil(captured.picker)
-    assert.same('Bug Report', captured.picker.entries[1].display[1][1])
-    assert.same('Blank Issue', captured.picker.entries[2].display[1][1])
-    assert.is_function(captured.picker.back)
-
-    captured.picker.back()
-
-    assert.equals(1, back_calls)
+    assert.equals(1, captured.opened_calls)
+    assert.same({ body = 'Feature Request' }, captured.opened)
+    assert.is_nil(captured.picker)
+    assert.same({}, captured.errors)
   end)
 
   it('reports success when the web issue command succeeds', function()

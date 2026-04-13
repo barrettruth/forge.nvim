@@ -507,61 +507,17 @@ function M.create_pr(opts)
               log.error(err)
               return
             end
-            if tmpl or not templates then
-              compose_mod.open_pr(
-                f,
-                branch,
-                base,
-                draft,
-                tmpl,
-                base_scope,
-                push_to,
-                target_ref,
-                head_ref
-              )
-            else
-              local picker = require('forge.picker')
-              local entries = {}
-              for _, t in ipairs(templates) do
-                table.insert(entries, {
-                  display = { { t.display } },
-                  value = t,
-                  ordinal = t.display,
-                })
-              end
-              picker.pick({
-                prompt = f.labels.pr_one .. ' Template> ',
-                entries = entries,
-                actions = {
-                  {
-                    name = 'default',
-                    label = 'use',
-                    fn = function(entry)
-                      if entry then
-                        local template, load_err = template_mod.load(entry.value)
-                        if load_err then
-                          log.error(load_err)
-                          return
-                        end
-                        compose_mod.open_pr(
-                          f,
-                          branch,
-                          base,
-                          draft,
-                          template,
-                          base_scope,
-                          push_to,
-                          target_ref,
-                          head_ref
-                        )
-                      end
-                    end,
-                  },
-                },
-                picker_name = '_menu',
-                back = opts.back,
-              })
-            end
+            compose_mod.open_pr(
+              f,
+              branch,
+              base,
+              draft,
+              templates and nil or tmpl,
+              base_scope,
+              push_to,
+              target_ref,
+              head_ref
+            )
           end
         end)
       end)
@@ -671,71 +627,32 @@ function M.create_issue(opts)
   end
 
   local root = git_root() or ''
-  local templates = template_mod.entries(f:issue_template_paths(), root)
-
-  if opts.template and templates then
-    local slug = opts.template:lower()
-    for _, t in ipairs(templates) do
-      if t.name:gsub('%.ya?ml$', ''):gsub('%.md$', ''):lower() == slug then
-        local template, load_err = template_mod.load(t)
-        if load_err then
-          log.error(load_err)
+  if opts.template then
+    local templates = template_mod.entries(f:issue_template_paths(), root)
+    if templates then
+      local slug = opts.template:lower()
+      for _, t in ipairs(templates) do
+        if t.name:gsub('%.ya?ml$', ''):gsub('%.md$', ''):lower() == slug then
+          local template, load_err = template_mod.load(t)
+          if load_err then
+            log.error(load_err)
+            return
+          end
+          compose_mod.open_issue(f, template, ref)
           return
         end
-        compose_mod.open_issue(f, template, ref)
-        return
       end
     end
     log.warn('template not found: ' .. opts.template)
     return
   end
 
-  if not templates then
-    compose_mod.open_issue(f, nil, ref)
+  local template, templates, err = template_mod.discover(f:issue_template_paths(), root)
+  if err then
+    log.error(err)
     return
   end
-
-  local picker = require('forge.picker')
-  local entries = {}
-  for _, t in ipairs(templates) do
-    table.insert(entries, {
-      display = { { t.display } },
-      value = t,
-      ordinal = t.display,
-    })
-  end
-  table.insert(entries, {
-    display = { { 'Blank Issue' } },
-    value = nil,
-    ordinal = 'Blank Issue',
-    blank = true,
-  })
-  picker.pick({
-    prompt = 'Issue Template> ',
-    entries = entries,
-    actions = {
-      {
-        name = 'default',
-        label = 'use',
-        fn = function(entry)
-          if entry then
-            if entry.blank then
-              compose_mod.open_issue(f, nil, ref)
-              return
-            end
-            local template, load_err = template_mod.load(entry.value)
-            if load_err then
-              log.error(load_err)
-              return
-            end
-            compose_mod.open_issue(f, template, ref)
-          end
-        end,
-      },
-    },
-    picker_name = '_menu',
-    back = opts.back,
-  })
+  compose_mod.open_issue(f, templates and nil or template, ref)
 end
 
 function M.template_slugs()
