@@ -676,11 +676,17 @@ describe('codeberg', function()
   end)
 
   it('builds simplified issue commands for tea', function()
-    local create = cb:create_issue_cmd('title', 'body', { 'bug' }, { repo_arg = 'forgejo/tea-test' }, {
-      labels = { 'bug' },
-      assignees = { 'alice' },
-      milestone = 'v1',
-    })
+    local create = cb:create_issue_cmd(
+      'title',
+      'body',
+      { 'bug' },
+      { repo_arg = 'forgejo/tea-test' },
+      {
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = 'v1',
+      }
+    )
     assert.same({ 'tea', 'issues', 'create', '--title', 'title' }, vim.list_slice(create, 1, 5))
     assert.truthy(vim.tbl_contains(create, '--labels'))
     assert.truthy(vim.tbl_contains(create, 'bug'))

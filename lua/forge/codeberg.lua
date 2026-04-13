@@ -24,8 +24,20 @@ local M = {
       update = { labels = true, assignees = false, milestone = true },
     },
     pr = {
-      create = { draft = false, reviewers = false, labels = true, assignees = true, milestone = true },
-      update = { draft = false, reviewers = true, labels = true, assignees = false, milestone = true },
+      create = {
+        draft = false,
+        reviewers = false,
+        labels = true,
+        assignees = true,
+        milestone = true,
+      },
+      update = {
+        draft = false,
+        reviewers = true,
+        labels = true,
+        assignees = false,
+        milestone = true,
+      },
     },
   },
   pr_fields = {

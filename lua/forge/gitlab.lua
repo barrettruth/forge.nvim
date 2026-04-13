@@ -403,14 +403,20 @@ function M:update_pr_cmd(num, title, body, ref, metadata, previous)
   local add_labels, remove_labels = submission.diff(before.labels, current.labels)
   append_csv(cmd, '--label', add_labels)
   append_csv(cmd, '--unlabel', remove_labels)
-  if current.assignees ~= nil and vim.deep_equal(current.assignees, before.assignees or {}) == false then
+  if
+    current.assignees ~= nil
+    and vim.deep_equal(current.assignees, before.assignees or {}) == false
+  then
     if #current.assignees == 0 then
       table.insert(cmd, '--unassign')
     else
       append_csv(cmd, '--assignee', current.assignees)
     end
   end
-  if current.reviewers ~= nil and vim.deep_equal(current.reviewers, before.reviewers or {}) == false then
+  if
+    current.reviewers ~= nil
+    and vim.deep_equal(current.reviewers, before.reviewers or {}) == false
+  then
     if #current.reviewers == 0 then
       local removed = {}
       for _, reviewer in ipairs(before.reviewers or {}) do
@@ -446,7 +452,10 @@ function M:update_issue_cmd(num, title, body, ref, metadata, previous)
   local add_labels, remove_labels = submission.diff(before.labels, current.labels)
   append_csv(cmd, '--label', add_labels)
   append_csv(cmd, '--unlabel', remove_labels)
-  if current.assignees ~= nil and vim.deep_equal(current.assignees, before.assignees or {}) == false then
+  if
+    current.assignees ~= nil
+    and vim.deep_equal(current.assignees, before.assignees or {}) == false
+  then
     if #current.assignees == 0 then
       table.insert(cmd, '--unassign')
     else

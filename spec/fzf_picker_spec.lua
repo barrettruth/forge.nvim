@@ -821,57 +821,60 @@ describe('fzf picker', function()
     assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3m main\27%[0m'))
   end)
 
-  it('strips author and metadata background ANSI so the selected row highlight can win across pickers', function()
-    local utils = require('fzf-lua.utils')
-    local old_ansi_from_hl = utils.ansi_from_hl
-    utils.ansi_from_hl = function(group, text)
-      if group == 'FzfLuaHeaderBind' or group == 'FzfLuaHeaderText' then
-        return ('[%s:%s]'):format(group, text)
+  it(
+    'strips author and metadata background ANSI so the selected row highlight can win across pickers',
+    function()
+      local utils = require('fzf-lua.utils')
+      local old_ansi_from_hl = utils.ansi_from_hl
+      utils.ansi_from_hl = function(group, text)
+        if group == 'FzfLuaHeaderBind' or group == 'FzfLuaHeaderText' then
+          return ('[%s:%s]'):format(group, text)
+        end
+        if group then
+          return ('\27[48;2;255;255;255m\27[38;2;1;2;3m%s\27[0m'):format(text)
+        end
+        return text
       end
-      if group then
-        return ('\27[48;2;255;255;255m\27[38;2;1;2;3m%s\27[0m'):format(text)
-      end
-      return text
+
+      local picker = require('forge.picker.fzf')
+      picker.pick({
+        prompt = 'Issues> ',
+        entries = {
+          {
+            display = {
+              { '#7', 'ForgeNumber' },
+              { ' Cursorline bug ' },
+              { 'alice', 'ForgeAuthor' },
+              { ' 1h', 'ForgeTime' },
+            },
+            value = '7',
+          },
+          {
+            display = {
+              { 'abc1234', 'ForgeCommitHash' },
+              { ' fix selection ' },
+              { 'bob', 'ForgeCommitAuthor' },
+              { ' /repo-feature', 'Directory' },
+              { ' detached', 'ForgeDim' },
+            },
+            value = 'abc1234',
+          },
+        },
+        actions = {},
+        picker_name = 'issue',
+      })
+
+      utils.ansi_from_hl = old_ansi_from_hl
+
+      assert.is_not_nil(captured)
+      assert.same(2, #captured.lines)
+      assert.is_nil(captured.lines[1]:match('\27%[48;'))
+      assert.is_nil(captured.lines[2]:match('\27%[48;'))
+      assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3malice\27%[0m'))
+      assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3m 1h\27%[0m'))
+      assert.truthy(captured.lines[2]:find('\27%[38;2;1;2;3mbob\27%[0m'))
+      assert.truthy(captured.lines[2]:find('\27%[38;2;1;2;3m /repo%-feature\27%[0m'))
+      assert.truthy(captured.lines[2]:find('\27%[38;2;1;2;3m detached\27%[0m'))
     end
-
-    local picker = require('forge.picker.fzf')
-    picker.pick({
-      prompt = 'Issues> ',
-      entries = {
-        {
-          display = {
-            { '#7', 'ForgeNumber' },
-            { ' Cursorline bug ' },
-            { 'alice', 'ForgeAuthor' },
-            { ' 1h', 'ForgeTime' },
-          },
-          value = '7',
-        },
-        {
-          display = {
-            { 'abc1234', 'ForgeCommitHash' },
-            { ' fix selection ' },
-            { 'bob', 'ForgeCommitAuthor' },
-            { ' /repo-feature', 'Directory' },
-            { ' detached', 'ForgeDim' },
-          },
-          value = 'abc1234',
-        },
-      },
-      actions = {},
-      picker_name = 'issue',
-    })
-
-    utils.ansi_from_hl = old_ansi_from_hl
-
-    assert.is_not_nil(captured)
-    assert.same(2, #captured.lines)
-    assert.is_nil(captured.lines[1]:match('\27%[48;'))
-    assert.is_nil(captured.lines[2]:match('\27%[48;'))
-    assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3malice\27%[0m'))
-    assert.truthy(captured.lines[1]:find('\27%[38;2;1;2;3m 1h\27%[0m'))
-    assert.truthy(captured.lines[2]:find('\27%[38;2;1;2;3mbob\27%[0m'))
-    assert.truthy(captured.lines[2]:find('\27%[38;2;1;2;3m /repo%-feature\27%[0m'))
-    assert.truthy(captured.lines[2]:find('\27%[38;2;1;2;3m detached\27%[0m'))
-  end)
+  )
 end)

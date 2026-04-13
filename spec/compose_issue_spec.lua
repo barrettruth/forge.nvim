@@ -144,6 +144,32 @@ describe('compose issue create', function()
     assert.same({}, captured.errors)
   end)
 
+  it(
+    'keeps a single blank line between the forge line and instructions when metadata is empty',
+    function()
+      local compose = require('forge.compose')
+      compose.open_issue({
+        name = 'github',
+        create_issue_cmd = function()
+          return { 'create-issue' }
+        end,
+      })
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      local creating_line
+      for i, line in ipairs(lines) do
+        if line == '  Creating issue via github.' then
+          creating_line = i
+          break
+        end
+      end
+
+      assert.is_not_nil(creating_line)
+      assert.equals('', lines[creating_line + 1])
+      assert.equals('  Write (:w) submits this buffer.', lines[creating_line + 2])
+    end
+  )
+
   it('keeps template labels without rendering editable metadata', function()
     local compose = require('forge.compose')
     local f = {

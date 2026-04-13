@@ -1,7 +1,7 @@
 local M = {}
 
-local template = require('forge.template')
 local submission = require('forge.submission')
+local template = require('forge.template')
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 
@@ -196,6 +196,23 @@ local function add_metadata_fields(builder, forge, kind, operation, metadata)
   end
 end
 
+local function add_optional_metadata_fields(builder, forge, kind, operation, metadata)
+  local before = #builder.lines
+  builder:add_line('')
+  add_metadata_fields(builder, forge, kind, operation, metadata)
+  if #builder.lines == before + 1 then
+    table.remove(builder.lines, #builder.lines)
+    return false
+  end
+  return true
+end
+
+local function add_section_gap(builder)
+  if builder.lines[#builder.lines] ~= '' then
+    builder:add_line('')
+  end
+end
+
 ---@param f forge.Forge
 ---@param branch string
 ---@param title string
@@ -303,27 +320,31 @@ end
 local function update_issue(f, num, title, body, buf, ref, metadata, previous)
   local log = require('forge.logger')
   log.info('updating issue #' .. num .. '...')
-  vim.system(f:update_issue_cmd(num, title, body, ref, metadata, previous), { text = true }, function(result)
-    vim.schedule(function()
-      if result.code == 0 then
-        log.info(('updated issue #%s'):format(num))
-        require('forge').clear_list()
-        if buf and vim.api.nvim_buf_is_valid(buf) then
-          vim.bo[buf].modified = false
-          vim.api.nvim_buf_delete(buf, { force = true })
+  vim.system(
+    f:update_issue_cmd(num, title, body, ref, metadata, previous),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code == 0 then
+          log.info(('updated issue #%s'):format(num))
+          require('forge').clear_list()
+          if buf and vim.api.nvim_buf_is_valid(buf) then
+            vim.bo[buf].modified = false
+            vim.api.nvim_buf_delete(buf, { force = true })
+          end
+        else
+          local msg = vim.trim(result.stderr or '')
+          if msg == '' then
+            msg = vim.trim(result.stdout or '')
+          end
+          if msg == '' then
+            msg = 'update failed'
+          end
+          log.error(msg)
         end
-      else
-        local msg = vim.trim(result.stderr or '')
-        if msg == '' then
-          msg = vim.trim(result.stdout or '')
-        end
-        if msg == '' then
-          msg = 'update failed'
-        end
-        log.error(msg)
-      end
-    end)
-  end)
+      end)
+    end
+  )
 end
 
 ---@param f forge.Forge
@@ -365,9 +386,8 @@ function M.open_issue(f, result, ref)
   local ln = b:add_line('%s%s.', creating_prefix, f.name)
   b:mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
-  b:add_line('')
-  add_metadata_fields(b, f, 'issue', 'create', template_metadata)
-  b:add_line('')
+  add_optional_metadata_fields(b, f, 'issue', 'create', template_metadata)
+  add_section_gap(b)
   add_discard_hints(b)
   b:add_line('  An empty title aborts creation.')
   b:add_line('-->')
@@ -431,9 +451,8 @@ function M.open_issue_edit(f, num, details, ref)
   b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
 
-  b:add_line('')
-  add_metadata_fields(b, f, 'issue', 'update', submission.issue_metadata(details))
-  b:add_line('')
+  add_optional_metadata_fields(b, f, 'issue', 'update', submission.issue_metadata(details))
+  add_section_gap(b)
   add_discard_hints(b)
   b:add_line('  An empty title aborts editing.')
   b:add_line('-->')
@@ -528,12 +547,11 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   b:mark(ln, 2, #creating_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
-  b:add_line('')
-  add_metadata_fields(b, f, 'pr', 'create', draft_metadata)
+  add_optional_metadata_fields(b, f, 'pr', 'create', draft_metadata)
 
   local stat_start, stat_end
   if diff_stat ~= '' then
-    b:add_line('')
+    add_section_gap(b)
     local changes_prefix = '  Changes not in '
     ln = b:add_line('%s%s:', changes_prefix, base_ref)
     b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
@@ -545,7 +563,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
     end
     stat_end = #b.lines
   end
-  b:add_line('')
+  add_section_gap(b)
   add_discard_hints(b)
   b:add_line('  An empty title or body aborts creation.')
   b:add_line('-->')
@@ -643,51 +661,55 @@ M.push_and_create = push_and_create
 local function update_pr(f, num, title, body, buf, ref, metadata, previous)
   local log = require('forge.logger')
   log.info('updating ' .. f.labels.pr_one .. ' #' .. num .. '...')
-  vim.system(f:update_pr_cmd(num, title, body, ref, metadata, previous), { text = true }, function(result)
-    vim.schedule(function()
-      if result.code ~= 0 then
-        local msg = vim.trim(result.stderr or '')
-        if msg == '' then
-          msg = vim.trim(result.stdout or '')
+  vim.system(
+    f:update_pr_cmd(num, title, body, ref, metadata, previous),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code ~= 0 then
+          local msg = vim.trim(result.stderr or '')
+          if msg == '' then
+            msg = vim.trim(result.stdout or '')
+          end
+          if msg == '' then
+            msg = 'update failed'
+          end
+          log.error(msg)
+          return
         end
-        if msg == '' then
-          msg = 'update failed'
-        end
-        log.error(msg)
-        return
-      end
-      if
-        submission.supports(f, 'pr', 'update', 'draft')
-        and previous
-        and previous.draft ~= metadata.draft
-        and f.draft_toggle_cmd
-      then
-        local draft_cmd = f:draft_toggle_cmd(num, previous.draft, ref)
-        if draft_cmd then
-          vim.system(draft_cmd, { text = true }, function(draft_result)
-            vim.schedule(function()
-              if draft_result.code ~= 0 then
-                local msg = vim.trim(draft_result.stderr or '')
-                if msg == '' then
-                  msg = vim.trim(draft_result.stdout or '')
+        if
+          submission.supports(f, 'pr', 'update', 'draft')
+          and previous
+          and previous.draft ~= metadata.draft
+          and f.draft_toggle_cmd
+        then
+          local draft_cmd = f:draft_toggle_cmd(num, previous.draft, ref)
+          if draft_cmd then
+            vim.system(draft_cmd, { text = true }, function(draft_result)
+              vim.schedule(function()
+                if draft_result.code ~= 0 then
+                  local msg = vim.trim(draft_result.stderr or '')
+                  if msg == '' then
+                    msg = vim.trim(draft_result.stdout or '')
+                  end
+                  if msg == '' then
+                    msg = 'draft toggle failed'
+                  end
+                  log.error(msg)
                 end
-                if msg == '' then
-                  msg = 'draft toggle failed'
-                end
-                log.error(msg)
-              end
+              end)
             end)
-          end)
+          end
         end
-      end
-      log.info(('updated %s #%s'):format(f.labels.pr_one, num))
-      require('forge').clear_list()
-      if buf and vim.api.nvim_buf_is_valid(buf) then
-        vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
-      end
-    end)
-  end)
+        log.info(('updated %s #%s'):format(f.labels.pr_one, num))
+        require('forge').clear_list()
+        if buf and vim.api.nvim_buf_is_valid(buf) then
+          vim.bo[buf].modified = false
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end
+      end)
+    end
+  )
 end
 
 ---@param f forge.Forge
@@ -733,12 +755,11 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
 
-  b:add_line('')
-  add_metadata_fields(b, f, 'pr', 'update', submission.pr_metadata(details))
+  add_optional_metadata_fields(b, f, 'pr', 'update', submission.pr_metadata(details))
 
   local stat_start, stat_end
   if diff_stat ~= '' then
-    b:add_line('')
+    add_section_gap(b)
     local changes_prefix = '  Changes not in origin/'
     ln = b:add_line('%s%s:', changes_prefix, base)
     b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
@@ -750,7 +771,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
     end
     stat_end = #b.lines
   end
-  b:add_line('')
+  add_section_gap(b)
   add_discard_hints(b)
   b:add_line('  An empty title or body aborts editing.')
   b:add_line('-->')
