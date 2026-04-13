@@ -545,10 +545,13 @@ PLUG MAPPINGS                                                     *forge-plug*
 
 forge.nvim exposes stateless |<Plug>| mappings for root launchers, exact
 routes, and configurable section aliases. They are intended
-for user-defined mappings and do not add any additional Ex commands.
+for user-defined mappings and do not add any additional Ex commands. The
+public `<Plug>` surface contains only the root launcher, one plug per
+configurable section alias, and one plug per exact no-argument route.
 
 Examples: >lua
     vim.keymap.set('n', '<leader>gf', '<Plug>(forge)')
+    vim.keymap.set('n', '<leader>gp', '<Plug>(forge-prs)')
     vim.keymap.set('n', '<leader>gP', '<Plug>(forge-prs-open)')
     vim.keymap.set({'n', 'x'}, '<leader>gb', '<Plug>(forge-browse-contextual)')
 <
@@ -557,18 +560,22 @@ Equivalent Lua bindings: >lua
     vim.keymap.set('n', '<leader>gf', function()
       require('forge').open()
     end)
-    vim.keymap.set('n', '<leader>gP', function()
+    vim.keymap.set('n', '<leader>gp', function()
       require('forge').open('prs')
     end)
+    vim.keymap.set('n', '<leader>gP', function()
+      require('forge').open('prs.open')
+    end)
     vim.keymap.set({'n', 'x'}, '<leader>gb', function()
-      require('forge').open('browse')
+      require('forge').open('browse.contextual')
     end)
 <
 
 Alias plugs call `require('forge').open()` with the section name (`"prs"`,
 `"issues"`, etc.), so they respect `vim.g.forge.routes`. Exact route plugs
 call `require('forge').open()` with the full route name and ignore route
-aliases.
+aliases. Exact-route plug names follow the route name with `.` replaced by
+`-`.
 
 `<Plug>(forge-browse)` and `<Plug>(forge-browse-contextual)` are available in
 normal and visual mode. When invoked in visual mode, contextual browse targets

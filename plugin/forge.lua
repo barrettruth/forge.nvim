@@ -8,9 +8,18 @@ local function open_route(route)
   end
 end
 
-set_plug('n', 'forge', open_route(nil))
+local section_plugs = {
+  { 'n', 'forge-prs', 'prs' },
+  { 'n', 'forge-issues', 'issues' },
+  { 'n', 'forge-ci', 'ci' },
+  { { 'n', 'x' }, 'forge-browse', 'browse' },
+  { 'n', 'forge-releases', 'releases' },
+  { 'n', 'forge-branches', 'branches' },
+  { 'n', 'forge-commits', 'commits' },
+  { 'n', 'forge-worktrees', 'worktrees' },
+}
 
-for _, spec in ipairs({
+local exact_route_plugs = {
   { 'n', 'forge-prs-open', 'prs.open' },
   { 'n', 'forge-prs-closed', 'prs.closed' },
   { 'n', 'forge-prs-all', 'prs.all' },
@@ -28,15 +37,15 @@ for _, spec in ipairs({
   { 'n', 'forge-branches-local', 'branches.local' },
   { 'n', 'forge-commits-current-branch', 'commits.current_branch' },
   { 'n', 'forge-worktrees-list', 'worktrees.list' },
-  { 'n', 'forge-prs', 'prs' },
-  { 'n', 'forge-issues', 'issues' },
-  { 'n', 'forge-ci', 'ci' },
-  { { 'n', 'x' }, 'forge-browse', 'browse' },
-  { 'n', 'forge-releases', 'releases' },
-  { 'n', 'forge-branches', 'branches' },
-  { 'n', 'forge-commits', 'commits' },
-  { 'n', 'forge-worktrees', 'worktrees' },
-}) do
+}
+
+set_plug('n', 'forge', open_route(nil))
+
+for _, spec in ipairs(section_plugs) do
+  set_plug(spec[1], spec[2], open_route(spec[3]))
+end
+
+for _, spec in ipairs(exact_route_plugs) do
   set_plug(spec[1], spec[2], open_route(spec[3]))
 end
 

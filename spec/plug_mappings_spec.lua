@@ -8,9 +8,53 @@ local function mapping(lhs, mode)
   return vim.fn.maparg(lhs, mode, false, true)
 end
 
+local function listed_plugs(mode)
+  local names = {}
+
+  for _, map in ipairs(vim.api.nvim_get_keymap(mode)) do
+    if map.lhs:match('^<Plug>%(') and map.lhs:match('^<Plug>%(forge') then
+      names[#names + 1] = map.lhs
+    end
+  end
+
+  table.sort(names)
+  return names
+end
+
 describe('<Plug> mappings', function()
   local captured
   local old_preload
+
+  local exact_route_plugs = {
+    { '<Plug>(forge-prs-open)', 'prs.open' },
+    { '<Plug>(forge-prs-closed)', 'prs.closed' },
+    { '<Plug>(forge-prs-all)', 'prs.all' },
+    { '<Plug>(forge-issues-open)', 'issues.open' },
+    { '<Plug>(forge-issues-closed)', 'issues.closed' },
+    { '<Plug>(forge-issues-all)', 'issues.all' },
+    { '<Plug>(forge-ci-current-branch)', 'ci.current_branch' },
+    { '<Plug>(forge-ci-all)', 'ci.all' },
+    { '<Plug>(forge-browse-contextual)', 'browse.contextual' },
+    { '<Plug>(forge-browse-branch)', 'browse.branch' },
+    { '<Plug>(forge-browse-commit)', 'browse.commit' },
+    { '<Plug>(forge-releases-all)', 'releases.all' },
+    { '<Plug>(forge-releases-draft)', 'releases.draft' },
+    { '<Plug>(forge-releases-prerelease)', 'releases.prerelease' },
+    { '<Plug>(forge-branches-local)', 'branches.local' },
+    { '<Plug>(forge-commits-current-branch)', 'commits.current_branch' },
+    { '<Plug>(forge-worktrees-list)', 'worktrees.list' },
+  }
+
+  local section_plugs = {
+    { '<Plug>(forge-prs)', 'prs' },
+    { '<Plug>(forge-issues)', 'issues' },
+    { '<Plug>(forge-ci)', 'ci' },
+    { '<Plug>(forge-browse)', 'browse' },
+    { '<Plug>(forge-releases)', 'releases' },
+    { '<Plug>(forge-branches)', 'branches' },
+    { '<Plug>(forge-commits)', 'commits' },
+    { '<Plug>(forge-worktrees)', 'worktrees' },
+  }
 
   local function stub_forge()
     package.preload['forge'] = function()
@@ -49,24 +93,11 @@ describe('<Plug> mappings', function()
 
     local expected = {
       { '<Plug>(forge)', vim.NIL },
-      { '<Plug>(forge-prs-open)', 'prs.open' },
-      { '<Plug>(forge-prs-closed)', 'prs.closed' },
-      { '<Plug>(forge-prs-all)', 'prs.all' },
-      { '<Plug>(forge-issues-open)', 'issues.open' },
-      { '<Plug>(forge-issues-closed)', 'issues.closed' },
-      { '<Plug>(forge-issues-all)', 'issues.all' },
-      { '<Plug>(forge-ci-current-branch)', 'ci.current_branch' },
-      { '<Plug>(forge-ci-all)', 'ci.all' },
-      { '<Plug>(forge-browse-contextual)', 'browse.contextual' },
-      { '<Plug>(forge-browse-branch)', 'browse.branch' },
-      { '<Plug>(forge-browse-commit)', 'browse.commit' },
-      { '<Plug>(forge-releases-all)', 'releases.all' },
-      { '<Plug>(forge-releases-draft)', 'releases.draft' },
-      { '<Plug>(forge-releases-prerelease)', 'releases.prerelease' },
-      { '<Plug>(forge-branches-local)', 'branches.local' },
-      { '<Plug>(forge-commits-current-branch)', 'commits.current_branch' },
-      { '<Plug>(forge-worktrees-list)', 'worktrees.list' },
     }
+
+    for _, item in ipairs(exact_route_plugs) do
+      expected[#expected + 1] = item
+    end
 
     for _, item in ipairs(expected) do
       local map = mapping(item[1], 'n')
@@ -83,16 +114,7 @@ describe('<Plug> mappings', function()
   it('defines section alias plugs in normal mode', function()
     stub_forge()
 
-    local expected = {
-      { '<Plug>(forge-prs)', 'prs' },
-      { '<Plug>(forge-issues)', 'issues' },
-      { '<Plug>(forge-ci)', 'ci' },
-      { '<Plug>(forge-browse)', 'browse' },
-      { '<Plug>(forge-releases)', 'releases' },
-      { '<Plug>(forge-branches)', 'branches' },
-      { '<Plug>(forge-commits)', 'commits' },
-      { '<Plug>(forge-worktrees)', 'worktrees' },
-    }
+    local expected = vim.deepcopy(section_plugs)
 
     for _, item in ipairs(expected) do
       local map = mapping(item[1], 'n')
@@ -131,5 +153,27 @@ describe('<Plug> mappings', function()
     assert.equals('V', captured.calls[2].mode)
     assert.equals(1, captured.calls[2].line_v)
     assert.equals(2, captured.calls[2].line)
+  end)
+
+  it('exposes only root, section alias, and exact-route forge plugs', function()
+    local normal_expected = { '<Plug>(forge)' }
+    local visual_expected = {
+      '<Plug>(forge-browse)',
+      '<Plug>(forge-browse-contextual)',
+    }
+
+    for _, item in ipairs(section_plugs) do
+      normal_expected[#normal_expected + 1] = item[1]
+    end
+
+    for _, item in ipairs(exact_route_plugs) do
+      normal_expected[#normal_expected + 1] = item[1]
+    end
+
+    table.sort(normal_expected)
+    table.sort(visual_expected)
+
+    assert.same(normal_expected, listed_plugs('n'))
+    assert.same(visual_expected, listed_plugs('x'))
   end)
 end)
