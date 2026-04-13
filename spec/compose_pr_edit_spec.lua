@@ -170,6 +170,46 @@ describe('compose pr edit', function()
     assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
   end)
 
+  it(
+    'keeps a single blank line between the forge line and instructions when metadata and diff stat are empty',
+    function()
+      local compose = require('forge.compose')
+      compose.open_pr_edit(
+        {
+          labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+          capabilities = { draft = false, reviewers = false },
+          name = 'github',
+        },
+        '23',
+        {
+          title = 'PR title',
+          body = 'PR body',
+          draft = false,
+          head_branch = 'real-pr-head',
+          base_branch = 'main',
+          reviewers = {},
+          labels = {},
+          assignees = {},
+          milestone = '',
+        },
+        'other-local-branch'
+      )
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      local editing_line
+      for i, line in ipairs(lines) do
+        if line == '  Editing Pull Request #23 via github.' then
+          editing_line = i
+          break
+        end
+      end
+
+      assert.is_not_nil(editing_line)
+      assert.equals('', lines[editing_line + 1])
+      assert.equals('  Write (:w) submits this buffer.', lines[editing_line + 2])
+    end
+  )
+
   it('extracts PR metadata from the comment block on write', function()
     local compose = require('forge.compose')
     local f = {
