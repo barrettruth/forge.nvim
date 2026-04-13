@@ -73,6 +73,13 @@ local function add_discard_hints(builder)
   builder:add_line('  Use :q!, :bd!, or :bwipeout! to discard it.')
 end
 
+local function set_clipboard(text)
+  local ok = pcall(vim.fn.setreg, '+', text)
+  if not ok then
+    pcall(vim.fn.setreg, '"', text)
+  end
+end
+
 ---@param buf_lines string[]
 ---@return string[] content_lines
 local function extract_content(buf_lines)
@@ -90,31 +97,18 @@ end
 ---@field labels string[]
 ---@field assignees string[]
 ---@field milestone string
----@field draft boolean
----@field reviewers string[]
 
 ---@param buf_lines string[]
 ---@return forge.CommentMetadata
 local function parse_comment_metadata(buf_lines)
   local in_comment = false
-  local meta = { labels = {}, assignees = {}, milestone = '', draft = false, reviewers = {} }
+  local meta = { labels = {}, assignees = {}, milestone = '' }
   for _, l in ipairs(buf_lines) do
     if l:match('^<!--') then
       in_comment = true
     elseif l:match('^%-%->') then
       break
     elseif in_comment then
-      local dv = l:match('^%s*Draft:%s*(.*)$')
-      if dv then
-        dv = vim.trim(dv):lower()
-        meta.draft = dv == 'yes' or dv == 'true'
-      end
-      local rv = l:match('^%s*Reviewers:%s*(.*)$')
-      if rv then
-        for r in vim.trim(rv):gmatch('[^,%s]+') do
-          table.insert(meta.reviewers, r)
-        end
-      end
       local lv = l:match('^%s*Labels:%s*(.*)$')
       if lv then
         for label in vim.trim(lv):gmatch('[^,%s]+') do
@@ -142,28 +136,10 @@ end
 ---@param body string
 ---@param pr_base string
 ---@param pr_draft boolean
----@param pr_reviewers string[]?
----@param pr_labels string[]?
----@param pr_assignees string[]?
----@param pr_milestone string?
 ---@param buf integer?
 ---@param ref? forge.Scope
 ---@param push_target string?
-local function push_and_create(
-  f,
-  branch,
-  title,
-  body,
-  pr_base,
-  pr_draft,
-  pr_reviewers,
-  pr_labels,
-  pr_assignees,
-  pr_milestone,
-  buf,
-  ref,
-  push_target
-)
+local function push_and_create(f, branch, title, body, pr_base, pr_draft, buf, ref, push_target)
   local log = require('forge.logger')
   log.info('pushing and creating ' .. f.labels.pr_one .. '...')
   vim.system(
@@ -181,24 +157,14 @@ local function push_and_create(
         return
       end
       vim.system(
-        f:create_pr_cmd(
-          title,
-          body,
-          pr_base,
-          pr_draft,
-          pr_reviewers,
-          pr_labels,
-          pr_assignees,
-          pr_milestone,
-          ref
-        ),
+        f:create_pr_cmd(title, body, pr_base, pr_draft, ref),
         { text = true },
         function(create_result)
           vim.schedule(function()
             if create_result.code == 0 then
               local url = vim.trim(create_result.stdout or '')
               if url ~= '' then
-                vim.fn.setreg('+', url)
+                set_clipboard(url)
               end
               log.info(('created %s -> %s'):format(f.labels.pr_one, url))
               require('forge').clear_list()
@@ -234,7 +200,7 @@ local function submit_issue(f, title, body, labels, assignees, milestone, buf, r
         if result.code == 0 then
           local url = vim.trim(result.stdout or '')
           if url ~= '' then
-            vim.fn.setreg('+', url)
+            set_clipboard(url)
           end
           log.info(('created issue -> %s'):format(url))
           require('forge').clear_list()
@@ -508,33 +474,6 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   b:mark(ln, 2, #creating_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
-  b:add_line('')
-  if f.capabilities.draft then
-    local draft_val = draft and 'true' or 'false'
-    local draft_prefix = '  Draft: '
-    ln = b:add_line('%s%s', draft_prefix, draft_val)
-    b:mark(ln, 2, 6, 'ForgeComposeLabel')
-    b:mark(ln, #draft_prefix, #draft_val, draft and 'ForgeComposeDraft' or 'ForgeDim')
-  end
-
-  if f.capabilities.reviewers then
-    local reviewers_prefix = '  Reviewers: '
-    ln = b:add_line('%s', reviewers_prefix)
-    b:mark(ln, 2, 10, 'ForgeComposeLabel')
-  end
-
-  local labels_prefix = '  Labels: '
-  ln = b:add_line('%s', labels_prefix)
-  b:mark(ln, 2, 7, 'ForgeComposeLabel')
-
-  local assignees_prefix = '  Assignees: '
-  ln = b:add_line('%s', assignees_prefix)
-  b:mark(ln, 2, 10, 'ForgeComposeLabel')
-
-  local milestone_prefix = '  Milestone: '
-  ln = b:add_line('%s', milestone_prefix)
-  b:mark(ln, 2, 10, 'ForgeComposeLabel')
-
   local stat_start, stat_end
   if diff_stat ~= '' then
     b:add_line('')
@@ -612,22 +551,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
         return
       end
 
-      local meta = parse_comment_metadata(buf_lines)
-      push_and_create(
-        f,
-        branch,
-        pr_title,
-        pr_body,
-        base,
-        meta.draft,
-        meta.reviewers,
-        meta.labels,
-        meta.assignees,
-        meta.milestone,
-        buf,
-        ref,
-        push_target
-      )
+      push_and_create(f, branch, pr_title, pr_body, base, draft, buf, ref, push_target)
     end,
   })
 
@@ -642,72 +566,32 @@ M.push_and_create = push_and_create
 ---@param num string
 ---@param title string
 ---@param body string
----@param pr_draft boolean
----@param original_draft boolean
----@param pr_reviewers string[]?
----@param pr_labels string[]?
----@param pr_assignees string[]?
----@param pr_milestone string?
 ---@param buf integer?
 ---@param ref? forge.Scope
-local function update_pr(
-  f,
-  num,
-  title,
-  body,
-  pr_draft,
-  original_draft,
-  pr_reviewers,
-  pr_labels,
-  pr_assignees,
-  pr_milestone,
-  buf,
-  ref
-)
+local function update_pr(f, num, title, body, buf, ref)
   local log = require('forge.logger')
   log.info('updating ' .. f.labels.pr_one .. ' #' .. num .. '...')
-  vim.system(
-    f:update_pr_cmd(num, title, body, pr_reviewers, pr_labels, pr_assignees, pr_milestone, ref),
-    { text = true },
-    function(result)
-      vim.schedule(function()
-        if result.code ~= 0 then
-          local msg = vim.trim(result.stderr or '')
-          if msg == '' then
-            msg = vim.trim(result.stdout or '')
-          end
-          if msg == '' then
-            msg = 'update failed'
-          end
-          log.error(msg)
-          return
+  vim.system(f:update_pr_cmd(num, title, body, ref), { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        local msg = vim.trim(result.stderr or '')
+        if msg == '' then
+          msg = vim.trim(result.stdout or '')
         end
-        if pr_draft ~= original_draft then
-          local draft_cmd = f:draft_toggle_cmd(num, original_draft, ref)
-          if draft_cmd then
-            vim.system(draft_cmd, { text = true }, function(dr)
-              vim.schedule(function()
-                if dr.code ~= 0 then
-                  log.warn('updated ' .. f.labels.pr_one .. ' but draft toggle failed')
-                else
-                  log.info(('updated %s #%s'):format(f.labels.pr_one, num))
-                end
-              end)
-            end)
-          else
-            log.info(('updated %s #%s'):format(f.labels.pr_one, num))
-          end
-        else
-          log.info(('updated %s #%s'):format(f.labels.pr_one, num))
+        if msg == '' then
+          msg = 'update failed'
         end
-        require('forge').clear_list()
-        if buf and vim.api.nvim_buf_is_valid(buf) then
-          vim.bo[buf].modified = false
-          vim.api.nvim_buf_delete(buf, { force = true })
-        end
-      end)
-    end
-  )
+        log.error(msg)
+        return
+      end
+      log.info(('updated %s #%s'):format(f.labels.pr_one, num))
+      require('forge').clear_list()
+      if buf and vim.api.nvim_buf_is_valid(buf) then
+        vim.bo[buf].modified = false
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+  end)
 end
 
 ---@param f forge.Forge
@@ -752,37 +636,6 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   ln = b:add_line('%s%s.', editing_prefix, f.name)
   b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
-
-  b:add_line('')
-  local original_draft = details.draft
-  if f.capabilities.draft then
-    local draft_val = details.draft and 'true' or 'false'
-    local draft_prefix = '  Draft: '
-    ln = b:add_line('%s%s', draft_prefix, draft_val)
-    b:mark(ln, 2, 6, 'ForgeComposeLabel')
-    b:mark(ln, #draft_prefix, #draft_val, details.draft and 'ForgeComposeDraft' or 'ForgeDim')
-  end
-
-  if f.capabilities.reviewers then
-    local reviewers_prefix = '  Reviewers: '
-    local reviewers_val = table.concat(details.reviewers, ', ')
-    ln = b:add_line('%s%s', reviewers_prefix, reviewers_val)
-    b:mark(ln, 2, 10, 'ForgeComposeLabel')
-  end
-
-  local labels_prefix = '  Labels: '
-  local labels_val = table.concat(details.labels, ', ')
-  ln = b:add_line('%s%s', labels_prefix, labels_val)
-  b:mark(ln, 2, 7, 'ForgeComposeLabel')
-
-  local assignees_prefix = '  Assignees: '
-  local assignees_val = table.concat(details.assignees, ', ')
-  ln = b:add_line('%s%s', assignees_prefix, assignees_val)
-  b:mark(ln, 2, 10, 'ForgeComposeLabel')
-
-  local milestone_prefix = '  Milestone: '
-  ln = b:add_line('%s%s', milestone_prefix, details.milestone)
-  b:mark(ln, 2, 10, 'ForgeComposeLabel')
 
   local stat_start, stat_end
   if diff_stat ~= '' then
@@ -855,21 +708,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
         return
       end
 
-      local meta = parse_comment_metadata(buf_lines)
-      update_pr(
-        f,
-        num,
-        pr_title,
-        pr_body,
-        meta.draft,
-        original_draft,
-        meta.reviewers,
-        meta.labels,
-        meta.assignees,
-        meta.milestone,
-        buf,
-        ref
-      )
+      update_pr(f, num, pr_title, pr_body, buf, ref)
     end,
   })
 

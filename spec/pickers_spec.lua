@@ -1698,6 +1698,25 @@ describe('pickers', function()
     assert.is_nil(rawget(action_by_name('delete'), 'close'))
   end)
 
+  it('keeps release copy working when the clipboard register is unavailable', function()
+    local old_setreg = vim.fn.setreg
+    vim.fn.setreg = function()
+      error('clipboard unavailable')
+    end
+
+    cache['release:list'] = {
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+    action_by_name('yank').fn(captured.entries[1])
+
+    vim.fn.setreg = old_setreg
+
+    assert.same({ 'copied release URL' }, logger_messages.info)
+  end)
+
   it('opens the release picker immediately on fzf before the fetch completes', function()
     cache['release:list'] = nil
 

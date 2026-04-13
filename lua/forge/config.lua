@@ -252,7 +252,6 @@ local hl_defaults = {
   ForgeComposeComment = 'Comment',
   ForgeComposeBranch = 'Special',
   ForgeComposeForge = 'Label',
-  ForgeComposeDraft = 'DiagnosticWarn',
   ForgeComposeFile = 'Directory',
   ForgeComposeAdded = 'Added',
   ForgeComposeRemoved = 'Removed',

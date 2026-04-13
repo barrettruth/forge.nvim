@@ -73,6 +73,13 @@ local function with_placeholder(entries, text)
   return { placeholder_entry(text) }
 end
 
+local function set_clipboard(text)
+  local ok = pcall(vim.fn.setreg, '+', text)
+  if not ok then
+    pcall(vim.fn.setreg, '"', text)
+  end
+end
+
 local function cached_rows(build)
   local cache = {}
   return function(width)
@@ -1834,7 +1841,7 @@ function M.release(state, f, opts)
           local base = forge_mod.remote_web_url(entry.value.scope)
           local tag = entry.value.tag
           local url = base .. '/releases/tag/' .. tag
-          vim.fn.setreg('+', url)
+          set_clipboard(url)
           log.info('copied release URL')
         end
       end,
@@ -2024,7 +2031,7 @@ function M.branches(ctx, opts)
           if not entry then
             return
           end
-          vim.fn.setreg('+', entry.value.name)
+          set_clipboard(entry.value.name)
           log.info('copied branch name')
         end,
       },
@@ -2187,7 +2194,7 @@ function M.commits(ctx, branch, opts)
           if not entry or entry.load_more then
             return
           end
-          vim.fn.setreg('+', entry.value.sha)
+          set_clipboard(entry.value.sha)
           log.info('copied commit SHA')
         end,
       },
@@ -2425,7 +2432,7 @@ function M.worktrees(ctx, opts)
             if not entry then
               return
             end
-            vim.fn.setreg('+', entry.value.path)
+            set_clipboard(entry.value.path)
             log.info('copied worktree path')
           end,
         },

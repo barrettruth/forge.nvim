@@ -135,6 +135,44 @@ describe('compose issue create', function()
     assert.same({}, captured.warns)
     assert.same({}, captured.errors)
   end)
+
+  it('submits issues when the clipboard register is unavailable', function()
+    local old_setreg = vim.fn.setreg
+    vim.fn.setreg = function()
+      error('clipboard unavailable')
+    end
+
+    local compose = require('forge.compose')
+    local f = {
+      name = 'github',
+      create_issue_cmd = function(_, title, body)
+        captured.args = {
+          title = title,
+          body = body,
+        }
+        return { 'create-issue', title, body }
+      end,
+    }
+
+    compose.open_issue(f)
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# clipboard fallback' })
+    vim.cmd('write')
+
+    vim.wait(100, function()
+      return captured.args ~= nil and captured.cleared == 1
+    end)
+
+    vim.fn.setreg = old_setreg
+
+    assert.same({
+      title = 'clipboard fallback',
+      body = '',
+    }, captured.args)
+    assert.equals(1, captured.cleared)
+    assert.same({}, captured.errors)
+  end)
 end)
 
 describe('compose issue edit', function()

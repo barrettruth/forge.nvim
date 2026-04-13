@@ -15,7 +15,6 @@ local M = {
   },
   capabilities = {
     draft = true,
-    reviewers = true,
     per_pr_checks = true,
     ci_json = true,
   },
@@ -402,30 +401,10 @@ end
 ---@param num string
 ---@param title string
 ---@param body string
----@param reviewers string[]?
----@param labels string[]?
----@param assignees string[]?
----@param milestone string?
 ---@return string[]
-function M:update_pr_cmd(num, title, body, reviewers, labels, assignees, milestone, ref)
+function M:update_pr_cmd(num, title, body, ref)
   local cmd =
     { 'glab', 'mr', 'update', num, '--title', title, '--description', body, '-R', repo_arg(ref) }
-  for _, r in ipairs(reviewers or {}) do
-    table.insert(cmd, '--reviewer')
-    table.insert(cmd, r)
-  end
-  if labels and #labels > 0 then
-    table.insert(cmd, '--label')
-    table.insert(cmd, table.concat(labels, ','))
-  end
-  for _, a in ipairs(assignees or {}) do
-    table.insert(cmd, '--assignee')
-    table.insert(cmd, a)
-  end
-  if milestone and milestone ~= '' then
-    table.insert(cmd, '--milestone')
-    table.insert(cmd, milestone)
-  end
   return cmd
 end
 
@@ -470,32 +449,11 @@ end
 ---@param json table
 ---@return forge.PRDetails
 function M:parse_pr_details(json)
-  local labels = {}
-  for _, l in ipairs(json.labels or {}) do
-    table.insert(labels, type(l) == 'string' and l or '')
-  end
-  local assignees = {}
-  for _, a in ipairs(json.assignees or {}) do
-    table.insert(assignees, a.username or '')
-  end
-  local reviewers = {}
-  for _, r in ipairs(json.reviewers or {}) do
-    table.insert(reviewers, r.username or '')
-  end
-  local milestone = ''
-  if type(json.milestone) == 'table' and json.milestone.title then
-    milestone = json.milestone.title
-  end
   return {
     title = json.title or '',
     body = json.description or '',
-    draft = json.draft == true,
     head_branch = json.source_branch or '',
     base_branch = json.target_branch or '',
-    labels = labels,
-    assignees = assignees,
-    reviewers = reviewers,
-    milestone = milestone,
   }
 end
 
@@ -526,7 +484,7 @@ end
 function M:completion_cmd(field, ref)
   if field == 'labels' then
     return { 'sh', '-c', "glab label list -F json -R '" .. repo_arg(ref) .. "' | jq -r '.[].name'" }
-  elseif field == 'assignees' or field == 'reviewers' or field == 'mentions' then
+  elseif field == 'assignees' or field == 'mentions' then
     return {
       'sh',
       '-c',
@@ -565,12 +523,8 @@ end
 ---@param body string
 ---@param base string
 ---@param draft boolean
----@param reviewers string[]?
----@param labels string[]?
----@param assignees string[]?
----@param milestone string?
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees, milestone, ref)
+function M:create_pr_cmd(title, body, base, draft, ref)
   local cmd = {
     'glab',
     'mr',
@@ -587,22 +541,6 @@ function M:create_pr_cmd(title, body, base, draft, reviewers, labels, assignees,
   }
   if draft then
     table.insert(cmd, '--draft')
-  end
-  for _, r in ipairs(reviewers or {}) do
-    table.insert(cmd, '--reviewer')
-    table.insert(cmd, r)
-  end
-  if labels and #labels > 0 then
-    table.insert(cmd, '--label')
-    table.insert(cmd, table.concat(labels, ','))
-  end
-  for _, a in ipairs(assignees or {}) do
-    table.insert(cmd, '--assignee')
-    table.insert(cmd, a)
-  end
-  if milestone and milestone ~= '' then
-    table.insert(cmd, '--milestone')
-    table.insert(cmd, milestone)
   end
   return cmd
 end
