@@ -373,32 +373,6 @@ function M:parse_issue_details(json)
   }
 end
 
----@param field string
----@return string[]?
-function M:completion_cmd(field, ref)
-  if field == 'mentions' then
-    return {
-      'sh',
-      '-c',
-      'tea api --repo '
-        .. repo_arg(ref)
-        .. " '/repos/{owner}/{repo}/collaborators' | jq -r '.[].login'",
-    }
-  elseif field == 'issues' then
-    return {
-      'sh',
-      '-c',
-      'tea api --repo '
-        .. repo_arg(ref)
-        .. " '/repos/{owner}/{repo}/issues?limit=50&type=issues' | jq -r '.[] | \"\\(.number)\\t\\(.title)\"'"
-        .. ' && tea api --repo '
-        .. repo_arg(ref)
-        .. " '/repos/{owner}/{repo}/pulls?limit=50' | jq -r '.[] | \"\\(.number)\\t\\(.title)\"'",
-    }
-  end
-  return nil
-end
-
 ---@param title string
 ---@param body string
 ---@param base string

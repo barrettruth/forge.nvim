@@ -508,26 +508,6 @@ function M:parse_issue_details(json)
   }
 end
 
----@param field string
----@return string[]?
-function M:completion_cmd(field, scope)
-  if field == 'mentions' then
-    return { 'gh', 'api', 'repos/' .. nwo(scope) .. '/collaborators', '--jq', '.[].login' }
-  elseif field == 'issues' then
-    return {
-      'sh',
-      '-c',
-      'gh issue list -R '
-        .. nwo(scope)
-        .. ' --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\''
-        .. ' && gh pr list -R '
-        .. nwo(scope)
-        .. ' --limit 50 --state all --json number,title --jq \'.[] | "\\(.number)\\t\\(.title)"\'',
-    }
-  end
-  return nil
-end
-
 ---@param title string
 ---@param body string
 ---@param base string

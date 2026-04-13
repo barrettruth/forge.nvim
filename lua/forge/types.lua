@@ -150,7 +150,6 @@
 ---@field parse_pr_details fun(self: forge.Forge, json: table): forge.PRDetails
 ---@field fetch_issue_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field parse_issue_details fun(self: forge.Forge, json: table): forge.IssueDetails
----@field completion_cmd (fun(self: forge.Forge, field: string, scope?: forge.Scope): string[]?)?
 ---@field create_pr_web_cmd (fun(self: forge.Forge, scope?: forge.Scope, head_scope?: forge.Scope, head_branch?: string, base_branch?: string): string[]?)?
 ---@field create_pr_web_url (fun(self: forge.Forge, scope?: forge.Scope, head_scope?: forge.Scope, head_branch?: string, base_branch?: string): string?)?
 ---@field default_branch_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]
