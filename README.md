@@ -19,11 +19,18 @@ without leaving your editor.
 
 - Neovim 0.10.0+
 - tree-sitter `yaml` parser for YAML issue form templates
-- [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive picker
-  workflows
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
+
+Optional:
+
+- [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive picker
+  workflows
+
+Direct `:Forge` action commands work without `fzf-lua`. Install it if you want
+the interactive picker UI opened by mappings such as `<Plug>(forge)` or
+`require('forge').open()`.
 
 ## Installation
 
