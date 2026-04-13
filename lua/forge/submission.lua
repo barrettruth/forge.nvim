@@ -40,12 +40,14 @@ function M.filter(forge, kind, operation, metadata)
   metadata = metadata or {}
   return {
     labels = M.supports(forge, kind, operation, 'labels') and normalize_list(metadata.labels) or {},
-    assignees = M.supports(forge, kind, operation, 'assignees') and normalize_list(metadata.assignees)
-      or {},
+    assignees = M.supports(forge, kind, operation, 'assignees') and normalize_list(
+      metadata.assignees
+    ) or {},
     milestone = M.supports(forge, kind, operation, 'milestone') and trim(metadata.milestone) or '',
     draft = M.supports(forge, kind, operation, 'draft') and metadata.draft == true or false,
-    reviewers = M.supports(forge, kind, operation, 'reviewers') and normalize_list(metadata.reviewers)
-      or {},
+    reviewers = M.supports(forge, kind, operation, 'reviewers') and normalize_list(
+      metadata.reviewers
+    ) or {},
   }
 end
 
