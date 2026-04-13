@@ -41,6 +41,37 @@ Install with your package manager of choice or via
 luarocks install forge.nvim
 ```
 
+## Optional picker bindings
+
+Picker-style workflows are separate from the action-oriented `:Forge` command
+surface. For modern Neovim config, bind them with `require('forge').open()` or
+the provided `<Plug>` mappings:
+
+```lua
+vim.keymap.set('n', '<leader>gg', function()
+  require('forge').open()
+end, { desc = 'forge' })
+
+vim.keymap.set('n', '<leader>gp', function()
+  require('forge').open('prs')
+end, { desc = 'forge prs' })
+
+vim.keymap.set('n', '<leader>gi', function()
+  require('forge').open('issues')
+end, { desc = 'forge issues' })
+
+vim.keymap.set('n', '<leader>gc', function()
+  require('forge').open('ci')
+end, { desc = 'forge ci' })
+
+vim.keymap.set({ 'n', 'x' }, '<leader>gB', function()
+  require('forge').open('browse')
+end, { desc = 'forge browse' })
+```
+
+Use `:Forge` itself for direct action commands such as `:Forge pr create`,
+`:Forge pr checkout 123`, or `:Forge ci log 456`.
+
 ## Documentation
 
 ```vim
