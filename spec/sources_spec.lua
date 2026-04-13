@@ -59,24 +59,87 @@ describe('github', function()
   end)
 
   it('builds issue detail and simplified issue commands', function()
+    local pr_details = gh:fetch_pr_details_cmd('23', { repo_arg = 'owner/repo' })
+    assert.same({ 'gh', 'pr', 'view', '23' }, vim.list_slice(pr_details, 1, 4))
+    assert.truthy(
+      vim.tbl_contains(
+        pr_details,
+        'title,body,isDraft,headRefName,baseRefName,labels,assignees,reviewRequests,milestone,url'
+      )
+    )
+
     local details = gh:fetch_issue_details_cmd('23', { repo_arg = 'owner/repo' })
     assert.same({ 'gh', 'issue', 'view', '23' }, vim.list_slice(details, 1, 4))
     assert.truthy(vim.tbl_contains(details, '--json'))
+    assert.truthy(vim.tbl_contains(details, 'title,body,labels,assignees,milestone,url'))
 
     local create = gh:create_issue_cmd('title', 'body', { 'bug' }, {
       repo_arg = 'owner/repo',
     })
     assert.truthy(vim.tbl_contains(create, '--label'))
     assert.truthy(vim.tbl_contains(create, 'bug'))
-    assert.falsy(vim.tbl_contains(create, '--assignee'))
-    assert.falsy(vim.tbl_contains(create, '--milestone'))
 
     local cmd = gh:update_issue_cmd('23', 'title', 'body', { repo_arg = 'owner/repo' })
     assert.falsy(vim.tbl_contains(cmd, '--add-label'))
     assert.falsy(vim.tbl_contains(cmd, '--remove-label'))
-    assert.falsy(vim.tbl_contains(cmd, '--add-assignee'))
-    assert.falsy(vim.tbl_contains(cmd, '--remove-assignee'))
-    assert.falsy(vim.tbl_contains(cmd, '--remove-milestone'))
+  end)
+
+  it('parses fetched PR and issue metadata', function()
+    assert.same(
+      {
+        title = 'title',
+        body = 'body',
+        draft = true,
+        head_branch = 'topic',
+        base_branch = 'main',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        reviewers = { 'bob' },
+        milestone = 'v1',
+      },
+      gh:parse_pr_details({
+        title = 'title',
+        body = 'body',
+        isDraft = true,
+        headRefName = 'topic',
+        baseRefName = 'main',
+        labels = {
+          { name = 'bug' },
+        },
+        assignees = {
+          { login = 'alice' },
+        },
+        reviewRequests = {
+          { login = 'bob' },
+        },
+        milestone = {
+          title = 'v1',
+        },
+      })
+    )
+
+    assert.same(
+      {
+        title = 'title',
+        body = 'body',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = 'v1',
+      },
+      gh:parse_issue_details({
+        title = 'title',
+        body = 'body',
+        labels = {
+          { name = 'bug' },
+        },
+        assignees = {
+          { login = 'alice' },
+        },
+        milestone = {
+          title = 'v1',
+        },
+      })
+    )
   end)
 
   it('adds draft flag to create_pr_cmd', function()
@@ -319,14 +382,64 @@ describe('gitlab', function()
     })
     assert.truthy(vim.tbl_contains(create, '--label'))
     assert.truthy(vim.tbl_contains(create, 'bug'))
-    assert.falsy(vim.tbl_contains(create, '--assignee'))
-    assert.falsy(vim.tbl_contains(create, '--milestone'))
 
     local cmd = gl:update_issue_cmd('23', 'title', 'body', { repo_arg = 'group/repo' })
     assert.falsy(vim.tbl_contains(cmd, '--label'))
     assert.falsy(vim.tbl_contains(cmd, '--unlabel'))
-    assert.falsy(vim.tbl_contains(cmd, '--unassign'))
-    assert.falsy(vim.tbl_contains(cmd, '--milestone'))
+  end)
+
+  it('parses fetched MR and issue metadata', function()
+    assert.same(
+      {
+        title = 'title',
+        body = 'body',
+        draft = true,
+        head_branch = 'topic',
+        base_branch = 'main',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        reviewers = { 'bob' },
+        milestone = 'v1',
+      },
+      gl:parse_pr_details({
+        title = 'title',
+        description = 'body',
+        draft = true,
+        source_branch = 'topic',
+        target_branch = 'main',
+        labels = { 'bug' },
+        assignees = {
+          { username = 'alice' },
+        },
+        reviewers = {
+          { username = 'bob' },
+        },
+        milestone = {
+          title = 'v1',
+        },
+      })
+    )
+
+    assert.same(
+      {
+        title = 'title',
+        body = 'body',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = 'v1',
+      },
+      gl:parse_issue_details({
+        title = 'title',
+        description = 'body',
+        labels = { 'bug' },
+        assignees = {
+          { username = 'alice' },
+        },
+        milestone = {
+          title = 'v1',
+        },
+      })
+    )
   end)
 
   it('returns correct pr_json_fields', function()
@@ -429,15 +542,65 @@ describe('codeberg', function()
     assert.same({ 'tea', 'issues', 'create', '--title', 'title' }, vim.list_slice(create, 1, 5))
     assert.truthy(vim.tbl_contains(create, '--labels'))
     assert.truthy(vim.tbl_contains(create, 'bug'))
-    assert.falsy(vim.tbl_contains(create, '--assignees'))
-    assert.falsy(vim.tbl_contains(create, '--milestone'))
 
     local cmd = cb:update_issue_cmd('23', 'title', 'body', { repo_arg = 'forgejo/tea-test' })
     assert.same({ 'tea', 'issues', 'edit', '23' }, vim.list_slice(cmd, 1, 4))
     assert.falsy(vim.tbl_contains(cmd, '--add-labels'))
     assert.falsy(vim.tbl_contains(cmd, '--remove-labels'))
-    assert.falsy(vim.tbl_contains(cmd, '--add-assignees'))
-    assert.falsy(vim.tbl_contains(cmd, '--milestone'))
+  end)
+
+  it('parses fetched PR and issue metadata for tea', function()
+    assert.same(
+      {
+        title = 'title',
+        body = 'body',
+        draft = false,
+        head_branch = 'topic',
+        base_branch = 'main',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        reviewers = {},
+        milestone = 'v1',
+      },
+      cb:parse_pr_details({
+        title = 'title',
+        body = 'body',
+        head = { ref = 'topic' },
+        base = { ref = 'main' },
+        labels = {
+          { name = 'bug' },
+        },
+        assignees = {
+          { login = 'alice' },
+        },
+        milestone = {
+          title = 'v1',
+        },
+      })
+    )
+
+    assert.same(
+      {
+        title = 'title',
+        body = 'body',
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = 'v1',
+      },
+      cb:parse_issue_details({
+        title = 'title',
+        body = 'body',
+        labels = {
+          { name = 'bug' },
+        },
+        assignees = {
+          { login = 'alice' },
+        },
+        milestone = {
+          title = 'v1',
+        },
+      })
+    )
   end)
 
   it('uses tea releases commands for release list and delete', function()

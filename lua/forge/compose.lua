@@ -79,17 +79,89 @@ local function set_clipboard(text)
   end
 end
 
+local function is_comment_opener(line)
+  return vim.trim(line or '') == '<!--'
+end
+
+local function is_comment_closer(line)
+  return vim.trim(line or '') == '-->'
+end
+
 ---@param buf_lines string[]
 ---@return string[] content_lines
 local function extract_content(buf_lines)
   local content_lines = {}
   for _, l in ipairs(buf_lines) do
-    if l:match('^<!--') then
+    if is_comment_opener(l) then
       break
     end
     table.insert(content_lines, l)
   end
   return content_lines
+end
+
+local function parse_comment_metadata(buf_lines)
+  local in_comment = false
+  local meta = { labels = {}, assignees = {}, milestone = '', draft = false, reviewers = {} }
+  for _, l in ipairs(buf_lines) do
+    if is_comment_opener(l) then
+      in_comment = true
+    elseif is_comment_closer(l) then
+      break
+    elseif in_comment then
+      local draft = l:match('^%s*Draft:%s*(.*)$')
+      if draft then
+        draft = vim.trim(draft):lower()
+        meta.draft = draft == 'yes' or draft == 'true'
+      end
+
+      local reviewers = l:match('^%s*Reviewers:%s*(.*)$')
+      if reviewers then
+        for reviewer in vim.trim(reviewers):gmatch('[^,%s]+') do
+          table.insert(meta.reviewers, reviewer)
+        end
+      end
+
+      local labels = l:match('^%s*Labels:%s*(.*)$')
+      if labels then
+        for label in vim.trim(labels):gmatch('[^,%s]+') do
+          table.insert(meta.labels, label)
+        end
+      end
+
+      local assignees = l:match('^%s*Assignees:%s*(.*)$')
+      if assignees then
+        for assignee in vim.trim(assignees):gmatch('[^,%s]+') do
+          table.insert(meta.assignees, assignee)
+        end
+      end
+
+      local milestone = l:match('^%s*Milestone:%s*(.*)$')
+      if milestone then
+        meta.milestone = vim.trim(milestone)
+      end
+    end
+  end
+  return meta
+end
+
+local function extract_submission(buf_lines)
+  local content_lines = extract_content(buf_lines)
+  return {
+    title = vim.trim((content_lines[1] or ''):gsub('^#+ *', '')),
+    body = vim.trim(table.concat(content_lines, '\n', 3)),
+    metadata = parse_comment_metadata(buf_lines),
+  }
+end
+
+local function add_metadata_line(builder, label, value, value_hl)
+  local prefix = '  ' .. label .. ': '
+  local ln = builder:add_line('%s%s', prefix, value or '')
+  builder:mark(ln, 2, #label, 'ForgeComposeLabel')
+  if value_hl and value and value ~= '' then
+    builder:mark(ln, #prefix, #value, value_hl)
+  end
+  return ln
 end
 
 ---@param f forge.Forge
@@ -101,7 +173,18 @@ end
 ---@param buf integer?
 ---@param ref? forge.Scope
 ---@param push_target string?
-local function push_and_create(f, branch, title, body, pr_base, pr_draft, buf, ref, push_target)
+local function push_and_create(
+  f,
+  branch,
+  title,
+  body,
+  pr_base,
+  pr_draft,
+  buf,
+  ref,
+  push_target,
+  metadata
+)
   local log = require('forge.logger')
   log.info('pushing and creating ' .. f.labels.pr_one .. '...')
   vim.system(
@@ -119,7 +202,7 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, buf, r
         return
       end
       vim.system(
-        f:create_pr_cmd(title, body, pr_base, pr_draft, ref),
+        f:create_pr_cmd(title, body, pr_base, pr_draft, ref, metadata),
         { text = true },
         function(create_result)
           vim.schedule(function()
@@ -151,40 +234,44 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, buf, r
   )
 end
 
-local function submit_issue(f, title, body, labels, buf, ref)
+local function submit_issue(f, title, body, labels, buf, ref, metadata)
   local log = require('forge.logger')
   log.info('creating issue...')
-  vim.system(f:create_issue_cmd(title, body, labels, ref), { text = true }, function(result)
-    vim.schedule(function()
-      if result.code == 0 then
-        local url = vim.trim(result.stdout or '')
-        if url ~= '' then
-          set_clipboard(url)
+  vim.system(
+    f:create_issue_cmd(title, body, labels, ref, metadata),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code == 0 then
+          local url = vim.trim(result.stdout or '')
+          if url ~= '' then
+            set_clipboard(url)
+          end
+          log.info(('created issue -> %s'):format(url))
+          require('forge').clear_list()
+          if buf and vim.api.nvim_buf_is_valid(buf) then
+            vim.bo[buf].modified = false
+            vim.api.nvim_buf_delete(buf, { force = true })
+          end
+        else
+          local msg = vim.trim(result.stderr or '')
+          if msg == '' then
+            msg = vim.trim(result.stdout or '')
+          end
+          if msg == '' then
+            msg = 'creation failed'
+          end
+          log.error(msg)
         end
-        log.info(('created issue -> %s'):format(url))
-        require('forge').clear_list()
-        if buf and vim.api.nvim_buf_is_valid(buf) then
-          vim.bo[buf].modified = false
-          vim.api.nvim_buf_delete(buf, { force = true })
-        end
-      else
-        local msg = vim.trim(result.stderr or '')
-        if msg == '' then
-          msg = vim.trim(result.stdout or '')
-        end
-        if msg == '' then
-          msg = 'creation failed'
-        end
-        log.error(msg)
-      end
-    end)
-  end)
+      end)
+    end
+  )
 end
 
-local function update_issue(f, num, title, body, buf, ref)
+local function update_issue(f, num, title, body, buf, ref, metadata)
   local log = require('forge.logger')
   log.info('updating issue #' .. num .. '...')
-  vim.system(f:update_issue_cmd(num, title, body, ref), { text = true }, function(result)
+  vim.system(f:update_issue_cmd(num, title, body, ref, metadata), { text = true }, function(result)
     vim.schedule(function()
       if result.code == 0 then
         log.info(('updated issue #%s'):format(num))
@@ -239,6 +326,10 @@ function M.open_issue(f, result, ref)
   b:mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
   b:add_line('')
+  add_metadata_line(b, 'Labels', table.concat(template_labels, ', '))
+  add_metadata_line(b, 'Assignees', '')
+  add_metadata_line(b, 'Milestone', '')
+  b:add_line('')
   add_discard_hints(b)
   b:add_line('  An empty title aborts creation.')
   b:add_line('-->')
@@ -249,8 +340,8 @@ function M.open_issue(f, result, ref)
     buffer = buf,
     callback = function()
       local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      local content_lines = extract_content(buf_lines)
-      local issue_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
+      local submission = extract_submission(buf_lines)
+      local issue_title = submission.title
 
       local log = require('forge.logger')
       if
@@ -262,7 +353,7 @@ function M.open_issue(f, result, ref)
         vim.api.nvim_buf_delete(buf, { force = true })
         return
       end
-      local issue_body = vim.trim(table.concat(content_lines, '\n', 3))
+      local issue_body = submission.body
       if body ~= '' and template.normalize_body(issue_body) == template.normalize_body(body) then
         log.warn('aborting: body unchanged from template')
         vim.bo[buf].modified = false
@@ -270,7 +361,7 @@ function M.open_issue(f, result, ref)
         return
       end
 
-      submit_issue(f, issue_title, issue_body, template_labels, buf, ref)
+      submit_issue(f, issue_title, issue_body, template_labels, buf, ref, submission.metadata)
     end,
   })
 
@@ -303,6 +394,10 @@ function M.open_issue_edit(f, num, details, ref)
   b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
 
   b:add_line('')
+  add_metadata_line(b, 'Labels', table.concat(details.labels or {}, ', '))
+  add_metadata_line(b, 'Assignees', table.concat(details.assignees or {}, ', '))
+  add_metadata_line(b, 'Milestone', details.milestone or '')
+  b:add_line('')
   add_discard_hints(b)
   b:add_line('  An empty title aborts editing.')
   b:add_line('-->')
@@ -313,8 +408,8 @@ function M.open_issue_edit(f, num, details, ref)
     buffer = buf,
     callback = function()
       local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      local content_lines = extract_content(buf_lines)
-      local issue_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
+      local submission = extract_submission(buf_lines)
+      local issue_title = submission.title
 
       local log = require('forge.logger')
       if issue_title == '' then
@@ -324,8 +419,7 @@ function M.open_issue_edit(f, num, details, ref)
         return
       end
 
-      local issue_body = vim.trim(table.concat(content_lines, '\n', 3))
-      update_issue(f, num, issue_title, issue_body, buf, ref)
+      update_issue(f, num, issue_title, submission.body, buf, ref, submission.metadata)
     end,
   })
 
@@ -382,6 +476,18 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   b:mark(ln, 2, #creating_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
 
+  b:add_line('')
+  if f.capabilities and f.capabilities.draft then
+    local draft_val = draft and 'true' or 'false'
+    add_metadata_line(b, 'Draft', draft_val, draft and 'ForgeComposeDraft' or 'ForgeDim')
+  end
+  if f.capabilities and f.capabilities.reviewers then
+    add_metadata_line(b, 'Reviewers', '')
+  end
+  add_metadata_line(b, 'Labels', '')
+  add_metadata_line(b, 'Assignees', '')
+  add_metadata_line(b, 'Milestone', '')
+
   local stat_start, stat_end
   if diff_stat ~= '' then
     b:add_line('')
@@ -435,8 +541,8 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
     buffer = buf,
     callback = function()
       local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      local content_lines = extract_content(buf_lines)
-      local pr_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
+      local submission = extract_submission(buf_lines)
+      local pr_title = submission.title
 
       local log = require('forge.logger')
       if pr_title == '' then
@@ -445,7 +551,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
         vim.api.nvim_buf_delete(buf, { force = true })
         return
       end
-      local pr_body = vim.trim(table.concat(content_lines, '\n', 3))
+      local pr_body = submission.body
       if pr_body == '' then
         log.warn('aborting: empty body')
         vim.bo[buf].modified = false
@@ -459,7 +565,18 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
         return
       end
 
-      push_and_create(f, branch, pr_title, pr_body, base, draft, buf, ref, push_target)
+      push_and_create(
+        f,
+        branch,
+        pr_title,
+        pr_body,
+        base,
+        draft,
+        buf,
+        ref,
+        push_target,
+        submission.metadata
+      )
     end,
   })
 
@@ -467,6 +584,10 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   vim.cmd('normal! v$h')
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-G>', true, false, true), 'n', false)
 end
+
+M._extract_content = extract_content
+M._parse_comment_metadata = parse_comment_metadata
+M._extract_submission = extract_submission
 
 M.push_and_create = push_and_create
 
@@ -476,10 +597,10 @@ M.push_and_create = push_and_create
 ---@param body string
 ---@param buf integer?
 ---@param ref? forge.Scope
-local function update_pr(f, num, title, body, buf, ref)
+local function update_pr(f, num, title, body, buf, ref, metadata)
   local log = require('forge.logger')
   log.info('updating ' .. f.labels.pr_one .. ' #' .. num .. '...')
-  vim.system(f:update_pr_cmd(num, title, body, ref), { text = true }, function(result)
+  vim.system(f:update_pr_cmd(num, title, body, ref, metadata), { text = true }, function(result)
     vim.schedule(function()
       if result.code ~= 0 then
         local msg = vim.trim(result.stderr or '')
@@ -545,6 +666,18 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
 
+  b:add_line('')
+  if f.capabilities and f.capabilities.draft then
+    local draft_val = details.draft and 'true' or 'false'
+    add_metadata_line(b, 'Draft', draft_val, details.draft and 'ForgeComposeDraft' or 'ForgeDim')
+  end
+  if f.capabilities and f.capabilities.reviewers then
+    add_metadata_line(b, 'Reviewers', table.concat(details.reviewers or {}, ', '))
+  end
+  add_metadata_line(b, 'Labels', table.concat(details.labels or {}, ', '))
+  add_metadata_line(b, 'Assignees', table.concat(details.assignees or {}, ', '))
+  add_metadata_line(b, 'Milestone', details.milestone or '')
+
   local stat_start, stat_end
   if diff_stat ~= '' then
     b:add_line('')
@@ -598,8 +731,8 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
     buffer = buf,
     callback = function()
       local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      local content_lines = extract_content(buf_lines)
-      local pr_title = vim.trim((content_lines[1] or ''):gsub('^#+ *', ''))
+      local submission = extract_submission(buf_lines)
+      local pr_title = submission.title
 
       local log = require('forge.logger')
       if pr_title == '' then
@@ -608,7 +741,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
         vim.api.nvim_buf_delete(buf, { force = true })
         return
       end
-      local pr_body = vim.trim(table.concat(content_lines, '\n', 3))
+      local pr_body = submission.body
       if pr_body == '' then
         log.warn('aborting: empty body')
         vim.bo[buf].modified = false
@@ -616,7 +749,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
         return
       end
 
-      update_pr(f, num, pr_title, pr_body, buf, ref)
+      update_pr(f, num, pr_title, pr_body, buf, ref, submission.metadata)
     end,
   })
 
