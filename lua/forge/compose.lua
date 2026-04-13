@@ -588,7 +588,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   if diff_stat ~= '' then
     add_section_gap(b)
     local changes_prefix = '  Changes not in '
-    ln = b:add_line('%s%s:', changes_prefix, base_ref)
+    local ln = b:add_line('%s%s:', changes_prefix, base_ref)
     b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
     b:mark(ln, #changes_prefix, #base_ref, 'ForgeComposeBranch')
     b:add_line('')
@@ -787,7 +787,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   if diff_stat ~= '' then
     add_section_gap(b)
     local changes_prefix = '  Changes not in origin/'
-    ln = b:add_line('%s%s:', changes_prefix, base)
+    local ln = b:add_line('%s%s:', changes_prefix, base)
     b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
     b:mark(ln, #changes_prefix, #base, 'ForgeComposeBranch')
     b:add_line('')
