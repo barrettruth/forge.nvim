@@ -29,7 +29,6 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge pr create` [modifiers]......................|:Forge-pr-create|
     `:Forge pr checkout` {num} [repo=...]............|:Forge-pr-checkout|
     `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
-    `:Forge pr ci` {num}........................................|:Forge-pr-ci|
     `:Forge pr browse` {num}................................|:Forge-pr-browse|
     `:Forge pr approve` {num}..............................|:Forge-pr-approve|
     `:Forge pr merge` {num} [`method=`]....................|:Forge-pr-merge|
@@ -442,9 +441,6 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr worktree` {num} [repo=...]                     *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
 
-`:Forge pr ci` {num} [repo=...]                                 *:Forge-pr-ci*
-    Open the CI checks picker for PR `{num}`.
-
 `:Forge pr browse` {num} [repo=...]                         *:Forge-pr-browse*
     Open PR `{num}` in the browser.
 
@@ -677,8 +673,8 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
                                                              *forge-picker-ci*
-CI PICKER ~ Used for both per-PR checks (`:Forge pr ci {num}`) and interactive
-repo/current-branch CI routes. Both share the `keys.ci` bindings.
+CI PICKER ~ Used for interactive repo/current-branch CI routes and nested
+per-PR checks opened from the PR picker. Both share the `keys.ci` bindings.
 
 For repo-wide CI runs, Forge fetches an initial page using
 `display.limits.runs`. When more runs are available, the picker shows a

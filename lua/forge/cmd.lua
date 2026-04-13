@@ -36,7 +36,6 @@ local families = {
       'checkout',
       'worktree',
       'browse',
-      'ci',
       'close',
       'reopen',
       'create',
@@ -56,10 +55,6 @@ local families = {
         modifiers = { 'repo' },
       },
       browse = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
-      },
-      ci = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo' },
       },
@@ -429,10 +424,6 @@ local function dispatch_pr(command)
   end
   if command.name == 'worktree' then
     ops.pr_worktree(f, { num = num, scope = scope })
-    return
-  end
-  if command.name == 'ci' then
-    ops.pr_ci(f, { num = num, scope = scope })
     return
   end
   if command.name == 'browse' then
