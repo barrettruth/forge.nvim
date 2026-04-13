@@ -40,27 +40,6 @@ Install with your package manager of choice or via
 luarocks install forge.nvim
 ```
 
-## Usage
-
-Use direct commands for action-oriented workflows:
-
-```vim
-:Forge pr create
-:Forge pr checkout 123
-:Forge issue create
-:Forge issue edit 42
-:Forge ci log 456
-```
-
-If you use `fzf-lua`, you can also bind the picker surface with
-`require('forge').open()`:
-
-```lua
-vim.keymap.set('n', '<leader>gg', function()
-  require('forge').open()
-end, { desc = 'forge' })
-```
-
 ## Documentation
 
 ```vim
