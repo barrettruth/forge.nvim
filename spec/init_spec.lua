@@ -306,79 +306,67 @@ describe('format_issue', function()
 end)
 
 describe('format_check', function()
-  it('maps pass bucket', function()
-    local result = flatten(forge.format_check({ name = 'lint', bucket = 'pass' }))
-    assert.truthy(result:find('p'))
-    assert.truthy(result:find('lint'))
-  end)
-
-  it('maps fail bucket', function()
-    local result = flatten(forge.format_check({ name = 'build', bucket = 'fail' }))
-    assert.truthy(result:find('f'))
-  end)
-
-  it('maps pending bucket', function()
-    local result = flatten(forge.format_check({ name = 'test', bucket = 'pending' }))
-    assert.truthy(result:find('~'))
-  end)
-
-  it('maps skipping bucket', function()
-    local result = flatten(forge.format_check({ name = 'optional', bucket = 'skipping' }))
-    assert.truthy(result:find('s'))
-  end)
-
-  it('maps cancel bucket', function()
-    local result = flatten(forge.format_check({ name = 'cancelled', bucket = 'cancel' }))
-    assert.truthy(result:find('s'))
-  end)
-
-  it('maps unknown bucket', function()
-    local result = flatten(forge.format_check({ name = 'mystery', bucket = 'something_else' }))
-    assert.truthy(result:find('%?'))
-  end)
-
-  it('defaults to pending when bucket is nil', function()
-    local result = flatten(forge.format_check({ name = 'none' }))
-    assert.truthy(result:find('~'))
-  end)
+  for _, case in ipairs({
+    { name = 'maps pass bucket', check = { name = 'lint', bucket = 'pass' }, icon = 'p' },
+    { name = 'maps fail bucket', check = { name = 'build', bucket = 'fail' }, icon = 'f' },
+    { name = 'maps pending bucket', check = { name = 'test', bucket = 'pending' }, icon = '~' },
+    {
+      name = 'maps skipping bucket',
+      check = { name = 'optional', bucket = 'skipping' },
+      icon = 's',
+    },
+    { name = 'maps cancel bucket', check = { name = 'cancelled', bucket = 'cancel' }, icon = 's' },
+    {
+      name = 'maps unknown bucket',
+      check = { name = 'mystery', bucket = 'something_else' },
+      icon = '%?',
+    },
+    { name = 'defaults to pending when bucket is nil', check = { name = 'none' }, icon = '~' },
+  }) do
+    it(case.name, function()
+      local result = flatten(forge.format_check(case.check))
+      assert.truthy(result:find(case.icon))
+      assert.truthy(result:find(case.check.name, 1, true))
+    end)
+  end
 end)
 
 describe('format_run', function()
-  it('formats successful run with branch', function()
-    local run =
-      { name = 'CI', branch = 'main', status = 'success', event = 'push', created_at = '' }
-    local result = flatten(forge.format_run(run))
-    assert.truthy(result:find('p'))
-    assert.truthy(result:find('CI'))
-    assert.truthy(result:find('main'))
-    assert.truthy(result:find('push'))
-  end)
-
-  it('formats failed run without branch', function()
-    local run = {
-      name = 'Deploy',
-      branch = '',
-      status = 'failure',
-      event = 'workflow_dispatch',
-      created_at = '',
-    }
-    local result = flatten(forge.format_run(run))
-    assert.truthy(result:find('f'))
-    assert.truthy(result:find('manual'))
-  end)
-
-  it('maps in_progress status', function()
-    local run =
-      { name = 'Test', branch = '', status = 'in_progress', event = 'push', created_at = '' }
-    local result = flatten(forge.format_run(run))
-    assert.truthy(result:find('~'))
-  end)
-
-  it('maps cancelled status', function()
-    local run = { name = 'Old', branch = '', status = 'cancelled', event = 'push', created_at = '' }
-    local result = flatten(forge.format_run(run))
-    assert.truthy(result:find('s'))
-  end)
+  for _, case in ipairs({
+    {
+      name = 'formats successful run with branch',
+      run = { name = 'CI', branch = 'main', status = 'success', event = 'push', created_at = '' },
+      expected = { 'p', 'CI', 'main', 'push' },
+    },
+    {
+      name = 'formats failed run without branch',
+      run = {
+        name = 'Deploy',
+        branch = '',
+        status = 'failure',
+        event = 'workflow_dispatch',
+        created_at = '',
+      },
+      expected = { 'f', 'manual' },
+    },
+    {
+      name = 'maps in_progress status',
+      run = { name = 'Test', branch = '', status = 'in_progress', event = 'push', created_at = '' },
+      expected = { '~' },
+    },
+    {
+      name = 'maps cancelled status',
+      run = { name = 'Old', branch = '', status = 'cancelled', event = 'push', created_at = '' },
+      expected = { 's' },
+    },
+  }) do
+    it(case.name, function()
+      local result = flatten(forge.format_run(case.run))
+      for _, expected in ipairs(case.expected) do
+        assert.truthy(result:find(expected, 1, true))
+      end
+    end)
+  end
 end)
 
 describe('format_runs', function()
@@ -705,68 +693,36 @@ describe('config validation', function()
     vim.g.forge = nil
   end)
 
-  it('rejects non-table sources', function()
-    vim.g.forge = { sources = 'bad' }
-    assert.has_error(function()
-      forge.config()
+  for _, case in ipairs({
+    { name = 'rejects non-table sources', config = { sources = 'bad' } },
+    { name = 'rejects non-table display', config = { display = 42 } },
+    { name = 'rejects non-number ci.lines', config = { ci = { lines = 'many' } } },
+    { name = 'rejects non-string icon', config = { display = { icons = { open = 123 } } } },
+    { name = 'rejects non-number width', config = { display = { widths = { title = 'wide' } } } },
+    { name = 'rejects non-number limit', config = { display = { limits = { pulls = true } } } },
+    { name = 'rejects non-string key binding', config = { keys = { pr = { edit = 42 } } } },
+    { name = 'rejects non-table targets', config = { targets = 'bad' } },
+    {
+      name = 'rejects invalid target alias values',
+      config = { targets = { aliases = { upstream = false } } },
+    },
+    { name = 'rejects keys as a string', config = { keys = 'none' } },
+    { name = 'rejects non-table source hosts', config = { sources = { custom = { hosts = 99 } } } },
+    { name = 'rejects invalid split value', config = { split = 'diagonal' } },
+    { name = 'rejects invalid ci.split', config = { ci = { split = 'bad' } } },
+    { name = 'rejects non-number ci.refresh', config = { ci = { refresh = 'fast' } } },
+    {
+      name = 'rejects invalid delete confirmation config',
+      config = { confirm = { branch_delete = 'nope' } },
+    },
+  }) do
+    it(case.name, function()
+      vim.g.forge = case.config
+      assert.has_error(function()
+        forge.config()
+      end)
     end)
-  end)
-
-  it('rejects non-table display', function()
-    vim.g.forge = { display = 42 }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects non-number ci.lines', function()
-    vim.g.forge = { ci = { lines = 'many' } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects non-string icon', function()
-    vim.g.forge = { display = { icons = { open = 123 } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects non-number width', function()
-    vim.g.forge = { display = { widths = { title = 'wide' } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects non-number limit', function()
-    vim.g.forge = { display = { limits = { pulls = true } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects non-string key binding', function()
-    vim.g.forge = { keys = { pr = { edit = 42 } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects non-table targets', function()
-    vim.g.forge = { targets = 'bad' }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects invalid target alias values', function()
-    vim.g.forge = { targets = { aliases = { upstream = false } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
+  end
 
   it('accepts target alias and collaboration defaults', function()
     vim.g.forge = {
@@ -788,40 +744,29 @@ describe('config validation', function()
     assert.is_false(cfg.keys.pr.edit)
   end)
 
-  it('rejects keys as a string', function()
-    vim.g.forge = { keys = 'none' }
-    assert.has_error(function()
-      forge.config()
+  for _, case in ipairs({
+    {
+      name = 'accepts horizontal split',
+      config = { split = 'horizontal' },
+      assert_cfg = function(cfg)
+        assert.equals('horizontal', cfg.split)
+        assert.is_true(cfg.confirm.branch_delete)
+        assert.is_true(cfg.confirm.worktree_delete)
+      end,
+    },
+    {
+      name = 'accepts vertical split',
+      config = { split = 'vertical' },
+      assert_cfg = function(cfg)
+        assert.equals('vertical', cfg.split)
+      end,
+    },
+  }) do
+    it(case.name, function()
+      vim.g.forge = case.config
+      case.assert_cfg(forge.config())
     end)
-  end)
-
-  it('rejects non-table source hosts', function()
-    vim.g.forge = { sources = { custom = { hosts = 99 } } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects invalid split value', function()
-    vim.g.forge = { split = 'diagonal' }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('accepts horizontal split', function()
-    vim.g.forge = { split = 'horizontal' }
-    local cfg = forge.config()
-    assert.equals('horizontal', cfg.split)
-    assert.is_true(cfg.confirm.branch_delete)
-    assert.is_true(cfg.confirm.worktree_delete)
-  end)
-
-  it('accepts vertical split', function()
-    vim.g.forge = { split = 'vertical' }
-    local cfg = forge.config()
-    assert.equals('vertical', cfg.split)
-  end)
+  end
 
   it('accepts ci.split override', function()
     vim.g.forge = { split = 'horizontal', ci = { split = 'vertical' } }
@@ -849,19 +794,5 @@ describe('config validation', function()
     vim.g.forge = { ci = { refresh = 0 } }
     local cfg = forge.config()
     assert.equals(0, cfg.ci.refresh)
-  end)
-
-  it('rejects non-number ci.refresh', function()
-    vim.g.forge = { ci = { refresh = 'fast' } }
-    assert.has_error(function()
-      forge.config()
-    end)
-  end)
-
-  it('rejects invalid delete confirmation config', function()
-    vim.g.forge = { confirm = { branch_delete = 'nope' } }
-    assert.has_error(function()
-      forge.config()
-    end)
   end)
 end)
