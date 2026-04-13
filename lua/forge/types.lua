@@ -49,9 +49,6 @@
 ---@class forge.IssueDetails
 ---@field title string
 ---@field body string
----@field labels string[]
----@field assignees string[]
----@field milestone string
 
 ---@class forge.CreatePROpts
 ---@field draft boolean?
@@ -163,8 +160,8 @@
 ---@field release_fields { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
 ---@field browse_release fun(self: forge.Forge, tag: string, scope?: forge.Scope)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string, scope?: forge.Scope): string[]
----@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?, scope?: forge.Scope): string[]
----@field update_issue_cmd fun(self: forge.Forge, num: string, title: string, body: string, labels: string[]?, assignees: string[]?, milestone: string?, original: forge.IssueDetails, scope?: forge.Scope): string[]
+---@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, scope?: forge.Scope): string[]
+---@field update_issue_cmd fun(self: forge.Forge, num: string, title: string, body: string, scope?: forge.Scope): string[]
 ---@field issue_template_paths fun(self: forge.Forge): string[]
 ---@field create_issue_web_cmd (fun(self: forge.Forge, scope?: forge.Scope): string[]?)?
 ---@field create_issue_web_url (fun(self: forge.Forge, scope?: forge.Scope): string?)?

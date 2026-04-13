@@ -814,21 +814,15 @@ Layout: ~
   Line 1      Issue title
   Line 2      Empty separator
   Lines 3+    Issue body (from discovered issue template, or empty)
-  `<!--`        Metadata comment block (forge, labels, assignees).
+  `<!--`        Informational comment block (forge, submit/discard hints).
   `-->`         End of metadata
 
 Write (`:w`) to create the issue. An empty title aborts creation. The
 issue URL is copied to the `+` register on success.
 
-Metadata fields: ~
-  `Labels:`          Comma or space separated label names.
-  `Assignees:`       Comma or space separated usernames.
-  `Milestone:`       Milestone name.
-
 Editing an issue opens a compose buffer at `forge://issue/{num}/edit` with
-the same title/body layout and metadata fields as issue creation. Write
-(`:w`) to update the issue. An empty title aborts editing. Empty bodies are
-allowed.
+the same title/body layout as issue creation. Write (`:w`) to update the
+issue. An empty title aborts editing. Empty bodies are allowed.
 
 Template discovery: ~
   forge.nvim searches forge-specific template paths. If a template
@@ -871,7 +865,6 @@ Compose buffer: ~
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
   `ForgeComposeHeader`       `PreProc`          Section headers
-  `ForgeComposeLabel`        `Label`            Metadata labels (Labels:, etc.)
 
 Picker lines: ~
 
@@ -935,9 +928,6 @@ support for features that vary:
   CI runs (repo-wide)          yes       yes       yes
   Issue create                   yes       yes       yes
   Issue edit                    yes       yes       yes
-  Issue create (labels)        yes       yes       yes
-  Issue create (assignees)     yes       yes       yes
-  Issue create (milestone)     yes       yes       yes
   Issues                       yes       yes       yes
   Branches                     yes       yes       yes
   Commits                      yes       yes       yes
