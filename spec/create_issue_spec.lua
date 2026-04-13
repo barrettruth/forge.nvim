@@ -223,9 +223,9 @@ describe('create_issue', function()
     require('forge').create_issue()
 
     assert.is_not_nil(captured.picker)
-    assert.same('Blank Issue', captured.picker.entries[1].display[1][1])
-    assert.same('Bug Report', captured.picker.entries[2].display[1][1])
-    captured.picker.actions[1].fn(captured.picker.entries[1])
+    assert.same('Bug Report', captured.picker.entries[1].display[1][1])
+    assert.same('Blank Issue', captured.picker.entries[2].display[1][1])
+    captured.picker.actions[1].fn(captured.picker.entries[2])
     assert.equals(1, captured.opened_calls)
     assert.is_nil(captured.opened)
     assert.same({}, captured.errors)
@@ -256,7 +256,7 @@ describe('create_issue', function()
       require('forge').create_issue()
 
       assert.is_not_nil(captured.picker)
-      captured.picker.actions[1].fn(captured.picker.entries[2])
+      captured.picker.actions[1].fn(captured.picker.entries[1])
 
       assert.is_nil(captured.opened_calls)
       assert.same(
@@ -294,8 +294,8 @@ describe('create_issue', function()
     })
 
     assert.is_not_nil(captured.picker)
-    assert.same('Blank Issue', captured.picker.entries[1].display[1][1])
-    assert.same('Bug Report', captured.picker.entries[2].display[1][1])
+    assert.same('Bug Report', captured.picker.entries[1].display[1][1])
+    assert.same('Blank Issue', captured.picker.entries[2].display[1][1])
     assert.is_function(captured.picker.back)
 
     captured.picker.back()

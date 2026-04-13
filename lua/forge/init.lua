@@ -696,14 +696,7 @@ function M.create_issue(opts)
   end
 
   local picker = require('forge.picker')
-  local entries = {
-    {
-      display = { { 'Blank Issue' } },
-      value = nil,
-      ordinal = 'Blank Issue',
-      blank = true,
-    },
-  }
+  local entries = {}
   for _, t in ipairs(templates) do
     table.insert(entries, {
       display = { { t.display } },
@@ -711,6 +704,12 @@ function M.create_issue(opts)
       ordinal = t.display,
     })
   end
+  table.insert(entries, {
+    display = { { 'Blank Issue' } },
+    value = nil,
+    ordinal = 'Blank Issue',
+    blank = true,
+  })
   picker.pick({
     prompt = 'Issue Template> ',
     entries = entries,
