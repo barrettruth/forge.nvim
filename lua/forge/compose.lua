@@ -73,6 +73,13 @@ local function add_discard_hints(builder)
   builder:add_line('  Use :q!, :bd!, or :bwipeout! to discard it.')
 end
 
+local function set_clipboard(text)
+  local ok = pcall(vim.fn.setreg, '+', text)
+  if not ok then
+    pcall(vim.fn.setreg, '"', text)
+  end
+end
+
 ---@param buf_lines string[]
 ---@return string[] content_lines
 local function extract_content(buf_lines)
@@ -157,7 +164,7 @@ local function push_and_create(f, branch, title, body, pr_base, pr_draft, buf, r
             if create_result.code == 0 then
               local url = vim.trim(create_result.stdout or '')
               if url ~= '' then
-                vim.fn.setreg('+', url)
+                set_clipboard(url)
               end
               log.info(('created %s -> %s'):format(f.labels.pr_one, url))
               require('forge').clear_list()
@@ -193,7 +200,7 @@ local function submit_issue(f, title, body, labels, assignees, milestone, buf, r
         if result.code == 0 then
           local url = vim.trim(result.stdout or '')
           if url ~= '' then
-            vim.fn.setreg('+', url)
+            set_clipboard(url)
           end
           log.info(('created issue -> %s'):format(url))
           require('forge').clear_list()
