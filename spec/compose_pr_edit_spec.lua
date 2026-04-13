@@ -7,6 +7,15 @@ describe('compose pr edit', function()
   local old_feedkeys
   local old_preload
 
+  local function line_index(lines, target)
+    for i, line in ipairs(lines) do
+      if line == target then
+        return i
+      end
+    end
+    return nil
+  end
+
   before_each(function()
     captured = {
       infos = {},
@@ -123,6 +132,10 @@ describe('compose pr edit', function()
     )
 
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local editing_line = line_index(lines, '  Editing Pull Request #23 via github.')
+
+    assert.is_not_nil(editing_line)
+    assert.equals('  On branch real-pr-head against main.', lines[editing_line + 1])
     assert.is_truthy(vim.tbl_contains(lines, '  On branch real-pr-head against main.'))
     assert.is_false(vim.tbl_contains(lines, '  On branch other-local-branch against main.'))
     assert.is_true(vim.tbl_contains(lines, '  Draft: false'))
@@ -171,7 +184,7 @@ describe('compose pr edit', function()
   end)
 
   it(
-    'keeps a single blank line between the forge line and instructions when metadata and diff stat are empty',
+    'keeps a single blank line after the branch line when metadata and diff stat are empty',
     function()
       local compose = require('forge.compose')
       compose.open_pr_edit(
@@ -196,17 +209,12 @@ describe('compose pr edit', function()
       )
 
       local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-      local editing_line
-      for i, line in ipairs(lines) do
-        if line == '  Editing Pull Request #23 via github.' then
-          editing_line = i
-          break
-        end
-      end
+      local editing_line = line_index(lines, '  Editing Pull Request #23 via github.')
 
       assert.is_not_nil(editing_line)
-      assert.equals('', lines[editing_line + 1])
-      assert.equals('  Write (:w) submits this buffer.', lines[editing_line + 2])
+      assert.equals('  On branch real-pr-head against main.', lines[editing_line + 1])
+      assert.equals('', lines[editing_line + 2])
+      assert.equals('  Write (:w) submits this buffer.', lines[editing_line + 3])
     end
   )
 
