@@ -382,4 +382,18 @@ describe('create_issue', function()
     assert.same({ 'https://github.com/owner/repo/issues/new' }, captured.open_urls)
     assert.same({ 'opened issue creation in browser' }, captured.infos)
   end)
+
+  it('keeps forge detection working when shell_error is stale', function()
+    old_fn_system('false')
+    assert.not_equals(0, vim.v.shell_error)
+
+    require('forge').create_issue({ web = true })
+
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.infos, 'opened issue creation in browser')
+    end)
+
+    assert.is_true(vim.tbl_contains(captured.systems, 'create-issue-web'))
+    old_fn_system('true')
+  end)
 end)
