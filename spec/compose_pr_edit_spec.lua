@@ -163,6 +163,11 @@ describe('compose pr edit', function()
       assert.is_false(line == '  Changes not in origin/main:')
       assert.is_false(line == '   lua/forge/init.lua | 2 +-')
     end
+    assert.is_true(vim.tbl_contains(lines, '  Draft: false'))
+    assert.is_false(vim.tbl_contains(lines, '  Reviewers: '))
+    assert.is_false(vim.tbl_contains(lines, '  Labels: '))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: '))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
   end)
 
   it('extracts PR metadata from the comment block on write', function()

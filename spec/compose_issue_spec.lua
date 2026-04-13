@@ -116,9 +116,9 @@ describe('compose issue create', function()
 
     local buf = vim.api.nvim_get_current_buf()
     local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    assert.is_true(vim.tbl_contains(lines, '  Labels: '))
-    assert.is_true(vim.tbl_contains(lines, '  Assignees: '))
-    assert.is_true(vim.tbl_contains(lines, '  Milestone: '))
+    assert.is_false(vim.tbl_contains(lines, '  Labels: '))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: '))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# test issue' })
     vim.cmd('write')
 
@@ -169,6 +169,8 @@ describe('compose issue create', function()
     local buf = vim.api.nvim_get_current_buf()
     local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
     assert.is_true(vim.tbl_contains(lines, '  Labels: bug'))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: '))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# template issue done' })
     vim.cmd('write')
 
@@ -444,6 +446,36 @@ describe('compose issue edit', function()
     assert.equals(1, captured.cleared)
     assert.same({}, captured.warns)
     assert.same({}, captured.errors)
+  end)
+
+  it('omits empty issue metadata lines in the comment block', function()
+    local compose = require('forge.compose')
+    local f = {
+      name = 'github',
+      update_issue_cmd = function(_, num, title, body, ref, metadata)
+        captured.args = {
+          num = num,
+          title = title,
+          body = body,
+          ref = ref,
+          metadata = metadata,
+        }
+        return { 'update-issue', num, title, body }
+      end,
+    }
+
+    compose.open_issue_edit(f, '42', {
+      title = 'existing issue',
+      body = 'body',
+      labels = {},
+      assignees = {},
+      milestone = '',
+    })
+
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    assert.is_false(vim.tbl_contains(lines, '  Labels: '))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: '))
+    assert.is_false(vim.tbl_contains(lines, '  Milestone: '))
   end)
 
   it('treats a broken comment opener as body text on write', function()
