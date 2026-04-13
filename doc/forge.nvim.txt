@@ -64,15 +64,15 @@ remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
-- fzf-lua for interactive picker workflows
 - tree-sitter `yaml` parser
 - One or more forge CLIs:
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
+- Optional: `fzf-lua` for interactive picker workflows
 
-Direct `:Forge` action commands work without `fzf-lua`. The interactive picker
-surface requires it.
+Direct `:Forge` action commands work without `fzf-lua`. The built-in
+interactive picker surface requires it.
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
@@ -1068,11 +1068,13 @@ Optional methods: ~
 
   Method                              Fallback ~
   `list_runs_json_cmd(branch?)`        `string[]` JSON CI list cmd.
-                                        If absent, `list_runs_cmd` is used
-                                        as a raw fzf-lua command source.
+                                        If absent, Forge reports that
+                                        structured CI data is unavailable
+                                        for that source.
   `checks_json_cmd(num)`               `string[]` JSON checks cmd.
-                                        If absent, `checks_cmd` string is
-                                        used as a raw fzf-lua command.
+                                        If absent, Forge reports that
+                                        structured checks are unavailable
+                                        for that source.
   `create_pr_web_cmd()`                `string[]?` cmd to open web PR
                                         creation. Return `nil` to no-op.
   `create_issue_web_cmd()`             `string[]?` cmd to open web issue
