@@ -422,7 +422,9 @@ BANG SEMANTICS                                            *forge-command-bang*
     PR creation commands are branch-relative. Default targets: `head=` is
     the current branch push context and `base=` is the collaboration repo
     default branch.
-    (no modifiers)     Open the compose buffer (|forge-compose|).
+    (no modifiers)     Open the compose buffer (|forge-compose|). If
+                       multiple PR templates exist, Forge does not prompt
+                       here and opens the default compose body instead.
     `draft`            Open compose buffer with draft pre-set.
     `fill`             Create instantly from commits (skip compose).
     `web`              Push and open the forge's web create-PR page for the
@@ -474,7 +476,9 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge issue create` [repo=...] [web] [blank] [template=...]
                                                          *:Forge-issue-create*
     Create a new issue.
-    (no modifiers)     Open the compose buffer.
+    (no modifiers)     Open the compose buffer. If multiple issue
+                       templates exist, use `template=...` to select one;
+                       otherwise Forge opens a blank issue compose.
     `web`              Open the forge's web create-issue page.
     `blank`            Start from a blank issue template when supported.
     `template=...`     Use the named issue template.
@@ -818,7 +822,7 @@ Creating a PR (without `--fill` or `--web`) opens a compose buffer at
 Layout: ~
   Line 1      PR title (pre-filled from single commit subject or branch)
   Line 2      Empty separator
-  Lines 3+    PR body (from commit body or discovered PR template)
+  Lines 3+    PR body (from commit body or a single discovered PR template)
   `<!--`        Informational comment block (branch, forge, diff stat).
   `-->`         End of metadata
 
@@ -831,7 +835,7 @@ Creating an issue (without `--web`) opens a compose buffer at
 Layout: ~
   Line 1      Issue title
   Line 2      Empty separator
-  Lines 3+    Issue body (from discovered issue template, or empty)
+  Lines 3+    Issue body (from a single discovered issue template, or empty)
   `<!--`        Informational comment block (forge, submit/discard hints).
   `-->`         End of metadata
 

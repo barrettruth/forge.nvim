@@ -126,6 +126,7 @@ describe('create_pr', function()
     package.preload['forge.compose'] = function()
       return {
         open_pr = function(_, _, _, _, result)
+          captured.opened_calls = (captured.opened_calls or 0) + 1
           captured.opened = result
         end,
       }
@@ -264,25 +265,16 @@ describe('create_pr', function()
     })
   end
 
-  it('preserves back on the PR template picker', function()
-    local back_calls = 0
-
-    require('forge').create_pr({
-      back = function()
-        back_calls = back_calls + 1
-      end,
-    })
+  it('opens PR compose without prompting when multiple templates exist', function()
+    require('forge').create_pr()
 
     vim.wait(100, function()
-      return captured.picker ~= nil
+      return captured.opened_calls ~= nil
     end)
 
-    assert.is_not_nil(captured.picker)
-    assert.is_function(captured.picker.back)
-
-    captured.picker.back()
-
-    assert.equals(1, back_calls)
+    assert.equals(1, captured.opened_calls)
+    assert.is_nil(captured.opened)
+    assert.is_nil(captured.picker)
   end)
 
   it('blocks web PR creation when the current branch already matches the base', function()
@@ -454,27 +446,17 @@ describe('create_pr', function()
   end)
 
   it('keeps forge detection working when shell_error is stale', function()
-    local back_calls = 0
-
     old_fn_system('false')
     assert.not_equals(0, vim.v.shell_error)
 
-    require('forge').create_pr({
-      back = function()
-        back_calls = back_calls + 1
-      end,
-    })
+    require('forge').create_pr()
 
     vim.wait(100, function()
-      return captured.picker ~= nil
+      return captured.opened_calls ~= nil
     end)
 
-    assert.is_not_nil(captured.picker)
-    assert.is_function(captured.picker.back)
-
-    captured.picker.back()
-
-    assert.equals(1, back_calls)
+    assert.equals(1, captured.opened_calls)
+    assert.is_nil(captured.picker)
     old_fn_system('true')
   end)
 end)
