@@ -108,27 +108,37 @@ end
 
 ---@param paths string[]
 ---@param repo_root string
----@return forge.TemplateResult? result
 ---@return forge.TemplateEntry[]? templates
----@return string? err
-function M.discover(paths, repo_root)
+function M.entries(paths, repo_root)
   local log = require('forge.logger')
   local t0 = vim.uv.hrtime()
+  ---@type forge.TemplateEntry[]
+  local templates = {}
   for _, p in ipairs(paths) do
     local full = repo_root .. '/' .. p
     local stat = vim.uv.fs_stat(full)
     if stat and stat.type == 'file' then
-      local content = M.read_file(full)
-      if content then
-        log.debug(('template: %s (%.1fms)'):format(p, (vim.uv.hrtime() - t0) / 1e6))
-        local result, err = M.make_template_result(content, M.is_yaml(p))
-        return result, nil, err
+      local name = vim.fs.basename(p)
+      local is_yml = M.is_yaml(name) and not name:match('^config%.ya?ml$')
+      local is_md = name:match('%.md$')
+      if is_md or is_yml then
+        local display = name
+        if is_yml then
+          local content = M.read_file(full)
+          if content then
+            display = M.yaml_name(content) or name
+          end
+        end
+        templates[#templates + 1] = {
+          name = name,
+          display = display,
+          is_yaml = is_yml == true,
+          dir = vim.fs.dirname(full),
+        }
       end
     elseif stat and stat.type == 'directory' then
       local handle = vim.uv.fs_scandir(full)
       if handle then
-        ---@type forge.TemplateEntry[]
-        local templates = {}
         while true do
           local name, typ = vim.uv.fs_scandir_next(handle)
           if not name then
@@ -147,32 +157,39 @@ function M.discover(paths, repo_root)
             table.insert(templates, {
               name = name,
               display = display,
-              is_yaml = is_yml ~= nil,
+              is_yaml = is_yml == true,
               dir = full,
             })
           end
         end
-        if #templates == 1 then
-          local content = M.read_file(full .. '/' .. templates[1].name)
-          if content then
-            local result, err = M.make_template_result(content, templates[1].is_yaml)
-            return result, nil, err
-          end
-        elseif #templates > 0 then
-          table.sort(templates, function(a, b)
-            return a.display < b.display
-          end)
-          log.debug(
-            ('templates: found %d in %s (%.1fms)'):format(
-              #templates,
-              full,
-              (vim.uv.hrtime() - t0) / 1e6
-            )
-          )
-          return nil, templates
-        end
       end
     end
+  end
+  if #templates == 0 then
+    return nil
+  end
+  table.sort(templates, function(a, b)
+    return a.display < b.display
+  end)
+  log.debug(('templates: found %d (%.1fms)'):format(#templates, (vim.uv.hrtime() - t0) / 1e6))
+  return templates
+end
+
+---@param paths string[]
+---@param repo_root string
+---@return forge.TemplateResult? result
+---@return forge.TemplateEntry[]? templates
+---@return string? err
+function M.discover(paths, repo_root)
+  local templates = M.entries(paths, repo_root)
+  if templates and #templates == 1 then
+    local content = M.read_file(templates[1].dir .. '/' .. templates[1].name)
+    if content then
+      local result, err = M.make_template_result(content, templates[1].is_yaml)
+      return result, nil, err
+    end
+  elseif templates and #templates > 1 then
+    return nil, templates
   end
   return nil, nil, nil
 end

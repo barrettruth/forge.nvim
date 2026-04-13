@@ -1227,6 +1227,8 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 `create_issue(opts?)`
     Creates an issue. `opts` is `forge.CreateIssueOpts?`:
       `web`       `boolean?`  Open web creation page.
+      `blank`     `boolean?`  Start from Blank Issue.
+      `template`  `string?`   Use the named issue template slug.
 
                                                           *forge.edit_issue()*
 `edit_issue(num, ref?)`
