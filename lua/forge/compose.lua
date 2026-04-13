@@ -173,13 +173,25 @@ local function add_metadata_fields(builder, forge, kind, operation, metadata)
       local value_hl = draft and 'ForgeComposeDraft' or 'ForgeDim'
       add_metadata_line(builder, 'Draft', draft and 'true' or 'false', value_hl)
     elseif field == 'reviewers' then
-      add_metadata_line(builder, 'Reviewers', table.concat(metadata.reviewers or {}, ', '))
+      local reviewers = table.concat(metadata.reviewers or {}, ', ')
+      if reviewers ~= '' then
+        add_metadata_line(builder, 'Reviewers', reviewers)
+      end
     elseif field == 'labels' then
-      add_metadata_line(builder, 'Labels', table.concat(metadata.labels or {}, ', '))
+      local labels = table.concat(metadata.labels or {}, ', ')
+      if labels ~= '' then
+        add_metadata_line(builder, 'Labels', labels)
+      end
     elseif field == 'assignees' then
-      add_metadata_line(builder, 'Assignees', table.concat(metadata.assignees or {}, ', '))
+      local assignees = table.concat(metadata.assignees or {}, ', ')
+      if assignees ~= '' then
+        add_metadata_line(builder, 'Assignees', assignees)
+      end
     elseif field == 'milestone' then
-      add_metadata_line(builder, 'Milestone', metadata.milestone or '')
+      local milestone = metadata.milestone or ''
+      if milestone ~= '' then
+        add_metadata_line(builder, 'Milestone', milestone)
+      end
     end
   end
 end
