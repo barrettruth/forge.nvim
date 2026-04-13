@@ -1,5 +1,46 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
+local preload_modules = {
+  'forge',
+  'forge.logger',
+  'forge.ops',
+  'forge.pickers',
+}
+
+local loaded_modules = {
+  'forge',
+  'forge.cmd',
+  'forge.logger',
+  'forge.ops',
+  'forge.pickers',
+}
+
+local function repo_scope(repo)
+  return {
+    kind = 'github',
+    host = 'github.com',
+    owner = 'owner',
+    repo = repo,
+    slug = 'owner/' .. repo,
+    repo_arg = 'owner/' .. repo,
+    web_url = 'https://github.com/owner/' .. repo,
+  }
+end
+
+local function use_named_current_buf(name)
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == name then
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
+  end
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_name(buf, name)
+  return buf
+end
+
 describe(':Forge command', function()
   local captured
   local old_preload
@@ -17,46 +58,28 @@ describe(':Forge command', function()
       closed_issues = {},
       browse_calls = {},
     }
-    old_preload = {
-      ['forge'] = package.preload['forge'],
-      ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.ops'] = package.preload['forge.ops'],
-      ['forge.pickers'] = package.preload['forge.pickers'],
-    }
+    old_preload = helpers.capture_preload(preload_modules)
     old_systemlist = vim.fn.systemlist
     old_system = vim.system
 
-    vim.system = function(cmd, _, cb)
-      local key = table.concat(cmd, ' ')
-      local result = {
-        code = 1,
-        stdout = '',
-        stderr = '',
-      }
-      if key == 'git remote get-url origin' then
-        result = { code = 0, stdout = 'git@github.com:owner/current.git\n', stderr = '' }
-      elseif key == 'git remote get-url upstream' then
-        result = { code = 0, stdout = 'git@github.com:owner/upstream.git\n', stderr = '' }
-      elseif key == 'git remote' then
-        result = { code = 0, stdout = 'origin\nupstream\n', stderr = '' }
-      elseif key == 'git branch --show-current' then
-        result = { code = 0, stdout = 'main\n', stderr = '' }
-      elseif key == 'git config branch.main.pushRemote' then
-        result = { code = 1, stdout = '', stderr = '' }
-      elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
-        result = { code = 0, stdout = 'origin/main\n', stderr = '' }
-      elseif key == 'git rev-list --max-count=20 --abbrev-commit HEAD' then
-        result = { code = 0, stdout = 'deadbee\nabc123\n', stderr = '' }
-      end
-      if cb then
-        cb(result)
-      end
-      return {
-        wait = function()
-          return result
-        end,
-      }
-    end
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+      responses = {
+        ['git remote get-url origin'] = helpers.command_result(
+          'git@github.com:owner/current.git\n'
+        ),
+        ['git remote get-url upstream'] = helpers.command_result(
+          'git@github.com:owner/upstream.git\n'
+        ),
+        ['git remote'] = helpers.command_result('origin\nupstream\n'),
+        ['git branch --show-current'] = helpers.command_result('main\n'),
+        ['git config branch.main.pushRemote'] = helpers.command_result('', 1),
+        ['git rev-parse --abbrev-ref main@{upstream}'] = helpers.command_result('origin/main\n'),
+        ['git rev-list --max-count=20 --abbrev-commit HEAD'] = helpers.command_result(
+          'deadbee\nabc123\n'
+        ),
+      },
+    })
 
     package.preload['forge.logger'] = function()
       return {
@@ -325,11 +348,7 @@ describe(':Forge command', function()
       vim.api.nvim_del_user_command('Forge')
     end
 
-    package.loaded['forge'] = nil
-    package.loaded['forge.cmd'] = nil
-    package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
-    package.loaded['forge.pickers'] = nil
+    helpers.clear_loaded(loaded_modules)
 
     dofile(vim.fn.getcwd() .. '/plugin/forge.lua')
   end)
@@ -337,15 +356,8 @@ describe(':Forge command', function()
   after_each(function()
     vim.system = old_system
     vim.fn.systemlist = old_systemlist
-    package.preload['forge'] = old_preload['forge']
-    package.preload['forge.logger'] = old_preload['forge.logger']
-    package.preload['forge.ops'] = old_preload['forge.ops']
-    package.preload['forge.pickers'] = old_preload['forge.pickers']
-    package.loaded['forge'] = nil
-    package.loaded['forge.cmd'] = nil
-    package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
-    package.loaded['forge.pickers'] = nil
+    helpers.restore_preload(old_preload)
+    helpers.clear_loaded(loaded_modules)
     if vim.api.nvim_get_commands({ builtin = false }).Forge then
       vim.api.nvim_del_user_command('Forge')
     end
@@ -400,7 +412,7 @@ describe(':Forge command', function()
   end)
 
   it('uses explicit rev branch browsing when special buffers have no file location', function()
-    vim.api.nvim_buf_set_name(0, 'canola://issue/123')
+    use_named_current_buf('canola://issue/123')
 
     vim.cmd('Forge browse rev=@main')
 
@@ -569,38 +581,51 @@ describe(':Forge command', function()
   end)
 
   it('dispatches PR management parity subcommands through forge.ops', function()
-    vim.cmd('Forge pr approve 42')
-    vim.cmd('Forge pr merge 42 repo=upstream')
-    vim.cmd('Forge pr draft 42')
-    vim.cmd('Forge pr ready 42')
-
-    assert.same({ name = 'pr_approve', pr = { num = '42', scope = nil } }, captured.ops_calls[1])
-    assert.same({
-      name = 'pr_merge',
-      pr = {
-        num = '42',
-        scope = {
-          kind = 'github',
-          host = 'github.com',
-          owner = 'owner',
-          repo = 'upstream',
-          slug = 'owner/upstream',
-          repo_arg = 'owner/upstream',
-          web_url = 'https://github.com/owner/upstream',
+    for _, case in ipairs({
+      {
+        cmd = 'Forge pr approve 42',
+        expected = { name = 'pr_approve', pr = { num = '42', scope = nil } },
+      },
+      {
+        cmd = 'Forge pr merge 42 repo=upstream',
+        expected = {
+          name = 'pr_merge',
+          pr = { num = '42', scope = repo_scope('upstream') },
+          method = nil,
         },
       },
-      method = nil,
-    }, captured.ops_calls[2])
-    assert.same({
-      name = 'pr_toggle_draft',
-      pr = { num = '42', scope = nil },
-      is_draft = false,
-    }, captured.ops_calls[3])
-    assert.same({
-      name = 'pr_toggle_draft',
-      pr = { num = '42', scope = nil },
-      is_draft = true,
-    }, captured.ops_calls[4])
+      {
+        cmd = 'Forge pr draft 42',
+        expected = { name = 'pr_toggle_draft', pr = { num = '42', scope = nil }, is_draft = false },
+      },
+      {
+        cmd = 'Forge pr ready 42',
+        expected = { name = 'pr_toggle_draft', pr = { num = '42', scope = nil }, is_draft = true },
+      },
+    }) do
+      vim.cmd(case.cmd)
+    end
+
+    for index, case in ipairs({
+      {
+        expected = { name = 'pr_approve', pr = { num = '42', scope = nil } },
+      },
+      {
+        expected = {
+          name = 'pr_merge',
+          pr = { num = '42', scope = repo_scope('upstream') },
+          method = nil,
+        },
+      },
+      {
+        expected = { name = 'pr_toggle_draft', pr = { num = '42', scope = nil }, is_draft = false },
+      },
+      {
+        expected = { name = 'pr_toggle_draft', pr = { num = '42', scope = nil }, is_draft = true },
+      },
+    }) do
+      assert.same(case.expected, captured.ops_calls[index])
+    end
   end)
 
   it('passes through an explicit merge method when provided', function()

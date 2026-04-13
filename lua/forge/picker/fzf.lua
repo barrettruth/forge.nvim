@@ -92,7 +92,7 @@ local function track_id(entry, index)
     return explicit
   end
   if entry.load_more then
-    return '__load_more__'
+    return '__load_more__:' .. tostring(rawget(entry, 'next_limit') or index)
   end
   if entry.placeholder then
     return '__placeholder__:' .. (entry.ordinal or tostring(index))
@@ -179,6 +179,7 @@ function M.pick(opts)
   local live_width = stream ~= nil or type(entry_source) == 'function'
   local tracked = type(entry_source) == 'function'
   local streamed = false
+  local track_redirect
 
   local function source_entries()
     if type(entry_source) == 'function' then
@@ -227,6 +228,10 @@ function M.pick(opts)
       local next_index = 0
       for i, entry in ipairs(entries) do
         next_index = i
+        if track_redirect and i == track_redirect.target_index and not entry.load_more then
+          entry = vim.tbl_extend('force', {}, entry, { track_id = track_redirect.source_id })
+          track_redirect = nil
+        end
         local line = render_line(i, entry, picker_width(), tracked)
         if line then
           fzf_cb(line)
@@ -288,6 +293,14 @@ function M.pick(opts)
         end
         local idx = selected_index(selected[1])
         local entry = picker_mod.selected(idx and entries[idx] or nil)
+        if reloads and entry and rawget(entry, 'load_more') and tracked and idx then
+          track_redirect = {
+            source_id = track_id(entry, idx),
+            target_index = idx,
+          }
+        else
+          track_redirect = nil
+        end
         if reloads and picker_mod.closes(def, entry) then
           local utils = require('fzf-lua.utils')
           local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil

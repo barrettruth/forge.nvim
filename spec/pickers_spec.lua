@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 local captured
 local cache
 local issue_create_calls
@@ -9,6 +11,22 @@ local op_calls
 local pr_create_calls
 local pr_create_opts
 local default_system
+local preload_modules = {
+  'fzf-lua.utils',
+  'forge',
+  'forge.logger',
+  'forge.ops',
+  'forge.picker',
+}
+local loaded_modules = {
+  'forge',
+  'forge.config',
+  'forge.logger',
+  'forge.ops',
+  'forge.picker',
+  'forge.picker.session',
+  'forge.pickers',
+}
 
 local function fake_forge()
   return {
@@ -116,11 +134,7 @@ local function fake_release_forge()
 end
 
 local function action_by_name(name)
-  for _, def in ipairs(captured.actions) do
-    if def.name == name then
-      return def
-    end
-  end
+  return helpers.action_by_name(captured.actions, name)
 end
 
 describe('pickers', function()
@@ -155,13 +169,7 @@ describe('pickers', function()
         { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
       },
     }
-    old_preload = {
-      ['fzf-lua.utils'] = package.preload['fzf-lua.utils'],
-      ['forge'] = package.preload['forge'],
-      ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.ops'] = package.preload['forge.ops'],
-      ['forge.picker'] = package.preload['forge.picker'],
-    }
+    old_preload = helpers.capture_preload(preload_modules)
     package.preload['fzf-lua.utils'] = function()
       return {
         ansi_from_hl = function(_, text)
@@ -390,30 +398,14 @@ describe('pickers', function()
         edit_pr = function() end,
       }
     end
-    package.loaded['forge'] = nil
-    package.loaded['forge.config'] = nil
-    package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
-    package.loaded['forge.picker'] = nil
-    package.loaded['forge.picker.session'] = nil
-    package.loaded['forge.pickers'] = nil
+    helpers.clear_loaded(loaded_modules)
     vim.g.forge = nil
   end)
 
   after_each(function()
     vim.system = default_system
-    package.preload['fzf-lua.utils'] = old_preload['fzf-lua.utils']
-    package.preload['forge'] = old_preload['forge']
-    package.preload['forge.logger'] = old_preload['forge.logger']
-    package.preload['forge.ops'] = old_preload['forge.ops']
-    package.preload['forge.picker'] = old_preload['forge.picker']
-    package.loaded['forge'] = nil
-    package.loaded['forge.config'] = nil
-    package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
-    package.loaded['forge.picker'] = nil
-    package.loaded['forge.picker.session'] = nil
-    package.loaded['forge.pickers'] = nil
+    helpers.restore_preload(old_preload)
+    helpers.clear_loaded(loaded_modules)
   end)
 
   it('uses more as the default PR action without a separate default key binding', function()
@@ -431,10 +423,7 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('Open PRs (1)> ', captured.prompt)
-    local labels = {}
-    for _, def in ipairs(captured.actions) do
-      labels[def.name] = def.label
-    end
+    local labels = helpers.action_labels(captured.actions)
     assert.equals('checkout', labels.default)
     assert.equals('worktree', labels.worktree)
     assert.equals('edit', labels.edit)
@@ -454,10 +443,19 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('checkout', action_by_name('default').label)
-    assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_false(rawget(action_by_name('worktree'), 'close'))
-    assert.is_nil(rawget(action_by_name('approve'), 'close'))
-    assert.is_nil(rawget(action_by_name('merge'), 'close'))
+    for _, case in ipairs({
+      { name = 'browse', close = false },
+      { name = 'worktree', close = false },
+      { name = 'approve', close = nil },
+      { name = 'merge', close = nil },
+    }) do
+      local close = rawget(action_by_name(case.name), 'close')
+      if case.close == nil then
+        assert.is_nil(close)
+      else
+        assert.equals(case.close, close)
+      end
+    end
   end)
 
   it('dispatches flattened PR actions directly from the root picker', function()

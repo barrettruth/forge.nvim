@@ -666,6 +666,80 @@ describe('fzf picker', function()
     assert.equals('2', selected.value)
   end)
 
+  it('redirects tracked load more selection to the first new row after reload', function()
+    local picker = require('forge.picker.fzf')
+    local phase = 1
+    picker.pick({
+      prompt = 'CI> ',
+      entries = {},
+      entry_source = function()
+        if phase == 1 then
+          return {
+            {
+              display = { { '#1' } },
+              value = '1',
+            },
+            {
+              display = { { 'Load more...' } },
+              value = nil,
+              load_more = true,
+              next_limit = 2,
+              keep_open = true,
+            },
+          }
+        end
+        return {
+          {
+            display = { { '#1' } },
+            value = '1',
+          },
+          {
+            display = { { '#2' } },
+            value = '2',
+          },
+          {
+            display = { { 'Load more...' } },
+            value = nil,
+            load_more = true,
+            next_limit = 3,
+            keep_open = true,
+          },
+        }
+      end,
+      actions = {
+        {
+          name = 'default',
+          label = 'more',
+          fn = function(entry)
+            if entry and entry.load_more then
+              phase = 2
+            end
+          end,
+        },
+      },
+      picker_name = 'ci',
+    })
+
+    assert.is_not_nil(captured)
+    assert.same('table', type(captured.opts.actions.enter))
+
+    captured.lines(function() end)
+    captured.opts.actions.enter.fn({ '2' })
+
+    local lines = {}
+    captured.lines(function(line)
+      if line ~= nil then
+        lines[#lines + 1] = line
+      end
+    end)
+
+    assert.same({
+      '1\t#1\t1',
+      '__load_more__:2\t#2\t2',
+      '__load_more__:3\tLoad more...\t3',
+    }, lines)
+  end)
+
   it('skips rows whose rendered display is blank', function()
     local picker = require('forge.picker.fzf')
     picker.pick({

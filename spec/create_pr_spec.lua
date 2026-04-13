@@ -1,5 +1,34 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
+local preload_modules = {
+  'forge.action',
+  'forge.client',
+  'forge.compose',
+  'forge.config',
+  'forge.context',
+  'forge.format',
+  'forge.github',
+  'forge.logger',
+  'forge.picker',
+  'forge.template',
+}
+
+local loaded_modules = vim.list_extend({ 'forge' }, preload_modules)
+
+local function repo_scope(repo)
+  return {
+    kind = 'github',
+    host = 'github.com',
+    owner = 'owner',
+    repo = repo,
+    slug = 'owner/' .. repo,
+    repo_arg = 'owner/' .. repo,
+    web_url = 'https://github.com/owner/' .. repo,
+  }
+end
+
 describe('create_pr', function()
   local captured
   local old_system
@@ -21,18 +50,7 @@ describe('create_pr', function()
     old_fn_system = vim.fn.system
     old_executable = vim.fn.executable
     old_ui_open = vim.ui.open
-    old_preload = {
-      ['forge.action'] = package.preload['forge.action'],
-      ['forge.client'] = package.preload['forge.client'],
-      ['forge.compose'] = package.preload['forge.compose'],
-      ['forge.config'] = package.preload['forge.config'],
-      ['forge.context'] = package.preload['forge.context'],
-      ['forge.format'] = package.preload['forge.format'],
-      ['forge.github'] = package.preload['forge.github'],
-      ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.picker'] = package.preload['forge.picker'],
-      ['forge.template'] = package.preload['forge.template'],
-    }
+    old_preload = helpers.capture_preload(preload_modules)
 
     vim.fn.executable = function(bin)
       if bin == 'gh' then
@@ -214,17 +232,7 @@ describe('create_pr', function()
       }
     end
 
-    package.loaded['forge'] = nil
-    package.loaded['forge.action'] = nil
-    package.loaded['forge.client'] = nil
-    package.loaded['forge.compose'] = nil
-    package.loaded['forge.config'] = nil
-    package.loaded['forge.context'] = nil
-    package.loaded['forge.format'] = nil
-    package.loaded['forge.github'] = nil
-    package.loaded['forge.logger'] = nil
-    package.loaded['forge.picker'] = nil
-    package.loaded['forge.template'] = nil
+    helpers.clear_loaded(loaded_modules)
   end)
 
   after_each(function()
@@ -233,29 +241,28 @@ describe('create_pr', function()
     vim.fn.executable = old_executable
     vim.ui.open = old_ui_open
 
-    package.preload['forge.action'] = old_preload['forge.action']
-    package.preload['forge.client'] = old_preload['forge.client']
-    package.preload['forge.compose'] = old_preload['forge.compose']
-    package.preload['forge.config'] = old_preload['forge.config']
-    package.preload['forge.context'] = old_preload['forge.context']
-    package.preload['forge.format'] = old_preload['forge.format']
-    package.preload['forge.github'] = old_preload['forge.github']
-    package.preload['forge.logger'] = old_preload['forge.logger']
-    package.preload['forge.picker'] = old_preload['forge.picker']
-    package.preload['forge.template'] = old_preload['forge.template']
-
-    package.loaded['forge'] = nil
-    package.loaded['forge.action'] = nil
-    package.loaded['forge.client'] = nil
-    package.loaded['forge.compose'] = nil
-    package.loaded['forge.config'] = nil
-    package.loaded['forge.context'] = nil
-    package.loaded['forge.format'] = nil
-    package.loaded['forge.github'] = nil
-    package.loaded['forge.logger'] = nil
-    package.loaded['forge.picker'] = nil
-    package.loaded['forge.template'] = nil
+    helpers.restore_preload(old_preload)
+    helpers.clear_loaded(loaded_modules)
   end)
+
+  local function use_branch_context(branch, origin_url)
+    local values = {
+      ['git rev-parse --show-toplevel'] = '/repo\n',
+      ['git remote get-url origin'] = origin_url or 'git@github.com:owner/repo.git\n',
+      ['git branch --show-current'] = branch .. '\n',
+    }
+    vim.fn.system = function(cmd)
+      return values[cmd] or ''
+    end
+  end
+
+  local function use_system_responses(responses)
+    vim.system = helpers.system_router({
+      calls = captured.systems,
+      responses = responses,
+      default = helpers.command_result(),
+    })
+  end
 
   it('preserves back on the PR template picker', function()
     local back_calls = 0
@@ -279,55 +286,18 @@ describe('create_pr', function()
   end)
 
   it('blocks web PR creation when the current branch already matches the base', function()
-    vim.fn.system = function(cmd)
-      if cmd == 'git rev-parse --show-toplevel' then
-        return '/repo\n'
-      end
-      if cmd == 'git remote get-url origin' then
-        return 'git@github.com:owner/repo.git\n'
-      end
-      if cmd == 'git branch --show-current' then
-        return 'main\n'
-      end
-      return ''
-    end
-    vim.system = function(cmd, _, cb)
-      local result = {
-        code = 0,
-        stdout = '',
-        stderr = '',
-      }
-      local key = table.concat(cmd, ' ')
-      local fail = {
-        ['git config branch.main.pushRemote'] = true,
-        ['git config remote.pushDefault'] = true,
-        ['git remote get-url upstream'] = true,
-        ['git diff --quiet origin/main..HEAD'] = true,
-      }
-      table.insert(captured.systems, key)
-      if fail[key] then
-        result.code = 1
-      end
-      if key == 'pr-for-branch main' then
-        result.stdout = '\n'
-      elseif key == 'default-branch' then
-        result.stdout = 'main\n'
-      elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
-        result.stdout = 'origin/main\n'
-      elseif key == 'git remote' then
-        result.stdout = 'origin\nupstream\n'
-      elseif key == 'git remote get-url origin' then
-        result.stdout = 'git@github.com:owner/repo.git\n'
-      end
-      if cb then
-        cb(result)
-      end
-      return {
-        wait = function()
-          return result
-        end,
-      }
-    end
+    use_branch_context('main')
+    use_system_responses({
+      ['git config branch.main.pushRemote'] = helpers.command_result('', 1),
+      ['git config remote.pushDefault'] = helpers.command_result('', 1),
+      ['git remote get-url upstream'] = helpers.command_result('', 1),
+      ['git diff --quiet origin/main..HEAD'] = helpers.command_result('', 1),
+      ['pr-for-branch main'] = helpers.command_result('\n'),
+      ['default-branch'] = helpers.command_result('main\n'),
+      ['git rev-parse --abbrev-ref main@{upstream}'] = helpers.command_result('origin/main\n'),
+      ['git remote'] = helpers.command_result('origin\nupstream\n'),
+      ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/repo.git\n'),
+    })
 
     require('forge').create_pr({ web = true })
 
@@ -341,68 +311,22 @@ describe('create_pr', function()
   end)
 
   it('allows web PR creation when the branch matches the base name in a different repo', function()
-    vim.fn.system = function(cmd)
-      if cmd == 'git rev-parse --show-toplevel' then
-        return '/repo\n'
-      end
-      if cmd == 'git remote get-url origin' then
-        return 'git@github.com:owner/fork.git\n'
-      end
-      if cmd == 'git branch --show-current' then
-        return 'main\n'
-      end
-      return ''
-    end
-    vim.system = function(cmd, _, cb)
-      local result = {
-        code = 0,
-        stdout = '',
-        stderr = '',
-      }
-      local key = table.concat(cmd, ' ')
-      local fail = {
-        ['git config branch.main.pushRemote'] = true,
-        ['git config remote.pushDefault'] = true,
-        ['git diff --quiet upstream/main..HEAD'] = true,
-      }
-      table.insert(captured.systems, key)
-      if fail[key] then
-        result.code = 1
-      end
-      if key == 'pr-for-branch main' then
-        result.stdout = '\n'
-      elseif key == 'default-branch' then
-        result.stdout = 'main\n'
-      elseif key == 'git rev-parse --abbrev-ref main@{upstream}' then
-        result.stdout = 'origin/main\n'
-      elseif key == 'git remote' then
-        result.stdout = 'origin\nupstream\n'
-      elseif key == 'git remote get-url origin' then
-        result.stdout = 'git@github.com:owner/fork.git\n'
-      elseif key == 'git remote get-url upstream' then
-        result.stdout = 'git@github.com:owner/repo.git\n'
-      end
-      if cb then
-        cb(result)
-      end
-      return {
-        wait = function()
-          return result
-        end,
-      }
-    end
+    use_branch_context('main', 'git@github.com:owner/fork.git\n')
+    use_system_responses({
+      ['git config branch.main.pushRemote'] = helpers.command_result('', 1),
+      ['git config remote.pushDefault'] = helpers.command_result('', 1),
+      ['git diff --quiet upstream/main..HEAD'] = helpers.command_result('', 1),
+      ['pr-for-branch main'] = helpers.command_result('\n'),
+      ['default-branch'] = helpers.command_result('main\n'),
+      ['git rev-parse --abbrev-ref main@{upstream}'] = helpers.command_result('origin/main\n'),
+      ['git remote'] = helpers.command_result('origin\nupstream\n'),
+      ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['git remote get-url upstream'] = helpers.command_result('git@github.com:owner/repo.git\n'),
+    })
 
     require('forge').create_pr({
       web = true,
-      scope = {
-        kind = 'github',
-        host = 'github.com',
-        owner = 'owner',
-        repo = 'repo',
-        slug = 'owner/repo',
-        repo_arg = 'owner/repo',
-        web_url = 'https://github.com/owner/repo',
-      },
+      scope = repo_scope('repo'),
     })
 
     vim.wait(100, function()
@@ -416,30 +340,11 @@ describe('create_pr', function()
   end)
 
   it('blocks web PR creation when there are no changes from the base branch', function()
-    vim.system = function(cmd, _, cb)
-      local result = {
-        code = 0,
-        stdout = '',
-        stderr = '',
-      }
-      local key = table.concat(cmd, ' ')
-      table.insert(captured.systems, key)
-      if key == 'pr-for-branch feature' then
-        result.stdout = '\n'
-      elseif key == 'default-branch' then
-        result.stdout = 'main\n'
-      elseif key == 'git diff --quiet origin/main..HEAD' then
-        result.code = 0
-      end
-      if cb then
-        cb(result)
-      end
-      return {
-        wait = function()
-          return result
-        end,
-      }
-    end
+    use_system_responses({
+      ['pr-for-branch feature'] = helpers.command_result('\n'),
+      ['default-branch'] = helpers.command_result('main\n'),
+      ['git diff --quiet origin/main..HEAD'] = helpers.command_result(),
+    })
 
     require('forge').create_pr({ web = true })
 
@@ -467,61 +372,20 @@ describe('create_pr', function()
   end)
 
   it('uses explicit head and base overrides for web PR creation', function()
-    vim.system = function(cmd, _, cb)
-      local result = {
-        code = 0,
-        stdout = '',
-        stderr = '',
-      }
-      local key = table.concat(cmd, ' ')
-      local fail = {
-        ['git diff --quiet upstream/stable..topic'] = true,
-      }
-      table.insert(captured.systems, key)
-      if fail[key] then
-        result.code = 1
-      end
-      if key == 'pr-for-branch topic' then
-        result.stdout = '\n'
-      elseif key == 'git remote' then
-        result.stdout = 'origin\nupstream\n'
-      elseif key == 'git remote get-url origin' then
-        result.stdout = 'git@github.com:owner/fork.git\n'
-      elseif key == 'git remote get-url upstream' then
-        result.stdout = 'git@github.com:owner/repo.git\n'
-      end
-      if cb then
-        cb(result)
-      end
-      return {
-        wait = function()
-          return result
-        end,
-      }
-    end
+    use_system_responses({
+      ['git diff --quiet upstream/stable..topic'] = helpers.command_result('', 1),
+      ['pr-for-branch topic'] = helpers.command_result('\n'),
+      ['git remote'] = helpers.command_result('origin\nupstream\n'),
+      ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['git remote get-url upstream'] = helpers.command_result('git@github.com:owner/repo.git\n'),
+    })
 
     require('forge').create_pr({
       web = true,
       head_branch = 'topic',
-      head_scope = {
-        kind = 'github',
-        host = 'github.com',
-        owner = 'owner',
-        repo = 'fork',
-        slug = 'owner/fork',
-        repo_arg = 'owner/fork',
-        web_url = 'https://github.com/owner/fork',
-      },
+      head_scope = repo_scope('fork'),
       base_branch = 'stable',
-      base_scope = {
-        kind = 'github',
-        host = 'github.com',
-        owner = 'owner',
-        repo = 'repo',
-        slug = 'owner/repo',
-        repo_arg = 'owner/repo',
-        web_url = 'https://github.com/owner/repo',
-      },
+      base_scope = repo_scope('repo'),
     })
 
     vim.wait(100, function()
@@ -537,33 +401,12 @@ describe('create_pr', function()
   end)
 
   it('reports an error when the web PR command fails', function()
-    vim.system = function(cmd, _, cb)
-      local result = {
-        code = 0,
-        stdout = '',
-        stderr = '',
-      }
-      local key = table.concat(cmd, ' ')
-      table.insert(captured.systems, key)
-      if key == 'pr-for-branch feature' then
-        result.stdout = '\n'
-      elseif key == 'default-branch' then
-        result.stdout = 'main\n'
-      elseif key == 'git diff --quiet origin/main..HEAD' then
-        result.code = 1
-      elseif key == 'create-pr-web' then
-        result.code = 1
-        result.stderr = 'web failed'
-      end
-      if cb then
-        cb(result)
-      end
-      return {
-        wait = function()
-          return result
-        end,
-      }
-    end
+    use_system_responses({
+      ['pr-for-branch feature'] = helpers.command_result('\n'),
+      ['default-branch'] = helpers.command_result('main\n'),
+      ['git diff --quiet origin/main..HEAD'] = helpers.command_result('', 1),
+      ['create-pr-web'] = helpers.command_result('', 1, 'web failed'),
+    })
 
     require('forge').create_pr({ web = true })
 
@@ -608,5 +451,30 @@ describe('create_pr', function()
 
     assert.same({ 'open failed' }, captured.errors)
     assert.same({ 'https://example.test/compare/main...feature' }, captured.open_urls)
+  end)
+
+  it('keeps forge detection working when shell_error is stale', function()
+    local back_calls = 0
+
+    old_fn_system('false')
+    assert.not_equals(0, vim.v.shell_error)
+
+    require('forge').create_pr({
+      back = function()
+        back_calls = back_calls + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.is_not_nil(captured.picker)
+    assert.is_function(captured.picker.back)
+
+    captured.picker.back()
+
+    assert.equals(1, back_calls)
+    old_fn_system('true')
   end)
 end)

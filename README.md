@@ -39,39 +39,3 @@ luarocks install forge.nvim
 ```vim
 :help forge.nvim
 ```
-
-## FAQ
-
-**Q: How do I configure forge.nvim?**
-
-Configure via `vim.g.forge` before the plugin loads. All fields are optional:
-
-```lua
-vim.g.forge = {
-  sections = { releases = false },
-  routes = { browse = 'browse.branch' },
-  keys = { commit = { browse = '<c-x>', yank = '<c-y>', refresh = '<c-r>' } },
-  sources = { gitlab = { hosts = { 'gitlab.mycompany.com' } } },
-  display = { icons = { open = '', merged = '', closed = '' } },
-}
-```
-
-**Q: How do I install with lazy.nvim?**
-
-```lua
-{
-  'barrettruth/forge.nvim',
-  dependencies = { 'ibhagwan/fzf-lua' },
-}
-```
-
-Install `fzf-lua` if you want the interactive picker surface via mappings such
-as `<Plug>(forge)` or Lua entrypoints such as `require('forge').open()`. Direct
-`:Forge` action commands do not depend on picker backends.
-
-**Q: How do I create a PR?**
-
-Run `:Forge pr create`. Or use the interactive picker surface with `<c-g>`, then
-select Pull Requests and use `ctrl-a` to compose. From a fugitive buffer: `cpr`
-(compose), `cpd` (draft), `cpf` (instant from commits), `cpw` (push and open
-web).
