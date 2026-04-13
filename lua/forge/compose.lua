@@ -213,6 +213,18 @@ local function add_section_gap(builder)
   end
 end
 
+local function add_pr_header(builder, prefix, forge_name, branch, base)
+  local ln = builder:add_line('%s%s.', prefix, forge_name)
+  builder:mark(ln, 2, #prefix - 2, 'ForgeComposeHeader')
+  builder:mark(ln, #prefix, #forge_name, 'ForgeComposeForge')
+
+  local branch_prefix = '  On branch '
+  local against = ' against '
+  ln = builder:add_line('%s%s%s%s.', branch_prefix, branch, against, base)
+  builder:mark(ln, #branch_prefix, #branch, 'ForgeComposeBranch')
+  builder:mark(ln, #branch_prefix + #branch + #against, #base, 'ForgeComposeBranch')
+end
+
 ---@param f forge.Forge
 ---@param branch string
 ---@param title string
@@ -536,16 +548,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
 
   b:add_line('<!--')
 
-  local branch_prefix = '  On branch '
-  local against = ' against '
-  local ln = b:add_line('%s%s%s%s.', branch_prefix, branch, against, base)
-  b:mark(ln, #branch_prefix, #branch, 'ForgeComposeBranch')
-  b:mark(ln, #branch_prefix + #branch + #against, #base, 'ForgeComposeBranch')
-
-  local creating_prefix = '  Creating ' .. pr_kind .. ' via '
-  ln = b:add_line('%s%s.', creating_prefix, f.name)
-  b:mark(ln, 2, #creating_prefix - 2, 'ForgeComposeHeader')
-  b:mark(ln, #creating_prefix, #f.name, 'ForgeComposeForge')
+  add_pr_header(b, '  Creating ' .. pr_kind .. ' via ', f.name, branch, base)
 
   add_optional_metadata_fields(b, f, 'pr', 'create', draft_metadata)
 
@@ -744,16 +747,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
 
   b:add_line('<!--')
 
-  local branch_prefix = '  On branch '
-  local against = ' against '
-  local ln = b:add_line('%s%s%s%s.', branch_prefix, branch, against, base)
-  b:mark(ln, #branch_prefix, #branch, 'ForgeComposeBranch')
-  b:mark(ln, #branch_prefix + #branch + #against, #base, 'ForgeComposeBranch')
-
-  local editing_prefix = '  Editing ' .. pr_kind .. ' #' .. num .. ' via '
-  ln = b:add_line('%s%s.', editing_prefix, f.name)
-  b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
-  b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
+  add_pr_header(b, '  Editing ' .. pr_kind .. ' #' .. num .. ' via ', f.name, branch, base)
 
   add_optional_metadata_fields(b, f, 'pr', 'update', submission.pr_metadata(details))
 
