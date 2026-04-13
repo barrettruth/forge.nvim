@@ -25,6 +25,21 @@ local function emit_entries(emit, entries)
   emit(nil)
 end
 
+local function request_json(key, cmd, callback)
+  local token = M.begin(key)
+  vim.system(resolve(cmd), { text = true }, function(result)
+    vim.schedule(function()
+      M.finish(key, token)
+      if not M.current(key, token) then
+        callback(false, nil, result, true)
+        return
+      end
+      local ok, data = M.decode_json(result)
+      callback(ok, data, result, false)
+    end)
+  end)
+end
+
 function M.begin(key)
   local item = scope(key)
   item.epoch = item.epoch + 1
@@ -68,22 +83,17 @@ function M.prefetch_json(opts)
   if M.inflight(opts.key) then
     return false
   end
-  local token = M.begin(opts.key)
-  vim.system(resolve(opts.cmd), { text = true }, function(result)
-    vim.schedule(function()
-      M.finish(opts.key, token)
-      if not M.current(opts.key, token) then
-        return
+  request_json(opts.key, opts.cmd, function(ok, data, result, stale)
+    if stale then
+      return
+    end
+    if ok then
+      if opts.on_success then
+        opts.on_success(data)
       end
-      local ok, data = M.decode_json(result)
-      if ok then
-        if opts.on_success then
-          opts.on_success(data)
-        end
-      elseif opts.on_failure then
-        opts.on_failure(result)
-      end
-    end)
+    elseif opts.on_failure then
+      opts.on_failure(result)
+    end
   end)
   return true
 end
@@ -120,23 +130,18 @@ function M.pick_json(opts)
     if opts.on_fetch then
       opts.on_fetch()
     end
-    local token = M.begin(opts.key)
-    vim.system(resolve(opts.cmd), { text = true }, function(result)
-      vim.schedule(function()
-        M.finish(opts.key, token)
-        if not M.current(opts.key, token) then
-          if emit then
-            emit(nil)
-          end
-          return
+    request_json(opts.key, opts.cmd, function(ok, data, result, stale)
+      if stale then
+        if emit then
+          emit(nil)
         end
-        local ok, data = M.decode_json(result)
-        if ok then
-          handle_success(data, emit)
-        else
-          handle_failure(result, emit)
-        end
-      end)
+        return
+      end
+      if ok then
+        handle_success(data, emit)
+      else
+        handle_failure(result, emit)
+      end
     end)
   end
 
