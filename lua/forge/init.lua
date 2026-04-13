@@ -671,11 +671,7 @@ function M.create_issue(opts)
   end
 
   local root = git_root() or ''
-  local result, templates, err = template_mod.discover(f:issue_template_paths(), root)
-  if err then
-    log.error(err)
-    return
-  end
+  local templates = template_mod.entries(f:issue_template_paths(), root)
 
   if opts.template and templates then
     local slug = opts.template:lower()
@@ -694,13 +690,20 @@ function M.create_issue(opts)
     return
   end
 
-  if result or not templates then
-    compose_mod.open_issue(f, result, ref)
+  if not templates then
+    compose_mod.open_issue(f, nil, ref)
     return
   end
 
   local picker = require('forge.picker')
-  local entries = {}
+  local entries = {
+    {
+      display = { { 'Blank Issue' } },
+      value = nil,
+      ordinal = 'Blank Issue',
+      blank = true,
+    },
+  }
   for _, t in ipairs(templates) do
     table.insert(entries, {
       display = { { t.display } },
@@ -717,6 +720,10 @@ function M.create_issue(opts)
         label = 'use',
         fn = function(entry)
           if entry then
+            if entry.blank then
+              compose_mod.open_issue(f, nil, ref)
+              return
+            end
             local template, load_err = template_mod.load(entry.value)
             if load_err then
               log.error(load_err)

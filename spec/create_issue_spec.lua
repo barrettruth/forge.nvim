@@ -89,6 +89,7 @@ describe('create_issue', function()
     package.preload['forge.compose'] = function()
       return {
         open_issue = function(_, result)
+          captured.opened_calls = (captured.opened_calls or 0) + 1
           captured.opened = result
         end,
       }
@@ -199,26 +200,35 @@ describe('create_issue', function()
     package.loaded['forge.template'] = nil
   end)
 
-  it('aborts issue creation when a single yaml template cannot be loaded', function()
+  it('offers Blank Issue alongside a single yaml template', function()
     package.preload['forge.template'] = function()
       return {
-        discover = function()
+        entries = function()
+          return {
+            {
+              name = 'bug_report.yaml',
+              display = 'Bug Report',
+              is_yaml = true,
+              dir = '/repo/.github/ISSUE_TEMPLATE',
+            },
+          }
+        end,
+        load = function()
           return nil,
-            nil,
             'tree-sitter yaml parser not found; install it to use YAML issue form templates'
         end,
-        load = function() end,
       }
     end
 
     require('forge').create_issue()
 
+    assert.is_not_nil(captured.picker)
+    assert.same('Blank Issue', captured.picker.entries[1].display[1][1])
+    assert.same('Bug Report', captured.picker.entries[2].display[1][1])
+    captured.picker.actions[1].fn(captured.picker.entries[1])
+    assert.equals(1, captured.opened_calls)
     assert.is_nil(captured.opened)
-    assert.is_nil(captured.picker)
-    assert.same(
-      { 'tree-sitter yaml parser not found; install it to use YAML issue form templates' },
-      captured.errors
-    )
+    assert.same({}, captured.errors)
   end)
 
   it(
@@ -226,17 +236,15 @@ describe('create_issue', function()
     function()
       package.preload['forge.template'] = function()
         return {
-          discover = function()
-            return nil,
+          entries = function()
+            return {
               {
-                {
-                  name = 'bug_report.yaml',
-                  display = 'Bug Report',
-                  is_yaml = true,
-                  dir = '/repo/.github/ISSUE_TEMPLATE',
-                },
+                name = 'bug_report.yaml',
+                display = 'Bug Report',
+                is_yaml = true,
+                dir = '/repo/.github/ISSUE_TEMPLATE',
               },
-              nil
+            }
           end,
           load = function()
             return nil,
@@ -248,9 +256,9 @@ describe('create_issue', function()
       require('forge').create_issue()
 
       assert.is_not_nil(captured.picker)
-      captured.picker.actions[1].fn(captured.picker.entries[1])
+      captured.picker.actions[1].fn(captured.picker.entries[2])
 
-      assert.is_nil(captured.opened)
+      assert.is_nil(captured.opened_calls)
       assert.same(
         { 'tree-sitter yaml parser not found; install it to use YAML issue form templates' },
         captured.errors
@@ -263,17 +271,15 @@ describe('create_issue', function()
 
     package.preload['forge.template'] = function()
       return {
-        discover = function()
-          return nil,
+        entries = function()
+          return {
             {
-              {
-                name = 'bug_report.md',
-                display = 'Bug Report',
-                is_yaml = false,
-                dir = '/repo/.github/ISSUE_TEMPLATE',
-              },
+              name = 'bug_report.md',
+              display = 'Bug Report',
+              is_yaml = false,
+              dir = '/repo/.github/ISSUE_TEMPLATE',
             },
-            nil
+          }
         end,
         load = function()
           return { body = 'template' }
@@ -288,6 +294,8 @@ describe('create_issue', function()
     })
 
     assert.is_not_nil(captured.picker)
+    assert.same('Blank Issue', captured.picker.entries[1].display[1][1])
+    assert.same('Bug Report', captured.picker.entries[2].display[1][1])
     assert.is_function(captured.picker.back)
 
     captured.picker.back()
