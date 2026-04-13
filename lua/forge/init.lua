@@ -41,14 +41,25 @@ local root_cache = {}
 ---@type table<string, table[]>
 local list_cache = {}
 
+local function fn_system_text(cmd)
+  local text = vim.trim(vim.fn.system(cmd))
+  if vim.v.shell_error ~= 0 and (text == '' or text:match('^fatal:') or text:match('^error:')) then
+    return nil
+  end
+  if text == '' then
+    return nil
+  end
+  return text
+end
+
 ---@return string?
 local function git_root()
   local cwd = vim.fn.getcwd()
   if root_cache[cwd] then
     return root_cache[cwd]
   end
-  local root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-  if vim.v.shell_error ~= 0 then
+  local root = fn_system_text('git rev-parse --show-toplevel')
+  if not root then
     return nil
   end
   root_cache[cwd] = root
@@ -205,8 +216,8 @@ function M.detect()
   if forge_cache[root] then
     return forge_cache[root]
   end
-  local remote = vim.trim(vim.fn.system('git remote get-url origin'))
-  if vim.v.shell_error ~= 0 then
+  local remote = fn_system_text('git remote get-url origin')
+  if not remote then
     log.debug('detect: no origin remote')
     return nil
   end
@@ -315,11 +326,13 @@ function M.remote_web_url(scope)
   if scope then
     return scope_mod.web_url(scope)
   end
-  local root = git_root()
-  if not root then
+  if not git_root() then
     return ''
   end
-  local remote = vim.trim(vim.fn.system('git remote get-url origin'))
+  local remote = fn_system_text('git remote get-url origin')
+  if not remote then
+    return ''
+  end
   remote = remote:gsub('%.git$', '')
   remote = remote:gsub('^ssh://git@', 'https://')
   remote = remote:gsub('^git@([^:]+):', 'https://%1/')

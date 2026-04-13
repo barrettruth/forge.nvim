@@ -609,4 +609,29 @@ describe('create_pr', function()
     assert.same({ 'open failed' }, captured.errors)
     assert.same({ 'https://example.test/compare/main...feature' }, captured.open_urls)
   end)
+
+  it('keeps forge detection working when shell_error is stale', function()
+    local back_calls = 0
+
+    old_fn_system('false')
+    assert.not_equals(0, vim.v.shell_error)
+
+    require('forge').create_pr({
+      back = function()
+        back_calls = back_calls + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return captured.picker ~= nil
+    end)
+
+    assert.is_not_nil(captured.picker)
+    assert.is_function(captured.picker.back)
+
+    captured.picker.back()
+
+    assert.equals(1, back_calls)
+    old_fn_system('true')
+  end)
 end)
