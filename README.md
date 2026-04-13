@@ -22,11 +22,8 @@ without leaving your editor.
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
-
-Optional:
-
-- [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive picker
-  workflows
+- (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive
+  picker workflows
 
 Direct `:Forge` action commands work without `fzf-lua`. Install it only if you
 want the interactive picker UI.
