@@ -4,12 +4,6 @@ local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
   :gsub('%-%-bind=[^%s]+', '')
   :gsub('%-%-color=[^%s]+', '')
 
-local no_bg_highlights = {
-  ForgeBranch = true,
-  ForgeBranchCurrent = true,
-  ForgeMerged = true,
-}
-
 local special_keys = {
   ['<cr>'] = { fzf = 'enter', header = '<cr>' },
   ['<tab>'] = { fzf = 'tab', header = '<tab>' },
@@ -54,9 +48,7 @@ local function render(segments)
   for _, seg in ipairs(segments) do
     if seg[2] then
       local text = utils.ansi_from_hl(seg[2], seg[1])
-      if no_bg_highlights[seg[2]] then
-        text = strip_bg_ansi(text)
-      end
+      text = strip_bg_ansi(text)
       table.insert(parts, text)
     else
       table.insert(parts, seg[1])
