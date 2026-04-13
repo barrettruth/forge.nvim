@@ -177,6 +177,26 @@ describe('command schema', function()
     assert.same({ 'repo', 'method' }, cmd.modifier_names('pr', 'merge'))
   end)
 
+  it('keeps direct forge verbs aligned with non-list picker actions', function()
+    assert.same({
+      'checkout',
+      'worktree',
+      'browse',
+      'close',
+      'reopen',
+      'create',
+      'edit',
+      'approve',
+      'merge',
+      'draft',
+      'ready',
+    }, cmd.verb_names('pr'))
+
+    assert.same({ 'browse', 'close', 'reopen', 'create', 'edit' }, cmd.verb_names('issue'))
+    assert.same({ 'log', 'watch' }, cmd.verb_names('ci'))
+    assert.same({ 'browse', 'delete' }, cmd.verb_names('release'))
+  end)
+
   it('keeps legacy browse modifiers separate from canonical ones', function()
     assert.same({ 'repo', 'rev', 'target' }, cmd.modifier_names('browse'))
     assert.same({ 'root', 'commit' }, cmd.legacy_modifier_names('browse'))

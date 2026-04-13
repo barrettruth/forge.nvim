@@ -68,10 +68,10 @@ Requirements: ~
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
-- Optional: `fzf-lua` for interactive picker workflows
+- Optional: `fzf-lua` for interactive picker and listing workflows
 
 Direct `:Forge` action commands work without `fzf-lua`. The built-in
-interactive picker surface requires it.
+interactive picker and listing surface requires it.
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
@@ -368,6 +368,8 @@ COMMANDS                                                              *:Forge*
     UIs. `:Forge` with no arguments warns with `missing command`.
     Use |forge-plug| mappings such as `<Plug>(forge)` or
     `require('forge').open()` for the interactive picker surface.
+    Direct commands cover explicit forge actions with stable targets such as
+    PR/issue/release numbers or tags and CI run ids.
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
@@ -406,6 +408,8 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
 
     Commands that need interactive selection are intentionally not exposed
     through `:Forge`; use the interactive picker surface instead.
+    This includes list navigation, list-scoped filters/refresh, nested per-PR
+    checks, copy helpers, and local branch/commit/worktree sections.
 
 BANG SEMANTICS                                            *forge-command-bang*
     `!` is only accepted on mutating commands with an explicit force variant:
@@ -754,6 +758,15 @@ command interface. Open it with `<Plug>(forge)` or
 `require('forge').open()`. The root picker uses label-only entries so the top
 level stays compact, while nested pickers and help docs carry the workflow
 detail.
+
+CLI parity: ~
+- Explicit forge actions exposed in pickers are also available through
+  `:Forge` when they can be addressed directly: create, edit, browse, close,
+  reopen, checkout, worktree, approve, merge, draft/ready, CI log/watch, and
+  release browse/delete.
+- Picker-only actions are the list workflow itself and row-scoped helpers such
+  as filter/refresh/load more, nested per-PR checks, copy-to-clipboard
+  helpers, and local branch/commit/worktree navigation.
 
 Architecture: ~
 - Interactive root entries go through `require('forge.client').open_root()`.
