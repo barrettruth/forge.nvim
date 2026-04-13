@@ -114,7 +114,6 @@ describe('compose abandon behavior', function()
   local function open_modified_issue_window()
     vim.cmd('enew')
     local base = vim.api.nvim_get_current_buf()
-    vim.cmd('vsplit')
     local buf = open_issue_buffer()
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# changed title' })
     return base, buf
