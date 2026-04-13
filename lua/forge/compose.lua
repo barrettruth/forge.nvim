@@ -58,13 +58,45 @@ end
 
 ---@return integer
 local function create_compose_buf(name)
+  local prev_win = vim.api.nvim_get_current_win()
+  local split = 'horizontal'
+  local ok, cfg = pcall(require, 'forge.config')
+  if ok and cfg.config then
+    split = cfg.config().split or split
+  end
+  local prefix = split == 'vertical' and 'vertical' or 'botright'
+  vim.cmd(prefix .. ' new')
+  local win = vim.api.nvim_get_current_win()
+  local placeholder = vim.api.nvim_get_current_buf()
   local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_win_set_buf(win, buf)
+  if vim.api.nvim_buf_is_valid(placeholder) and placeholder ~= buf then
+    vim.api.nvim_buf_delete(placeholder, { force = true })
+  end
   vim.api.nvim_buf_set_name(buf, name)
   vim.bo[buf].buftype = 'acwrite'
   vim.bo[buf].bufhidden = 'wipe'
   vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].swapfile = false
+  vim.b[buf].forge_compose_prev_win = prev_win
+  vim.b[buf].forge_compose_win = win
   return buf
+end
+
+local function close_compose_buf(buf)
+  if not (buf and vim.api.nvim_buf_is_valid(buf)) then
+    return
+  end
+  local prev_win = vim.b[buf].forge_compose_prev_win
+  local win = vim.b[buf].forge_compose_win
+  if prev_win and vim.api.nvim_win_is_valid(prev_win) and prev_win ~= win then
+    pcall(vim.api.nvim_set_current_win, prev_win)
+  end
+  if win and vim.api.nvim_win_is_valid(win) then
+    pcall(vim.api.nvim_win_close, win, true)
+    return
+  end
+  pcall(vim.api.nvim_buf_delete, buf, { force = true })
 end
 
 local function add_discard_hints(builder)
@@ -276,7 +308,7 @@ local function push_and_create(
               require('forge').clear_list()
               if buf and vim.api.nvim_buf_is_valid(buf) then
                 vim.bo[buf].modified = false
-                vim.api.nvim_buf_delete(buf, { force = true })
+                close_compose_buf(buf)
               end
             else
               local msg = vim.trim(create_result.stderr or '')
@@ -312,7 +344,7 @@ local function submit_issue(f, title, body, labels, buf, ref, metadata)
           require('forge').clear_list()
           if buf and vim.api.nvim_buf_is_valid(buf) then
             vim.bo[buf].modified = false
-            vim.api.nvim_buf_delete(buf, { force = true })
+            close_compose_buf(buf)
           end
         else
           local msg = vim.trim(result.stderr or '')
@@ -342,7 +374,7 @@ local function update_issue(f, num, title, body, buf, ref, metadata, previous)
           require('forge').clear_list()
           if buf and vim.api.nvim_buf_is_valid(buf) then
             vim.bo[buf].modified = false
-            vim.api.nvim_buf_delete(buf, { force = true })
+            close_compose_buf(buf)
           end
         else
           local msg = vim.trim(result.stderr or '')
@@ -420,14 +452,14 @@ function M.open_issue(f, result, ref)
       then
         log.warn('aborting: empty title')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
       local issue_body = submission_data.body
       if body ~= '' and template.normalize_body(issue_body) == template.normalize_body(body) then
         log.warn('aborting: body unchanged from template')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
 
@@ -482,7 +514,7 @@ function M.open_issue_edit(f, num, details, ref)
       if issue_title == '' then
         log.warn('aborting: empty title')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
 
@@ -612,20 +644,20 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
       if pr_title == '' then
         log.warn('aborting: empty title')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
       local pr_body = submission_data.body
       if pr_body == '' then
         log.warn('aborting: empty body')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
       if body ~= '' and template.normalize_body(pr_body) == template.normalize_body(body) then
         log.warn('aborting: body unchanged from template')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
 
@@ -708,7 +740,7 @@ local function update_pr(f, num, title, body, buf, ref, metadata, previous)
         require('forge').clear_list()
         if buf and vim.api.nvim_buf_is_valid(buf) then
           vim.bo[buf].modified = false
-          vim.api.nvim_buf_delete(buf, { force = true })
+          close_compose_buf(buf)
         end
       end)
     end
@@ -811,14 +843,14 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
       if pr_title == '' then
         log.warn('aborting: empty title')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
       local pr_body = submission_data.body
       if pr_body == '' then
         log.warn('aborting: empty body')
         vim.bo[buf].modified = false
-        vim.api.nvim_buf_delete(buf, { force = true })
+        close_compose_buf(buf)
         return
       end
 

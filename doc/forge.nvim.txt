@@ -114,8 +114,9 @@ Top-level keys: ~
 
 `split`                                                   *forge-config-split*
   `string`  (default `"horizontal"`)
-    Default split direction for terminal views. One of `"horizontal"` or
-    `"vertical"`. Individual scopes (e.g. `ci.split`) override this value.
+    Default split direction for compose and terminal views. One of
+    `"horizontal"` or `"vertical"`. Individual scopes (e.g. `ci.split`)
+    override this value where supported.
 
 `confirm`                                               *forge-config-confirm*
   `table`  (default shown below)
@@ -824,6 +825,9 @@ COMPOSE BUFFER                                                 *forge-compose*
 Compose and edit buffers behave like native `acwrite` buffers. Write (`:w`)
 submits the current buffer. Quit or delete without `!` keeps modified-buffer
 protection. Use `:q!`, `:bd!`, or `:bwipeout!` to discard the buffer.
+Forge opens compose and edit buffers in a dedicated split using |forge-config-split|.
+On successful submission, that split closes and focus returns to the prior
+window.
 
 Creating a PR (without `--fill` or `--web`) opens a compose buffer at
 `forge://pr/new` with filetype `markdown` and buftype `acwrite`.
