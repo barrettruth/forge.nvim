@@ -191,6 +191,7 @@ end
 ---@field body string
 ---@field title string?
 ---@field labels string[]?
+---@field assignees string[]?
 
 ---@param doc table
 ---@return forge.TemplateResult
@@ -211,10 +212,15 @@ function M.render(doc)
   if type(labels) == 'string' then
     labels = { labels }
   end
+  local assignees = doc.assignees
+  if type(assignees) == 'string' then
+    assignees = { assignees }
+  end
   return {
     body = table.concat(parts, '\n'),
     title = doc.title or nil,
     labels = labels,
+    assignees = assignees,
   }
 end
 

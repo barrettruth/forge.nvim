@@ -232,4 +232,46 @@ describe('compose pr edit', function()
     assert.same({}, captured.warns)
     assert.same({}, captured.errors)
   end)
+
+  it('uses submission semantics to hide unsupported draft edits while keeping reviewers', function()
+    local compose = require('forge.compose')
+    compose.open_pr_edit(
+      {
+        labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+        capabilities = { draft = false, reviewers = false },
+        submission = {
+          pr = {
+            update = {
+              draft = false,
+              reviewers = true,
+              labels = true,
+              assignees = false,
+              milestone = true,
+            },
+          },
+        },
+        name = 'codeberg',
+      },
+      '23',
+      {
+        title = 'PR title',
+        body = 'PR body',
+        draft = true,
+        head_branch = 'real-pr-head',
+        base_branch = 'main',
+        reviewers = { 'bob' },
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = 'v1',
+      },
+      'real-pr-head'
+    )
+
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    assert.is_false(vim.tbl_contains(lines, '  Draft: true'))
+    assert.is_true(vim.tbl_contains(lines, '  Reviewers: bob'))
+    assert.is_true(vim.tbl_contains(lines, '  Labels: bug'))
+    assert.is_false(vim.tbl_contains(lines, '  Assignees: alice'))
+    assert.is_true(vim.tbl_contains(lines, '  Milestone: v1'))
+  end)
 end)

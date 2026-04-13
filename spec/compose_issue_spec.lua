@@ -191,6 +191,54 @@ describe('compose issue create', function()
     }, captured.args)
   end)
 
+  it('renders template assignees into the metadata block and extracts them on write', function()
+    local compose = require('forge.compose')
+    local f = {
+      name = 'github',
+      create_issue_cmd = function(_, title, body, labels, ref, metadata)
+        captured.args = {
+          title = title,
+          body = body,
+          labels = labels,
+          ref = ref,
+          metadata = metadata,
+        }
+        return { 'create-issue', title, body }
+      end,
+    }
+
+    compose.open_issue(f, {
+      title = 'template issue',
+      body = '',
+      labels = { 'bug' },
+      assignees = { 'alice' },
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_true(vim.tbl_contains(lines, '  Assignees: alice'))
+    vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# template issue done' })
+    vim.cmd('write')
+
+    vim.wait(100, function()
+      return captured.args ~= nil and captured.cleared == 1
+    end)
+
+    assert.same({
+      title = 'template issue done',
+      body = '',
+      labels = { 'bug' },
+      ref = nil,
+      metadata = {
+        labels = { 'bug' },
+        assignees = { 'alice' },
+        milestone = '',
+        draft = false,
+        reviewers = {},
+      },
+    }, captured.args)
+  end)
+
   it('submits issues when the clipboard register is unavailable', function()
     local old_setreg = vim.fn.setreg
     vim.fn.setreg = function()

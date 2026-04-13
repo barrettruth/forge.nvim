@@ -1,5 +1,6 @@
 local forge = require('forge')
 local log = require('forge.logger')
+local submission = require('forge.submission')
 
 ---@class forge.GitHub: forge.Forge
 local M = {
@@ -15,8 +16,19 @@ local M = {
   },
   capabilities = {
     draft = true,
+    reviewers = true,
     per_pr_checks = true,
     ci_json = true,
+  },
+  submission = {
+    issue = {
+      create = { labels = true, assignees = true, milestone = true },
+      update = { labels = true, assignees = true, milestone = true },
+    },
+    pr = {
+      create = { draft = true, reviewers = true, labels = true, assignees = true, milestone = true },
+      update = { draft = true, reviewers = true, labels = true, assignees = true, milestone = true },
+    },
   },
   pr_fields = {
     number = 'number',
@@ -65,6 +77,13 @@ local function open_browse_url(cmd)
       end
     end)
   end)
+end
+
+local function append_csv(cmd, flag, values)
+  if values and #values > 0 then
+    table.insert(cmd, flag)
+    table.insert(cmd, table.concat(values, ','))
+  end
 end
 
 ---@param state string
@@ -470,8 +489,27 @@ end
 ---@param title string
 ---@param body string
 ---@return string[]
-function M:update_pr_cmd(num, title, body, scope)
+function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   local cmd = { 'gh', 'pr', 'edit', num, '--title', title, '--body', body }
+  local current = submission.filter(self, 'pr', 'update', metadata)
+  local before = previous or { labels = {}, assignees = {}, reviewers = {}, milestone = '' }
+  local add_labels, remove_labels = submission.diff(before.labels, current.labels)
+  local add_assignees, remove_assignees = submission.diff(before.assignees, current.assignees)
+  local add_reviewers, remove_reviewers = submission.diff(before.reviewers, current.reviewers)
+  append_csv(cmd, '--add-label', add_labels)
+  append_csv(cmd, '--remove-label', remove_labels)
+  append_csv(cmd, '--add-assignee', add_assignees)
+  append_csv(cmd, '--remove-assignee', remove_assignees)
+  append_csv(cmd, '--add-reviewer', add_reviewers)
+  append_csv(cmd, '--remove-reviewer', remove_reviewers)
+  if current.milestone ~= (before.milestone or '') then
+    if current.milestone == '' then
+      table.insert(cmd, '--remove-milestone')
+    else
+      table.insert(cmd, '--milestone')
+      table.insert(cmd, current.milestone)
+    end
+  end
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
@@ -480,8 +518,24 @@ function M:update_pr_cmd(num, title, body, scope)
   return cmd
 end
 
-function M:update_issue_cmd(num, title, body, scope)
+function M:update_issue_cmd(num, title, body, scope, metadata, previous)
   local cmd = { 'gh', 'issue', 'edit', num, '--title', title, '--body', body }
+  local current = submission.filter(self, 'issue', 'update', metadata)
+  local before = previous or { labels = {}, assignees = {}, milestone = '' }
+  local add_labels, remove_labels = submission.diff(before.labels, current.labels)
+  local add_assignees, remove_assignees = submission.diff(before.assignees, current.assignees)
+  append_csv(cmd, '--add-label', add_labels)
+  append_csv(cmd, '--remove-label', remove_labels)
+  append_csv(cmd, '--add-assignee', add_assignees)
+  append_csv(cmd, '--remove-assignee', remove_assignees)
+  if current.milestone ~= (before.milestone or '') then
+    if current.milestone == '' then
+      table.insert(cmd, '--remove-milestone')
+    else
+      table.insert(cmd, '--milestone')
+      table.insert(cmd, current.milestone)
+    end
+  end
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
@@ -549,15 +603,23 @@ end
 ---@param base string
 ---@param draft boolean
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, scope)
+function M:create_pr_cmd(title, body, base, draft, scope, metadata)
   local cmd = { 'gh', 'pr', 'create', '--title', title, '--body', body, '--base', base }
+  local current = metadata and submission.filter(self, 'pr', 'create', metadata) or nil
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
     table.insert(cmd, repo)
   end
-  if draft then
+  if (current and current.draft) or (not current and draft) then
     table.insert(cmd, '--draft')
+  end
+  append_csv(cmd, '--label', current and current.labels or {})
+  append_csv(cmd, '--assignee', current and current.assignees or {})
+  append_csv(cmd, '--reviewer', current and current.reviewers or {})
+  if current and current.milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, current.milestone)
   end
   return cmd
 end
@@ -598,16 +660,20 @@ end
 ---@param body string
 ---@param labels string[]?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, scope)
+function M:create_issue_cmd(title, body, labels, scope, metadata)
   local cmd = { 'gh', 'issue', 'create', '--title', title, '--body', body }
+  local current = metadata and submission.filter(self, 'issue', 'create', metadata) or nil
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
     table.insert(cmd, repo)
   end
-  for _, l in ipairs(labels or {}) do
-    table.insert(cmd, '--label')
-    table.insert(cmd, l)
+  local effective_labels = current and current.labels or (labels or {})
+  append_csv(cmd, '--label', effective_labels)
+  append_csv(cmd, '--assignee', current and current.assignees or {})
+  if current and current.milestone ~= '' then
+    table.insert(cmd, '--milestone')
+    table.insert(cmd, current.milestone)
   end
   return cmd
 end

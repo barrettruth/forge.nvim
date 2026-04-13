@@ -52,10 +52,24 @@ describe('github', function()
   end)
 
   it('builds create_pr_cmd', function()
-    local cmd = gh:create_pr_cmd('title', 'body', 'main', false)
+    local cmd = gh:create_pr_cmd('title', 'body', 'main', false, nil, {
+      draft = true,
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      reviewers = { 'bob' },
+      milestone = 'v1',
+    })
     assert.truthy(vim.tbl_contains(cmd, '--title'))
     assert.truthy(vim.tbl_contains(cmd, '--base'))
-    assert.falsy(vim.tbl_contains(cmd, '--draft'))
+    assert.truthy(vim.tbl_contains(cmd, '--draft'))
+    assert.truthy(vim.tbl_contains(cmd, '--label'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'alice'))
+    assert.truthy(vim.tbl_contains(cmd, '--reviewer'))
+    assert.truthy(vim.tbl_contains(cmd, 'bob'))
+    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.truthy(vim.tbl_contains(cmd, 'v1'))
   end)
 
   it('builds issue detail and simplified issue commands', function()
@@ -73,15 +87,36 @@ describe('github', function()
     assert.truthy(vim.tbl_contains(details, '--json'))
     assert.truthy(vim.tbl_contains(details, 'title,body,labels,assignees,milestone,url'))
 
-    local create = gh:create_issue_cmd('title', 'body', { 'bug' }, {
-      repo_arg = 'owner/repo',
+    local create = gh:create_issue_cmd('title', 'body', { 'bug' }, { repo_arg = 'owner/repo' }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      milestone = 'v1',
     })
     assert.truthy(vim.tbl_contains(create, '--label'))
     assert.truthy(vim.tbl_contains(create, 'bug'))
+    assert.truthy(vim.tbl_contains(create, '--assignee'))
+    assert.truthy(vim.tbl_contains(create, 'alice'))
+    assert.truthy(vim.tbl_contains(create, '--milestone'))
+    assert.truthy(vim.tbl_contains(create, 'v1'))
 
-    local cmd = gh:update_issue_cmd('23', 'title', 'body', { repo_arg = 'owner/repo' })
-    assert.falsy(vim.tbl_contains(cmd, '--add-label'))
-    assert.falsy(vim.tbl_contains(cmd, '--remove-label'))
+    local cmd = gh:update_issue_cmd('23', 'title', 'body', { repo_arg = 'owner/repo' }, {
+      labels = { 'docs' },
+      assignees = { 'bob' },
+      milestone = '',
+    }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      milestone = 'v1',
+    })
+    assert.truthy(vim.tbl_contains(cmd, '--add-label'))
+    assert.truthy(vim.tbl_contains(cmd, 'docs'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-label'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--add-assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'bob'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'alice'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-milestone'))
   end)
 
   it('parses fetched PR and issue metadata', function()
@@ -144,6 +179,36 @@ describe('github', function()
 
   it('adds draft flag to create_pr_cmd', function()
     assert.truthy(vim.tbl_contains(gh:create_pr_cmd('t', 'b', 'main', true), '--draft'))
+  end)
+
+  it('builds update_pr_cmd metadata deltas', function()
+    local cmd = gh:update_pr_cmd('23', 'title', 'body', { repo_arg = 'owner/repo' }, {
+      labels = { 'docs' },
+      assignees = { 'bob' },
+      reviewers = { 'carol' },
+      milestone = '',
+      draft = true,
+    }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      reviewers = { 'dave' },
+      milestone = 'v1',
+      draft = false,
+    })
+
+    assert.truthy(vim.tbl_contains(cmd, '--add-label'))
+    assert.truthy(vim.tbl_contains(cmd, 'docs'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-label'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--add-assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'bob'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'alice'))
+    assert.truthy(vim.tbl_contains(cmd, '--add-reviewer'))
+    assert.truthy(vim.tbl_contains(cmd, 'carol'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-reviewer'))
+    assert.truthy(vim.tbl_contains(cmd, 'dave'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-milestone'))
   end)
 
   it('builds checkout_cmd', function()
@@ -364,10 +429,25 @@ describe('gitlab', function()
   end)
 
   it('builds create_pr_cmd with --description and --target-branch', function()
-    local cmd = gl:create_pr_cmd('title', 'desc', 'develop', false)
+    local cmd = gl:create_pr_cmd('title', 'desc', 'develop', false, nil, {
+      draft = true,
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      reviewers = { 'bob' },
+      milestone = 'v1',
+    })
     assert.truthy(vim.tbl_contains(cmd, '--description'))
     assert.truthy(vim.tbl_contains(cmd, '--target-branch'))
     assert.truthy(vim.tbl_contains(cmd, '--yes'))
+    assert.truthy(vim.tbl_contains(cmd, '--draft'))
+    assert.truthy(vim.tbl_contains(cmd, '--label'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'alice'))
+    assert.truthy(vim.tbl_contains(cmd, '--reviewer'))
+    assert.truthy(vim.tbl_contains(cmd, 'bob'))
+    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.truthy(vim.tbl_contains(cmd, 'v1'))
   end)
 
   it('builds issue detail and simplified issue commands', function()
@@ -377,15 +457,62 @@ describe('gitlab', function()
       vim.list_slice(details, 1, 6)
     )
 
-    local create = gl:create_issue_cmd('title', 'body', { 'bug' }, {
-      repo_arg = 'group/repo',
+    local create = gl:create_issue_cmd('title', 'body', { 'bug' }, { repo_arg = 'group/repo' }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      milestone = 'v1',
     })
     assert.truthy(vim.tbl_contains(create, '--label'))
     assert.truthy(vim.tbl_contains(create, 'bug'))
+    assert.truthy(vim.tbl_contains(create, '--assignee'))
+    assert.truthy(vim.tbl_contains(create, 'alice'))
+    assert.truthy(vim.tbl_contains(create, '--milestone'))
+    assert.truthy(vim.tbl_contains(create, 'v1'))
 
-    local cmd = gl:update_issue_cmd('23', 'title', 'body', { repo_arg = 'group/repo' })
-    assert.falsy(vim.tbl_contains(cmd, '--label'))
-    assert.falsy(vim.tbl_contains(cmd, '--unlabel'))
+    local cmd = gl:update_issue_cmd('23', 'title', 'body', { repo_arg = 'group/repo' }, {
+      labels = { 'docs' },
+      assignees = { 'bob' },
+      milestone = '',
+    }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      milestone = 'v1',
+    })
+    assert.truthy(vim.tbl_contains(cmd, '--label'))
+    assert.truthy(vim.tbl_contains(cmd, 'docs'))
+    assert.truthy(vim.tbl_contains(cmd, '--unlabel'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'bob'))
+    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.truthy(vim.tbl_contains(cmd, '0'))
+  end)
+
+  it('builds update_pr_cmd reviewer and label changes', function()
+    local cmd = gl:update_pr_cmd('23', 'title', 'body', { repo_arg = 'group/repo' }, {
+      labels = { 'docs' },
+      assignees = { 'bob' },
+      reviewers = {},
+      milestone = '',
+      draft = true,
+    }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      reviewers = { 'carol' },
+      milestone = 'v1',
+      draft = false,
+    })
+
+    assert.truthy(vim.tbl_contains(cmd, '--label'))
+    assert.truthy(vim.tbl_contains(cmd, 'docs'))
+    assert.truthy(vim.tbl_contains(cmd, '--unlabel'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--assignee'))
+    assert.truthy(vim.tbl_contains(cmd, 'bob'))
+    assert.truthy(vim.tbl_contains(cmd, '--reviewer'))
+    assert.truthy(vim.tbl_contains(cmd, '-carol'))
+    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.truthy(vim.tbl_contains(cmd, '0'))
   end)
 
   it('parses fetched MR and issue metadata', function()
@@ -503,9 +630,22 @@ describe('codeberg', function()
   end)
 
   it('ignores draft in create_pr_cmd', function()
-    local cmd = cb:create_pr_cmd('title', 'body', 'main', true)
+    local cmd = cb:create_pr_cmd('title', 'body', 'main', true, nil, {
+      draft = true,
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      reviewers = { 'bob' },
+      milestone = 'v1',
+    })
     assert.falsy(vim.tbl_contains(cmd, '--draft'))
     assert.truthy(vim.tbl_contains(cmd, '--base'))
+    assert.truthy(vim.tbl_contains(cmd, '--labels'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--assignees'))
+    assert.truthy(vim.tbl_contains(cmd, 'alice'))
+    assert.falsy(vim.tbl_contains(cmd, '--add-reviewers'))
+    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.truthy(vim.tbl_contains(cmd, 'v1'))
   end)
 
   it('returns correct pr_json_fields', function()
@@ -536,17 +676,35 @@ describe('codeberg', function()
   end)
 
   it('builds simplified issue commands for tea', function()
-    local create = cb:create_issue_cmd('title', 'body', { 'bug' }, {
-      repo_arg = 'forgejo/tea-test',
+    local create = cb:create_issue_cmd('title', 'body', { 'bug' }, { repo_arg = 'forgejo/tea-test' }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      milestone = 'v1',
     })
     assert.same({ 'tea', 'issues', 'create', '--title', 'title' }, vim.list_slice(create, 1, 5))
     assert.truthy(vim.tbl_contains(create, '--labels'))
     assert.truthy(vim.tbl_contains(create, 'bug'))
+    assert.truthy(vim.tbl_contains(create, '--assignees'))
+    assert.truthy(vim.tbl_contains(create, 'alice'))
+    assert.truthy(vim.tbl_contains(create, '--milestone'))
+    assert.truthy(vim.tbl_contains(create, 'v1'))
 
-    local cmd = cb:update_issue_cmd('23', 'title', 'body', { repo_arg = 'forgejo/tea-test' })
+    local cmd = cb:update_issue_cmd('23', 'title', 'body', { repo_arg = 'forgejo/tea-test' }, {
+      labels = { 'docs' },
+      assignees = { 'bob' },
+      milestone = '',
+    }, {
+      labels = { 'bug' },
+      assignees = { 'alice' },
+      milestone = 'v1',
+    })
     assert.same({ 'tea', 'issues', 'edit', '23' }, vim.list_slice(cmd, 1, 4))
-    assert.falsy(vim.tbl_contains(cmd, '--add-labels'))
-    assert.falsy(vim.tbl_contains(cmd, '--remove-labels'))
+    assert.truthy(vim.tbl_contains(cmd, '--add-labels'))
+    assert.truthy(vim.tbl_contains(cmd, 'docs'))
+    assert.truthy(vim.tbl_contains(cmd, '--remove-labels'))
+    assert.truthy(vim.tbl_contains(cmd, 'bug'))
+    assert.truthy(vim.tbl_contains(cmd, '--milestone'))
+    assert.truthy(vim.tbl_contains(cmd, ''))
   end)
 
   it('parses fetched PR and issue metadata for tea', function()
@@ -554,17 +712,18 @@ describe('codeberg', function()
       {
         title = 'title',
         body = 'body',
-        draft = false,
+        draft = true,
         head_branch = 'topic',
         base_branch = 'main',
         labels = { 'bug' },
         assignees = { 'alice' },
-        reviewers = {},
+        reviewers = { 'bob' },
         milestone = 'v1',
       },
       cb:parse_pr_details({
         title = 'title',
         body = 'body',
+        draft = true,
         head = { ref = 'topic' },
         base = { ref = 'main' },
         labels = {
@@ -572,6 +731,9 @@ describe('codeberg', function()
         },
         assignees = {
           { login = 'alice' },
+        },
+        requested_reviewers = {
+          { login = 'bob' },
         },
         milestone = {
           title = 'v1',

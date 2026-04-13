@@ -65,6 +65,21 @@
 ---@field draft boolean
 ---@field reviewers string[]
 
+---@class forge.SubmissionFields
+---@field labels boolean?
+---@field assignees boolean?
+---@field milestone boolean?
+---@field draft boolean?
+---@field reviewers boolean?
+
+---@class forge.SubmissionOps
+---@field create forge.SubmissionFields?
+---@field update forge.SubmissionFields?
+
+---@class forge.Submission
+---@field issue forge.SubmissionOps?
+---@field pr forge.SubmissionOps?
+
 ---@class forge.CreatePROpts
 ---@field draft boolean?
 ---@field instant boolean?
@@ -127,6 +142,7 @@
 ---@field kinds { issue: string, pr: string }
 ---@field labels { issue: string, pr: string, pr_one: string, pr_full: string, ci: string }
 ---@field capabilities forge.Capabilities
+---@field submission forge.Submission?
 ---@field list_pr_json_cmd fun(self: forge.Forge, state: string, limit?: integer, scope?: forge.Scope): string[]
 ---@field list_issue_json_cmd fun(self: forge.Forge, state: string, limit?: integer, scope?: forge.Scope): string[]
 ---@field pr_fields { number: string, title: string, branch: string, state: string, author: string, created_at: string }
@@ -161,7 +177,7 @@
 ---@field reopen_issue_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field draft_toggle_cmd fun(self: forge.Forge, num: string, is_draft: boolean, scope?: forge.Scope): string[]?
 ---@field create_pr_cmd fun(self: forge.Forge, title: string, body: string, base: string, draft: boolean, scope?: forge.Scope, metadata?: forge.CommentMetadata): string[]
----@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, scope?: forge.Scope, metadata?: forge.CommentMetadata): string[]
+---@field update_pr_cmd fun(self: forge.Forge, num: string, title: string, body: string, scope?: forge.Scope, metadata?: forge.CommentMetadata, previous?: forge.CommentMetadata): string[]
 ---@field fetch_pr_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field parse_pr_details fun(self: forge.Forge, json: table): forge.PRDetails
 ---@field fetch_issue_details_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
@@ -176,7 +192,7 @@
 ---@field browse_release fun(self: forge.Forge, tag: string, scope?: forge.Scope)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string, scope?: forge.Scope): string[]
 ---@field create_issue_cmd fun(self: forge.Forge, title: string, body: string, labels: string[]?, scope?: forge.Scope, metadata?: forge.CommentMetadata): string[]
----@field update_issue_cmd fun(self: forge.Forge, num: string, title: string, body: string, scope?: forge.Scope, metadata?: forge.CommentMetadata): string[]
+---@field update_issue_cmd fun(self: forge.Forge, num: string, title: string, body: string, scope?: forge.Scope, metadata?: forge.CommentMetadata, previous?: forge.CommentMetadata): string[]
 ---@field issue_template_paths fun(self: forge.Forge): string[]
 ---@field create_issue_web_cmd (fun(self: forge.Forge, scope?: forge.Scope): string[]?)?
 ---@field create_issue_web_url (fun(self: forge.Forge, scope?: forge.Scope): string?)?
