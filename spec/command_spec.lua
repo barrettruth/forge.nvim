@@ -551,12 +551,14 @@ describe(':Forge command', function()
 
   it('rejects explicit list verbs with no picker dispatch side effects', function()
     vim.cmd('Forge pr list')
+    vim.cmd('Forge pr ci 42')
     vim.cmd('Forge issue list')
     vim.cmd('Forge ci list')
     vim.cmd('Forge release list')
 
     assert.same({
       'unknown pr action: list',
+      'unknown pr action: ci',
       'unknown issue action: list',
       'unknown action: list',
       'unknown release action: list',
@@ -683,6 +685,7 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'merge'))
     assert.is_true(vim.tbl_contains(pr, 'draft'))
     assert.is_true(vim.tbl_contains(pr, 'ready'))
+    assert.is_false(vim.tbl_contains(pr, 'ci'))
     assert.is_false(vim.tbl_contains(pr, 'state='))
     assert.is_false(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(issue, 'edit'))
