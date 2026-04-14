@@ -113,8 +113,8 @@ local function close_compose_buf(buf)
 end
 
 local function add_discard_hints(builder)
-  builder:add_line('  Write (:w) submits this buffer.')
-  builder:add_line('  Quit or delete without ! keeps modified-buffer protection.')
+  builder:add_line('  Writing (:w) submits this buffer.')
+  builder:add_line('  Quitting or deleting without ! preserves modified-buffer protection.')
   builder:add_line('  Use :q!, :bd!, or :bwipeout! to discard it.')
 end
 
@@ -260,7 +260,6 @@ end
 
 local function add_pr_header(builder, prefix, forge_name, branch, base)
   local ln = builder:add_line('%s%s.', prefix, forge_name)
-  builder:mark(ln, 2, #prefix - 2, 'ForgeComposeHeader')
   builder:mark(ln, #prefix, #forge_name, 'ForgeComposeForge')
 
   local branch_prefix = '  On branch '
@@ -268,6 +267,23 @@ local function add_pr_header(builder, prefix, forge_name, branch, base)
   ln = builder:add_line('%s%s%s%s.', branch_prefix, branch, against, base)
   builder:mark(ln, #branch_prefix, #branch, 'ForgeComposeBranch')
   builder:mark(ln, #branch_prefix + #branch + #against, #base, 'ForgeComposeBranch')
+end
+
+local function mark_diff_stat_runs(builder, line_num, line, pipe)
+  local fname_start = line:find('%S')
+  if fname_start then
+    builder:mark(line_num, fname_start - 1, pipe - fname_start - 1, 'ForgeComposeFile')
+  end
+  for pos, run in line:gmatch('()(%++)') do
+    if pos > pipe then
+      builder:mark(line_num, pos - 1, #run, 'ForgeComposeAdded')
+    end
+  end
+  for pos, run in line:gmatch('()(%-+)') do
+    if pos > pipe then
+      builder:mark(line_num, pos - 1, #run, 'ForgeComposeRemoved')
+    end
+  end
 end
 
 ---@param f forge.Forge
@@ -445,7 +461,7 @@ function M.open_issue(f, result, ref)
   add_optional_metadata_fields(b, f, 'issue', 'create', template_metadata)
   add_section_gap(b)
   add_discard_hints(b)
-  b:add_line('  An empty title aborts creation.')
+  b:add_line('  Creation is aborted if the title is empty.')
   b:add_line('-->')
 
   b:apply(buf)
@@ -503,13 +519,12 @@ function M.open_issue_edit(f, num, details, ref)
 
   local editing_prefix = '  Editing issue #' .. num .. ' via '
   local ln = b:add_line('%s%s.', editing_prefix, f.name)
-  b:mark(ln, 2, #editing_prefix - 2, 'ForgeComposeHeader')
   b:mark(ln, #editing_prefix, #f.name, 'ForgeComposeForge')
 
   add_optional_metadata_fields(b, f, 'issue', 'update', submission.issue_metadata(details))
   add_section_gap(b)
   add_discard_hints(b)
-  b:add_line('  An empty title aborts editing.')
+  b:add_line('  Editing is aborted if the title is empty.')
   b:add_line('-->')
 
   b:apply(buf)
@@ -599,7 +614,6 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
     add_section_gap(b)
     local changes_prefix = '  Changes not in '
     local ln = b:add_line('%s%s:', changes_prefix, base_ref)
-    b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
     b:mark(ln, #changes_prefix, #base_ref, 'ForgeComposeBranch')
     b:add_line('')
     stat_start = #b.lines + 1
@@ -610,7 +624,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   end
   add_section_gap(b)
   add_discard_hints(b)
-  b:add_line('  An empty title or body aborts creation.')
+  b:add_line('  Creation is aborted if the title or body is empty.')
   b:add_line('-->')
 
   b:apply(buf)
@@ -620,16 +634,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
       local line = b.lines[i]
       local pipe = line:find('|')
       if pipe then
-        local fname_start = line:find('%S')
-        if fname_start then
-          b:mark(i, fname_start - 1, pipe - fname_start - 1, 'ForgeComposeFile')
-        end
-        for pos, run in line:gmatch('()([+-]+)') do
-          if pos > pipe then
-            local stat_hl = run:sub(1, 1) == '+' and 'ForgeComposeAdded' or 'ForgeComposeRemoved'
-            b:mark(i, pos - 1, #run, stat_hl)
-          end
-        end
+        mark_diff_stat_runs(b, i, line, pipe)
       end
     end
     for _, m in ipairs(b.marks) do
@@ -797,7 +802,6 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
     add_section_gap(b)
     local changes_prefix = '  Changes not in origin/'
     local ln = b:add_line('%s%s:', changes_prefix, base)
-    b:mark(ln, 2, #changes_prefix - 2, 'ForgeComposeHeader')
     b:mark(ln, #changes_prefix, #base, 'ForgeComposeBranch')
     b:add_line('')
     stat_start = #b.lines + 1
@@ -808,7 +812,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   end
   add_section_gap(b)
   add_discard_hints(b)
-  b:add_line('  An empty title or body aborts editing.')
+  b:add_line('  Editing is aborted if the title or body is empty.')
   b:add_line('-->')
 
   b:apply(buf)
@@ -818,16 +822,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
       local line = b.lines[i]
       local pipe = line:find('|')
       if pipe then
-        local fname_start = line:find('%S')
-        if fname_start then
-          b:mark(i, fname_start - 1, pipe - fname_start - 1, 'ForgeComposeFile')
-        end
-        for pos, run in line:gmatch('()([+-]+)') do
-          if pos > pipe then
-            local stat_hl = run:sub(1, 1) == '+' and 'ForgeComposeAdded' or 'ForgeComposeRemoved'
-            b:mark(i, pos - 1, #run, stat_hl)
-          end
-        end
+        mark_diff_stat_runs(b, i, line, pipe)
       end
     end
     for _, m in ipairs(b.marks) do

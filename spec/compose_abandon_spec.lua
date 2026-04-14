@@ -133,9 +133,9 @@ describe('compose abandon behavior', function()
 
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 
-    assert.is_true(contains_line(lines, '  Write (:w) submits this buffer.'))
+    assert.is_true(contains_line(lines, '  Writing (:w) submits this buffer.'))
     assert.is_true(
-      contains_line(lines, '  Quit or delete without ! keeps modified-buffer protection.')
+      contains_line(lines, '  Quitting or deleting without ! preserves modified-buffer protection.')
     )
     assert.is_true(contains_line(lines, '  Use :q!, :bd!, or :bwipeout! to discard it.'))
   end)
@@ -152,9 +152,9 @@ describe('compose abandon behavior', function()
 
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 
-    assert.is_true(contains_line(lines, '  Write (:w) submits this buffer.'))
+    assert.is_true(contains_line(lines, '  Writing (:w) submits this buffer.'))
     assert.is_true(
-      contains_line(lines, '  Quit or delete without ! keeps modified-buffer protection.')
+      contains_line(lines, '  Quitting or deleting without ! preserves modified-buffer protection.')
     )
     assert.is_true(contains_line(lines, '  Use :q!, :bd!, or :bwipeout! to discard it.'))
   end)

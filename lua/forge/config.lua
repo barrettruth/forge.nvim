@@ -254,7 +254,6 @@ local hl_defaults = {
   ForgeComposeFile = 'Directory',
   ForgeComposeAdded = 'Added',
   ForgeComposeRemoved = 'Removed',
-  ForgeComposeHeader = 'PreProc',
   ForgeNumber = 'Number',
   ForgeOpen = 'DiagnosticOk',
   ForgeMerged = 'Special',
