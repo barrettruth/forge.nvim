@@ -140,6 +140,20 @@ local function fetch_json_now(cmd)
   return ok, data, result
 end
 
+local function limit_settings(base_limit, requested_limit)
+  local visible_limit = requested_limit or base_limit
+  return {
+    step = base_limit,
+    visible = visible_limit,
+    fetch = visible_limit + 1,
+    use_cache = visible_limit == base_limit,
+  }
+end
+
+local function expanded_limit(limit, step)
+  return limit + step
+end
+
 local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
   local scoped_suffix = suffix ~= '' and suffix or nil
   local key = forge_mod.list_key(kind, scoped_suffix and (state .. '|' .. scoped_suffix) or state)
@@ -924,9 +938,10 @@ function M.ci(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
   local forge_mod = require('forge')
-  local limit_step = forge_mod.config().display.limits.runs
-  local visible_limit = opts.limit or limit_step
-  local fetch_limit = visible_limit + 1
+  local limits = limit_settings(forge_mod.config().display.limits.runs, opts.limit)
+  local limit_step = limits.step
+  local visible_limit = limits.visible
+  local fetch_limit = limits.fetch
   local ref = scoped_forge_ref(f, opts.scope)
   local request_key =
     forge_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
@@ -987,7 +1002,7 @@ function M.ci(f, branch, filter, opts)
       })
     end
     if has_more then
-      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     local filter_label = labels[filter] or filter
     local empty_text
@@ -1180,10 +1195,11 @@ function M.pr(state, f, opts)
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
-  local limit_step = cfg.display.limits.pulls
-  local visible_limit = opts.limit or limit_step
-  local fetch_limit = visible_limit + 1
-  local use_cache = visible_limit == limit_step
+  local limits = limit_settings(cfg.display.limits.pulls, opts.limit)
+  local limit_step = limits.step
+  local visible_limit = limits.visible
+  local fetch_limit = limits.fetch
+  local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
   local cache_key = forge_mod.list_key('pr', scoped_id(state, scoped_key(forge_mod, ref)))
   local pr_fields = f.pr_fields
@@ -1233,7 +1249,7 @@ function M.pr(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
       or ('No %s %s'):format(state, f.labels.pr)
@@ -1489,10 +1505,11 @@ function M.issue(state, f, opts)
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
   local forge_mod = require('forge')
   local cfg = forge_mod.config()
-  local limit_step = cfg.display.limits.issues
-  local visible_limit = opts.limit or limit_step
-  local fetch_limit = visible_limit + 1
-  local use_cache = visible_limit == limit_step
+  local limits = limit_settings(cfg.display.limits.issues, opts.limit)
+  local limit_step = limits.step
+  local visible_limit = limits.visible
+  local fetch_limit = limits.fetch
+  local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
   local cache_key = forge_mod.list_key('issue', scoped_id(state, scoped_key(forge_mod, ref)))
   local issue_fields = f.issue_fields
@@ -1537,7 +1554,7 @@ function M.issue(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
       or ('No %s %s'):format(state, f.labels.issue)
@@ -2100,9 +2117,10 @@ end
 function M.commits(ctx, branch, opts)
   opts = opts or {}
   local forge_mod = require('forge')
-  local limit_step = require('forge.config').config().display.limits.commits
-  local visible_limit = opts.limit or limit_step
-  local use_cache = visible_limit == limit_step
+  local limits = limit_settings(require('forge.config').config().display.limits.commits, opts.limit)
+  local limit_step = limits.step
+  local visible_limit = limits.visible
+  local use_cache = limits.use_cache
   local cache_key = forge_mod.list_key('commit', branch)
   local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
@@ -2136,7 +2154,7 @@ function M.commits(ctx, branch, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(limit + limit_step, live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     entries = with_placeholder(entries, 'No commits in ' .. branch .. ' history')
     return entries, count
