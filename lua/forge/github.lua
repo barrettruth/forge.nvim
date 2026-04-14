@@ -790,7 +790,7 @@ function M:pr_state(num, scope)
   }
 end
 
-function M:list_releases_json_cmd(scope)
+function M:list_releases_json_cmd(scope, limit)
   local cmd = {
     'gh',
     'release',
@@ -798,7 +798,7 @@ function M:list_releases_json_cmd(scope)
     '--json',
     'tagName,name,isDraft,isPrerelease,isLatest,publishedAt',
     '--limit',
-    tostring(forge.config().display.limits.releases),
+    tostring(limit or forge.config().display.limits.releases),
   }
   local repo = nwo(scope)
   if repo ~= '' then

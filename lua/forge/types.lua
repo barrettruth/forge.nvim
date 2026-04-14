@@ -187,7 +187,7 @@
 ---@field default_branch_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]
 ---@field checks_json_cmd (fun(self: forge.Forge, num: string, scope?: forge.Scope): string[])?
 ---@field template_paths fun(self: forge.Forge): string[]
----@field list_releases_json_cmd fun(self: forge.Forge, scope?: forge.Scope): string[]
+---@field list_releases_json_cmd fun(self: forge.Forge, scope?: forge.Scope, limit?: integer): string[]
 ---@field release_fields { tag: string, title: string, is_draft: string?, is_prerelease: string?, is_latest: string?, published_at: string }
 ---@field browse_release fun(self: forge.Forge, tag: string, scope?: forge.Scope)
 ---@field delete_release_cmd fun(self: forge.Forge, tag: string, scope?: forge.Scope): string[]

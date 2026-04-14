@@ -368,12 +368,14 @@ describe('pickers', function()
           return runs
         end,
         format_releases = function(releases)
-          return vim.tbl_map(function(rel)
-            return {
+          local rows = {}
+          for _, rel in ipairs(releases) do
+            rows[#rows + 1] = {
               { tostring(rel.tag or '') },
               { ' ' .. (rel.title or '') },
             }
-          end, releases)
+          end
+          return rows
         end,
         format_release = function(rel)
           return {
