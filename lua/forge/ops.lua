@@ -286,15 +286,14 @@ function M.ci_log(f, run)
   local url = trim(run.url)
   url = url ~= '' and url or nil
   local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
-  if f.summary_json_cmd then
-    require('forge.log').open_summary(f:summary_json_cmd(run.id, run_ref), {
+  if f.view_cmd then
+    require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
       forge_name = f.name,
       run_id = run.id,
       url = url,
       title = run.name or run.id,
       in_progress = in_progress,
       status_cmd = status_cmd,
-      json = true,
       log_cmd_fn = function(job_id, failed)
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
@@ -310,14 +309,15 @@ function M.ci_log(f, run)
     })
     return
   end
-  if f.view_cmd then
-    require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
+  if f.summary_json_cmd then
+    require('forge.log').open_summary(f:summary_json_cmd(run.id, run_ref), {
       forge_name = f.name,
       run_id = run.id,
       url = url,
       title = run.name or run.id,
       in_progress = in_progress,
       status_cmd = status_cmd,
+      json = true,
       log_cmd_fn = function(job_id, failed)
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {

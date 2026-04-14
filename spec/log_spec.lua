@@ -349,6 +349,24 @@ describe('parse_summary', function()
     assert.equals(0, #result.lines)
     assert.equals(0, #result.job_lnums)
   end)
+
+  it('maps job step lines without binding annotation lines', function()
+    local result = parse_summary({
+      'JOBS',
+      '✓ lint (ID 12345)',
+      '  ✓ Set up job',
+      '  * Run stylua',
+      '',
+      'ANNOTATIONS',
+      '! warning',
+    })
+    assert.same({ id = '12345', failed = false }, result.jobs[2])
+    assert.same({ id = '12345', failed = false }, result.jobs[3])
+    assert.same({ id = '12345', failed = false }, result.jobs[4])
+    assert.is_nil(result.jobs[5])
+    assert.is_nil(result.jobs[6])
+    assert.equals(1, #result.job_lnums)
+  end)
 end)
 
 describe('parse_summary_json', function()
@@ -590,6 +608,86 @@ describe('buffer reuse refreshes', function()
     vim.wait(20)
 
     assert.same({ '✓ new job (ID 2)' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+end)
+
+describe('summary job mappings', function()
+  local original_system
+  local original_open
+
+  before_each(function()
+    original_system = vim.system
+    original_open = log_mod.open
+  end)
+
+  after_each(function()
+    vim.system = original_system
+    log_mod.open = original_open
+
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(buf) then
+        local name = vim.api.nvim_buf_get_name(buf)
+        if name:match('^forge://') then
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end
+      end
+    end
+    vim.cmd('silent! %bwipeout!')
+    vim.cmd('enew!')
+  end)
+
+  it('opens logs from job step lines but not annotation lines', function()
+    local opened = {}
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = table.concat({
+          '✓ lint (ID 12345)',
+          '  ✓ Set up job',
+          '  * Run stylua',
+          '',
+          'ANNOTATIONS',
+          '! warning',
+        }, '\n'),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+    log_mod.open = function(cmd, opts)
+      opened[#opened + 1] = { cmd = cmd, opts = opts }
+    end
+
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      run_id = '12345',
+      title = 'summary',
+      log_cmd_fn = function(job_id, failed)
+        return { 'log', job_id, tostring(failed) }, { title = job_id }
+      end,
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
+    end)
+
+    local enter = vim.fn.maparg('<cr>', 'n', false, true).callback
+
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    enter()
+    vim.wait(100, function()
+      return #opened == 1
+    end)
+
+    assert.same({ 'log', '12345', 'false' }, opened[1].cmd)
+    assert.same({ title = '12345' }, opened[1].opts)
+
+    vim.api.nvim_win_set_cursor(0, { 6, 0 })
+    enter()
+    vim.wait(20)
+
+    assert.equals(1, #opened)
   end)
 end)
 
