@@ -127,8 +127,8 @@ local function fake_release_forge()
     delete_release_cmd = function(_, tag)
       return { 'delete', tag }
     end,
-    list_releases_json_cmd = function()
-      return { 'releases' }
+    list_releases_json_cmd = function(_, _, limit)
+      return { 'releases', tostring(limit or '') }
     end,
   }
 end
@@ -1698,6 +1698,84 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_false(rawget(action_by_name('yank'), 'close'))
     assert.is_nil(rawget(action_by_name('delete'), 'close'))
+  end)
+
+  it('adds a load more row when the release list exceeds the configured limit', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          releases = 2,
+        },
+      },
+    }
+    cache['release:list'] = {
+      { tag = 'v3.0.0', title = 'Third', is_draft = false, is_prerelease = false },
+      { tag = 'v2.0.0', title = 'Second', is_draft = false, is_prerelease = false },
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+
+    assert.same({ 'v3.0.0', 'v2.0.0' }, {
+      captured.entries[1].value.tag,
+      captured.entries[2].value.tag,
+    })
+    assert.equals('Load more...', captured.entries[3].display[1][1])
+    assert.is_true(captured.entries[3].load_more)
+  end)
+
+  it('fetches more releases in place with additive next limits', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          releases = 2,
+        },
+      },
+    }
+    cache['release:list'] = {
+      { tag = 'v3.0.0', title = 'Third', is_draft = false, is_prerelease = false },
+      { tag = 'v2.0.0', title = 'Second', is_draft = false, is_prerelease = false },
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return {
+            code = 0,
+            stdout = vim.json.encode({
+              { tag = 'v5.0.0', title = 'Fifth', is_draft = false, is_prerelease = false },
+              { tag = 'v4.0.0', title = 'Fourth', is_draft = false, is_prerelease = false },
+              { tag = 'v3.0.0', title = 'Third', is_draft = false, is_prerelease = false },
+              { tag = 'v2.0.0', title = 'Second', is_draft = false, is_prerelease = false },
+              { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+            }),
+          }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+
+    action_by_name('browse').fn(captured.entries[3])
+    vim.system = old_system
+
+    assert.same({ 'releases', '5' }, calls[1].cmd)
+
+    local entries = captured.entry_source()
+    assert.same({ 'v5.0.0', 'v4.0.0', 'v3.0.0', 'v2.0.0' }, {
+      entries[1].value.tag,
+      entries[2].value.tag,
+      entries[3].value.tag,
+      entries[4].value.tag,
+    })
+    assert.equals('Load more...', entries[5].display[1][1])
+    assert.equals(6, entries[5].next_limit)
   end)
 
   it('keeps release copy working when the clipboard register is unavailable', function()

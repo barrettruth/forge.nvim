@@ -32,6 +32,12 @@ describe('github', function()
     assert.truthy(vim.tbl_contains(cmd, '55'))
   end)
 
+  it('respects explicit release list limits', function()
+    local cmd = gh:list_releases_json_cmd({ repo_arg = 'owner/repo' }, 42)
+    assert.truthy(vim.tbl_contains(cmd, '--limit'))
+    assert.truthy(vim.tbl_contains(cmd, '42'))
+  end)
+
   it('builds merge_cmd with method flag', function()
     local squash = gh:merge_cmd('42', 'squash')
     assert.same({ 'gh', 'pr', 'merge', '42', '--squash' }, vim.list_slice(squash, 1, 5))
@@ -402,6 +408,12 @@ describe('gitlab', function()
     local cmd = gl:list_issue_json_cmd('open', 44)
     assert.truthy(vim.tbl_contains(cmd, '--per-page'))
     assert.truthy(vim.tbl_contains(cmd, '44'))
+  end)
+
+  it('respects explicit release list limits', function()
+    local cmd = gl:list_releases_json_cmd({ repo_arg = 'group/repo' }, 42)
+    assert.truthy(vim.tbl_contains(cmd, '--per-page'))
+    assert.truthy(vim.tbl_contains(cmd, '42'))
   end)
 
   it('builds merge_cmd with method flags', function()
@@ -775,6 +787,10 @@ describe('codeberg', function()
     assert.same(
       { 'sh', '-c', 'tea releases list --limit 30 --output json --repo forgejo/tea-test' },
       cb:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' })
+    )
+    assert.same(
+      { 'sh', '-c', 'tea releases list --limit 55 --output json --repo forgejo/tea-test' },
+      cb:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' }, 55)
     )
     assert.same(
       { 'sh', '-c', 'tea releases delete --confirm --repo forgejo/tea-test v1.2.3' },
