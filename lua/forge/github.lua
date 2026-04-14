@@ -304,6 +304,27 @@ function M:view_cmd(id, opts)
 end
 
 ---@param id string
+---@return string?
+function M:run_web_url(id, scope)
+  local base = forge.remote_web_url(scope)
+  if not base or base == '' then
+    return nil
+  end
+  return ('%s/actions/runs/%s'):format(base, id)
+end
+
+---@param run_id string
+---@param job_id string
+---@return string?
+function M:job_web_url(run_id, job_id, scope)
+  local run_url = self:run_web_url(run_id, scope)
+  if not run_url or run_url == '' then
+    return nil
+  end
+  return ('%s/job/%s'):format(run_url, job_id)
+end
+
+---@param id string
 ---@return string[]
 function M:summary_json_cmd(id, scope)
   local jq = table.concat({

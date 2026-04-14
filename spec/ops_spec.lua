@@ -206,6 +206,12 @@ describe('shared operations', function()
       view_cmd = function(_, run_id, opts)
         return { 'view', run_id, opts and opts.scope or 'none' }
       end,
+      run_web_url = function(_, run_id, scope)
+        return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
+      end,
+      job_web_url = function(_, run_id, job_id, scope)
+        return ('https://example.com/runs/%s/jobs/%s/%s'):format(run_id, job_id, scope or 'none')
+      end,
       summary_json_cmd = function(_, run_id, scope)
         return { 'summary', run_id, scope or 'none' }
       end,
@@ -222,27 +228,30 @@ describe('shared operations', function()
       id = '77',
       name = 'CI',
       status = 'running',
-      url = 'https://example.com/runs/77',
       scope = 'repo/ref',
     })
 
     assert.same({ 'view', '77', 'repo/ref' }, captured.summaries[1].cmd)
     local summary_opts = vim.deepcopy(captured.summaries[1].opts)
-    summary_opts.log_cmd_fn = nil
+    summary_opts.log_cmd_fn, summary_opts.browse_url_fn = nil, nil
     assert.same({
       forge_name = 'github',
       run_id = '77',
-      url = 'https://example.com/runs/77',
+      url = 'https://example.com/runs/77/repo/ref',
       title = 'CI',
       in_progress = true,
       status_cmd = { 'status', '77', 'repo/ref' },
     }, summary_opts)
+    assert.equals(
+      'https://example.com/runs/77/jobs/job-1/repo/ref',
+      captured.summaries[1].opts.browse_url_fn('job-1')
+    )
 
     local cmd, opts = captured.summaries[1].opts.log_cmd_fn('job-1', true)
     assert.same({ 'check-log', '77', 'true', 'job-1', 'repo/ref' }, cmd)
     assert.same({
       forge_name = 'github',
-      url = 'https://example.com/runs/77',
+      url = 'https://example.com/runs/77/repo/ref',
       title = 'CI / job-1',
       steps_cmd = { 'steps', '77', 'repo/ref' },
       job_id = 'job-1',
@@ -274,7 +283,7 @@ describe('shared operations', function()
 
     assert.same({ 'summary', '77', 'repo/ref' }, captured.summaries[1].cmd)
     local summary_opts = vim.deepcopy(captured.summaries[1].opts)
-    summary_opts.log_cmd_fn = nil
+    summary_opts.log_cmd_fn, summary_opts.browse_url_fn = nil, nil
     assert.same({
       forge_name = 'custom',
       run_id = '77',
@@ -299,6 +308,9 @@ describe('shared operations', function()
       run_status_cmd = function(_, run_id, scope)
         return { 'status', run_id, scope or 'none' }
       end,
+      run_web_url = function(_, run_id, scope)
+        return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
+      end,
       watch_cmd = function(_, run_id, scope)
         return { 'watch', run_id, scope or 'none' }
       end,
@@ -306,23 +318,24 @@ describe('shared operations', function()
       id = '88',
       name = 'Deploy',
       status = 'failed',
-      url = 'https://example.com/runs/88',
       scope = 'repo/ref',
     })
     local watched = ops.ci_watch({
+      run_web_url = function(_, run_id, scope)
+        return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
+      end,
       watch_cmd = function(_, run_id, scope)
         return { 'watch', run_id, scope or 'none' }
       end,
     }, {
       id = '88',
-      url = 'https://example.com/runs/88',
       scope = 'repo/ref',
     })
 
     assert.same({ 'run-log', '88', 'true', 'repo/ref' }, captured.logs[1].cmd)
     assert.same({
       forge_name = 'gitlab',
-      url = 'https://example.com/runs/88',
+      url = 'https://example.com/runs/88/repo/ref',
       title = 'Deploy',
       steps_cmd = { 'steps', '88', 'repo/ref' },
       in_progress = false,
@@ -330,6 +343,6 @@ describe('shared operations', function()
     }, captured.logs[1].opts)
     assert.is_true(watched)
     assert.same({ 'watch', '88', 'repo/ref' }, captured.terms[1].cmd)
-    assert.same({ url = 'https://example.com/runs/88' }, captured.terms[1].opts)
+    assert.same({ url = 'https://example.com/runs/88/repo/ref' }, captured.terms[1].opts)
   end)
 end)

@@ -924,6 +924,7 @@ end
 ---@field in_progress boolean?
 ---@field status_cmd string[]?
 ---@field json boolean?
+---@field browse_url_fn fun(job_id: string): string?
 ---@field log_cmd_fn fun(job_id: string, failed: boolean): string[], forge.LogOpts
 
 local function parse_summary(raw_lines)
@@ -933,30 +934,51 @@ local function parse_summary(raw_lines)
   local job_lnums = {}
   local section
   local current_job
+  local first = 1
+  local last = #raw_lines
 
-  for _, raw in ipairs(raw_lines) do
+  while first <= last do
+    local text = strip_ansi(raw_lines[first])
+    if not text:match('^%s*$') then
+      break
+    end
+    first = first + 1
+  end
+
+  while last >= first do
+    local text = strip_ansi(raw_lines[last])
+    if not text:match('^%s*$') then
+      break
+    end
+    last = last - 1
+  end
+
+  for i = first, last do
+    local raw = raw_lines[i]
     local text, h = strip_ansi(raw)
+    local lnum = #lines + 1
     if text:match('^%s*$') then
+      text = ''
+      h = {}
       current_job = nil
-      goto continue
+    else
+      local prefix = text:match('^(%S+)')
+      local status = prefix and summary_status(prefix) or nil
+      if text:match('^%u[%u%s]+$') then
+        section = text
+        current_job = nil
+      end
+      local job_id = text:match('%(ID (%d+)%)%s*$')
+      if job_id then
+        jobs[lnum] = { id = job_id, failed = status == 'failure' }
+        current_job = jobs[lnum]
+        job_lnums[#job_lnums + 1] = lnum
+      elseif current_job and text:match('^%s+') and section ~= 'ANNOTATIONS' then
+        jobs[lnum] = current_job
+      end
     end
-    local prefix = text:match('^(%S+)')
-    local status = prefix and summary_status(prefix) or nil
-    lines[#lines + 1] = text
-    hls[#hls + 1] = h
-    if text:match('^%u[%u%s]+$') then
-      section = text
-      current_job = nil
-    end
-    local job_id = text:match('%(ID (%d+)%)%s*$')
-    if job_id then
-      jobs[#lines] = { id = job_id, failed = status == 'failure' }
-      current_job = jobs[#lines]
-      job_lnums[#job_lnums + 1] = #lines
-    elseif current_job and text:match('^%s+') and section ~= 'ANNOTATIONS' then
-      jobs[#lines] = current_job
-    end
-    ::continue::
+    lines[lnum] = text
+    hls[lnum] = h
   end
 
   return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
@@ -1130,8 +1152,16 @@ function M.open_summary(cmd, opts, reuse_buf)
             vim.api.nvim_buf_delete(buf, { force = true })
           end, 'Close')
           map(keys.browse, function()
-            if opts.url then
-              vim.ui.open(opts.url)
+            local url = opts.url
+            local d = buf_data[buf]
+            if d and d.jobs then
+              local job = d.jobs[vim.api.nvim_win_get_cursor(0)[1]]
+              if job and opts.browse_url_fn then
+                url = opts.browse_url_fn(job.id) or url
+              end
+            end
+            if url then
+              vim.ui.open(url)
             end
           end, 'Browse')
           map(keys.refresh, function()
