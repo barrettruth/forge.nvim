@@ -199,10 +199,13 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
-  it('opens CI summaries through the shared log operation', function()
+  it('prefers native CI summaries when a backend exposes a run view', function()
     local ops = require('forge.ops')
     ops.ci_log({
       name = 'github',
+      view_cmd = function(_, run_id, opts)
+        return { 'view', run_id, opts and opts.scope or 'none' }
+      end,
       summary_json_cmd = function(_, run_id, scope)
         return { 'summary', run_id, scope or 'none' }
       end,
@@ -223,7 +226,7 @@ describe('shared operations', function()
       scope = 'repo/ref',
     })
 
-    assert.same({ 'summary', '77', 'repo/ref' }, captured.summaries[1].cmd)
+    assert.same({ 'view', '77', 'repo/ref' }, captured.summaries[1].cmd)
     local summary_opts = vim.deepcopy(captured.summaries[1].opts)
     summary_opts.log_cmd_fn = nil
     assert.same({
@@ -233,7 +236,6 @@ describe('shared operations', function()
       title = 'CI',
       in_progress = true,
       status_cmd = { 'status', '77', 'repo/ref' },
-      json = true,
     }, summary_opts)
 
     local cmd, opts = captured.summaries[1].opts.log_cmd_fn('job-1', true)
@@ -247,6 +249,41 @@ describe('shared operations', function()
       in_progress = true,
       status_cmd = { 'status', '77', 'repo/ref' },
     }, opts)
+  end)
+
+  it('falls back to JSON CI summaries when no run view is available', function()
+    local ops = require('forge.ops')
+    ops.ci_log({
+      name = 'custom',
+      summary_json_cmd = function(_, run_id, scope)
+        return { 'summary', run_id, scope or 'none' }
+      end,
+      check_log_cmd = function(_, run_id, failed, job_id, scope)
+        return { 'check-log', run_id, tostring(failed), job_id or '', scope or 'none' }
+      end,
+      run_status_cmd = function(_, run_id, scope)
+        return { 'status', run_id, scope or 'none' }
+      end,
+    }, {
+      id = '77',
+      name = 'CI',
+      status = 'running',
+      url = 'https://example.com/runs/77',
+      scope = 'repo/ref',
+    })
+
+    assert.same({ 'summary', '77', 'repo/ref' }, captured.summaries[1].cmd)
+    local summary_opts = vim.deepcopy(captured.summaries[1].opts)
+    summary_opts.log_cmd_fn = nil
+    assert.same({
+      forge_name = 'custom',
+      run_id = '77',
+      url = 'https://example.com/runs/77',
+      title = 'CI',
+      in_progress = true,
+      status_cmd = { 'status', '77', 'repo/ref' },
+      json = true,
+    }, summary_opts)
   end)
 
   it('opens CI logs and watches through the shared operations', function()

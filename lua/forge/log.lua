@@ -924,6 +924,8 @@ local function parse_summary(raw_lines)
   local hls = {}
   local jobs = {}
   local job_lnums = {}
+  local section
+  local current_job
 
   for _, raw in ipairs(raw_lines) do
     local text, h = strip_ansi(raw)
@@ -931,10 +933,19 @@ local function parse_summary(raw_lines)
     local status = prefix and summary_status(prefix) or nil
     lines[#lines + 1] = text
     hls[#hls + 1] = h
+    if text == '' then
+      current_job = nil
+    elseif text:match('^%u[%u%s]+$') then
+      section = text
+      current_job = nil
+    end
     local job_id = text:match('%(ID (%d+)%)%s*$')
     if job_id then
       jobs[#lines] = { id = job_id, failed = status == 'failure' }
+      current_job = jobs[#lines]
       job_lnums[#job_lnums + 1] = #lines
+    elseif current_job and text:match('^%s+') and section ~= 'ANNOTATIONS' then
+      jobs[#lines] = current_job
     end
   end
 
@@ -1129,14 +1140,6 @@ function M.open_summary(cmd, opts, reuse_buf)
               return
             end
             local job = d.jobs[lnum]
-            if not job then
-              for i = lnum, 1, -1 do
-                if d.jobs[i] then
-                  job = d.jobs[i]
-                  break
-                end
-              end
-            end
             if job and opts.log_cmd_fn then
               local log_cmd, log_opts = opts.log_cmd_fn(job.id, job.failed)
               M.open(log_cmd, log_opts)
