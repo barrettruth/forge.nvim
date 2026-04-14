@@ -69,6 +69,47 @@ local function normalize_run_ref(run, scope)
   return { id = run, scope = scope }
 end
 
+local function summary_job_at_cursor(buf)
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local parsed = require('forge.log')._parse_summary(lines)
+  return parsed.jobs[vim.api.nvim_win_get_cursor(0)[1]]
+end
+
+local function github_ci_log_term(f, run, run_ref, url, in_progress, status_cmd)
+  local function job_log(job_id, failed)
+    return f:check_log_cmd(run.id, failed, job_id, run_ref),
+      {
+        forge_name = f.name,
+        url = url,
+        title = (run.name or run.id) .. ' / ' .. (job_id or ''),
+        steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
+        job_id = job_id,
+        in_progress = in_progress,
+        status_cmd = status_cmd,
+      }
+  end
+
+  require('forge.term').open(f:view_cmd(run.id, { scope = run_ref }), {
+    url = url,
+    startinsert = false,
+    browse_fn = function(buf)
+      local job = summary_job_at_cursor(buf)
+      if job and f.job_web_url then
+        return f:job_web_url(run.id, job.id, run_ref) or url
+      end
+      return url
+    end,
+    enter_fn = function(buf)
+      local job = summary_job_at_cursor(buf)
+      if not job then
+        return
+      end
+      local cmd, opts = job_log(job.id, job.failed)
+      require('forge.log').open(cmd, opts)
+    end,
+  })
+end
+
 local function location_arg(location)
   if
     type(location) ~= 'table'
@@ -289,6 +330,10 @@ function M.ci_log(f, run)
   end
   url = url ~= '' and url or nil
   local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
+  if f.name == 'github' and f.view_cmd then
+    github_ci_log_term(f, run, run_ref, url, in_progress, status_cmd)
+    return
+  end
   if f.view_cmd then
     require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
       forge_name = f.name,
