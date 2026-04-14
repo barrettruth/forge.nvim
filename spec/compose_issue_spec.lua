@@ -144,6 +144,33 @@ describe('compose issue create', function()
     assert.same({}, captured.errors)
   end)
 
+  it('exposes public forge buffer metadata for issue compose buffers', function()
+    local compose = require('forge.compose')
+    local ref = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/repo',
+      repo_arg = 'owner/repo',
+      web_url = 'https://github.com/owner/repo',
+      owner = 'owner',
+      namespace = 'owner',
+      repo = 'repo',
+    }
+
+    compose.open_issue({
+      name = 'github',
+      create_issue_cmd = function()
+        return { 'create-issue' }
+      end,
+    }, nil, ref)
+
+    assert.same({
+      version = 1,
+      kind = 'issue',
+      url = 'https://github.com/owner/repo',
+    }, vim.b.forge)
+  end)
+
   it(
     'keeps a single blank line between the forge line and instructions when metadata is empty',
     function()

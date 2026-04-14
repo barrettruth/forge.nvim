@@ -1,5 +1,6 @@
 local M = {}
 
+local scope = require('forge.scope')
 local submission = require('forge.submission')
 local template = require('forge.template')
 
@@ -54,6 +55,27 @@ function ComposeBuilder:apply(buf, comment_start)
       priority = 150,
     })
   end
+end
+
+local function current_repo_web_url(forge_name)
+  local remote = vim.trim(vim.fn.system('git remote get-url origin'))
+  if vim.v.shell_error ~= 0 or remote == '' then
+    return ''
+  end
+  local ref = scope.from_url(forge_name, remote)
+  return scope.web_url(ref)
+end
+
+local function set_public_buffer_state(buf, forge_name, kind, ref)
+  local url = scope.web_url(ref)
+  if url == '' then
+    url = current_repo_web_url(forge_name)
+  end
+  vim.b[buf].forge = {
+    version = 1,
+    kind = kind,
+    url = url,
+  }
 end
 
 ---@return integer
@@ -397,6 +419,7 @@ end
 function M.open_issue(f, result, ref)
   local buf = create_compose_buf('forge://issue/new')
   vim.b[buf].forge_scope = ref
+  set_public_buffer_state(buf, f.name, 'issue', ref)
 
   local template_title = result and result.title or ''
   local title_prefix = '# ' .. template_title
@@ -474,6 +497,7 @@ end
 function M.open_issue_edit(f, num, details, ref)
   local buf = create_compose_buf(('forge://issue/%s/edit'):format(num))
   vim.b[buf].forge_scope = ref
+  set_public_buffer_state(buf, f.name, 'issue', ref)
 
   local b = ComposeBuilder.new()
   b.lines = { '# ' .. details.title, '' }
@@ -560,6 +584,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
 
   local buf = create_compose_buf('forge://pr/new')
   vim.b[buf].forge_scope = ref
+  set_public_buffer_state(buf, f.name, 'pr', ref)
 
   local b = ComposeBuilder.new()
   b.lines = { '# ' .. title, '' }
@@ -755,6 +780,7 @@ end
 function M.open_pr_edit(f, num, details, current_branch, ref)
   local buf = create_compose_buf(('forge://pr/%s/edit'):format(num))
   vim.b[buf].forge_scope = ref
+  set_public_buffer_state(buf, f.name, 'pr', ref)
 
   local b = ComposeBuilder.new()
   b.lines = { '# ' .. details.title, '' }
