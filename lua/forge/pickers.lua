@@ -150,7 +150,7 @@ local function limit_settings(base_limit, requested_limit)
   }
 end
 
-local function next_limit(limit, step)
+local function expanded_limit(limit, step)
   return limit + step
 end
 
@@ -1002,7 +1002,7 @@ function M.ci(f, branch, filter, opts)
       })
     end
     if has_more then
-      entries[#entries + 1] = load_more_entry(next_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     local filter_label = labels[filter] or filter
     local empty_text
@@ -1249,7 +1249,7 @@ function M.pr(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(next_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
       or ('No %s %s'):format(state, f.labels.pr)
@@ -1554,7 +1554,7 @@ function M.issue(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(next_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
       or ('No %s %s'):format(state, f.labels.issue)
@@ -2154,7 +2154,7 @@ function M.commits(ctx, branch, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(next_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
     end
     entries = with_placeholder(entries, 'No commits in ' .. branch .. ' history')
     return entries, count
