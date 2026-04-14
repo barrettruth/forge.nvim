@@ -947,7 +947,6 @@ overridden by colorschemes or user config.
 Compose buffer: ~
 
   Group                    Default Link      Description ~
-  `ForgeComposeComment`      `Comment`          Comment block lines
   `ForgeComposeBranch`       `Special`          Branch names
   `ForgeComposeForge`        `Label`            Forge name
   `ForgeComposeFile`         `Directory`        File paths in diff stat
