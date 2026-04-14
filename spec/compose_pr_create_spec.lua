@@ -19,6 +19,7 @@ describe('compose pr create', function()
   before_each(function()
     captured = {
       diff_stat = '',
+      remote_url = 'git@github.com:barrettruth/forge.nvim.git',
     }
 
     old_fn_system = vim.fn.system
@@ -32,6 +33,9 @@ describe('compose pr create', function()
     vim.fn.system = function(cmd)
       if cmd == 'git diff --stat origin/main..HEAD' then
         return captured.diff_stat
+      end
+      if cmd == 'git remote get-url origin' then
+        return captured.remote_url
       end
       return ''
     end
@@ -112,4 +116,46 @@ describe('compose pr create', function()
       assert.equals('  Write (:w) submits this buffer.', lines[creating_line + 10])
     end
   )
+
+  it('exposes public forge buffer metadata for PR compose buffers', function()
+    local compose = require('forge.compose')
+    local ref = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/repo',
+      repo_arg = 'owner/repo',
+      web_url = 'https://github.com/owner/repo',
+      owner = 'owner',
+      namespace = 'owner',
+      repo = 'repo',
+    }
+
+    compose.open_pr({
+      labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+      capabilities = { draft = true, reviewers = false },
+      name = 'github',
+    }, 'new', 'main', false, nil, ref, 'origin', 'origin/main', 'HEAD')
+
+    assert.same({
+      version = 1,
+      kind = 'pr',
+      url = 'https://github.com/owner/repo',
+    }, vim.b.forge)
+  end)
+
+  it('derives the public forge buffer URL from origin when scope is absent', function()
+    local compose = require('forge.compose')
+
+    compose.open_pr({
+      labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+      capabilities = { draft = true, reviewers = false },
+      name = 'github',
+    }, 'new', 'main', false, nil, nil, 'origin', 'origin/main', 'HEAD')
+
+    assert.same({
+      version = 1,
+      kind = 'pr',
+      url = 'https://github.com/barrettruth/forge.nvim',
+    }, vim.b.forge)
+  end)
 end)

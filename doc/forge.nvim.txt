@@ -49,6 +49,7 @@ CONTENTS                                                 *forge.nvim-contents*
     PICKERS....................................................|forge-pickers|
     WORKFLOW SURFACE.........................................|forge-workflow|
     COMPOSE BUFFER.............................................|forge-compose|
+    COMPOSE INTEGRATION...........................|forge-compose-integration|
     HIGHLIGHTS..............................................|forge-highlights|
     SOURCES....................................................|forge-sources|
     HEALTH......................................................|forge-health|
@@ -850,6 +851,67 @@ issue URL is copied to the `+` register on success.
 Editing an issue opens a compose buffer at `forge://issue/{num}/edit` with
 the same title/body layout as issue creation. Write (`:w`) to update the
 issue. An empty title aborts editing. Empty bodies are allowed.
+
+Integration: ~                                                 *forge-compose-integration*
+  Compose buffers expose a small public buffer-local table for completion
+  and other integrations: >
+      vim.b.forge = {
+        version = 1,
+        kind = 'pr' | 'issue',
+        url = 'https://host/owner/repo',
+      }
+<
+  `kind` identifies the compose target. `url` is the target repository web
+  URL and is an empty string if forge.nvim cannot resolve it.
+
+  Blink (`blink-cmp-git`) example: >
+      local function is_forge_compose()
+        return vim.b.forge and vim.b.forge.kind ~= nil
+      end
+
+      require('blink.cmp').setup({
+        sources = {
+          default = function()
+            local sources = { 'lsp', 'path', 'snippets', 'buffer' }
+            if is_forge_compose() then
+              table.insert(sources, 1, 'git')
+            end
+            return sources
+          end,
+          providers = {
+            git = {
+              module = 'blink-cmp-git',
+              enabled = function()
+                return vim.bo.filetype == 'gitcommit' or is_forge_compose()
+              end,
+            },
+          },
+        },
+      })
+<
+  nvim-cmp (`cmp-git`) example: >
+      require('cmp_git').setup({
+        filetypes = { 'gitcommit', 'markdown' },
+      })
+
+      local group = vim.api.nvim_create_augroup('forge_cmp', { clear = true })
+
+      vim.api.nvim_create_autocmd('BufEnter', {
+        group = group,
+        callback = function(args)
+          if not (vim.b[args.buf].forge and vim.b[args.buf].forge.kind) then
+            return
+          end
+          require('cmp').setup.buffer({
+            sources = require('cmp').config.sources({
+              { name = 'git' },
+            }, {
+              { name = 'buffer' },
+            }),
+          })
+        end,
+      })
+<
 
 Template discovery: ~
   forge.nvim searches forge-specific template paths. If a template
