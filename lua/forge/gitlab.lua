@@ -705,8 +705,18 @@ function M:pr_state(num, ref)
   }
 end
 
-function M:list_releases_json_cmd(ref)
-  return { 'glab', 'release', 'list', '--output', 'json', '-R', repo_arg(ref) }
+function M:list_releases_json_cmd(ref, limit)
+  return {
+    'glab',
+    'release',
+    'list',
+    '--output',
+    'json',
+    '--per-page',
+    tostring(limit or forge.config().display.limits.releases),
+    '-R',
+    repo_arg(ref),
+  }
 end
 
 ---@param tag string
