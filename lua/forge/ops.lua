@@ -401,6 +401,16 @@ function M.browse_commit(opts)
   require('forge').open('browse.commit', opts)
 end
 
+function M.browse_repo(opts)
+  local scope = type(opts) == 'table' and opts.scope or nil
+  local url = require('forge').remote_web_url(scope)
+  if trim(url) == '' then
+    return false
+  end
+  vim.ui.open(url)
+  return true
+end
+
 function M.browse_branch(branch, opts)
   require('forge').open('browse.branch', vim.tbl_extend('force', opts or {}, { branch = branch }))
 end

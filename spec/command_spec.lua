@@ -46,6 +46,7 @@ describe(':Forge command', function()
   local old_preload
   local old_systemlist
   local old_system
+  local old_ui_open
 
   before_each(function()
     captured = {
@@ -57,10 +58,12 @@ describe(':Forge command', function()
       closed_prs = {},
       closed_issues = {},
       browse_calls = {},
+      opened_urls = {},
     }
     old_preload = helpers.capture_preload(preload_modules)
     old_systemlist = vim.fn.systemlist
     old_system = vim.system
+    old_ui_open = vim.ui.open
 
     vim.system = helpers.system_router({
       default = helpers.command_result('', 1),
@@ -80,6 +83,10 @@ describe(':Forge command', function()
         ),
       },
     })
+    vim.ui.open = function(url)
+      table.insert(captured.opened_urls, url)
+      return true
+    end
 
     package.preload['forge.logger'] = function()
       return {
@@ -164,12 +171,21 @@ describe(':Forge command', function()
         clear_cache = function()
           captured.cleared = true
         end,
-        file_loc = function()
+        file_loc = function(range)
           local name = vim.api.nvim_buf_get_name(0)
           if name:match('^%w[%w+.-]*://') then
             return ''
           end
+          if type(range) == 'table' and range.start_line and range.end_line then
+            if range.start_line == range.end_line then
+              return ('lua/forge/init.lua:%d'):format(range.start_line)
+            end
+            return ('lua/forge/init.lua:%d-%d'):format(range.start_line, range.end_line)
+          end
           return 'lua/forge/init.lua'
+        end,
+        remote_web_url = function(scope)
+          return (scope or repo_scope('current')).web_url
         end,
         open = function(route, opts)
           table.insert(captured.opens, { route = route, opts = opts })
@@ -289,6 +305,11 @@ describe(':Forge command', function()
           table.insert(captured.ops_calls, { name = 'browse_contextual', opts = opts })
           require('forge').open('browse.contextual', opts)
         end,
+        browse_repo = function(opts)
+          table.insert(captured.ops_calls, { name = 'browse_repo', opts = opts })
+          vim.ui.open(require('forge').remote_web_url(opts and opts.scope or nil))
+          return true
+        end,
         browse_location = function(f, location, scope)
           table.insert(
             captured.ops_calls,
@@ -356,6 +377,7 @@ describe(':Forge command', function()
   after_each(function()
     vim.system = old_system
     vim.fn.systemlist = old_systemlist
+    vim.ui.open = old_ui_open
     helpers.restore_preload(old_preload)
     helpers.clear_loaded(loaded_modules)
     if vim.api.nvim_get_commands({ builtin = false }).Forge then
@@ -403,18 +425,32 @@ describe(':Forge command', function()
     }, captured.browse_calls[1])
   end)
 
-  it('dispatches browse subcommands through the route aliases', function()
-    vim.cmd('Forge browse --root')
-    vim.cmd('Forge browse --commit')
+  it('uses repo browsing when special buffers have no file location', function()
+    use_named_current_buf('canola://issue/123')
 
-    assert.equals('browse.branch', captured.opens[1].route)
-    assert.equals('browse.commit', captured.opens[2].route)
+    vim.cmd('Forge browse')
+
+    assert.same({
+      name = 'browse_repo',
+      opts = {
+        scope = {
+          kind = 'github',
+          host = 'github.com',
+          owner = 'owner',
+          repo = 'current',
+          slug = 'owner/current',
+          repo_arg = 'owner/current',
+          web_url = 'https://github.com/owner/current',
+        },
+      },
+    }, captured.ops_calls[1])
+    assert.same({ 'https://github.com/owner/current' }, captured.opened_urls)
   end)
 
   it('uses explicit rev branch browsing when special buffers have no file location', function()
     use_named_current_buf('canola://issue/123')
 
-    vim.cmd('Forge browse rev=@main')
+    vim.cmd('Forge browse rev=main')
 
     assert.same({
       name = 'browse_branch',
@@ -433,6 +469,32 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
     assert.equals('browse.branch', captured.opens[1].route)
     assert.equals('main', captured.opens[1].opts.branch)
+  end)
+
+  it('passes ex ranges through browse file resolution', function()
+    assert.equals('.', vim.api.nvim_get_commands({ builtin = false }).Forge.range)
+    vim.api.nvim_buf_set_name(0, '/repo/lua/forge/init.lua')
+
+    require('forge.cmd').run({
+      args = 'browse',
+      line1 = 2,
+      line2 = 4,
+      range = 2,
+    })
+
+    assert.same({
+      loc = 'lua/forge/init.lua:2-4',
+      branch = 'main',
+      scope = {
+        kind = 'github',
+        host = 'github.com',
+        owner = 'owner',
+        repo = 'current',
+        slug = 'owner/current',
+        repo_arg = 'owner/current',
+        web_url = 'https://github.com/owner/current',
+      },
+    }, captured.browse_calls[1])
   end)
 
   it('dispatches normalized create and clear commands through the command layer', function()
@@ -709,25 +771,21 @@ describe(':Forge command', function()
     local repos = vim.fn.getcompletion('Forge pr create repo=', 'cmdline')
     local revs = vim.fn.getcompletion('Forge browse rev=', 'cmdline')
     local heads = vim.fn.getcompletion('Forge pr create head=', 'cmdline')
-    local target_revs = vim.fn.getcompletion('Forge browse target=work@', 'cmdline')
 
     assert.is_true(vim.tbl_contains(repos, 'repo=work'))
     assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
     assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
     assert.is_true(vim.tbl_contains(repos, 'repo=upstream'))
 
-    assert.is_true(vim.tbl_contains(revs, 'rev=@main'))
-    assert.is_true(vim.tbl_contains(revs, 'rev=@feature'))
-    assert.is_true(vim.tbl_contains(revs, 'rev=@v1.0.0'))
-    assert.is_true(vim.tbl_contains(revs, 'rev=@deadbee'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=main'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=feature'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=v1.0.0'))
+    assert.is_true(vim.tbl_contains(revs, 'rev=deadbee'))
 
     assert.is_true(vim.tbl_contains(heads, 'head=work@'))
     assert.is_true(vim.tbl_contains(heads, 'head=origin@'))
     assert.is_true(vim.tbl_contains(heads, 'head=@main'))
     assert.is_true(vim.tbl_contains(heads, 'head=@deadbee'))
-
-    assert.is_true(vim.tbl_contains(target_revs, 'target=work@main:'))
-    assert.is_true(vim.tbl_contains(target_revs, 'target=work@feature:'))
   end)
 
   it('does not complete picker-only command families', function()

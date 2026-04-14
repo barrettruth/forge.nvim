@@ -346,6 +346,27 @@ function M.parse_rev(text, opts)
   return parsed
 end
 
+function M.parse_browse_rev(text)
+  local value = trim(text)
+  if not value then
+    return nil, 'empty revision'
+  end
+  if value:find(':', 1, true) or value:find('#', 1, true) then
+    return nil, 'invalid revision: ' .. value
+  end
+  if value ~= '@' and value:sub(1, 1) == '@' and value:sub(1, 2) ~= '@{' then
+    return nil, 'invalid revision: ' .. value
+  end
+  if value:find('@', 2, true) then
+    return nil, 'invalid revision: ' .. value
+  end
+  return {
+    kind = 'rev',
+    text = value,
+    rev = value,
+  }
+end
+
 function M.parse_location(text, opts)
   local value = trim(text)
   if not value then
