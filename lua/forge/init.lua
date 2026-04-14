@@ -291,7 +291,7 @@ function M.clear_cache()
 end
 
 ---@return string
-function M.file_loc()
+function M.file_loc(range)
   local root = git_root()
   if not root then
     return vim.fn.expand('%:t')
@@ -306,6 +306,17 @@ function M.file_loc()
     return ''
   end
   local file = path:sub(#root_prefix + 1)
+  if type(range) == 'table' and range.start_line and range.end_line then
+    local s = range.start_line
+    local e = range.end_line
+    if s > e then
+      s, e = e, s
+    end
+    if s == e then
+      return ('%s:%d'):format(file, s)
+    end
+    return ('%s:%d-%d'):format(file, s, e)
+  end
   local mode = vim.fn.mode()
   if mode:match('[vV]') or mode == '\22' then
     local s = vim.fn.line('v')

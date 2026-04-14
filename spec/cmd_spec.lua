@@ -124,21 +124,16 @@ describe('command schema', function()
       'base=@main',
       'head=github.com/barrettruth/forge.nvim@topic',
     }))
-    local browse = assert(cmd.parse({
-      'browse',
-      'target=github.com/barrettruth/forge.nvim@main:README.md#L10-L20',
-    }))
+    local browse = assert(cmd.parse({ 'browse', 'rev=main' }))
 
     assert.equals('main', create.parsed_modifiers.base.rev)
     assert.equals('topic', create.parsed_modifiers.head.rev)
     assert.equals('barrettruth/forge.nvim', create.parsed_modifiers.head.repo.slug)
-    assert.equals('README.md', browse.parsed_modifiers.target.path)
-    assert.same({ start_line = 10, end_line = 20 }, browse.parsed_modifiers.target.range)
+    assert.equals('main', browse.parsed_modifiers.rev.rev)
   end)
 
   it('attaches default target policy for omitted direct-action addresses', function()
     local create = assert(cmd.parse({ 'pr', 'create' }))
-    local browse = assert(cmd.parse({ 'browse' }))
 
     assert.same({
       repo = 'collaboration',
@@ -149,13 +144,6 @@ describe('command schema', function()
     assert.equals('owner/current', create.default_targets.head.repo.slug)
     assert.is_true(create.default_targets.base.default_branch)
     assert.equals('owner/upstream', create.default_targets.base.repo.slug)
-
-    assert.same(
-      { repo = 'current', rev = 'current_branch', target = 'contextual' },
-      browse.default_policy
-    )
-    assert.equals('feature', browse.default_targets.rev.rev)
-    assert.equals('owner/current', browse.default_targets.rev.repo.slug)
   end)
 
   it('tracks the intended bang matrix', function()
@@ -198,8 +186,8 @@ describe('command schema', function()
   end)
 
   it('keeps legacy browse modifiers separate from canonical ones', function()
-    assert.same({ 'repo', 'rev', 'target' }, cmd.modifier_names('browse'))
-    assert.same({ 'root', 'commit' }, cmd.legacy_modifier_names('browse'))
+    assert.same({ 'rev' }, cmd.modifier_names('browse'))
+    assert.same({}, cmd.legacy_modifier_names('browse'))
   end)
 
   it('exposes modifier value metadata where the grammar constrains it', function()
@@ -221,6 +209,16 @@ describe('command schema', function()
 
     assert.equals('unknown modifier: wat', unknown.message)
     assert.equals('duplicate modifier: repo', duplicate.message)
+  end)
+
+  it('rejects removed browse modifiers and old revision syntax', function()
+    local _, target_err = cmd.parse({ 'browse', 'target=README.md#L10' })
+    local _, repo_err = cmd.parse({ 'browse', 'repo=upstream' })
+    local _, rev_err = cmd.parse({ 'browse', 'rev=@main' })
+
+    assert.equals('unknown modifier: target', target_err.message)
+    assert.equals('unknown modifier: repo', repo_err.message)
+    assert.equals('invalid revision: @main', rev_err.message)
   end)
 
   it('returns nil or empty data for unknown lookups', function()

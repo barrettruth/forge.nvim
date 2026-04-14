@@ -107,14 +107,18 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      local branch, err = branch_for(ctx, opts)
-      if not branch then
-        return false, err
-      end
       if ctx.has_file and ctx.loc then
+        local branch, err = branch_for(ctx, opts)
+        if not branch then
+          return false, err
+        end
         ctx.forge:browse(ctx.loc, branch, opts.scope)
       else
-        ctx.forge:browse_branch(branch, opts.scope)
+        local url = require('forge').remote_web_url(opts.scope)
+        if url == '' then
+          return false, 'no remote web url'
+        end
+        vim.ui.open(url)
       end
     end,
     ['browse.branch'] = function(ctx, opts)

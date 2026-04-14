@@ -4,6 +4,7 @@ local captured
 local current_config
 local old_preload
 local old_system
+local old_ui_open
 
 local function fake_forge()
   return {
@@ -79,6 +80,7 @@ describe('routes', function()
     }
 
     old_system = vim.system
+    old_ui_open = vim.ui.open
     vim.system = function(cmd)
       local key = table.concat(cmd, ' ')
       local result = {
@@ -97,6 +99,10 @@ describe('routes', function()
           return result
         end,
       }
+    end
+    vim.ui.open = function(url)
+      captured.opened_url = url
+      return true
     end
 
     old_preload = {
@@ -120,6 +126,9 @@ describe('routes', function()
             return ''
           end
           return 'lua/forge/init.lua'
+        end,
+        remote_web_url = function(scope)
+          return scope and scope.web_url or 'https://github.com/owner/current'
         end,
       }
     end
@@ -195,6 +204,7 @@ describe('routes', function()
 
   after_each(function()
     vim.system = old_system
+    vim.ui.open = old_ui_open
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
@@ -282,10 +292,12 @@ describe('routes', function()
     assert.equals('current', captured.worktrees)
   end)
 
-  it('uses branch browsing for contextual browse without a file buffer', function()
+  it('uses repo browsing for contextual browse without a file buffer', function()
+    vim.api.nvim_set_current_buf(vim.api.nvim_create_buf(false, true))
+
     require('forge.routes').open('browse.contextual')
 
-    assert.same({ branch = 'main', scope = nil }, captured.browse_branch)
+    assert.equals('https://github.com/owner/current', captured.opened_url)
     assert.is_nil(captured.browse)
   end)
 
@@ -294,12 +306,12 @@ describe('routes', function()
 
     require('forge.routes').open('browse.contextual')
 
-    assert.same({ branch = 'main', scope = nil }, captured.browse_branch)
+    assert.equals('https://github.com/owner/current', captured.opened_url)
     assert.is_nil(captured.browse)
   end)
 
   it('uses file browsing for contextual browse with a file buffer', function()
-    vim.api.nvim_buf_set_name(0, '/repo/lua/forge/init.lua')
+    use_named_current_buf('/repo/lua/forge/init.lua')
 
     require('forge.routes').open('browse.contextual')
 

@@ -16,13 +16,11 @@ local modifiers = {
   web = { kind = 'flag' },
   blank = { kind = 'flag' },
   template = { kind = 'value' },
-  root = { kind = 'flag', legacy = true },
-  commit = { kind = 'flag', legacy = true },
 }
 
 local target_modifier_parsers = {
   repo = 'resolve_repo',
-  rev = 'parse_rev',
+  rev = 'parse_browse_rev',
   target = 'parse_location',
   head = 'parse_rev',
   base = 'parse_rev',
@@ -160,8 +158,7 @@ local families = {
     verbs = {
       open = {
         subject = { min = 0, max = 0 },
-        modifiers = { 'repo', 'rev', 'target' },
-        legacy_modifiers = { 'root', 'commit' },
+        modifiers = { 'rev' },
       },
     },
   },
@@ -305,19 +302,7 @@ local function default_policy(command, _)
       policy.base = 'collaboration_default_branch'
     end
   elseif command.family == 'browse' and command.name == 'open' then
-    if
-      not repo_target(command.parsed_modifiers.target)
-      and not repo_target(command.parsed_modifiers.rev)
-      and not command.parsed_modifiers.repo
-    then
-      policy.repo = 'current'
-    end
-    if not command.parsed_modifiers.target and not command.parsed_modifiers.rev then
-      policy.rev = 'current_branch'
-    end
-    if not command.parsed_modifiers.target then
-      policy.target = 'contextual'
-    end
+    policy.repo = 'current'
   end
   return next(policy) and policy or {}
 end
@@ -545,27 +530,21 @@ local function dispatch_browse(command)
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
-  if command.modifiers.commit then
-    ops.browse_commit({ scope = scope })
-  elseif command.modifiers.root then
-    ops.browse_branch(effective_rev(command) and effective_rev(command).rev or nil, {
-      scope = scope,
-    })
-  else
-    local location = command.parsed_modifiers.target
-    if location and ops.browse_location(f, location, scope) then
+  local rev = effective_rev(command)
+  local file_loc = require('forge').file_loc(command.range)
+  if rev and rev.rev then
+    if ops.browse_file(f, file_loc, rev.rev, scope) then
       return
     end
-    local rev = effective_rev(command)
-    if rev and rev.rev then
-      if ops.browse_file(f, require('forge').file_loc(), rev.rev, scope) then
-        return
-      end
-      ops.browse_branch(rev.rev, { scope = scope })
-      return
-    end
-    ops.browse_contextual({ scope = scope })
+    ops.browse_branch(rev.rev, { scope = scope })
+    return
   end
+  local ctx = require('forge').current_context()
+  local branch = type(ctx) == 'table' and ctx.branch or nil
+  if ops.browse_file(f, file_loc, branch, scope) then
+    return
+  end
+  ops.browse_repo({ scope = scope })
 end
 
 local dispatchers = {
@@ -839,6 +818,13 @@ function M.run(opts)
     return false
   end
 
+  if (opts.range or 0) > 0 then
+    command.range = {
+      start_line = opts.line1,
+      end_line = opts.line2,
+    }
+  end
+
   return M.dispatch(command)
 end
 
@@ -1043,7 +1029,10 @@ local function completion_values(family_name, verb_name, flag_name, prefix)
   if flag_name == 'repo' then
     return repo_completion_values(prefix or '')
   end
-  if flag_name == 'rev' or flag_name == 'head' or flag_name == 'base' then
+  if flag_name == 'rev' then
+    return ref_completion_values(prefix or '')
+  end
+  if flag_name == 'head' or flag_name == 'base' then
     return rev_address_completion_values(prefix or '')
   end
   if flag_name == 'target' then

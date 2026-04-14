@@ -43,7 +43,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge ci watch` {run-id} [repo=...]..................|:Forge-ci-watch|
     `:Forge release browse` {tag} [repo=...]............|:Forge-release-browse|
     `:Forge release delete` {tag} [repo=...]............|:Forge-release-delete|
-    `:Forge browse` [repo=...] [rev=...] [target=...]..........|:Forge-browse|
+    `:Forge browse` [rev=...]..................................|:Forge-browse|
     `:Forge clear`..............................................|:Forge-clear|
     PLUG MAPPINGS.............................................|forge-plug|
     PICKERS....................................................|forge-pickers|
@@ -114,9 +114,8 @@ Top-level keys: ~
 
 `split`                                                   *forge-config-split*
   `string`  (default `"horizontal"`)
-    Default split direction for compose and terminal views. One of
-    `"horizontal"` or `"vertical"`. Individual scopes (e.g. `ci.split`)
-    override this value where supported.
+    Default split direction for terminal views. One of `"horizontal"` or
+    `"vertical"`. Individual scopes (e.g. `ci.split`) override this value.
 
 `confirm`                                               *forge-config-confirm*
   `table`  (default shown below)
@@ -149,9 +148,9 @@ Top-level keys: ~
 `targets`                                               *forge-config-targets*
   `targets.aliases`      `table<string, string>`  (default `{}`)
     Symbolic target aliases used by the normalized `:Forge` command
-    modifiers (`repo=`, repo-bearing `rev=`, `target=`, `head=`, and
-    `base=`). Repo addresses resolve in this order: configured alias, git
-    remote name, explicit hosted repo path.
+    modifiers (`repo=`, `head=`, and `base=`). Repo addresses resolve in
+    this order: configured alias, git remote name, explicit hosted repo
+    path.
 
   `targets.default_repo` `string?`  (default `nil`)
     Preferred collaboration repo for commands that omit an explicit repo
@@ -374,8 +373,8 @@ COMMANDS                                                              *:Forge*
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
-    `rev=...`, `target=...`, `head=...`, and `base=...`. Explicit target
-    modifiers override default policy.
+    `rev=...`, `head=...`, and `base=...`. Explicit target modifiers
+    override default policy.
 
     Default policy:
     - collaboration repo = `targets.default_repo`, else `upstream`, else
@@ -383,7 +382,8 @@ TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     - `:Forge pr create` defaults `head=` to the current branch push
       context and `base=` to the collaboration repo default branch
     - `:Forge browse` defaults to the current file/line selection on the
-      current branch in the current repo
+      current branch, and falls back to the current repo root in non-file
+      buffers
 
 COMMAND COMPLETION                                  *forge-command-completion*
     `:Forge` completion is contextual:
@@ -392,9 +392,8 @@ COMMAND COMPLETION                                  *forge-command-completion*
     - only valid modifiers are suggested for the resolved subcommand
     - `repo=` suggests configured aliases, git remotes, and resolved repo
       addresses
-    - `rev=`, `head=`, and `base=` suggest revision addresses using `@...`
-    - `target=` suggests repo/revision prefixes and leaves path completion
-      after `:` for future work
+    - `rev=` suggests local branches, tags, and recent short SHAs
+    - `head=` and `base=` suggest revision addresses using `@...`
 
 CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     The documented `:Forge` interface is the canonical Ex-style form:
@@ -405,7 +404,6 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     Compatibility sugar is still accepted, but it is not the primary
     interface:
     - legacy `--name` / `--name=value` forms for modifiers
-    - `:Forge browse --root` and `:Forge browse --commit`
 
     Commands that need interactive selection are intentionally not exposed
     through `:Forge`; use the interactive picker surface instead.
@@ -500,16 +498,13 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
     Delete release `{tag}` (with confirmation prompt).
 
-`:Forge browse` [repo=...] [rev=...] [target=...]              *:Forge-browse*
-    Open a browser target on the forge. Without explicit target modifiers,
-    this defaults to the current file on the current branch in the current
-    repo.
-    `--root`           Legacy compatibility flag for the repository root.
-    `--commit`         Legacy compatibility flag for the current HEAD commit.
-    (no modifiers)     Open the current file on the current branch. In visual
-                       mode, the selected line range is included. In non-file
-                       buffers, this falls back to the repo root on the
-                       current branch.
+`:Forge browse` [rev=...]                                      *:Forge-browse*
+    Open the current file on the forge. In visual mode, the selected line
+    range is included. In non-file buffers, this falls back to the current
+    repo root.
+    `rev=...`          Open the current file on the given revision. In
+                       non-file buffers, this opens the repo root for that
+                       revision.
 
 `:Forge review branch` [{branch}]                       *:Forge-review-branch*
     Start a branch review session. Defaults to the current branch and
@@ -825,9 +820,6 @@ COMPOSE BUFFER                                                 *forge-compose*
 Compose and edit buffers behave like native `acwrite` buffers. Write (`:w`)
 submits the current buffer. Quit or delete without `!` keeps modified-buffer
 protection. Use `:q!`, `:bd!`, or `:bwipeout!` to discard the buffer.
-Forge opens compose and edit buffers in a dedicated split using |forge-config-split|.
-On successful submission, that split closes and focus returns to the prior
-window.
 
 Creating a PR (without `--fill` or `--web`) opens a compose buffer at
 `forge://pr/new` with filetype `markdown` and buftype `acwrite`.
