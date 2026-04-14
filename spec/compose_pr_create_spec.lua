@@ -16,6 +16,26 @@ describe('compose pr create', function()
     return nil
   end
 
+  local function extmark_groups_for_line(buf, target)
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local line_num = line_index(lines, target)
+    assert.is_not_nil(line_num)
+    local ns = vim.api.nvim_get_namespaces().forge_compose
+    local extmarks = vim.api.nvim_buf_get_extmarks(
+      buf,
+      ns,
+      { line_num - 1, 0 },
+      { line_num - 1, -1 },
+      { details = true }
+    )
+    local groups = {}
+    for _, extmark in ipairs(extmarks) do
+      table.insert(groups, extmark[4].hl_group)
+    end
+    table.sort(groups)
+    return groups
+  end
+
   before_each(function()
     captured = {
       diff_stat = '',
@@ -113,9 +133,35 @@ describe('compose pr create', function()
       assert.equals('   lua/forge/pickers.lua | 1 +', lines[creating_line + 7])
       assert.equals('   1 file changed, 1 insertion(+)', lines[creating_line + 8])
       assert.equals('', lines[creating_line + 9])
-      assert.equals('  Write (:w) submits this buffer.', lines[creating_line + 10])
+      assert.equals('  Writing (:w) submits this buffer.', lines[creating_line + 10])
     end
   )
+
+  it('keeps PR create accents narrow and splits mixed diff-stat runs', function()
+    captured.diff_stat =
+      ' lua/forge/pickers.lua | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n'
+
+    local compose = require('forge.compose')
+    compose.open_pr({
+      labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+      capabilities = { draft = true, reviewers = false },
+      name = 'github',
+    }, 'new', 'main', false, nil, nil, 'origin', 'origin/main', 'HEAD')
+
+    assert.same(
+      { 'ForgeComposeForge' },
+      extmark_groups_for_line(0, '  Creating Pull Request via github.')
+    )
+    assert.same(
+      { 'ForgeComposeBranch' },
+      extmark_groups_for_line(0, '  Changes not in origin/main:')
+    )
+    assert.same(
+      { 'ForgeComposeAdded', 'ForgeComposeFile', 'ForgeComposeRemoved' },
+      extmark_groups_for_line(0, '   lua/forge/pickers.lua | 2 +-')
+    )
+    assert.same({}, extmark_groups_for_line(0, '   1 file changed, 1 insertion(+), 1 deletion(-)'))
+  end)
 
   it('exposes public forge buffer metadata for PR compose buffers', function()
     local compose = require('forge.compose')

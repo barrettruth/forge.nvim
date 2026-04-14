@@ -1,5 +1,31 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local function extmark_groups_for_line(buf, target)
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local line_num
+  for i, line in ipairs(lines) do
+    if line == target then
+      line_num = i
+      break
+    end
+  end
+  assert.is_not_nil(line_num)
+  local ns = vim.api.nvim_get_namespaces().forge_compose
+  local extmarks = vim.api.nvim_buf_get_extmarks(
+    buf,
+    ns,
+    { line_num - 1, 0 },
+    { line_num - 1, -1 },
+    { details = true }
+  )
+  local groups = {}
+  for _, extmark in ipairs(extmarks) do
+    table.insert(groups, extmark[4].hl_group)
+  end
+  table.sort(groups)
+  return groups
+end
+
 describe('compose issue create', function()
   local captured
   local old_system
@@ -193,7 +219,7 @@ describe('compose issue create', function()
 
       assert.is_not_nil(creating_line)
       assert.equals('', lines[creating_line + 1])
-      assert.equals('  Write (:w) submits this buffer.', lines[creating_line + 2])
+      assert.equals('  Writing (:w) submits this buffer.', lines[creating_line + 2])
     end
   )
 
@@ -223,6 +249,18 @@ describe('compose issue create', function()
       assert.is_true(saw_forge)
     end
   )
+
+  it('only accents the forge name on the issue create action line', function()
+    local compose = require('forge.compose')
+    compose.open_issue({
+      name = 'github',
+      create_issue_cmd = function()
+        return { 'create-issue' }
+      end,
+    })
+
+    assert.same({ 'ForgeComposeForge' }, extmark_groups_for_line(0, '  Creating issue via github.'))
+  end)
 
   it('keeps template labels without rendering editable metadata', function()
     local compose = require('forge.compose')
@@ -457,6 +495,31 @@ describe('compose issue edit', function()
     vim.cmd('enew!')
   end)
 
+  it('only accents the forge name on the issue edit action line', function()
+    local compose = require('forge.compose')
+    compose.open_issue_edit(
+      {
+        name = 'github',
+        update_issue_cmd = function()
+          return { 'update-issue' }
+        end,
+      },
+      '42',
+      {
+        title = 'existing issue',
+        body = 'body',
+        labels = {},
+        assignees = {},
+        milestone = '',
+      }
+    )
+
+    assert.same(
+      { 'ForgeComposeForge' },
+      extmark_groups_for_line(0, '  Editing issue #42 via github.')
+    )
+  end)
+
   it('extracts issue metadata from the comment block on write', function()
     local compose = require('forge.compose')
     local original = {
@@ -498,10 +561,10 @@ describe('compose issue edit', function()
       '  Assignees: alice, bob',
       '  Milestone: v2',
       '',
-      '  Write (:w) submits this buffer.',
-      '  Quit or delete without ! keeps modified-buffer protection.',
+      '  Writing (:w) submits this buffer.',
+      '  Quitting or deleting without ! preserves modified-buffer protection.',
       '  Use :q!, :bd!, or :bwipeout! to discard it.',
-      '  An empty title aborts editing.',
+      '  Editing is aborted if the title is empty.',
       '-->',
     })
     vim.cmd('write')

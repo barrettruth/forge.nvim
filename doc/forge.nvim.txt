@@ -832,8 +832,9 @@ Layout: ~
   `<!--`        Informational comment block (branch, forge, diff stat).
   `-->`         End of metadata
 
-Write (`:w`) to push the branch and create the PR. An empty title or body
-aborts creation. The PR URL is copied to the `+` register on success.
+Writing (`:w`) pushes the branch and creates the PR. Creation is aborted if
+the title or body is empty. The PR URL is copied to the `+` register on
+success.
 
 Creating an issue (without `--web`) opens a compose buffer at
 `forge://issue/new` with filetype `markdown` and buftype `acwrite`.
@@ -845,12 +846,12 @@ Layout: ~
   `<!--`        Informational comment block (forge, submit/discard hints).
   `-->`         End of metadata
 
-Write (`:w`) to create the issue. An empty title aborts creation. The
-issue URL is copied to the `+` register on success.
+Writing (`:w`) creates the issue. Creation is aborted if the title is empty.
+The issue URL is copied to the `+` register on success.
 
 Editing an issue opens a compose buffer at `forge://issue/{num}/edit` with
-the same title/body layout as issue creation. Write (`:w`) to update the
-issue. An empty title aborts editing. Empty bodies are allowed.
+the same title/body layout as issue creation. Writing (`:w`) updates the
+issue. Editing is aborted if the title is empty. Empty bodies are allowed.
 
 Integration: ~                                                 *forge-compose-integration*
   Compose buffers expose a small public buffer-local table for completion
@@ -952,7 +953,6 @@ Compose buffer: ~
   `ForgeComposeFile`         `Directory`        File paths in diff stat
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
-  `ForgeComposeHeader`       `PreProc`          Section headers
 
 Picker lines: ~
 

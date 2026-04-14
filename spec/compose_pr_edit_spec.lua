@@ -16,6 +16,26 @@ describe('compose pr edit', function()
     return nil
   end
 
+  local function extmark_groups_for_line(buf, target)
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local line_num = line_index(lines, target)
+    assert.is_not_nil(line_num)
+    local ns = vim.api.nvim_get_namespaces().forge_compose
+    local extmarks = vim.api.nvim_buf_get_extmarks(
+      buf,
+      ns,
+      { line_num - 1, 0 },
+      { line_num - 1, -1 },
+      { details = true }
+    )
+    local groups = {}
+    for _, extmark in ipairs(extmarks) do
+      table.insert(groups, extmark[4].hl_group)
+    end
+    table.sort(groups)
+    return groups
+  end
+
   before_each(function()
     captured = {
       infos = {},
@@ -214,9 +234,50 @@ describe('compose pr edit', function()
       assert.is_not_nil(editing_line)
       assert.equals('  On branch real-pr-head against main.', lines[editing_line + 1])
       assert.equals('', lines[editing_line + 2])
-      assert.equals('  Write (:w) submits this buffer.', lines[editing_line + 3])
+      assert.equals('  Writing (:w) submits this buffer.', lines[editing_line + 3])
     end
   )
+
+  it('keeps PR edit accents narrow and splits mixed diff-stat runs', function()
+    captured.diff_stat =
+      ' lua/forge/init.lua | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n'
+
+    local compose = require('forge.compose')
+    compose.open_pr_edit(
+      {
+        labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+        capabilities = { draft = true, reviewers = true },
+        name = 'github',
+      },
+      '23',
+      {
+        title = 'PR title',
+        body = 'PR body',
+        draft = false,
+        head_branch = 'feature',
+        base_branch = 'main',
+        reviewers = {},
+        labels = {},
+        assignees = {},
+        milestone = '',
+      },
+      'feature'
+    )
+
+    assert.same(
+      { 'ForgeComposeForge' },
+      extmark_groups_for_line(0, '  Editing Pull Request #23 via github.')
+    )
+    assert.same(
+      { 'ForgeComposeBranch' },
+      extmark_groups_for_line(0, '  Changes not in origin/main:')
+    )
+    assert.same(
+      { 'ForgeComposeAdded', 'ForgeComposeFile', 'ForgeComposeRemoved' },
+      extmark_groups_for_line(0, '   lua/forge/init.lua | 2 +-')
+    )
+    assert.same({}, extmark_groups_for_line(0, '   1 file changed, 1 insertion(+), 1 deletion(-)'))
+  end)
 
   it('extracts PR metadata from the comment block on write', function()
     local compose = require('forge.compose')
