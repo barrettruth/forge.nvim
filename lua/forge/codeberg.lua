@@ -629,12 +629,12 @@ function M:pr_state(num, ref)
   }
 end
 
-function M:list_releases_json_cmd(ref)
-  local limit = tostring(forge.config().display.limits.releases)
+function M:list_releases_json_cmd(ref, limit)
+  local limit_arg = tostring(limit or forge.config().display.limits.releases)
   return {
     'sh',
     '-c',
-    'tea releases list --limit ' .. limit .. ' --output json --repo ' .. repo_arg(ref),
+    'tea releases list --limit ' .. limit_arg .. ' --output json --repo ' .. repo_arg(ref),
   }
 end
 

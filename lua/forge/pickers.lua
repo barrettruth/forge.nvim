@@ -701,7 +701,7 @@ end
 ---@param num string
 ---@param filter string?
 ---@param cached_checks table[]?
----@param opts? forge.PickerBackOpts
+---@param opts? forge.PickerLimitOpts
 function M.checks(f, num, filter, cached_checks, opts)
   opts = opts or {}
   filter = filter or 'all'
@@ -1779,10 +1779,14 @@ end
 
 ---@param state 'all'|'draft'|'prerelease'
 ---@param f forge.Forge
----@param opts? forge.PickerBackOpts
+---@param opts? forge.PickerLimitOpts
 function M.release(state, f, opts)
   opts = opts or {}
   local forge_mod = require('forge')
+  local limits = limit_settings(forge_mod.config().display.limits.releases, opts.limit)
+  local limit_step = limits.step
+  local visible_limit = limits.visible
+  local fetch_limit = limits.fetch
   local ref = scoped_forge_ref(f, opts.scope)
   local cache_key = forge_mod.list_key('release', scoped_id('list', scoped_key(forge_mod, ref)))
   local rel_fields = f.release_fields
@@ -1790,6 +1794,34 @@ function M.release(state, f, opts)
   local prev_state = ({ all = 'prerelease', draft = 'all', prerelease = 'draft' })[state]
   local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
     or 'Releases'
+  local live_load_more = picker.backend() == 'fzf-lua'
+  local current_limit = visible_limit
+  local current_releases
+
+  local function remember_release_fetch(releases, requested_limit)
+    if type(releases) == 'table' then
+      releases._fetch_limit = requested_limit
+    end
+    return releases
+  end
+
+  local function cached_releases()
+    local cached = forge_mod.get_list(cache_key)
+    if not cached then
+      return nil
+    end
+    local cached_fetch_limit = rawget(cached, '_fetch_limit')
+    if cached_fetch_limit == nil then
+      if current_limit == limit_step then
+        return cached
+      end
+      return nil
+    end
+    if cached_fetch_limit >= fetch_limit or #cached < cached_fetch_limit then
+      return cached
+    end
+    return nil
+  end
 
   local function release_prompt(count)
     if count ~= nil then
@@ -1798,7 +1830,8 @@ function M.release(state, f, opts)
     return title .. '> '
   end
 
-  local function build_release_entries(releases)
+  local function build_release_entries(releases, limit)
+    limit = limit or current_limit
     local filtered = releases
     if state == 'draft' and rel_fields.is_draft then
       filtered = vim.tbl_filter(function(r)
@@ -1810,6 +1843,10 @@ function M.release(state, f, opts)
       end, releases)
     end
 
+    local has_more = #releases > limit
+    if #filtered > limit then
+      filtered = vim.list_slice(filtered, 1, limit)
+    end
     local entries = {}
     local rows_for = cached_rows(function(width)
       return forge_mod.format_releases(filtered, rel_fields, { width = width })
@@ -1827,15 +1864,29 @@ function M.release(state, f, opts)
       })
     end
     local count = #entries
+    if has_more then
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
+    end
     local empty_text = state == 'all' and 'No releases'
       or state == 'draft' and 'No draft releases'
       or 'No prerelease releases'
     return with_placeholder(entries, empty_text), count
   end
 
+  local function load_more_releases(next_visible_limit)
+    local ok, releases = fetch_json_now(f:list_releases_json_cmd(ref, next_visible_limit + 1))
+    if not ok then
+      log.error('failed to fetch releases')
+      return
+    end
+    current_releases = remember_release_fetch(releases, next_visible_limit + 1)
+    forge_mod.set_list(cache_key, current_releases)
+    current_limit = next_visible_limit
+  end
+
   local function reopen_list()
     clear_list_cache(forge_mod, cache_key)
-    M.release(state, f, { back = opts.back, scope = ref })
+    M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
   local actions = {
@@ -1844,7 +1895,13 @@ function M.release(state, f, opts)
       label = 'open',
       close = false,
       fn = function(entry)
-        if entry then
+        if entry and entry.load_more then
+          if live_load_more then
+            load_more_releases(entry.next_limit)
+          else
+            M.release(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
+          end
+        elseif entry then
           ops.release_browse(f, entry.value)
         end
       end,
@@ -1854,7 +1911,7 @@ function M.release(state, f, opts)
       label = 'copy',
       close = false,
       fn = function(entry)
-        if entry then
+        if entry and not entry.load_more then
           local base = forge_mod.remote_web_url(entry.value.scope)
           local tag = entry.value.tag
           local url = base .. '/releases/tag/' .. tag
@@ -1867,14 +1924,14 @@ function M.release(state, f, opts)
       name = 'delete',
       label = 'delete',
       fn = function(entry)
-        if not entry then
+        if not entry or entry.load_more then
           return
         end
         ops.release_delete(f, entry.value, {
           on_success = reopen_list,
           on_failure = reopen_list,
           on_cancel = function()
-            M.release(state, f, { back = opts.back, scope = ref })
+            M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
           end,
         })
       end,
@@ -1883,14 +1940,14 @@ function M.release(state, f, opts)
       name = 'filter',
       label = 'filter',
       fn = function()
-        M.release(next_state, f, { back = opts.back, scope = ref })
+        M.release(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
       name = 'filter_prev',
       label = 'prev',
       fn = function()
-        M.release(prev_state, f, { back = opts.back, scope = ref })
+        M.release(prev_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
     {
@@ -1898,24 +1955,31 @@ function M.release(state, f, opts)
       label = 'refresh',
       fn = function()
         clear_list_cache(forge_mod, cache_key)
-        M.release(state, f, { back = opts.back, scope = ref })
+        M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
   }
 
   local function open_release_list(releases)
-    local entries, count = build_release_entries(releases)
+    current_releases = releases
+    local entries, count = build_release_entries(releases, current_limit)
 
     picker.pick({
       prompt = release_prompt(count),
       entries = entries,
+      entry_source = live_load_more and function()
+        if not current_releases then
+          return {}
+        end
+        return build_release_entries(current_releases, current_limit)
+      end or nil,
       actions = actions,
       picker_name = 'release',
       back = opts.back,
     })
   end
 
-  local cached = forge_mod.get_list(cache_key)
+  local cached = cached_releases()
   picker_session.pick_json({
     key = cache_key,
     cached = cached,
@@ -1924,16 +1988,25 @@ function M.release(state, f, opts)
     picker_name = 'release',
     back = opts.back,
     cmd = function()
-      return f:list_releases_json_cmd(ref)
+      return f:list_releases_json_cmd(ref, fetch_limit)
     end,
     on_fetch = function()
       log.info('fetching releases...')
     end,
     on_success = function(releases)
-      forge_mod.set_list(cache_key, releases)
+      current_releases = remember_release_fetch(releases, fetch_limit)
+      forge_mod.set_list(cache_key, current_releases)
     end,
+    entry_source = live_load_more and function()
+      if not current_releases then
+        return {}
+      end
+      return build_release_entries(current_releases, current_limit)
+    end or nil,
+    initial_stream_only = live_load_more,
     build_entries = function(releases)
-      local entries = build_release_entries(releases)
+      current_releases = remember_release_fetch(releases, fetch_limit)
+      local entries = build_release_entries(releases, current_limit)
       return entries
     end,
     open = open_release_list,
