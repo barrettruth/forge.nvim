@@ -365,8 +365,10 @@ describe('parse_summary', function()
     assert.same({ { col = 0, end_col = 25, group = 'ForgeLogDim' } }, result.hls[3])
   end)
 
-  it('drops blank summary lines from native output', function()
+  it('trims boundary blank lines but preserves internal blank separators', function()
     local result = parse_summary({
+      '',
+      '   ',
       'header',
       '',
       'JOBS',
@@ -375,8 +377,10 @@ describe('parse_summary', function()
       'ANNOTATIONS',
       '',
       '! warning',
+      '  ',
+      '',
     })
-    assert.same({ 'header', 'JOBS', 'job', 'ANNOTATIONS', '! warning' }, result.lines)
+    assert.same({ 'header', '', 'JOBS', 'job', '', 'ANNOTATIONS', '', '! warning' }, result.lines)
   end)
 
   it('maps job step lines without binding annotation lines', function()
@@ -385,6 +389,7 @@ describe('parse_summary', function()
       '✓ lint (ID 12345)',
       '  ✓ Set up job',
       '  * Run stylua',
+      '',
       'ANNOTATIONS',
       '! warning',
     })
@@ -393,6 +398,7 @@ describe('parse_summary', function()
     assert.same({ id = '12345', failed = false }, result.jobs[4])
     assert.is_nil(result.jobs[5])
     assert.is_nil(result.jobs[6])
+    assert.is_nil(result.jobs[7])
     assert.equals(1, #result.job_lnums)
   end)
 end)
@@ -642,15 +648,18 @@ end)
 describe('summary job mappings', function()
   local original_system
   local original_open
+  local original_ui_open
 
   before_each(function()
     original_system = vim.system
     original_open = log_mod.open
+    original_ui_open = vim.ui.open
   end)
 
   after_each(function()
     vim.system = original_system
     log_mod.open = original_open
+    vim.ui.open = original_ui_open
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_valid(buf) then
@@ -673,6 +682,7 @@ describe('summary job mappings', function()
           '✓ lint (ID 12345)',
           '  ✓ Set up job',
           '  * Run stylua',
+          '',
           'ANNOTATIONS',
           '! warning',
         }, '\n'),
@@ -710,11 +720,62 @@ describe('summary job mappings', function()
     assert.same({ 'log', '12345', 'false' }, opened[1].cmd)
     assert.same({ title = '12345' }, opened[1].opts)
 
-    vim.api.nvim_win_set_cursor(0, { 5, 0 })
+    vim.api.nvim_win_set_cursor(0, { 6, 0 })
     enter()
     vim.wait(20)
 
     assert.equals(1, #opened)
+  end)
+
+  it('browses the job URL on job lines and the run URL elsewhere', function()
+    local opened = {}
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = table.concat({
+          '✓ lint (ID 12345)',
+          '  ✓ Set up job',
+          '',
+          'ANNOTATIONS',
+          '! warning',
+        }, '\n'),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+    vim.ui.open = function(url)
+      opened[#opened + 1] = url
+      return true
+    end
+
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      run_id = '12345',
+      title = 'summary',
+      url = 'https://example.com/runs/12345',
+      browse_url_fn = function(job_id)
+        return 'https://example.com/runs/12345/job/' .. job_id
+      end,
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
+    end)
+
+    local browse = vim.fn.maparg('gx', 'n', false, true).callback
+
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    browse()
+
+    vim.api.nvim_win_set_cursor(0, { 5, 0 })
+    browse()
+
+    assert.same({
+      'https://example.com/runs/12345/job/12345',
+      'https://example.com/runs/12345',
+    }, opened)
   end)
 end)
 

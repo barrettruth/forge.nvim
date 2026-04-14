@@ -162,6 +162,8 @@
 ---@field summary_json_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field watch_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field run_status_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
+---@field run_web_url (fun(self: forge.Forge, id: string, scope?: forge.Scope): string?)?
+---@field job_web_url (fun(self: forge.Forge, run_id: string, job_id: string, scope?: forge.Scope): string?)?
 ---@field live_tail_cmd (fun(self: forge.Forge, run_id: string, job_id: string?, scope?: forge.Scope): string[])?
 ---@field list_runs_json_cmd fun(self: forge.Forge, branch: string?, scope?: forge.Scope, limit?: integer): string[]
 ---@field list_runs_cmd fun(self: forge.Forge, branch: string?, scope?: forge.Scope): string

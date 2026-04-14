@@ -284,6 +284,9 @@ function M.ci_log(f, run)
     or status == 'pending'
     or status == 'running'
   local url = trim(run.url)
+  if url == '' and f.run_web_url then
+    url = trim(f:run_web_url(run.id, run_ref) or '')
+  end
   url = url ~= '' and url or nil
   local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
   if f.view_cmd then
@@ -294,6 +297,12 @@ function M.ci_log(f, run)
       title = run.name or run.id,
       in_progress = in_progress,
       status_cmd = status_cmd,
+      browse_url_fn = function(job_id)
+        if f.job_web_url then
+          return f:job_web_url(run.id, job_id, run_ref)
+        end
+        return nil
+      end,
       log_cmd_fn = function(job_id, failed)
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
@@ -318,6 +327,12 @@ function M.ci_log(f, run)
       in_progress = in_progress,
       status_cmd = status_cmd,
       json = true,
+      browse_url_fn = function(job_id)
+        if f.job_web_url then
+          return f:job_web_url(run.id, job_id, run_ref)
+        end
+        return nil
+      end,
       log_cmd_fn = function(job_id, failed)
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
@@ -353,6 +368,9 @@ function M.ci_watch(f, run)
     return false
   end
   local url = trim(run.url)
+  if url == '' and f.run_web_url then
+    url = trim(f:run_web_url(run.id, run.scope) or '')
+  end
   require('forge.term').open(f:watch_cmd(run.id, run.scope), {
     url = url ~= '' and url or nil,
   })
