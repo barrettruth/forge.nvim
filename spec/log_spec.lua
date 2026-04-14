@@ -350,13 +350,41 @@ describe('parse_summary', function()
     assert.equals(0, #result.job_lnums)
   end)
 
+  it('preserves ansi-derived job styling from native GitHub output', function()
+    local result = parse_summary({
+      '\027[0;32m✓\027[0m \027[0;1;39mLua Test Check\027[0m in 2m12s (ID \027[0;36m71350221923\027[0m)',
+      '\027[0;33m!\027[0m warning text',
+      '\027[38;5;242mLua Test Check: .github#2\027[0m',
+    })
+    assert.same({
+      { col = 0, end_col = 3, group = 'ForgePass' },
+      { col = 4, end_col = 18, group = 'ForgeLogJob' },
+      { col = 32, end_col = 43, group = 'ForgeLogSection' },
+    }, result.hls[1])
+    assert.same({ { col = 0, end_col = 1, group = 'ForgeLogWarning' } }, result.hls[2])
+    assert.same({ { col = 0, end_col = 25, group = 'ForgeLogDim' } }, result.hls[3])
+  end)
+
+  it('drops blank summary lines from native output', function()
+    local result = parse_summary({
+      'header',
+      '',
+      'JOBS',
+      'job',
+      '   ',
+      'ANNOTATIONS',
+      '',
+      '! warning',
+    })
+    assert.same({ 'header', 'JOBS', 'job', 'ANNOTATIONS', '! warning' }, result.lines)
+  end)
+
   it('maps job step lines without binding annotation lines', function()
     local result = parse_summary({
       'JOBS',
       '✓ lint (ID 12345)',
       '  ✓ Set up job',
       '  * Run stylua',
-      '',
       'ANNOTATIONS',
       '! warning',
     })
@@ -645,7 +673,6 @@ describe('summary job mappings', function()
           '✓ lint (ID 12345)',
           '  ✓ Set up job',
           '  * Run stylua',
-          '',
           'ANNOTATIONS',
           '! warning',
         }, '\n'),
@@ -683,7 +710,7 @@ describe('summary job mappings', function()
     assert.same({ 'log', '12345', 'false' }, opened[1].cmd)
     assert.same({ title = '12345' }, opened[1].opts)
 
-    vim.api.nvim_win_set_cursor(0, { 6, 0 })
+    vim.api.nvim_win_set_cursor(0, { 5, 0 })
     enter()
     vim.wait(20)
 
