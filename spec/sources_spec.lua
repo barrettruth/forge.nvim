@@ -57,6 +57,14 @@ describe('github', function()
     assert.falsy(vim.tbl_contains(cmd, '--rebase'))
   end)
 
+  it('forces tty color for run view summaries', function()
+    local cmd = gh:view_cmd('24423079286', { scope = { repo_arg = 'owner/repo' } })
+    assert.same({ 'env', 'GH_FORCE_TTY=1000', 'CLICOLOR_FORCE=1', 'gh', 'run', 'view' }, vim.list_slice(cmd, 1, 6))
+    assert.truthy(vim.tbl_contains(cmd, '24423079286'))
+    assert.truthy(vim.tbl_contains(cmd, '-R'))
+    assert.truthy(vim.tbl_contains(cmd, 'owner/repo'))
+  end)
+
   it('builds create_pr_cmd', function()
     local cmd = gh:create_pr_cmd('title', 'body', 'main', false, nil, {
       draft = true,

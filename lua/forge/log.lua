@@ -45,12 +45,14 @@ local function request_current(buf, request_id)
 end
 
 local sgr_map = {
+  [1] = 'ForgeLogJob',
   [2] = 'ForgeLogDim',
   [31] = 'ForgeFail',
   [32] = 'ForgePass',
   [33] = 'ForgeLogWarning',
   [34] = 'ForgeLogStep',
   [36] = 'ForgeLogSection',
+  [242] = 'ForgeLogDim',
   [91] = 'ForgeFail',
   [92] = 'ForgePass',
   [93] = 'ForgeLogWarning',
@@ -85,11 +87,16 @@ local function strip_ansi(line)
         hls[#hls + 1] = { col = grp_start, end_col = col, group = grp }
       end
       grp = nil
+      grp_start = nil
       if params ~= '' and params ~= '0' then
         for p in params:gmatch('(%d+)') do
           local n = tonumber(p)
           if n == 0 then
             grp = nil
+            grp_start = nil
+          elseif n == 1 then
+            grp = grp or sgr_map[n]
+            grp_start = grp_start or col
           elseif sgr_map[n] then
             grp = sgr_map[n]
             grp_start = col
@@ -929,13 +936,15 @@ local function parse_summary(raw_lines)
 
   for _, raw in ipairs(raw_lines) do
     local text, h = strip_ansi(raw)
+    if text:match('^%s*$') then
+      current_job = nil
+      goto continue
+    end
     local prefix = text:match('^(%S+)')
     local status = prefix and summary_status(prefix) or nil
     lines[#lines + 1] = text
     hls[#hls + 1] = h
-    if text == '' then
-      current_job = nil
-    elseif text:match('^%u[%u%s]+$') then
+    if text:match('^%u[%u%s]+$') then
       section = text
       current_job = nil
     end
@@ -947,6 +956,7 @@ local function parse_summary(raw_lines)
     elseif current_job and text:match('^%s+') and section ~= 'ANNOTATIONS' then
       jobs[#lines] = current_job
     end
+    ::continue::
   end
 
   return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }

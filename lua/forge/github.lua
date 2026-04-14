@@ -60,6 +60,10 @@ local function nwo(scope)
   return forge.scope_repo_arg(current) or ''
 end
 
+local function tty_env()
+  return { 'env', 'GH_FORCE_TTY=1000', 'CLICOLOR_FORCE=1' }
+end
+
 local function open_browse_url(cmd)
   local browse_cmd = vim.deepcopy(cmd)
   table.insert(browse_cmd, '--no-browser')
@@ -287,7 +291,8 @@ end
 ---@return string[]
 function M:view_cmd(id, opts)
   opts = opts or {}
-  local cmd = { 'gh', 'run', 'view', id, '-R', nwo(opts.scope) }
+  local cmd = tty_env()
+  vim.list_extend(cmd, { 'gh', 'run', 'view', id, '-R', nwo(opts.scope) })
   if opts.job_id then
     table.insert(cmd, '--job')
     table.insert(cmd, opts.job_id)
