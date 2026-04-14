@@ -249,7 +249,6 @@ local DEFAULTS = {
 local hl_defaults = {
   -- TODO: https://github.com/barrettruth/forge.nvim/issues/33
   -- ForgeComposeComment = 'Comment',
-  ForgeComposeComment = 'Comment',
   ForgeComposeBranch = 'Special',
   ForgeComposeForge = 'Label',
   ForgeComposeFile = 'Directory',

@@ -34,8 +34,7 @@ function ComposeBuilder:mark(ln, start, len, hl_group)
 end
 
 ---@param buf integer
----@param comment_start integer
-function ComposeBuilder:apply(buf, comment_start)
+function ComposeBuilder:apply(buf)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, self.lines)
   vim.bo[buf].modified = false
   vim.api.nvim_set_current_buf(buf)
@@ -44,14 +43,6 @@ function ComposeBuilder:apply(buf, comment_start)
       end_col = m.end_col,
       hl_group = m.hl,
       priority = 200,
-    })
-  end
-  for i = comment_start, #self.lines do
-    vim.api.nvim_buf_set_extmark(buf, compose_ns, i - 1, 0, {
-      end_col = #self.lines[i],
-      hl_group = 'ForgeComposeComment',
-      line_hl_group = 'ForgeComposeComment',
-      priority = 150,
     })
   end
 end
@@ -422,8 +413,6 @@ function M.open_issue(f, result, ref)
   end
 
   table.insert(b.lines, '')
-  local comment_start = #b.lines + 1
-
   b:add_line('<!--')
 
   local creating_prefix = '  Creating issue via '
@@ -436,7 +425,7 @@ function M.open_issue(f, result, ref)
   b:add_line('  An empty title aborts creation.')
   b:add_line('-->')
 
-  b:apply(buf, comment_start)
+  b:apply(buf)
 
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
@@ -486,8 +475,6 @@ function M.open_issue_edit(f, num, details, ref)
   end
 
   table.insert(b.lines, '')
-  local comment_start = #b.lines + 1
-
   b:add_line('<!--')
 
   local editing_prefix = '  Editing issue #' .. num .. ' via '
@@ -501,7 +488,7 @@ function M.open_issue_edit(f, num, details, ref)
   b:add_line('  An empty title aborts editing.')
   b:add_line('-->')
 
-  b:apply(buf, comment_start)
+  b:apply(buf)
 
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
@@ -572,8 +559,6 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   end
 
   table.insert(b.lines, '')
-  local comment_start = #b.lines + 1
-
   local pr_kind = f.labels.pr_full:gsub('s$', '')
   local diff_stat =
     vim.fn.system('git diff --stat ' .. base_ref .. '..' .. head_ref):gsub('%s+$', '')
@@ -603,7 +588,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   b:add_line('  An empty title or body aborts creation.')
   b:add_line('-->')
 
-  b:apply(buf, comment_start)
+  b:apply(buf)
 
   if stat_start and stat_end then
     for i = stat_start, stat_end do
@@ -767,8 +752,6 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   end
 
   table.insert(b.lines, '')
-  local comment_start = #b.lines + 1
-
   local pr_kind = f.labels.pr_full:gsub('s$', '')
   local branch = details.head_branch ~= '' and details.head_branch or current_branch
   local base = details.base_branch ~= '' and details.base_branch or 'main'
@@ -802,7 +785,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   b:add_line('  An empty title or body aborts editing.')
   b:add_line('-->')
 
-  b:apply(buf, comment_start)
+  b:apply(buf)
 
   if stat_start and stat_end then
     for i = stat_start, stat_end do

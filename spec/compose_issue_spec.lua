@@ -170,6 +170,33 @@ describe('compose issue create', function()
     end
   )
 
+  it(
+    'keeps compose extmarks selective instead of painting the whole scaffold as a comment',
+    function()
+      local compose = require('forge.compose')
+      compose.open_issue({
+        name = 'github',
+        create_issue_cmd = function()
+          return { 'create-issue' }
+        end,
+      })
+
+      local ns = vim.api.nvim_get_namespaces().forge_compose
+      local extmarks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
+      local saw_forge = false
+      for _, extmark in ipairs(extmarks) do
+        local details = extmark[4]
+        if details.hl_group == 'ForgeComposeForge' then
+          saw_forge = true
+        end
+        assert.is_not.equals('ForgeComposeComment', details.hl_group)
+        assert.is_not.equals('ForgeComposeComment', details.line_hl_group)
+      end
+
+      assert.is_true(saw_forge)
+    end
+  )
+
   it('keeps template labels without rendering editable metadata', function()
     local compose = require('forge.compose')
     local f = {
