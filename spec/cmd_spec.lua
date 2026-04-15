@@ -146,7 +146,7 @@ describe('command schema', function()
     assert.equals('owner/upstream', create.default_targets.base.repo.slug)
   end)
 
-  it('tracks the intended bang matrix', function()
+  it('tracks the supported bang matrix', function()
     assert.is_true(cmd.supports_bang('pr', 'close'))
     assert.is_true(cmd.supports_bang('issue', 'close'))
     assert.is_true(cmd.supports_bang('release', 'delete'))
