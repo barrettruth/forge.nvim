@@ -5,6 +5,7 @@ local strip_ansi = log_mod._strip_ansi
 local parse_github = log_mod._parse_github
 local parse_gitlab = log_mod._parse_gitlab
 local parse_summary = log_mod._parse_summary
+local summary_job_at_line = log_mod._summary_job_at_line
 local parse_summary_json = log_mod._parse_summary_json
 
 describe('strip_ansi', function()
@@ -400,6 +401,30 @@ describe('parse_summary', function()
     assert.is_nil(result.jobs[6])
     assert.is_nil(result.jobs[7])
     assert.equals(1, #result.job_lnums)
+  end)
+
+  it('maps raw line numbers to jobs when boundary blank lines are trimmed', function()
+    local lines = {
+      '',
+      '  ',
+      'JOBS',
+      '✓ lint (ID 12345)',
+      '  * Run stylua',
+      '',
+      'ANNOTATIONS',
+      '! warning',
+      '',
+    }
+
+    assert.is_nil(summary_job_at_line(lines, 1))
+    assert.is_nil(summary_job_at_line(lines, 2))
+    assert.is_nil(summary_job_at_line(lines, 3))
+    assert.same({ id = '12345', failed = false }, summary_job_at_line(lines, 4))
+    assert.same({ id = '12345', failed = false }, summary_job_at_line(lines, 5))
+    assert.is_nil(summary_job_at_line(lines, 6))
+    assert.is_nil(summary_job_at_line(lines, 7))
+    assert.is_nil(summary_job_at_line(lines, 8))
+    assert.is_nil(summary_job_at_line(lines, 9))
   end)
 end)
 

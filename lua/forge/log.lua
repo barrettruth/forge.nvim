@@ -984,6 +984,32 @@ local function parse_summary(raw_lines)
   return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
 end
 
+local function summary_job_at_line(raw_lines, lnum)
+  local first, last = 1, #raw_lines
+
+  while first <= last do
+    local text = strip_ansi(raw_lines[first])
+    if not text:match('^%s*$') then
+      break
+    end
+    first = first + 1
+  end
+
+  while last >= first do
+    local text = strip_ansi(raw_lines[last])
+    if not text:match('^%s*$') then
+      break
+    end
+    last = last - 1
+  end
+
+  if lnum < first or lnum > last then
+    return nil
+  end
+
+  return parse_summary(raw_lines).jobs[lnum - first + 1]
+end
+
 local function summary_hls(prefix, status)
   return { { col = 0, end_col = #prefix, group = summary_status_group(status) } }
 end
@@ -1222,6 +1248,7 @@ M._strip_ansi = strip_ansi
 M._parse_github = parse_github
 M._parse_gitlab = parse_gitlab
 M._parse_summary = parse_summary
+M._summary_job_at_line = summary_job_at_line
 M._parse_summary_json = parse_summary_json
 
 return M

@@ -69,16 +69,23 @@ describe('shared operations', function()
         info = function(msg)
           captured.infos[#captured.infos + 1] = msg
         end,
+        warn = function(msg)
+          captured.infos[#captured.infos + 1] = msg
+        end,
         error = function(msg)
           captured.errors[#captured.errors + 1] = msg
         end,
         debug = function() end,
-        warn = function() end,
       }
     end
 
     package.preload['forge.log'] = function()
       return {
+        _summary_job_at_line = function(_, lnum)
+          if lnum == 2 then
+            return { id = '22', failed = true }
+          end
+        end,
         open_summary = function(cmd, opts)
           table.insert(captured.summaries, { cmd = cmd, opts = opts })
         end,
@@ -238,6 +245,67 @@ describe('shared operations', function()
       url = 'https://example.com/runs/77/repo/ref',
       startinsert = false,
     }, term_opts)
+  end)
+
+  it('gives GitHub CI watch the same contextual terminal actions', function()
+    local ops = require('forge.ops')
+    ops.ci_watch({
+      name = 'github',
+      watch_cmd = function(_, run_id, scope)
+        return { 'watch', run_id, scope or 'none' }
+      end,
+      check_log_cmd = function(_, run_id, failed, job_id, scope)
+        return { 'check-log', run_id, tostring(failed), job_id or '', scope or 'none' }
+      end,
+      run_status_cmd = function(_, run_id, scope)
+        return { 'status', run_id, scope or 'none' }
+      end,
+      run_web_url = function(_, run_id, scope)
+        return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
+      end,
+      job_web_url = function(_, run_id, job_id, scope)
+        return ('https://example.com/runs/%s/jobs/%s/%s'):format(run_id, job_id, scope or 'none')
+      end,
+      steps_cmd = function(_, run_id, scope)
+        return { 'steps', run_id, scope or 'none' }
+      end,
+    }, {
+      id = '88',
+      name = 'Deploy',
+      status = 'running',
+      scope = 'repo/ref',
+    })
+
+    assert.same({ 'watch', '88', 'repo/ref' }, captured.terms[1].cmd)
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '', '  * Run busted' })
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+    local browse_url = captured.terms[1].opts.browse_fn(buf)
+    captured.terms[1].opts.enter_fn(buf)
+
+    local term_opts = vim.deepcopy(captured.terms[1].opts)
+    term_opts.browse_fn, term_opts.enter_fn = nil, nil
+    assert.same({
+      url = 'https://example.com/runs/88/repo/ref',
+      startinsert = false,
+    }, term_opts)
+    assert.equals('https://example.com/runs/88/jobs/22/repo/ref', browse_url)
+    assert.same({ 'check-log', '88', 'true', '22', 'repo/ref' }, captured.logs[1].cmd)
+    assert.same({
+      forge_name = 'github',
+      url = 'https://example.com/runs/88/repo/ref',
+      title = 'Deploy / 22',
+      steps_cmd = { 'steps', '88', 'repo/ref' },
+      job_id = '22',
+      in_progress = true,
+      status_cmd = { 'status', '88', 'repo/ref' },
+    }, captured.logs[1].opts)
+    assert.same({
+      'GitHub does not support per-job live watch; opening a refreshing job log instead',
+    }, captured.infos)
   end)
 
   it('falls back to JSON CI summaries when no run view is available', function()
