@@ -199,7 +199,7 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
-  it('prefers native CI summaries when a backend exposes a run view', function()
+  it('opens GitHub CI run views in a terminal buffer', function()
     local ops = require('forge.ops')
     ops.ci_log({
       name = 'github',
@@ -231,33 +231,13 @@ describe('shared operations', function()
       scope = 'repo/ref',
     })
 
-    assert.same({ 'view', '77', 'repo/ref' }, captured.summaries[1].cmd)
-    local summary_opts = vim.deepcopy(captured.summaries[1].opts)
-    summary_opts.log_cmd_fn, summary_opts.browse_url_fn = nil, nil
+    assert.same({ 'view', '77', 'repo/ref' }, captured.terms[1].cmd)
+    local term_opts = vim.deepcopy(captured.terms[1].opts)
+    term_opts.browse_fn, term_opts.enter_fn = nil, nil
     assert.same({
-      forge_name = 'github',
-      run_id = '77',
       url = 'https://example.com/runs/77/repo/ref',
-      title = 'CI',
-      in_progress = true,
-      status_cmd = { 'status', '77', 'repo/ref' },
-    }, summary_opts)
-    assert.equals(
-      'https://example.com/runs/77/jobs/job-1/repo/ref',
-      captured.summaries[1].opts.browse_url_fn('job-1')
-    )
-
-    local cmd, opts = captured.summaries[1].opts.log_cmd_fn('job-1', true)
-    assert.same({ 'check-log', '77', 'true', 'job-1', 'repo/ref' }, cmd)
-    assert.same({
-      forge_name = 'github',
-      url = 'https://example.com/runs/77/repo/ref',
-      title = 'CI / job-1',
-      steps_cmd = { 'steps', '77', 'repo/ref' },
-      job_id = 'job-1',
-      in_progress = true,
-      status_cmd = { 'status', '77', 'repo/ref' },
-    }, opts)
+      startinsert = false,
+    }, term_opts)
   end)
 
   it('falls back to JSON CI summaries when no run view is available', function()
