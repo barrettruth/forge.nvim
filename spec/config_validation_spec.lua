@@ -1,0 +1,172 @@
+vim.opt.runtimepath:prepend(vim.fn.getcwd())
+
+local config = require('forge.config')
+
+describe('config validation', function()
+  after_each(function()
+    vim.g.forge = nil
+  end)
+
+  local function config_error(cfg)
+    vim.g.forge = cfg
+    local ok, err = pcall(config.config)
+    assert.is_false(ok)
+    return err
+  end
+
+  it('rejects non-table top-level config', function()
+    local ok, err = pcall(function()
+      vim.g.forge = 'oops'
+      config.config()
+    end)
+
+    assert.is_false(ok)
+    assert.matches('vim%.g%.forge', err)
+  end)
+
+  it('rejects fractional and negative numeric values', function()
+    assert.matches('forge%.ci%.lines', config_error({ ci = { lines = -1 } }))
+    assert.matches('forge%.ci%.refresh', config_error({ ci = { refresh = 1.5 } }))
+    assert.matches(
+      'forge%.display%.widths%.title',
+      config_error({ display = { widths = { title = 0 } } })
+    )
+    assert.matches(
+      'forge%.display%.limits%.pulls',
+      config_error({ display = { limits = { pulls = 0 } } })
+    )
+  end)
+
+  it('allows zero-valued CI settings where disabled behavior is supported', function()
+    vim.g.forge = {
+      ci = {
+        lines = 0,
+        refresh = 0,
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.equals(0, cfg.ci.lines)
+    assert.equals(0, cfg.ci.refresh)
+  end)
+
+  it('rejects unknown route names', function()
+    assert.matches(
+      'forge%.routes%.prs',
+      config_error({
+        routes = {
+          prs = 'prs.missing',
+        },
+      })
+    )
+  end)
+
+  it('rejects malformed key notation strings', function()
+    assert.matches(
+      'forge%.keys%.pr%.browse',
+      config_error({
+        keys = {
+          pr = {
+            browse = '<not-a-real-key>',
+          },
+        },
+      })
+    )
+
+    assert.matches(
+      'forge%.keys%.log%.browse',
+      config_error({
+        keys = {
+          log = {
+            browse = '<c->',
+          },
+        },
+      })
+    )
+  end)
+
+  it('accepts valid special-key notation strings', function()
+    vim.g.forge = {
+      keys = {
+        pr = {
+          browse = '<c-x>',
+        },
+        log = {
+          browse = '<leader>x',
+        },
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.equals('<c-x>', cfg.keys.pr.browse)
+    assert.equals('<leader>x', cfg.keys.log.browse)
+  end)
+
+  it('rejects blank source hosts and non-list host tables', function()
+    assert.matches(
+      'forge%.sources%.github%.hosts',
+      config_error({
+        sources = {
+          github = {
+            hosts = {
+              internal = 'git.example.com',
+            },
+          },
+        },
+      })
+    )
+
+    assert.matches(
+      'forge%.sources%.github%.hosts%[1%]',
+      config_error({
+        sources = {
+          github = {
+            hosts = { '' },
+          },
+        },
+      })
+    )
+  end)
+
+  it('rejects invalid target aliases and default repos', function()
+    assert.matches(
+      'forge%.targets%.aliases%.work',
+      config_error({
+        targets = {
+          aliases = {
+            work = 'upstream',
+          },
+        },
+      })
+    )
+
+    assert.matches(
+      'forge%.targets%.default_repo',
+      config_error({
+        targets = {
+          default_repo = 'owner/repo@bad',
+        },
+      })
+    )
+  end)
+
+  it('accepts valid target aliases and default repos', function()
+    vim.g.forge = {
+      targets = {
+        default_repo = 'upstream',
+        aliases = {
+          work = 'github.com/example/work',
+          collab = 'remote:upstream',
+        },
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.equals('upstream', cfg.targets.default_repo)
+    assert.equals('github.com/example/work', cfg.targets.aliases.work)
+    assert.equals('remote:upstream', cfg.targets.aliases.collab)
+  end)
+end)

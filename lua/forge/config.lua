@@ -284,6 +284,81 @@ local hl_defaults = {
   ForgeLogDim = 'Comment',
 }
 
+local valid_routes = {
+  ['prs.all'] = true,
+  ['prs.open'] = true,
+  ['prs.closed'] = true,
+  ['issues.all'] = true,
+  ['issues.open'] = true,
+  ['issues.closed'] = true,
+  ['ci.all'] = true,
+  ['ci.current_branch'] = true,
+  ['branches.local'] = true,
+  ['commits.current_branch'] = true,
+  ['worktrees.list'] = true,
+  ['browse.contextual'] = true,
+  ['browse.branch'] = true,
+  ['browse.commit'] = true,
+  ['releases.all'] = true,
+  ['releases.draft'] = true,
+  ['releases.prerelease'] = true,
+}
+
+local function nonempty_string(v)
+  return type(v) == 'string' and vim.trim(v) ~= ''
+end
+
+local function integer_at_least(min)
+  return function(v)
+    return type(v) == 'number' and v >= min and v == math.floor(v)
+  end
+end
+
+local function valid_route(v)
+  return nonempty_string(v) and valid_routes[v] == true
+end
+
+local function valid_repo_target(v)
+  if not nonempty_string(v) then
+    return false
+  end
+  return require('forge.target').parse_repo(vim.trim(v)) ~= nil
+end
+
+local function valid_repo_alias_target(v)
+  if not nonempty_string(v) then
+    return false
+  end
+  local value = vim.trim(v)
+  local remote = value:match('^remote:(.+)$')
+  if remote then
+    return vim.trim(remote) ~= ''
+  end
+  local parsed = require('forge.target').parse_repo(value)
+  return parsed ~= nil and parsed.form ~= 'symbolic'
+end
+
+local function valid_key_notation(v)
+  if type(v) ~= 'string' or v == '' then
+    return false
+  end
+  local from = 1
+  while true do
+    local start_idx, end_idx = v:find('<[^>]+>', from)
+    if not start_idx then
+      return true
+    end
+    local token = v:sub(start_idx, end_idx)
+    if token:lower() ~= '<lt>' then
+      local rendered = vim.fn.keytrans(vim.keycode(token))
+      if rendered:find('<lt>', 1, true) == 1 then
+        return false
+      end
+    end
+    from = end_idx + 1
+  end
+end
+
 function M.setup_highlights()
   for group, val in pairs(hl_defaults) do
     if type(val) == 'string' then
@@ -299,6 +374,7 @@ end
 ---@return forge.Config
 function M.config()
   local user = vim.g.forge or {}
+  vim.validate('vim.g.forge', user, 'table')
   local cfg = vim.tbl_deep_extend('force', DEFAULTS, user)
   if user.keys == false then
     cfg.keys = false
@@ -308,11 +384,11 @@ function M.config()
   vim.validate('forge.picker', cfg.picker, function(v)
     return v == 'auto' or picker_backends[v] ~= nil
   end, "'auto' or 'fzf-lua'")
-  vim.validate('forge.client', cfg.client, 'string')
-  vim.validate('forge.context', cfg.context, 'string')
+  vim.validate('forge.client', cfg.client, nonempty_string, 'non-empty string')
+  vim.validate('forge.context', cfg.context, nonempty_string, 'non-empty string')
   vim.validate('forge.debug', cfg.debug, function(v)
-    return v == false or v == true or type(v) == 'string'
-  end, 'boolean or string')
+    return v == false or v == true or nonempty_string(v)
+  end, 'boolean or non-empty string')
   vim.validate('forge.sources', cfg.sources, 'table')
   vim.validate('forge.contexts', cfg.contexts, 'table')
   vim.validate('forge.sections', cfg.sections, 'table')
@@ -328,8 +404,8 @@ function M.config()
   vim.validate('forge.confirm.worktree_delete', cfg.confirm.worktree_delete, 'boolean')
   vim.validate('forge.display', cfg.display, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
-  vim.validate('forge.ci.lines', cfg.ci.lines, 'number')
-  vim.validate('forge.ci.refresh', cfg.ci.refresh, 'number')
+  vim.validate('forge.ci.lines', cfg.ci.lines, integer_at_least(0), 'integer >= 0')
+  vim.validate('forge.ci.refresh', cfg.ci.refresh, integer_at_least(0), 'integer >= 0')
   vim.validate('forge.targets', cfg.targets, 'table')
   if cfg.ci.split ~= nil then
     vim.validate('forge.ci.split', cfg.ci.split, function(v)
@@ -338,7 +414,12 @@ function M.config()
   end
   vim.validate('forge.targets.aliases', cfg.targets.aliases, 'table')
   if cfg.targets.default_repo ~= nil then
-    vim.validate('forge.targets.default_repo', cfg.targets.default_repo, 'string')
+    vim.validate(
+      'forge.targets.default_repo',
+      cfg.targets.default_repo,
+      valid_repo_target,
+      'repo target'
+    )
   end
 
   vim.validate('forge.display.icons', cfg.display.icons, 'table')
@@ -352,24 +433,69 @@ function M.config()
   vim.validate('forge.display.icons.unknown', cfg.display.icons.unknown, 'string')
 
   vim.validate('forge.display.widths', cfg.display.widths, 'table')
-  vim.validate('forge.display.widths.title', cfg.display.widths.title, 'number')
-  vim.validate('forge.display.widths.author', cfg.display.widths.author, 'number')
-  vim.validate('forge.display.widths.name', cfg.display.widths.name, 'number')
-  vim.validate('forge.display.widths.branch', cfg.display.widths.branch, 'number')
+  vim.validate(
+    'forge.display.widths.title',
+    cfg.display.widths.title,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.widths.author',
+    cfg.display.widths.author,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.widths.name',
+    cfg.display.widths.name,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.widths.branch',
+    cfg.display.widths.branch,
+    integer_at_least(1),
+    'integer >= 1'
+  )
 
   vim.validate('forge.display.limits', cfg.display.limits, 'table')
-  vim.validate('forge.display.limits.pulls', cfg.display.limits.pulls, 'number')
-  vim.validate('forge.display.limits.issues', cfg.display.limits.issues, 'number')
-  vim.validate('forge.display.limits.commits', cfg.display.limits.commits, 'number')
-  vim.validate('forge.display.limits.runs', cfg.display.limits.runs, 'number')
-  vim.validate('forge.display.limits.releases', cfg.display.limits.releases, 'number')
+  vim.validate(
+    'forge.display.limits.pulls',
+    cfg.display.limits.pulls,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.limits.issues',
+    cfg.display.limits.issues,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.limits.commits',
+    cfg.display.limits.commits,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.limits.runs',
+    cfg.display.limits.runs,
+    integer_at_least(1),
+    'integer >= 1'
+  )
+  vim.validate(
+    'forge.display.limits.releases',
+    cfg.display.limits.releases,
+    integer_at_least(1),
+    'integer >= 1'
+  )
 
   local key_or_false = function(v)
-    return v == nil or v == false or type(v) == 'string'
+    return v == nil or v == false or valid_key_notation(v)
   end
   if type(cfg.keys) == 'table' then
     local keys = cfg.keys --[[@as forge.KeysConfig]]
-    vim.validate('forge.keys.back', keys.back, key_or_false, 'string or false')
+    vim.validate('forge.keys.back', keys.back, key_or_false, 'valid key string or false')
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({
@@ -386,13 +512,18 @@ function M.config()
         'filter_prev',
         'refresh',
       }) do
-        vim.validate('forge.keys.pr.' .. k, keys.pr[k], key_or_false, 'string or false')
+        vim.validate('forge.keys.pr.' .. k, keys.pr[k], key_or_false, 'valid key string or false')
       end
     end
     if keys.issue ~= nil then
       vim.validate('forge.keys.issue', keys.issue, 'table')
       for _, k in ipairs({ 'browse', 'edit', 'close', 'create', 'filter', 'filter_prev', 'refresh' }) do
-        vim.validate('forge.keys.issue.' .. k, keys.issue[k], key_or_false, 'string or false')
+        vim.validate(
+          'forge.keys.issue.' .. k,
+          keys.issue[k],
+          key_or_false,
+          'valid key string or false'
+        )
       end
     end
     if keys.ci ~= nil then
@@ -409,34 +540,54 @@ function M.config()
         'all',
         'refresh',
       }) do
-        vim.validate('forge.keys.ci.' .. k, keys.ci[k], key_or_false, 'string or false')
+        vim.validate('forge.keys.ci.' .. k, keys.ci[k], key_or_false, 'valid key string or false')
       end
     end
     if keys.release ~= nil then
       vim.validate('forge.keys.release', keys.release, 'table')
       for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'filter_prev', 'refresh' }) do
-        vim.validate('forge.keys.release.' .. k, keys.release[k], key_or_false, 'string or false')
+        vim.validate(
+          'forge.keys.release.' .. k,
+          keys.release[k],
+          key_or_false,
+          'valid key string or false'
+        )
       end
     end
     local branch_keys = rawget(keys, 'branch')
     if branch_keys ~= nil then
       vim.validate('forge.keys.branch', branch_keys, 'table')
       for _, k in ipairs({ 'delete', 'browse', 'yank', 'refresh' }) do
-        vim.validate('forge.keys.branch.' .. k, branch_keys[k], key_or_false, 'string or false')
+        vim.validate(
+          'forge.keys.branch.' .. k,
+          branch_keys[k],
+          key_or_false,
+          'valid key string or false'
+        )
       end
     end
     local commit_keys = rawget(keys, 'commit')
     if commit_keys ~= nil then
       vim.validate('forge.keys.commit', commit_keys, 'table')
       for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
-        vim.validate('forge.keys.commit.' .. k, commit_keys[k], key_or_false, 'string or false')
+        vim.validate(
+          'forge.keys.commit.' .. k,
+          commit_keys[k],
+          key_or_false,
+          'valid key string or false'
+        )
       end
     end
     local worktree_keys = rawget(keys, 'worktree')
     if worktree_keys ~= nil then
       vim.validate('forge.keys.worktree', worktree_keys, 'table')
       for _, k in ipairs({ 'add', 'delete', 'yank', 'refresh' }) do
-        vim.validate('forge.keys.worktree.' .. k, worktree_keys[k], key_or_false, 'string or false')
+        vim.validate(
+          'forge.keys.worktree.' .. k,
+          worktree_keys[k],
+          key_or_false,
+          'valid key string or false'
+        )
       end
     end
     if keys.log ~= nil then
@@ -450,32 +601,50 @@ function M.config()
         'browse',
         'refresh',
       }) do
-        vim.validate('forge.keys.log.' .. k, keys.log[k], key_or_false, 'string or false')
+        vim.validate('forge.keys.log.' .. k, keys.log[k], key_or_false, 'valid key string or false')
       end
     end
   end
 
   for name, source in pairs(cfg.sources) do
+    vim.validate('forge.sources key', name, nonempty_string, 'non-empty string')
     vim.validate('forge.sources.' .. name, source, 'table')
     if source.hosts ~= nil then
-      vim.validate('forge.sources.' .. name .. '.hosts', source.hosts, 'table')
+      vim.validate('forge.sources.' .. name .. '.hosts', source.hosts, vim.islist, 'list')
+      for i, host in ipairs(source.hosts) do
+        vim.validate(
+          'forge.sources.' .. name .. '.hosts[' .. i .. ']',
+          host,
+          nonempty_string,
+          'non-empty string'
+        )
+      end
     end
   end
 
   for name, target in pairs(cfg.targets.aliases) do
-    vim.validate('forge.targets.aliases.' .. name, target, 'string')
+    vim.validate('forge.targets.aliases key', name, nonempty_string, 'non-empty string')
+    vim.validate(
+      'forge.targets.aliases.' .. name,
+      target,
+      valid_repo_alias_target,
+      'repo address or remote:<name>'
+    )
   end
 
   for name, enabled in pairs(cfg.contexts) do
+    vim.validate('forge.contexts key', name, nonempty_string, 'non-empty string')
     vim.validate('forge.contexts.' .. name, enabled, 'boolean')
   end
 
   for name, enabled in pairs(cfg.sections) do
+    vim.validate('forge.sections key', name, nonempty_string, 'non-empty string')
     vim.validate('forge.sections.' .. name, enabled, 'boolean')
   end
 
   for name, route in pairs(cfg.routes) do
-    vim.validate('forge.routes.' .. name, route, 'string')
+    vim.validate('forge.routes key', name, nonempty_string, 'non-empty string')
+    vim.validate('forge.routes.' .. name, route, valid_route, 'known route')
   end
 
   return cfg
