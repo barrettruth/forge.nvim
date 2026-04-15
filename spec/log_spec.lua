@@ -735,6 +735,7 @@ describe('summary job mappings', function()
     end)
 
     local enter = vim.fn.maparg('<cr>', 'n', false, true).callback
+    local win = vim.api.nvim_get_current_win()
 
     vim.api.nvim_win_set_cursor(0, { 2, 0 })
     enter()
@@ -743,7 +744,7 @@ describe('summary job mappings', function()
     end)
 
     assert.same({ 'log', '12345', 'false' }, opened[1].cmd)
-    assert.same({ title = '12345' }, opened[1].opts)
+    assert.same({ title = '12345', replace_win = win }, opened[1].opts)
 
     vim.api.nvim_win_set_cursor(0, { 6, 0 })
     enter()
@@ -801,6 +802,39 @@ describe('summary job mappings', function()
       'https://example.com/runs/12345/job/12345',
       'https://example.com/runs/12345',
     }, opened)
+  end)
+
+  it('browses the configured URL in a job log buffer', function()
+    local opened = {}
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = 'build\tstep\t2024-01-01T00:00:00Z hello',
+      })
+      return {
+        kill = function() end,
+      }
+    end
+    vim.ui.open = function(url)
+      opened[#opened + 1] = url
+      return true
+    end
+
+    log_mod.open({ 'gh', 'run', 'view', '--log', '--job', '12345' }, {
+      forge_name = 'github',
+      title = 'job',
+      url = 'https://example.com/runs/77/job/12345',
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
+    end)
+
+    local browse = vim.fn.maparg('gx', 'n', false, true).callback
+    browse()
+
+    assert.same({ 'https://example.com/runs/77/job/12345' }, opened)
   end)
 end)
 
