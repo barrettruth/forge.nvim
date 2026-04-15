@@ -140,7 +140,8 @@ Top-level keys: ~
     Maximum number of log lines fetched for CI/check log output.
 
   `ci.refresh`      `integer`  (default `5`)
-    Auto-refresh interval in seconds for in-progress CI views.
+    Auto-refresh interval in seconds for Forge-managed in-progress CI log
+    and summary views.
     Set to `0` to disable auto-refresh entirely.
 
   `ci.split`        `string?`  (default `nil`, inherits from `split`)
@@ -315,8 +316,9 @@ Top-level keys: ~
     `refresh`.
     `keys.commit` supports `browse`, `yank`, and `refresh`.
     `keys.worktree` supports `add`, `delete`, `yank`, and `refresh`.
-    `keys.log` supports `close`, step/error navigation, `browse`, and
-    `refresh` for CI log and summary buffers.
+    `keys.log` supports `close` and `browse` across CI terminal/log views,
+    plus step/error navigation and `refresh` for Forge-managed CI log and
+    summary buffers.
 
 `display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
@@ -487,11 +489,14 @@ BANG SEMANTICS                                            *forge-command-bang*
     Open the issue edit compose flow for issue `{num}`.
 
 `:Forge ci log` {run-id} [repo=...]                            *:Forge-ci-log*
-    Open logs for CI run `{run-id}`.
+    Open the primary run view for CI run `{run-id}`. On GitHub this uses a
+    normal-mode terminal with contextual `gx` and `<cr>` on job/step lines.
 
 `:Forge ci watch` {run-id} [repo=...]                        *:Forge-ci-watch*
     Open the forge's live watch view for CI run `{run-id}` when
-    supported.
+    supported. On GitHub, `<cr>` on a job or step during an active watch
+    opens a refreshing per-job log because `gh` only supports live watch at
+    the run level.
 
 `:Forge release browse` {tag} [repo=...]               *:Forge-release-browse*
     Open release `{tag}` in the browser.
@@ -682,17 +687,26 @@ For repo-wide CI runs, Forge fetches an initial page using
 `Load more...` row on `<cr>`. The `all` view is shown newest-first, and
 loading more appends older runs below the current list.
 
-On GitHub, `<cr>` on a run opens a summary buffer showing all jobs with
-status, durations, and annotations. Press `<cr>` on a job line to open its
-full log. On GitLab and Codeberg, in-progress jobs open a live-tailing
-terminal (`glab ci trace`, `tea actions runs logs --follow`); completed jobs
-render in a buffer with highlighting and folds left open by default.
+On GitHub, `log` opens a normal-mode terminal using `gh run view`, and
+`watch` opens a normal-mode terminal using `gh run watch`. In either view,
+`gx` opens the run URL by default, the job URL on job lines, and the parent
+job URL on step lines. Press `<cr>` on a job or step line to open that job's
+log. During an active GitHub watch, Forge opens a refreshing per-job log
+buffer because GitHub does not expose a per-job live-watch surface.
 
-In-progress views auto-refresh at the `ci.refresh` interval.
+On GitLab and Codeberg, in-progress jobs open a live-tailing terminal
+(`glab ci trace`, `tea actions runs logs --follow`); completed jobs render
+in a buffer with highlighting and folds left open by default.
+
+Forge-managed in-progress log and summary buffers auto-refresh at the
+`ci.refresh` interval. GitHub run terminals rely on native `gh` rendering;
+per-job log buffers opened from active GitHub runs auto-refresh at the same
+interval.
 
   Action      Default Key    Description ~
-  `log`         `<cr>`           Summary (GitHub) or log buffer (others)
-  `watch`       `<c-w>`          Live-watch in terminal
+  `log`         `<cr>`           Run view terminal (GitHub) or log buffer
+                               (others)
+  `watch`       `<c-w>`          Run watch terminal
   `browse`      `<c-x>`          Open run/check URL in browser
   `filter`      `<tab>`          Cycle filter: all -> failed -> passed -> running
   `refresh`     `<c-r>`          Re-fetch runs

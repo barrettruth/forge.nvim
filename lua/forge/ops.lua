@@ -71,11 +71,13 @@ end
 
 local function summary_job_at_cursor(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  local parsed = require('forge.log')._parse_summary(lines)
-  return parsed.jobs[vim.api.nvim_win_get_cursor(0)[1]]
+  return require('forge.log')._summary_job_at_line(lines, vim.api.nvim_win_get_cursor(0)[1])
 end
 
-local function github_ci_log_term(f, run, run_ref, url, in_progress, status_cmd)
+local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd, opts)
+  opts = opts or {}
+  local warned_job_watch = false
+
   local function job_log(job_id, failed)
     return f:check_log_cmd(run.id, failed, job_id, run_ref),
       {
@@ -89,7 +91,7 @@ local function github_ci_log_term(f, run, run_ref, url, in_progress, status_cmd)
       }
   end
 
-  require('forge.term').open(f:view_cmd(run.id, { scope = run_ref }), {
+  require('forge.term').open(cmd, {
     url = url,
     startinsert = false,
     browse_fn = function(buf)
@@ -104,8 +106,12 @@ local function github_ci_log_term(f, run, run_ref, url, in_progress, status_cmd)
       if not job then
         return
       end
-      local cmd, opts = job_log(job.id, job.failed)
-      require('forge.log').open(cmd, opts)
+      if opts.watch and in_progress and not warned_job_watch then
+        warned_job_watch = true
+        log.info('GitHub does not support per-job live watch; opening a refreshing job log instead')
+      end
+      local log_cmd, log_opts = job_log(job.id, job.failed)
+      require('forge.log').open(log_cmd, log_opts)
     end,
   })
 end
@@ -331,7 +337,15 @@ function M.ci_log(f, run)
   url = url ~= '' and url or nil
   local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
   if f.name == 'github' and f.view_cmd then
-    github_ci_log_term(f, run, run_ref, url, in_progress, status_cmd)
+    github_ci_term(
+      f,
+      f:view_cmd(run.id, { scope = run_ref }),
+      run,
+      run_ref,
+      url,
+      in_progress,
+      status_cmd
+    )
     return
   end
   if f.view_cmd then
@@ -412,12 +426,26 @@ function M.ci_watch(f, run)
   if not f.watch_cmd then
     return false
   end
+  local run_ref = run.scope
+  local status = trim(run.status):lower()
+  local in_progress = status == 'in_progress'
+    or status == 'queued'
+    or status == 'pending'
+    or status == 'running'
   local url = trim(run.url)
   if url == '' and f.run_web_url then
-    url = trim(f:run_web_url(run.id, run.scope) or '')
+    url = trim(f:run_web_url(run.id, run_ref) or '')
   end
-  require('forge.term').open(f:watch_cmd(run.id, run.scope), {
-    url = url ~= '' and url or nil,
+  url = url ~= '' and url or nil
+  local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
+  if f.name == 'github' then
+    github_ci_term(f, f:watch_cmd(run.id, run_ref), run, run_ref, url, in_progress, status_cmd, {
+      watch = true,
+    })
+    return true
+  end
+  require('forge.term').open(f:watch_cmd(run.id, run_ref), {
+    url = url,
   })
   return true
 end
