@@ -1,7 +1,14 @@
 local M = {}
 
+---@class forge.TermOpts
+---@field split? forge.Split
+---@field url? string
+---@field browse_fn? fun(buf: integer): string?
+---@field enter_fn? fun(buf: integer)
+---@field startinsert? boolean
+
 ---@param cmd string[]
----@param opts? { split?: forge.Split, url?: string, browse_fn?: fun(buf: integer): string?, enter_fn?: fun(buf: integer), startinsert?: boolean }
+---@param opts? forge.TermOpts
 function M.open(cmd, opts)
   opts = opts or {}
   local cfg = require('forge').config()
