@@ -726,6 +726,7 @@ end
 ---@field title string?
 ---@field steps_cmd string[]?
 ---@field job_id string?
+---@field replace_win integer?
 ---@field in_progress boolean?
 ---@field status_cmd string[]?
 
@@ -803,8 +804,18 @@ function M.open(cmd, opts, reuse_buf)
       saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
     end
   else
-    vim.cmd('noautocmd botright new')
-    buf = vim.api.nvim_get_current_buf()
+    local replace_win = opts.replace_win
+    if replace_win and vim.api.nvim_win_is_valid(replace_win) then
+      local old_buf = vim.api.nvim_win_get_buf(replace_win)
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_win_set_buf(replace_win, buf)
+      if vim.api.nvim_buf_is_valid(old_buf) and old_buf ~= buf then
+        vim.api.nvim_buf_delete(old_buf, { force = true })
+      end
+    else
+      vim.cmd('noautocmd botright new')
+      buf = vim.api.nvim_get_current_buf()
+    end
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].swapfile = false
@@ -1208,6 +1219,9 @@ function M.open_summary(cmd, opts, reuse_buf)
             local job = d.jobs[lnum]
             if job and opts.log_cmd_fn then
               local log_cmd, log_opts = opts.log_cmd_fn(job.id, job.failed)
+              log_opts = vim.tbl_extend('force', log_opts, {
+                replace_win = vim.api.nvim_get_current_win(),
+              })
               M.open(log_cmd, log_opts)
             end
           end, { buffer = buf, desc = 'Open job log' })

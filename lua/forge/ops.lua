@@ -79,10 +79,14 @@ local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd
   local warned_job_watch = false
 
   local function job_log(job_id, failed)
+    local job_url = url
+    if f.job_web_url then
+      job_url = f:job_web_url(run.id, job_id, run_ref) or job_url
+    end
     return f:check_log_cmd(run.id, failed, job_id, run_ref),
       {
         forge_name = f.name,
-        url = url,
+        url = job_url,
         title = (run.name or run.id) .. ' / ' .. (job_id or ''),
         steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
         job_id = job_id,
@@ -111,6 +115,9 @@ local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd
         log.info('GitHub does not support per-job live watch; opening a refreshing job log instead')
       end
       local log_cmd, log_opts = job_log(job.id, job.failed)
+      log_opts = vim.tbl_extend('force', log_opts, {
+        replace_win = vim.api.nvim_get_current_win(),
+      })
       require('forge.log').open(log_cmd, log_opts)
     end,
   })
@@ -363,10 +370,14 @@ function M.ci_log(f, run)
         return nil
       end,
       log_cmd_fn = function(job_id, failed)
+        local job_url = url
+        if f.job_web_url then
+          job_url = f:job_web_url(run.id, job_id, run_ref) or job_url
+        end
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
             forge_name = f.name,
-            url = url,
+            url = job_url,
             title = (run.name or run.id) .. ' / ' .. (job_id or ''),
             steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
             job_id = job_id,
@@ -393,10 +404,14 @@ function M.ci_log(f, run)
         return nil
       end,
       log_cmd_fn = function(job_id, failed)
+        local job_url = url
+        if f.job_web_url then
+          job_url = f:job_web_url(run.id, job_id, run_ref) or job_url
+        end
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
             forge_name = f.name,
-            url = url,
+            url = job_url,
             title = (run.name or run.id) .. ' / ' .. (job_id or ''),
             steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
             job_id = job_id,

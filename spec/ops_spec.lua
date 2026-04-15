@@ -282,6 +282,7 @@ describe('shared operations', function()
     vim.api.nvim_set_current_buf(buf)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '', '  * Run busted' })
     vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    local win = vim.api.nvim_get_current_win()
 
     local browse_url = captured.terms[1].opts.browse_fn(buf)
     captured.terms[1].opts.enter_fn(buf)
@@ -296,10 +297,11 @@ describe('shared operations', function()
     assert.same({ 'check-log', '88', 'true', '22', 'repo/ref' }, captured.logs[1].cmd)
     assert.same({
       forge_name = 'github',
-      url = 'https://example.com/runs/88/repo/ref',
+      url = 'https://example.com/runs/88/jobs/22/repo/ref',
       title = 'Deploy / 22',
       steps_cmd = { 'steps', '88', 'repo/ref' },
       job_id = '22',
+      replace_win = win,
       in_progress = true,
       status_cmd = { 'status', '88', 'repo/ref' },
     }, captured.logs[1].opts)
