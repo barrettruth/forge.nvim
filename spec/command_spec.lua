@@ -407,6 +407,15 @@ describe(':Forge command', function()
     assert.is_nil(captured.ops_calls[1])
   end)
 
+  it('allows :Forge to be followed by a bar command', function()
+    vim.g.forge_bar_works = nil
+
+    vim.cmd('Forge clear | let g:forge_bar_works = 1')
+
+    assert.is_true(captured.cleared)
+    assert.equal(1, vim.g.forge_bar_works)
+  end)
+
   it('uses explicit browse defaults for omitted targets', function()
     vim.cmd('Forge browse')
 
