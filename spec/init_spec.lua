@@ -44,12 +44,9 @@ describe('config', function()
     local cfg = forge.config()
     assert.equals(1000, cfg.ci.lines)
     assert.equals('horizontal', cfg.split)
-    assert.is_true(cfg.confirm.branch_delete)
-    assert.is_true(cfg.confirm.worktree_delete)
     assert.same({}, cfg.targets.aliases)
     assert.equals(45, cfg.display.widths.title)
     assert.equals(100, cfg.display.limits.pulls)
-    assert.equals(100, cfg.display.limits.commits)
     assert.equals('o', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
     assert.equals('c', cfg.display.icons.closed)
@@ -74,30 +71,16 @@ describe('config', function()
     assert.is_nil(cfg.keys.ci.passed)
     assert.is_nil(cfg.keys.ci.running)
     assert.is_nil(cfg.keys.ci.all)
-    assert.equals('<c-s>', cfg.keys.branch.delete)
-    assert.equals('<c-x>', cfg.keys.branch.browse)
-    assert.equals('<c-y>', cfg.keys.branch.yank)
-    assert.equals('<c-r>', cfg.keys.branch.refresh)
-    assert.equals('<c-x>', cfg.keys.commit.browse)
-    assert.equals('<c-y>', cfg.keys.commit.yank)
-    assert.equals('<c-r>', cfg.keys.commit.refresh)
-    assert.equals('<c-a>', cfg.keys.worktree.add)
-    assert.equals('<c-s>', cfg.keys.worktree.delete)
-    assert.equals('<c-y>', cfg.keys.worktree.yank)
-    assert.equals('<c-r>', cfg.keys.worktree.refresh)
     assert.equals('<tab>', cfg.keys.release.filter)
   end)
 
   it('deep-merges partial user config', function()
     vim.g.forge = {
       ci = { lines = 500 },
-      confirm = { branch_delete = false },
       display = { icons = { open = '>' } },
     }
     local cfg = forge.config()
     assert.equals(500, cfg.ci.lines)
-    assert.is_false(cfg.confirm.branch_delete)
-    assert.is_true(cfg.confirm.worktree_delete)
     assert.equals('>', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
     assert.equals(45, cfg.display.widths.title)
@@ -113,30 +96,6 @@ describe('config', function()
     if special.bg ~= nil then
       assert.equals(special.bg, current.bg)
     end
-  end)
-
-  it('deep-merges git section key bindings', function()
-    vim.g.forge = {
-      keys = {
-        back = false,
-        branch = { browse = '<c-b>' },
-        commit = { yank = false },
-        worktree = { refresh = '<c-f>' },
-      },
-    }
-    local cfg = forge.config()
-    assert.is_false(cfg.keys.back)
-    assert.equals('<c-s>', cfg.keys.branch.delete)
-    assert.equals('<c-b>', cfg.keys.branch.browse)
-    assert.equals('<c-y>', cfg.keys.branch.yank)
-    assert.equals('<c-r>', cfg.keys.branch.refresh)
-    assert.equals('<c-x>', cfg.keys.commit.browse)
-    assert.is_false(cfg.keys.commit.yank)
-    assert.equals('<c-r>', cfg.keys.commit.refresh)
-    assert.equals('<c-a>', cfg.keys.worktree.add)
-    assert.equals('<c-s>', cfg.keys.worktree.delete)
-    assert.equals('<c-y>', cfg.keys.worktree.yank)
-    assert.equals('<c-f>', cfg.keys.worktree.refresh)
   end)
 
   it('sets keys to false when user requests it', function()
@@ -711,10 +670,6 @@ describe('config validation', function()
     { name = 'rejects invalid split value', config = { split = 'diagonal' } },
     { name = 'rejects invalid ci.split', config = { ci = { split = 'bad' } } },
     { name = 'rejects non-number ci.refresh', config = { ci = { refresh = 'fast' } } },
-    {
-      name = 'rejects invalid delete confirmation config',
-      config = { confirm = { branch_delete = 'nope' } },
-    },
   }) do
     it(case.name, function()
       vim.g.forge = case.config
@@ -750,8 +705,6 @@ describe('config validation', function()
       config = { split = 'horizontal' },
       assert_cfg = function(cfg)
         assert.equals('horizontal', cfg.split)
-        assert.is_true(cfg.confirm.branch_delete)
-        assert.is_true(cfg.confirm.worktree_delete)
       end,
     },
     {
@@ -772,8 +725,6 @@ describe('config validation', function()
     vim.g.forge = { split = 'horizontal', ci = { split = 'vertical' } }
     local cfg = forge.config()
     assert.equals('horizontal', cfg.split)
-    assert.is_true(cfg.confirm.branch_delete)
-    assert.is_true(cfg.confirm.worktree_delete)
     assert.equals('vertical', cfg.ci.split)
   end)
 

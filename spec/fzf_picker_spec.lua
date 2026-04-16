@@ -171,31 +171,6 @@ describe('fzf picker', function()
     assert.equals(1, back_calls)
   end)
 
-  it('renders headers for git-local pickers without the legacy prefix', function()
-    local picker = require('forge.picker.fzf')
-    picker.pick({
-      prompt = 'Branches> ',
-      entries = {
-        {
-          display = { { 'main' } },
-          value = 'main',
-        },
-      },
-      actions = {
-        { name = 'default', label = 'switch', fn = function() end },
-        { name = 'delete', label = 'delete', fn = function() end },
-        { name = 'browse', label = 'browse', fn = function() end },
-      },
-      picker_name = 'branch',
-    })
-
-    assert.is_not_nil(captured)
-    assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:switch]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:delete]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]',
-      captured.opts.fzf_opts['--header']
-    )
-  end)
-
   it('renders the issue filter hint when the action is labeled', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
@@ -447,8 +422,8 @@ describe('fzf picker', function()
       prompt = 'Forge> ',
       entries = {
         {
-          display = { { 'Branches' } },
-          value = 'branches.local',
+          display = { { 'Releases' } },
+          value = 'releases.all',
         },
       },
       actions = {
@@ -464,8 +439,8 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    captured.opts.actions.enter({ 'Branches\t1' })
-    assert.equals('branches.local', selected.value)
+    captured.opts.actions.enter({ 'Releases\t1' })
+    assert.equals('releases.all', selected.value)
   end)
 
   it('closes close=false actions when the selected row forces it', function()

@@ -11,7 +11,6 @@ without leaving your editor.
   approve, draft/ready
 - Issue workflows: list, create, edit, browse, close/reopen
 - CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
-- Local git sections for branches, commits, and worktrees
 - Forge web browsing and file/line permalinks
 - Automatic forge detection from git remote via `gh`, `glab`, or `tea`
 

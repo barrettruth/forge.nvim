@@ -138,9 +138,9 @@ function M:browse_branch(branch, ref)
   vim.ui.open(base .. '/src/branch/' .. branch)
 end
 
-function M:browse_commit(sha, ref)
+function M:browse_commit(commit, ref)
   local base = forge.remote_web_url(ref)
-  vim.ui.open(base .. '/commit/' .. sha)
+  vim.ui.open(base .. '/commit/' .. commit)
 end
 
 function M:checkout_cmd(num, ref)

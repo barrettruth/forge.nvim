@@ -30,9 +30,6 @@ describe('route config', function()
     assert.is_true(cfg.sections.ci)
     assert.is_true(cfg.sections.browse)
     assert.is_true(cfg.sections.releases)
-    assert.is_true(cfg.sections.branches)
-    assert.is_true(cfg.sections.commits)
-    assert.is_true(cfg.sections.worktrees)
     assert.equals('prs.open', cfg.routes.prs)
     assert.equals('issues.open', cfg.routes.issues)
     assert.equals('ci.current_branch', cfg.routes.ci)
@@ -47,7 +44,6 @@ describe('route config', function()
       context = 'workspace',
       sections = {
         issues = false,
-        worktrees = true,
       },
       routes = {
         prs = 'prs.closed',
@@ -64,7 +60,6 @@ describe('route config', function()
     assert.equals('prs.closed', cfg.routes.prs)
     assert.equals('browse.branch', cfg.routes.browse)
     assert.is_false(cfg.sections.issues)
-    assert.is_true(cfg.sections.worktrees)
     assert.is_true(cfg.sections.prs)
     assert.is_true(cfg.contexts.workspace)
   end)

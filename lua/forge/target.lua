@@ -346,24 +346,44 @@ function M.parse_rev(text, opts)
   return parsed
 end
 
-function M.parse_browse_rev(text)
+local function parse_bare_ref(text, label)
   local value = trim(text)
   if not value then
-    return nil, 'empty revision'
+    return nil, 'empty ' .. label
   end
   if value:find(':', 1, true) or value:find('#', 1, true) then
-    return nil, 'invalid revision: ' .. value
+    return nil, 'invalid ' .. label .. ': ' .. value
   end
   if value ~= '@' and value:sub(1, 1) == '@' and value:sub(1, 2) ~= '@{' then
-    return nil, 'invalid revision: ' .. value
+    return nil, 'invalid ' .. label .. ': ' .. value
   end
   if value:find('@', 2, true) then
-    return nil, 'invalid revision: ' .. value
+    return nil, 'invalid ' .. label .. ': ' .. value
+  end
+  return value
+end
+
+function M.parse_branch(text)
+  local value, err = parse_bare_ref(text, 'branch')
+  if not value then
+    return nil, err
   end
   return {
-    kind = 'rev',
+    kind = 'branch',
     text = value,
-    rev = value,
+    branch = value,
+  }
+end
+
+function M.parse_commit(text)
+  local value, err = parse_bare_ref(text, 'commit')
+  if not value then
+    return nil, err
+  end
+  return {
+    kind = 'commit',
+    text = value,
+    commit = value,
   }
 end
 

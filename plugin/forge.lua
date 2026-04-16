@@ -14,9 +14,6 @@ local section_plugs = {
   { 'n', 'forge-ci', 'ci' },
   { { 'n', 'x' }, 'forge-browse', 'browse' },
   { 'n', 'forge-releases', 'releases' },
-  { 'n', 'forge-branches', 'branches' },
-  { 'n', 'forge-commits', 'commits' },
-  { 'n', 'forge-worktrees', 'worktrees' },
 }
 
 local exact_route_plugs = {
@@ -34,9 +31,6 @@ local exact_route_plugs = {
   { 'n', 'forge-releases-all', 'releases.all' },
   { 'n', 'forge-releases-draft', 'releases.draft' },
   { 'n', 'forge-releases-prerelease', 'releases.prerelease' },
-  { 'n', 'forge-branches-local', 'branches.local' },
-  { 'n', 'forge-commits-current-branch', 'commits.current_branch' },
-  { 'n', 'forge-worktrees-list', 'worktrees.list' },
 }
 
 set_plug('n', 'forge', open_route(nil))

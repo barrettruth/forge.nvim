@@ -40,9 +40,6 @@ describe('<Plug> mappings', function()
     { '<Plug>(forge-releases-all)', 'releases.all' },
     { '<Plug>(forge-releases-draft)', 'releases.draft' },
     { '<Plug>(forge-releases-prerelease)', 'releases.prerelease' },
-    { '<Plug>(forge-branches-local)', 'branches.local' },
-    { '<Plug>(forge-commits-current-branch)', 'commits.current_branch' },
-    { '<Plug>(forge-worktrees-list)', 'worktrees.list' },
   }
 
   local section_plugs = {
@@ -51,9 +48,6 @@ describe('<Plug> mappings', function()
     { '<Plug>(forge-ci)', 'ci' },
     { '<Plug>(forge-browse)', 'browse' },
     { '<Plug>(forge-releases)', 'releases' },
-    { '<Plug>(forge-branches)', 'branches' },
-    { '<Plug>(forge-commits)', 'commits' },
-    { '<Plug>(forge-worktrees)', 'worktrees' },
   }
 
   local function stub_forge()

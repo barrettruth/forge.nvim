@@ -170,8 +170,8 @@ function M:browse_branch(branch, scope)
   open_browse_url(cmd)
 end
 
-function M:browse_commit(sha, scope)
-  local cmd = { 'gh', 'browse', sha }
+function M:browse_commit(commit, scope)
+  local cmd = { 'gh', 'browse', commit }
   local repo = nwo(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')

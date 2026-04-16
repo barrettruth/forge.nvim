@@ -39,9 +39,6 @@ local root_search_terms = {
   ['issues.closed'] = { 'issues', 'bugs', 'tickets' },
   ['ci.all'] = { 'ci', 'checks', 'runs', 'actions' },
   ['ci.current_branch'] = { 'ci', 'checks', 'runs', 'actions' },
-  ['branches.local'] = { 'branches', 'refs' },
-  ['commits.current_branch'] = { 'commits', 'history', 'log' },
-  ['worktrees.list'] = { 'worktrees', 'trees' },
   ['browse.contextual'] = { 'browse', 'web' },
   ['browse.branch'] = { 'browse', 'web' },
   ['browse.commit'] = { 'browse', 'web' },
@@ -104,36 +101,6 @@ M.search_keys = {
     local value = entry.value
     if type(value) == 'table' then
       return join_search_terms({ value.name or '', value.branch or '' })
-    end
-    return M.ordinal(entry)
-  end,
-  branch = function(entry)
-    local value = entry.value
-    if type(value) == 'table' and value.name then
-      return value.name
-    end
-    return M.ordinal(entry)
-  end,
-  commit = function(entry)
-    local value = entry.value
-    if type(value) == 'table' then
-      return join_search_terms({
-        value.sha or '',
-        value.short_sha or '',
-        value.subject or '',
-        value.author or '',
-      })
-    end
-    return M.ordinal(entry)
-  end,
-  worktree = function(entry)
-    local value = entry.value
-    if type(value) == 'table' and value.path then
-      local key = value.branch ~= '' and value.branch or vim.fs.basename(value.path)
-      if value.detached and value.short_head ~= '' then
-        key = join_search_terms({ key, value.short_head })
-      end
-      return key
     end
     return M.ordinal(entry)
   end,
