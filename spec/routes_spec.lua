@@ -27,9 +27,9 @@ local function fake_forge()
         scope = scope,
       }
     end,
-    browse_commit = function(_, sha, scope)
+    browse_commit = function(_, commit, scope)
       captured.browse_commit = {
-        sha = sha,
+        commit = commit,
         scope = scope,
       }
     end,
@@ -58,9 +58,6 @@ describe('routes', function()
         prs = true,
         issues = true,
         ci = true,
-        branches = true,
-        commits = true,
-        worktrees = true,
         browse = true,
         releases = true,
       },
@@ -68,9 +65,6 @@ describe('routes', function()
         prs = 'prs.open',
         issues = 'issues.open',
         ci = 'ci.current_branch',
-        branches = 'branches.local',
-        commits = 'commits.current_branch',
-        worktrees = 'worktrees.list',
         browse = 'browse.contextual',
         releases = 'releases.all',
       },
@@ -175,18 +169,6 @@ describe('routes', function()
           captured.ci_back = opts and opts.back or nil
           captured.ci_scope = opts and opts.scope or nil
         end,
-        branches = function(ctx, opts)
-          captured.branches = ctx.id
-          captured.branches_back = opts and opts.back or nil
-        end,
-        commits = function(_, branch, opts)
-          captured.commits = branch
-          captured.commits_back = opts and opts.back or nil
-        end,
-        worktrees = function(ctx, opts)
-          captured.worktrees = ctx.id
-          captured.worktrees_back = opts and opts.back or nil
-        end,
         release = function(state, _, opts)
           captured.release = state
           captured.release_back = opts and opts.back or nil
@@ -255,10 +237,7 @@ describe('routes', function()
       labels[#labels + 1] = entry.display[1][1]
     end
 
-    assert.same(
-      { 'PRs', 'Issues', 'CI', 'Branches', 'Commits', 'Worktrees', 'Browse', 'Releases' },
-      labels
-    )
+    assert.same({ 'PRs', 'Issues', 'CI', 'Browse', 'Releases' }, labels)
     assert.equals(
       'PRs prs pull requests reviews',
       require('forge.picker').search_key('_menu', captured.root.entries[1])
@@ -267,29 +246,12 @@ describe('routes', function()
       'CI ci checks runs actions',
       require('forge.picker').search_key('_menu', captured.root.entries[3])
     )
-    assert.equals(
-      'Branches branches refs',
-      require('forge.picker').search_key('_menu', captured.root.entries[4])
-    )
     assert.is_nil(captured.root.entries[1].display[2])
-    assert.is_nil(captured.root.entries[4].display[2])
 
     captured.root.actions[1].fn(captured.root.entries[2])
 
     assert.equals('open', captured.issue)
     assert.is_function(captured.issue_back)
-  end)
-
-  it('opens branch, commit, and worktree routes through the route aliases', function()
-    local routes = require('forge.routes')
-
-    routes.open('branches')
-    routes.open('commits')
-    routes.open('worktrees')
-
-    assert.equals('current', captured.branches)
-    assert.equals('main', captured.commits)
-    assert.equals('current', captured.worktrees)
   end)
 
   it('uses repo browsing for contextual browse without a file buffer', function()
@@ -322,6 +284,6 @@ describe('routes', function()
   it('uses the current commit for commit browsing', function()
     require('forge.routes').open('browse.commit')
 
-    assert.same({ sha = 'abc123', scope = nil }, captured.browse_commit)
+    assert.same({ commit = 'abc123', scope = nil }, captured.browse_commit)
   end)
 end)

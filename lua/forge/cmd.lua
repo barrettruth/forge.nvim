@@ -5,7 +5,8 @@ local ops = require('forge.ops')
 local modifiers = {
   state = { kind = 'value' },
   repo = { kind = 'value', target = 'repo' },
-  rev = { kind = 'value', target = 'rev' },
+  branch = { kind = 'value', target = 'branch' },
+  commit = { kind = 'value', target = 'commit' },
   target = { kind = 'value', target = 'location' },
   head = { kind = 'value', target = 'rev' },
   base = { kind = 'value', target = 'rev' },
@@ -20,7 +21,8 @@ local modifiers = {
 
 local target_modifier_parsers = {
   repo = 'resolve_repo',
-  rev = 'parse_browse_rev',
+  branch = 'parse_branch',
+  commit = 'parse_commit',
   target = 'parse_location',
   head = 'parse_rev',
   base = 'parse_rev',
@@ -158,7 +160,7 @@ local families = {
     verbs = {
       open = {
         subject = { min = 0, max = 0 },
-        modifiers = { 'rev' },
+        modifiers = { 'branch', 'commit' },
       },
     },
   },
@@ -355,7 +357,6 @@ end
 local function resolve_scope_modifier(command, forge_name)
   local target = require('forge.target')
   local repo = repo_target(command.parsed_modifiers.target)
-    or repo_target(command.parsed_modifiers.rev)
     or repo_target(command.parsed_modifiers.base)
     or repo_target(command.parsed_modifiers.head)
     or repo_target(command.parsed_modifiers.repo)
@@ -365,12 +366,6 @@ local function resolve_scope_modifier(command, forge_name)
     or repo_target(command.default_targets.head)
     or repo_target(command.default_targets.repo)
   return target.repo_scope(repo, forge_name)
-end
-
-local function effective_rev(command)
-  return command.parsed_modifiers.target and command.parsed_modifiers.target.rev
-    or command.parsed_modifiers.rev
-    or command.default_targets.rev
 end
 
 local function dispatch_pr(command)
@@ -530,18 +525,23 @@ local function dispatch_browse(command)
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
-  local rev = effective_rev(command)
+  local commit = command.parsed_modifiers.commit
+  if commit and commit.commit then
+    ops.browse_commit({ commit = commit.commit, scope = scope })
+    return
+  end
+  local branch = command.parsed_modifiers.branch
   local file_loc = require('forge').file_loc(command.range)
-  if rev and rev.rev then
-    if ops.browse_file(f, file_loc, rev.rev, scope) then
+  if branch and branch.branch then
+    if ops.browse_file(f, file_loc, branch.branch, scope) then
       return
     end
-    ops.browse_branch(rev.rev, { scope = scope })
+    ops.browse_branch(branch.branch, { scope = scope })
     return
   end
   local ctx = require('forge').current_context()
-  local branch = type(ctx) == 'table' and ctx.branch or nil
-  if ops.browse_file(f, file_loc, branch, scope) then
+  local ctx_branch = type(ctx) == 'table' and ctx.branch or nil
+  if ops.browse_file(f, file_loc, ctx_branch, scope) then
     return
   end
   ops.browse_repo({ scope = scope })

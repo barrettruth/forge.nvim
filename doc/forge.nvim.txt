@@ -43,7 +43,7 @@ CONTENTS                                                 *forge.nvim-contents*
     `:Forge ci watch` {run-id} [repo=...]..................|:Forge-ci-watch|
     `:Forge release browse` {tag} [repo=...]............|:Forge-release-browse|
     `:Forge release delete` {tag} [repo=...]............|:Forge-release-delete|
-    `:Forge browse` [rev=...]..................................|:Forge-browse|
+    `:Forge browse` [branch=...] [commit=...]...................|:Forge-browse|
     `:Forge clear`..............................................|:Forge-clear|
     PLUG MAPPINGS.............................................|forge-plug|
     PICKERS....................................................|forge-pickers|
@@ -201,9 +201,6 @@ Top-level keys: ~
         ci = true,
         browse = true,
         releases = true,
-        branches = true,
-        commits = true,
-        worktrees = true,
       }
 <
 
@@ -219,9 +216,6 @@ Top-level keys: ~
         ci = 'ci.current_branch',
         browse = 'browse.contextual',
         releases = 'releases.all',
-        branches = 'branches.local',
-        commits = 'commits.current_branch',
-        worktrees = 'worktrees.list',
       }
 <
 
@@ -274,23 +268,6 @@ Top-level keys: ~
           filter = '<tab>',
           refresh = '<c-r>',
         },
-        branch = {
-          delete = '<c-s>',
-          browse = '<c-x>',
-          yank = '<c-y>',
-          refresh = '<c-r>',
-        },
-        commit = {
-          browse = '<c-x>',
-          yank = '<c-y>',
-          refresh = '<c-r>',
-        },
-        worktree = {
-          add = '<c-a>',
-          delete = '<c-s>',
-          yank = '<c-y>',
-          refresh = '<c-r>',
-        },
         log = {
           close = 'q',
           next_step = ']]',
@@ -312,10 +289,6 @@ Top-level keys: ~
   The primary PR action remains `<cr>` checkout.
 
   Additional picker groups:
-    `keys.branch` supports `delete`, `browse`, `yank`, and
-    `refresh`.
-    `keys.commit` supports `browse`, `yank`, and `refresh`.
-    `keys.worktree` supports `add`, `delete`, `yank`, and `refresh`.
     `keys.log` supports `close` and `browse` across CI terminal/log views,
     plus step/error navigation and `refresh` for Forge-managed CI log and
     summary buffers.
@@ -359,7 +332,6 @@ Top-level keys: ~
     Key         Default ~
     `pulls`       `100`
     `issues`      `100`
-    `commits`     `100`
     `runs`        `30`
     `releases`    `30`
 
@@ -376,8 +348,8 @@ COMMANDS                                                              *:Forge*
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
-    `rev=...`, `head=...`, and `base=...`. Explicit target modifiers
-    override default policy.
+    `branch=...`, `commit=...`, `head=...`, and `base=...`. Explicit target
+    modifiers override default policy.
 
     Default policy:
     - collaboration repo = `targets.default_repo`, else `upstream`, else
@@ -395,7 +367,8 @@ COMMAND COMPLETION                                  *forge-command-completion*
     - only valid modifiers are suggested for the resolved subcommand
     - `repo=` suggests configured aliases, git remotes, and resolved repo
       addresses
-    - `rev=` suggests local branches, tags, and recent short SHAs
+    - `branch=` suggests local branches and tags
+    - `commit=` suggests recent short SHAs
     - `head=` and `base=` suggest revision addresses using `@...`
 
 CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
@@ -411,7 +384,7 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     Commands that need interactive selection are intentionally not exposed
     through `:Forge`; use the interactive picker surface instead.
     This includes list navigation, list-scoped filters/refresh, nested per-PR
-    checks, copy helpers, and local branch/commit/worktree sections.
+    checks, and copy helpers.
 
 BANG SEMANTICS                                            *forge-command-bang*
     `!` is only accepted on mutating commands with an explicit force variant:
@@ -504,13 +477,16 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
     Delete release `{tag}` (with confirmation prompt).
 
-`:Forge browse` [rev=...]                                      *:Forge-browse*
-    Open the current file on the forge. In visual mode, the selected line
-    range is included. In non-file buffers, this falls back to the current
-    repo root.
-    `rev=...`          Open the current file on the given revision. In
-                       non-file buffers, this opens the repo root for that
-                       revision.
+`:Forge browse` [branch=...] [commit=...]                      *:Forge-browse*
+    Open a forge web URL.
+    (no modifiers)     Open the current file/line permalink on the current
+                       branch. In non-file buffers, this falls back to the
+                       current repo root.
+    `branch=<name>`    Open the given branch on the forge. When a file
+                       location is available, the file/line permalink is
+                       anchored to that branch instead; otherwise the
+                       branch landing page is opened.
+    `commit=<sha>`     Open the given commit on the forge.
 
 `:Forge review branch` [{branch}]                       *:Forge-review-branch*
     Start a branch review session. Defaults to the current branch and
@@ -601,12 +577,6 @@ Alias plugs: ~
                                               section route
   `<Plug>(forge-releases)`           `n`        Open the configured `releases`
                                               section route
-  `<Plug>(forge-branches)`           `n`        Open the configured `branches`
-                                              section route
-  `<Plug>(forge-commits)`            `n`        Open the configured `commits`
-                                              section route
-  `<Plug>(forge-worktrees)`          `n`        Open the configured `worktrees`
-                                              section route
 
 Exact route plugs: ~
                                                            *forge-plug-routes*
@@ -631,19 +601,15 @@ Exact route plugs: ~
   `<Plug>(forge-releases-all)`                 `n`        Open all releases
   `<Plug>(forge-releases-draft)`               `n`        Open draft releases
   `<Plug>(forge-releases-prerelease)`          `n`        Open prereleases
-  `<Plug>(forge-branches-local)`               `n`        Open local branches
-  `<Plug>(forge-commits-current-branch)`       `n`        Open commits for the
-                                                        current branch
-  `<Plug>(forge-worktrees-list)`               `n`        Open worktrees
 
 ==============================================================================
 PICKERS                                                        *forge-pickers*
 
                                                                 *forge-picker*
 FORGE PICKER ~ The main entry point. Adapts based on the detected forge and
-current buffer. Lists: PRs/MRs, Issues, CI/CD, Branches, Commits, Worktrees,
-Browse, Releases. Items that require a forge are hidden when no forge is
-detected. Browse file and line targets require a named buffer on a branch.
+current buffer. Lists: PRs/MRs, Issues, CI/CD, Browse, Releases. Items that
+require a forge are hidden when no forge is detected. Browse file and line
+targets require a named buffer on a branch.
 
 When using fzf-lua, picker headers use fzf-lua's `FzfLuaHeaderBind` and
 `FzfLuaHeaderText` highlight groups. Headers emphasize primary item actions;
@@ -711,45 +677,6 @@ interval.
   `filter`      `<tab>`          Cycle filter: all -> failed -> passed -> running
   `refresh`     `<c-r>`          Re-fetch runs
 
-                                                         *forge-picker-branch*
-BRANCH PICKER ~ Lists local refs with current-branch emphasis, worktree-aware
-markers, upstream, and tip commit summary. `*` marks the current branch and
-`+` marks a branch checked out in another worktree.
-
-  Action      Default Key    Description ~
-  `switch`      `<cr>`           Switch to the selected branch, or jump to its
-                                worktree when the row is marked `+`
-  `delete`      `<c-s>`          Delete a non-current branch after `[y/N]`
-                                confirmation
-  `browse`      `<c-x>`          Open branch in browser
-  `yank`        `<c-y>`          Copy branch name to `+` register
-  `refresh`     `<c-r>`          Clear cache and re-fetch
-
-                                                         *forge-picker-commit*
-COMMIT PICKER ~ Lists commits for the selected branch as hash, relative time,
-subject, and `<author>`, with light alignment to keep history lines readable.
-When a local branch tracks an upstream, forge.nvim follows the upstream ref so
-the list matches the remote tip. `git show` is the primary action.
-
-  Action      Default Key    Description ~
-  `show`        `<cr>`           Open `git show` in a terminal split
-  `browse`      `<c-x>`          Open commit in browser
-  `yank`        `<c-y>`          Copy commit SHA to `+` register
-  `refresh`     `<c-r>`          Clear cache and re-fetch
-
-                                                       *forge-picker-worktree*
-WORKTREE PICKER ~ Lists git worktrees as path-first rows with branch or
-detached state and HEAD. Paths render with `~` for `$HOME` and use shortened
-path segments when needed to preserve the distinguishing tail.
-
-  Action      Default Key    Description ~
-  `switch cwd`  `<cr>`           Change Neovim's cwd to the selected worktree
-  `add`         `<c-a>`          Add a sibling worktree for a branch name
-  `delete`      `<c-s>`          Delete a non-current worktree after `[y/N]`
-                                confirmation
-  `yank`        `<c-y>`          Copy worktree path to `+` register
-  `refresh`     `<c-r>`          Clear cache and re-fetch
-
                                                         *forge-picker-release*
 RELEASE PICKER ~ Lists releases with tag, title, and relative time. Draft and
 prerelease badges are shown for forges that support them (GitHub, Codeberg).
@@ -776,8 +703,8 @@ CLI parity: ~
   reopen, checkout, worktree, approve, merge, draft/ready, CI log/watch, and
   release browse/delete.
 - Picker-only actions are the list workflow itself and row-scoped helpers such
-  as filter/refresh/load more, nested per-PR checks, copy-to-clipboard
-  helpers, and local branch/commit/worktree navigation.
+  as filter/refresh/load more, nested per-PR checks, and copy-to-clipboard
+  helpers.
 
 Architecture: ~
 - Interactive root entries go through `require('forge.client').open_root()`.
@@ -797,18 +724,6 @@ Default root route inventory: ~
   `CI` / `CI/CD` -> `ci.current_branch`
     Scope/actions: current branch or repo runs; logs, watch, browse
     Shell-outs: `gh run list`, `glab ci list`, `tea api ".../actions/runs"`
-
-  `Branches` -> `branches.local`
-    Scope/actions: local refs; switch, browse
-    Shell-outs: `git for-each-ref`, `git switch <branch>`
-
-  `Commits` -> `commits.current_branch`
-    Scope/actions: current branch history; `git show`, browse
-    Shell-outs: `git log`, `git show --stat --patch --decorate=short <sha>`
-
-  `Worktrees` -> `worktrees.list`
-    Scope/actions: repo worktrees; switch cwd, copy path
-    Shell-outs: `git worktree list --porcelain`, `:cd {path}`
 
   `Browse` -> `browse.contextual`
     Scope/actions: current branch or file selection; open browser target
@@ -1117,7 +1032,7 @@ All methods receive `self` as the first argument (use `:` syntax).
   `view_web(kind, num)`                 Opens PR/issue in browser.
   `browse(loc, branch)`                 Opens file location on remote.
   `browse_branch(branch)`               Opens branch in browser.
-  `browse_commit(sha)`                  Opens commit in browser.
+  `browse_commit(commit)`               Opens commit in browser.
   `checkout_cmd(num)`                   `string[]` cmd to checkout a PR.
   `fetch_pr(num)`                       `string[]` git fetch refspec for PR.
   `pr_base_cmd(num)`                    `string[]` cmd returning base branch.

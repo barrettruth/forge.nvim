@@ -9,9 +9,6 @@ local section_order = {
   'prs',
   'issues',
   'ci',
-  'branches',
-  'commits',
-  'worktrees',
   'browse',
   'releases',
 }
@@ -90,19 +87,6 @@ local function route_handlers()
       end
       pickers.ci(ctx.forge, branch, nil, { back = opts.back, scope = opts.scope })
     end,
-    ['branches.local'] = function(ctx, opts)
-      pickers.branches(ctx, { back = opts.back })
-    end,
-    ['commits.current_branch'] = function(ctx, opts)
-      local branch, err = branch_for(ctx, opts)
-      if not branch then
-        return false, err
-      end
-      pickers.commits(ctx, branch, { back = opts.back })
-    end,
-    ['worktrees.list'] = function(ctx, opts)
-      pickers.worktrees(ctx, { back = opts.back })
-    end,
     ['browse.contextual'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
@@ -135,14 +119,14 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
-      local sha = opts.sha
-      if sha == nil or sha == '' then
-        sha = ctx.head
+      local commit = opts.commit
+      if commit == nil or commit == '' then
+        commit = ctx.head
       end
-      if sha == '' then
+      if commit == '' then
         return false, 'detached HEAD'
       end
-      ctx.forge:browse_commit(sha, opts.scope)
+      ctx.forge:browse_commit(commit, opts.scope)
     end,
     ['releases.all'] = function(ctx, opts)
       if not ctx.forge then
@@ -180,15 +164,6 @@ local function section_label(section, ctx)
   end
   if section == 'releases' then
     return 'Releases'
-  end
-  if section == 'branches' then
-    return 'Branches'
-  end
-  if section == 'commits' then
-    return 'Commits'
-  end
-  if section == 'worktrees' then
-    return 'Worktrees'
   end
   return section
 end

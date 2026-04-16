@@ -150,7 +150,7 @@
 ---@field view_web fun(self: forge.Forge, kind: string, num: string, scope?: forge.Scope)
 ---@field browse fun(self: forge.Forge, loc: string, branch: string, scope?: forge.Scope)
 ---@field browse_branch fun(self: forge.Forge, branch: string, scope?: forge.Scope)
----@field browse_commit fun(self: forge.Forge, sha: string, scope?: forge.Scope)
+---@field browse_commit fun(self: forge.Forge, commit: string, scope?: forge.Scope)
 ---@field checkout_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field fetch_pr fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field pr_base_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]

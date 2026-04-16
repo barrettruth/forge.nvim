@@ -124,12 +124,14 @@ describe('command schema', function()
       'base=@main',
       'head=github.com/barrettruth/forge.nvim@topic',
     }))
-    local browse = assert(cmd.parse({ 'browse', 'rev=main' }))
+    local browse_branch = assert(cmd.parse({ 'browse', 'branch=main' }))
+    local browse_commit = assert(cmd.parse({ 'browse', 'commit=abc1234' }))
 
     assert.equals('main', create.parsed_modifiers.base.rev)
     assert.equals('topic', create.parsed_modifiers.head.rev)
     assert.equals('barrettruth/forge.nvim', create.parsed_modifiers.head.repo.slug)
-    assert.equals('main', browse.parsed_modifiers.rev.rev)
+    assert.equals('main', browse_branch.parsed_modifiers.branch.branch)
+    assert.equals('abc1234', browse_commit.parsed_modifiers.commit.commit)
   end)
 
   it('attaches default target policy for omitted direct-action addresses', function()
@@ -186,7 +188,7 @@ describe('command schema', function()
   end)
 
   it('keeps legacy browse modifiers separate from canonical ones', function()
-    assert.same({ 'rev' }, cmd.modifier_names('browse'))
+    assert.same({ 'branch', 'commit' }, cmd.modifier_names('browse'))
     assert.same({}, cmd.legacy_modifier_names('browse'))
   end)
 
@@ -211,14 +213,18 @@ describe('command schema', function()
     assert.equals('duplicate modifier: repo', duplicate.message)
   end)
 
-  it('rejects removed browse modifiers and old revision syntax', function()
+  it('rejects removed browse modifiers and malformed branch/commit syntax', function()
     local _, target_err = cmd.parse({ 'browse', 'target=README.md#L10' })
     local _, repo_err = cmd.parse({ 'browse', 'repo=upstream' })
-    local _, rev_err = cmd.parse({ 'browse', 'rev=@main' })
+    local _, rev_err = cmd.parse({ 'browse', 'rev=main' })
+    local _, branch_err = cmd.parse({ 'browse', 'branch=@main' })
+    local _, commit_err = cmd.parse({ 'browse', 'commit=abc:def' })
 
     assert.equals('unknown modifier: target', target_err.message)
     assert.equals('unknown modifier: repo', repo_err.message)
-    assert.equals('invalid revision: @main', rev_err.message)
+    assert.equals('unknown modifier: rev', rev_err.message)
+    assert.equals('invalid branch: @main', branch_err.message)
+    assert.equals('invalid commit: abc:def', commit_err.message)
   end)
 
   it('returns nil or empty data for unknown lookups', function()

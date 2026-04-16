@@ -456,10 +456,10 @@ describe(':Forge command', function()
     assert.same({ 'https://github.com/owner/current' }, captured.opened_urls)
   end)
 
-  it('uses explicit rev branch browsing when special buffers have no file location', function()
+  it('uses explicit branch browsing when special buffers have no file location', function()
     use_named_current_buf('canola://issue/123')
 
-    vim.cmd('Forge browse rev=main')
+    vim.cmd('Forge browse branch=main')
 
     assert.same({
       name = 'browse_branch',
@@ -478,6 +478,28 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
     assert.equals('browse.branch', captured.opens[1].route)
     assert.equals('main', captured.opens[1].opts.branch)
+  end)
+
+  it('dispatches explicit commit browsing through ops.browse_commit', function()
+    vim.cmd('Forge browse commit=abc1234')
+
+    assert.same({
+      name = 'browse_commit',
+      opts = {
+        commit = 'abc1234',
+        scope = {
+          kind = 'github',
+          host = 'github.com',
+          owner = 'owner',
+          repo = 'current',
+          slug = 'owner/current',
+          repo_arg = 'owner/current',
+          web_url = 'https://github.com/owner/current',
+        },
+      },
+    }, captured.ops_calls[1])
+    assert.equals('browse.commit', captured.opens[1].route)
+    assert.equals('abc1234', captured.opens[1].opts.commit)
   end)
 
   it('passes ex ranges through browse file resolution', function()

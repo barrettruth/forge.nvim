@@ -7,7 +7,6 @@ local M = {}
 ---@field debug boolean|string?
 ---@field split forge.Split
 ---@field ci forge.CIConfig
----@field confirm forge.ConfirmConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
 ---@field display forge.DisplayConfig
@@ -16,10 +15,6 @@ local M = {}
 ---@field lines integer
 ---@field split forge.Split?
 ---@field refresh integer
-
----@class forge.ConfirmConfig
----@field branch_delete boolean
----@field worktree_delete boolean
 
 ---@class forge.SourceConfig
 ---@field hosts string[]
@@ -108,7 +103,6 @@ local M = {}
 ---@class forge.LimitsConfig
 ---@field pulls integer
 ---@field issues integer
----@field commits integer
 ---@field runs integer
 ---@field releases integer
 
@@ -120,10 +114,6 @@ local DEFAULTS = {
   debug = false,
   split = 'horizontal',
   ci = { lines = 1000, refresh = 5 },
-  confirm = {
-    branch_delete = true,
-    worktree_delete = true,
-  },
   targets = {
     aliases = {},
   },
@@ -137,9 +127,6 @@ local DEFAULTS = {
     ci = true,
     browse = true,
     releases = true,
-    branches = true,
-    commits = true,
-    worktrees = true,
   },
   routes = {
     prs = 'prs.open',
@@ -147,9 +134,6 @@ local DEFAULTS = {
     ci = 'ci.current_branch',
     browse = 'browse.contextual',
     releases = 'releases.all',
-    branches = 'branches.local',
-    commits = 'commits.current_branch',
-    worktrees = 'worktrees.list',
   },
   keys = {
     back = '<c-o>',
@@ -192,23 +176,6 @@ local DEFAULTS = {
       filter_prev = false,
       refresh = '<c-r>',
     },
-    branch = {
-      delete = '<c-s>',
-      browse = '<c-x>',
-      yank = '<c-y>',
-      refresh = '<c-r>',
-    },
-    commit = {
-      browse = '<c-x>',
-      yank = '<c-y>',
-      refresh = '<c-r>',
-    },
-    worktree = {
-      add = '<c-a>',
-      delete = '<c-s>',
-      yank = '<c-y>',
-      refresh = '<c-r>',
-    },
     log = {
       close = 'q',
       next_step = ']]',
@@ -239,7 +206,6 @@ local DEFAULTS = {
     limits = {
       pulls = 100,
       issues = 100,
-      commits = 100,
       runs = 30,
       releases = 30,
     },
@@ -293,9 +259,6 @@ local valid_routes = {
   ['issues.closed'] = true,
   ['ci.all'] = true,
   ['ci.current_branch'] = true,
-  ['branches.local'] = true,
-  ['commits.current_branch'] = true,
-  ['worktrees.list'] = true,
   ['browse.contextual'] = true,
   ['browse.branch'] = true,
   ['browse.commit'] = true,
@@ -399,9 +362,6 @@ function M.config()
   vim.validate('forge.split', cfg.split, function(v)
     return v == 'horizontal' or v == 'vertical'
   end, "'horizontal' or 'vertical'")
-  vim.validate('forge.confirm', cfg.confirm, 'table')
-  vim.validate('forge.confirm.branch_delete', cfg.confirm.branch_delete, 'boolean')
-  vim.validate('forge.confirm.worktree_delete', cfg.confirm.worktree_delete, 'boolean')
   vim.validate('forge.display', cfg.display, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, integer_at_least(0), 'integer >= 0')
@@ -468,12 +428,6 @@ function M.config()
   vim.validate(
     'forge.display.limits.issues',
     cfg.display.limits.issues,
-    integer_at_least(1),
-    'integer >= 1'
-  )
-  vim.validate(
-    'forge.display.limits.commits',
-    cfg.display.limits.commits,
     integer_at_least(1),
     'integer >= 1'
   )
@@ -549,42 +503,6 @@ function M.config()
         vim.validate(
           'forge.keys.release.' .. k,
           keys.release[k],
-          key_or_false,
-          'valid key string or false'
-        )
-      end
-    end
-    local branch_keys = rawget(keys, 'branch')
-    if branch_keys ~= nil then
-      vim.validate('forge.keys.branch', branch_keys, 'table')
-      for _, k in ipairs({ 'delete', 'browse', 'yank', 'refresh' }) do
-        vim.validate(
-          'forge.keys.branch.' .. k,
-          branch_keys[k],
-          key_or_false,
-          'valid key string or false'
-        )
-      end
-    end
-    local commit_keys = rawget(keys, 'commit')
-    if commit_keys ~= nil then
-      vim.validate('forge.keys.commit', commit_keys, 'table')
-      for _, k in ipairs({ 'browse', 'yank', 'refresh' }) do
-        vim.validate(
-          'forge.keys.commit.' .. k,
-          commit_keys[k],
-          key_or_false,
-          'valid key string or false'
-        )
-      end
-    end
-    local worktree_keys = rawget(keys, 'worktree')
-    if worktree_keys ~= nil then
-      vim.validate('forge.keys.worktree', worktree_keys, 'table')
-      for _, k in ipairs({ 'add', 'delete', 'yank', 'refresh' }) do
-        vim.validate(
-          'forge.keys.worktree.' .. k,
-          worktree_keys[k],
           key_or_false,
           'valid key string or false'
         )
