@@ -9,7 +9,7 @@ package.preload['fzf-lua.utils'] = function()
 end
 
 describe('github', function()
-  local gh = require('forge.github')
+  local gh = require('forge.backends.github')
 
   it('has correct metadata', function()
     assert.equals('gh', gh.cli)
@@ -352,8 +352,8 @@ describe('github browse', function()
     end
 
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.github'] = nil
-    gh = require('forge.github')
+    package.loaded['forge.backends.github'] = nil
+    gh = require('forge.backends.github')
   end)
 
   after_each(function()
@@ -361,7 +361,7 @@ describe('github browse', function()
     vim.ui.open = old_ui_open
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.github'] = nil
+    package.loaded['forge.backends.github'] = nil
   end)
 
   it('opens GitHub browse targets through vim.ui.open', function()
@@ -413,7 +413,7 @@ describe('github browse', function()
 end)
 
 describe('gitlab', function()
-  local gl = require('forge.gitlab')
+  local gl = require('forge.backends.gitlab')
 
   it('has correct metadata', function()
     assert.equals('glab', gl.cli)
@@ -652,7 +652,7 @@ describe('gitlab', function()
 end)
 
 describe('codeberg', function()
-  local cb = require('forge.codeberg')
+  local cb = require('forge.backends.codeberg')
 
   it('has correct metadata', function()
     assert.equals('tea', cb.cli)

@@ -28,7 +28,7 @@ describe('create_issue', function()
       ['forge.config'] = package.preload['forge.config'],
       ['forge.context'] = package.preload['forge.context'],
       ['forge.format'] = package.preload['forge.format'],
-      ['forge.github'] = package.preload['forge.github'],
+      ['forge.backends.github'] = package.preload['forge.backends.github'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['forge.template'] = package.preload['forge.template'],
@@ -120,7 +120,7 @@ describe('create_issue', function()
       return {}
     end
 
-    package.preload['forge.github'] = function()
+    package.preload['forge.backends.github'] = function()
       return {
         name = 'github',
         cli = 'gh',
@@ -133,7 +133,7 @@ describe('create_issue', function()
       }
     end
     package.loaded['forge'] = nil
-    package.loaded['forge.github'] = nil
+    package.loaded['forge.backends.github'] = nil
 
     package.preload['forge.logger'] = function()
       return {
@@ -165,7 +165,7 @@ describe('create_issue', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.github'] = nil
+    package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.template'] = nil
@@ -183,7 +183,7 @@ describe('create_issue', function()
     package.preload['forge.config'] = old_preload['forge.config']
     package.preload['forge.context'] = old_preload['forge.context']
     package.preload['forge.format'] = old_preload['forge.format']
-    package.preload['forge.github'] = old_preload['forge.github']
+    package.preload['forge.backends.github'] = old_preload['forge.backends.github']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['forge.template'] = old_preload['forge.template']
@@ -195,7 +195,7 @@ describe('create_issue', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.github'] = nil
+    package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.template'] = nil
@@ -334,7 +334,7 @@ describe('create_issue', function()
   end)
 
   it('reports browser open failures for URL-based web issue flows', function()
-    package.preload['forge.github'] = function()
+    package.preload['forge.backends.github'] = function()
       return {
         name = 'github',
         cli = 'gh',
@@ -356,7 +356,7 @@ describe('create_issue', function()
   end)
 
   it('prefers URL-based web issue flows over command-based ones when both exist', function()
-    package.preload['forge.github'] = function()
+    package.preload['forge.backends.github'] = function()
       return {
         cli = 'gh',
         create_issue_web_cmd = function()

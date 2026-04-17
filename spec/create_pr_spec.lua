@@ -9,7 +9,7 @@ local preload_modules = {
   'forge.config',
   'forge.context',
   'forge.format',
-  'forge.github',
+  'forge.backends.github',
   'forge.logger',
   'forge.picker',
   'forge.template',
@@ -156,7 +156,7 @@ describe('create_pr', function()
       return {}
     end
 
-    package.preload['forge.github'] = function()
+    package.preload['forge.backends.github'] = function()
       return {
         name = 'github',
         cli = 'gh',
@@ -411,7 +411,7 @@ describe('create_pr', function()
   end)
 
   it('reports browser open failures for URL-based web PR flows', function()
-    package.preload['forge.github'] = function()
+    package.preload['forge.backends.github'] = function()
       return {
         cli = 'gh',
         labels = { pr_one = 'PR' },

@@ -24,7 +24,7 @@ describe('edit_issue', function()
       ['forge.config'] = package.preload['forge.config'],
       ['forge.context'] = package.preload['forge.context'],
       ['forge.format'] = package.preload['forge.format'],
-      ['forge.github'] = package.preload['forge.github'],
+      ['forge.backends.github'] = package.preload['forge.backends.github'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.template'] = package.preload['forge.template'],
     }
@@ -124,7 +124,7 @@ describe('edit_issue', function()
       return {}
     end
 
-    package.preload['forge.github'] = function()
+    package.preload['forge.backends.github'] = function()
       return {
         cli = 'gh',
         fetch_issue_details_cmd = function(_, num)
@@ -168,7 +168,7 @@ describe('edit_issue', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.github'] = nil
+    package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.template'] = nil
   end)
@@ -184,7 +184,7 @@ describe('edit_issue', function()
     package.preload['forge.config'] = old_preload['forge.config']
     package.preload['forge.context'] = old_preload['forge.context']
     package.preload['forge.format'] = old_preload['forge.format']
-    package.preload['forge.github'] = old_preload['forge.github']
+    package.preload['forge.backends.github'] = old_preload['forge.backends.github']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.template'] = old_preload['forge.template']
 
@@ -195,7 +195,7 @@ describe('edit_issue', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.github'] = nil
+    package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.template'] = nil
   end)
