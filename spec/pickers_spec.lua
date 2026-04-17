@@ -257,6 +257,9 @@ describe('pickers', function()
         ci_log = function(_, run)
           table.insert(op_calls, { name = 'ci_log', run = run })
         end,
+        ci_open = function(_, run)
+          table.insert(op_calls, { name = 'ci_open', run = run })
+        end,
         ci_watch = function(_, run)
           table.insert(op_calls, { name = 'ci_watch', run = run })
         end,
@@ -1189,12 +1192,13 @@ describe('pickers', function()
     end)
     vim.system = old_system
 
+    action_by_name('default').fn(streamed[1])
     action_by_name('log').fn(streamed[1])
     action_by_name('watch').fn(streamed[1])
     action_by_name('browse').fn(streamed[1])
 
     assert.same({
-      name = 'ci_log',
+      name = 'ci_open',
       run = {
         id = '1',
         name = 'CI',
@@ -1205,7 +1209,7 @@ describe('pickers', function()
       },
     }, op_calls[1])
     assert.same({
-      name = 'ci_watch',
+      name = 'ci_log',
       run = {
         id = '1',
         name = 'CI',
@@ -1216,7 +1220,7 @@ describe('pickers', function()
       },
     }, op_calls[2])
     assert.same({
-      name = 'ci_browse',
+      name = 'ci_watch',
       run = {
         id = '1',
         name = 'CI',
@@ -1226,6 +1230,17 @@ describe('pickers', function()
         scope = nil,
       },
     }, op_calls[3])
+    assert.same({
+      name = 'ci_browse',
+      run = {
+        id = '1',
+        name = 'CI',
+        branch = 'main',
+        status = 'success',
+        url = 'https://example.com',
+        scope = nil,
+      },
+    }, op_calls[4])
   end)
 
   it('shows an info notification when skipped checks have no logs', function()
@@ -1299,6 +1314,7 @@ describe('pickers', function()
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
+    assert.is_nil(rawget(action_by_name('default'), 'close'))
     assert.is_nil(rawget(action_by_name('log'), 'close'))
 
     local streamed = {}
@@ -1621,7 +1637,7 @@ describe('pickers', function()
       return streamed.done == true
     end)
 
-    action_by_name('log').fn(streamed[3])
+    action_by_name('default').fn(streamed[3])
 
     vim.system = old_system
 

@@ -256,7 +256,8 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         ci = {
-          log = '<cr>',
+          open = '<cr>',
+          log = '<c-l>',
           watch = '<c-w>',
           browse = '<c-x>',
           filter = '<tab>',
@@ -288,6 +289,10 @@ Top-level keys: ~
   `keys.pr` supports secondary bindings for `worktree`, `ci`, `browse`,
   `edit`, `approve`, `merge`, `create`, `close`, `draft`, and `refresh`.
   The primary PR action remains `<cr>` checkout.
+
+  `keys.ci` supports secondary bindings for `log`, `watch`, `browse`,
+  filter cycling, and `refresh`. The primary CI action remains `<cr>`
+  open.
 
   Additional picker groups:
     `keys.log` supports `close` and `browse` across CI terminal/log views,
@@ -463,6 +468,11 @@ BANG SEMANTICS                                            *forge-command-bang*
 
 `:Forge issue edit` {num} [repo=...]                       *:Forge-issue-edit*
     Open the issue edit compose flow for issue `{num}`.
+
+`:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
+    Open the primary local run view for CI run `{run-id}`. Active runs
+    use the forge's watch/follow surface when available; otherwise Forge
+    falls back to the standard log/summary view.
 
 `:Forge ci log` {run-id} [repo=...]                            *:Forge-ci-log*
     Open the primary run view for CI run `{run-id}`. On GitHub this uses a
@@ -678,8 +688,10 @@ per-job log buffers opened from active GitHub runs auto-refresh at the same
 interval.
 
   Action      Default Key    Description ~
-  `log`         `<cr>`           Run view terminal (GitHub) or log buffer
-                               (others)
+  `open`        `<cr>`           Primary CI inspect action: watch active runs
+                               when supported, otherwise open the log/summary
+                               view
+  `log`         `<c-l>`          Force the log/summary view
   `watch`       `<c-w>`          Run watch terminal
   `browse`      `<c-x>`          Open run/check URL in browser
   `filter`      `<tab>`          Cycle filter: all -> failed -> passed -> running
@@ -1282,6 +1294,7 @@ layer `:Forge pr checkout 42` and the PR picker's `<cr>` both dispatch to. >lua
     ops.pr_browse(f, { num = '42' })
     ops.pr_checkout(f, { num = '42' })
     ops.pr_worktree(f, { num = '42' })
+    ops.ci_open(f, { id = '987654321' })
     ops.ci_log(f, { id = '987654321' })
     ops.browse_commit({ commit = 'abc1234' })
     ops.browse_branch('main')
@@ -1662,6 +1675,11 @@ and `num`/`id`/`tag`.
                                                           *forge.ops.ci_list()*
 `ci_list(branch?, opts?)`
     Opens the CI runs picker. `nil` branch shows all runs.
+
+                                                          *forge.ops.ci_open()*
+`ci_open(f, run)`
+    Opens the primary local CI view for `run`. Active runs use watch when
+    available; completed or unsupported runs fall back to `ci_log()`.
 
                                                            *forge.ops.ci_log()*
 `ci_log(f, run)`

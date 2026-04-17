@@ -49,6 +49,7 @@ local M = {}
 ---@field refresh string|false
 
 ---@class forge.CIPickerKeys
+---@field open string|false
 ---@field log string|false
 ---@field watch string|false
 ---@field browse string|false
@@ -155,7 +156,8 @@ local DEFAULTS = {
       create = '<c-a>',
     },
     ci = {
-      log = '<cr>',
+      open = '<cr>',
+      log = '<c-l>',
       watch = '<c-w>',
       browse = '<c-x>',
       filter = '<tab>',
@@ -474,6 +476,7 @@ function M.config()
     if keys.ci ~= nil then
       vim.validate('forge.keys.ci', keys.ci, 'table')
       for _, k in ipairs({
+        'open',
         'log',
         'watch',
         'browse',

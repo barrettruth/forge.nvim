@@ -273,6 +273,9 @@ describe(':Forge command', function()
         ci_log = function(_, run)
           table.insert(captured.ops_calls, { name = 'ci_log', run = run })
         end,
+        ci_open = function(_, run)
+          table.insert(captured.ops_calls, { name = 'ci_open', run = run })
+        end,
         ci_watch = function(_, run)
           table.insert(captured.ops_calls, { name = 'ci_watch', run = run })
         end,
@@ -775,12 +778,13 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
   end)
 
-  it('dispatches CI log and watch subcommands through forge.ops', function()
-    vim.cmd('Forge ci log 123 repo=upstream')
-    vim.cmd('Forge ci watch 456')
+  it('dispatches CI open, log, and watch subcommands through forge.ops', function()
+    vim.cmd('Forge ci open 123 repo=upstream')
+    vim.cmd('Forge ci log 456')
+    vim.cmd('Forge ci watch 789')
 
     assert.same({
-      name = 'ci_log',
+      name = 'ci_open',
       run = {
         id = '123',
         scope = {
@@ -795,15 +799,20 @@ describe(':Forge command', function()
       },
     }, captured.ops_calls[1])
     assert.same({
-      name = 'ci_watch',
+      name = 'ci_log',
       run = { id = '456', scope = nil },
     }, captured.ops_calls[2])
+    assert.same({
+      name = 'ci_watch',
+      run = { id = '789', scope = nil },
+    }, captured.ops_calls[3])
   end)
 
   it('completes families, verbs, and valid canonical modifiers contextually', function()
     local families = vim.fn.getcompletion('Forge ', 'cmdline')
     local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
     local issue = vim.fn.getcompletion('Forge issue ', 'cmdline')
+    local ci = vim.fn.getcompletion('Forge ci ', 'cmdline')
     local release = vim.fn.getcompletion('Forge release ', 'cmdline')
     local pr_create = vim.fn.getcompletion('Forge pr create ', 'cmdline')
     local issue_create = vim.fn.getcompletion('Forge issue create ', 'cmdline')
@@ -821,6 +830,9 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'draft'))
     assert.is_true(vim.tbl_contains(pr, 'ready'))
     assert.is_false(vim.tbl_contains(pr, 'ci'))
+    assert.is_true(vim.tbl_contains(ci, 'open'))
+    assert.is_true(vim.tbl_contains(ci, 'log'))
+    assert.is_true(vim.tbl_contains(ci, 'watch'))
     assert.is_false(vim.tbl_contains(pr, 'state='))
     assert.is_false(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(issue, 'edit'))

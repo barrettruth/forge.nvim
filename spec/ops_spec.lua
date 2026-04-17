@@ -320,6 +320,47 @@ describe('shared operations', function()
     }, captured.infos)
   end)
 
+  it('opens in-progress CI runs via watch when available', function()
+    local ops = require('forge.ops')
+    ops.ci_open({
+      watch_cmd = function(_, run_id, scope)
+        return { 'watch', run_id, scope or 'none' }
+      end,
+      run_web_url = function(_, run_id, scope)
+        return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
+      end,
+    }, {
+      id = '88',
+      status = 'running',
+      scope = 'repo/ref',
+    })
+
+    assert.same({ 'watch', '88', 'repo/ref' }, captured.terms[1].cmd)
+    assert.same({ url = 'https://example.com/runs/88/repo/ref' }, captured.terms[1].opts)
+  end)
+
+  it('opens completed CI runs via log', function()
+    local ops = require('forge.ops')
+    ops.ci_open({
+      name = 'gitlab',
+      run_log_cmd = function(_, run_id, failed, scope)
+        return { 'run-log', run_id, tostring(failed), scope or 'none' }
+      end,
+      steps_cmd = function(_, run_id, scope)
+        return { 'steps', run_id, scope or 'none' }
+      end,
+      run_web_url = function(_, run_id, scope)
+        return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
+      end,
+    }, {
+      id = '89',
+      status = 'failed',
+      scope = 'repo/ref',
+    })
+
+    assert.same({ 'run-log', '89', 'true', 'repo/ref' }, captured.logs[1].cmd)
+  end)
+
   it('falls back to JSON CI summaries when no run view is available', function()
     local ops = require('forge.ops')
     ops.ci_log({

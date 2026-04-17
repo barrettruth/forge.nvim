@@ -69,6 +69,11 @@ local function normalize_run_ref(run, scope)
   return { id = run, scope = scope }
 end
 
+local function run_in_progress(status)
+  status = trim(status):lower()
+  return status == 'in_progress' or status == 'queued' or status == 'pending' or status == 'running'
+end
+
 local function summary_job_at_cursor(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   return require('forge.log')._summary_job_at_line(lines, vim.api.nvim_win_get_cursor(0)[1])
@@ -380,10 +385,7 @@ function M.ci_log(f, run)
   run = normalize_run_ref(run)
   local run_ref = run.scope
   local status = trim(run.status):lower()
-  local in_progress = status == 'in_progress'
-    or status == 'queued'
-    or status == 'pending'
-    or status == 'running'
+  local in_progress = run_in_progress(status)
   local url = trim(run.url)
   if url == '' and f.run_web_url then
     url = trim(f:run_web_url(run.id, run_ref) or '')
@@ -496,10 +498,7 @@ function M.ci_watch(f, run)
   end
   local run_ref = run.scope
   local status = trim(run.status):lower()
-  local in_progress = status == 'in_progress'
-    or status == 'queued'
-    or status == 'pending'
-    or status == 'running'
+  local in_progress = run_in_progress(status)
   local url = trim(run.url)
   if url == '' and f.run_web_url then
     url = trim(f:run_web_url(run.id, run_ref) or '')
@@ -516,6 +515,16 @@ function M.ci_watch(f, run)
     url = url,
   })
   return true
+end
+
+---@param f forge.Forge
+---@param run forge.RunRefLike
+function M.ci_open(f, run)
+  run = normalize_run_ref(run)
+  if run_in_progress(run.status) and M.ci_watch(f, run) then
+    return
+  end
+  M.ci_log(f, run)
 end
 
 ---@param f forge.Forge

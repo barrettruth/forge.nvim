@@ -97,6 +97,7 @@ describe('command schema', function()
 
   it('rejects implicit picker forms and parses explicit direct actions', function()
     local create = assert(cmd.parse({ 'pr', 'create', 'draft' }))
+    local open = assert(cmd.parse({ 'ci', 'open', '123' }))
     local ci = assert(cmd.parse({ 'ci', 'log', '123' }))
     local _, pr_missing = cmd.parse({ 'pr' })
     local _, ci_missing = cmd.parse({ 'ci' })
@@ -106,6 +107,10 @@ describe('command schema', function()
     assert.equals('pr', create.family)
     assert.equals('create', create.name)
     assert.same({ draft = true }, create.modifiers)
+
+    assert.equals('ci', open.family)
+    assert.equals('open', open.name)
+    assert.same({ '123' }, open.subjects)
 
     assert.equals('ci', ci.family)
     assert.equals('log', ci.name)
@@ -207,7 +212,7 @@ describe('command schema', function()
     }, cmd.verb_names('pr'))
 
     assert.same({ 'browse', 'close', 'reopen', 'create', 'edit' }, cmd.verb_names('issue'))
-    assert.same({ 'log', 'watch', 'browse' }, cmd.verb_names('ci'))
+    assert.same({ 'open', 'log', 'watch', 'browse' }, cmd.verb_names('ci'))
     assert.same({ 'browse', 'delete' }, cmd.verb_names('release'))
   end)
 
