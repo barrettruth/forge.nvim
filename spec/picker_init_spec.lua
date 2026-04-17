@@ -1,6 +1,6 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-describe('forge.picker.toggle_verb', function()
+describe('forge.picker.pr_toggle_verb', function()
   local picker
 
   before_each(function()
@@ -8,67 +8,104 @@ describe('forge.picker.toggle_verb', function()
     picker = require('forge.picker')
   end)
 
-  it('returns close for open pr entries', function()
-    local verb = picker.toggle_verb('pr', { value = { num = '1', state = 'OPEN' } })
-    assert.equals('close', verb)
+  it('returns close for open prs', function()
+    assert.equals('close', picker.pr_toggle_verb({ value = { num = '1', state = 'OPEN' } }))
   end)
 
-  it('returns reopen for closed (non-merged) pr entries', function()
-    local verb = picker.toggle_verb('pr', { value = { num = '1', state = 'CLOSED' } })
-    assert.equals('reopen', verb)
+  it('returns close for lowercase opened state (gitlab)', function()
+    assert.equals('close', picker.pr_toggle_verb({ value = { num = '1', state = 'opened' } }))
   end)
 
-  it('returns nil for merged pr entries because merged is a terminal state', function()
-    local verb = picker.toggle_verb('pr', { value = { num = '1', state = 'MERGED' } })
-    assert.is_nil(verb)
+  it('returns reopen for closed (non-merged) prs', function()
+    assert.equals('reopen', picker.pr_toggle_verb({ value = { num = '1', state = 'CLOSED' } }))
   end)
 
-  it('returns close for open issue entries', function()
-    local verb = picker.toggle_verb('issue', { value = { num = '1', state = 'opened' } })
-    assert.equals('close', verb)
+  it('returns nil for merged prs because merged is a terminal state', function()
+    assert.is_nil(picker.pr_toggle_verb({ value = { num = '1', state = 'MERGED' } }))
   end)
 
-  it('returns reopen for closed issue entries', function()
-    local verb = picker.toggle_verb('issue', { value = { num = '1', state = 'closed' } })
-    assert.equals('reopen', verb)
+  it('returns nil for placeholder or load_more rows', function()
+    assert.is_nil(picker.pr_toggle_verb({ placeholder = true, value = { state = 'OPEN' } }))
+    assert.is_nil(picker.pr_toggle_verb({ load_more = true, value = { state = 'OPEN' } }))
+  end)
+
+  it('returns nil when the entry has no value table', function()
+    assert.is_nil(picker.pr_toggle_verb(nil))
+    assert.is_nil(picker.pr_toggle_verb({ value = 'not-a-table' }))
+  end)
+end)
+
+describe('forge.picker.issue_toggle_verb', function()
+  local picker
+
+  before_each(function()
+    package.loaded['forge.picker'] = nil
+    picker = require('forge.picker')
+  end)
+
+  it('returns close for open issues', function()
+    assert.equals('close', picker.issue_toggle_verb({ value = { num = '1', state = 'opened' } }))
+  end)
+
+  it('returns reopen for closed issues', function()
+    assert.equals('reopen', picker.issue_toggle_verb({ value = { num = '1', state = 'closed' } }))
   end)
 
   it('does not treat merged as a valid issue state', function()
-    local verb = picker.toggle_verb('issue', { value = { num = '1', state = 'merged' } })
-    assert.is_nil(verb)
+    assert.is_nil(picker.issue_toggle_verb({ value = { num = '1', state = 'merged' } }))
   end)
 
-  it('returns cancel for in-progress ci entries', function()
+  it('returns nil for placeholder or load_more rows', function()
+    assert.is_nil(picker.issue_toggle_verb({ placeholder = true, value = { state = 'OPEN' } }))
+    assert.is_nil(picker.issue_toggle_verb({ load_more = true, value = { state = 'OPEN' } }))
+  end)
+
+  it('returns nil when the entry has no value table', function()
+    assert.is_nil(picker.issue_toggle_verb(nil))
+    assert.is_nil(picker.issue_toggle_verb({ value = 'not-a-table' }))
+  end)
+end)
+
+describe('forge.picker.ci_toggle_verb', function()
+  local picker
+
+  before_each(function()
+    package.loaded['forge.picker'] = nil
+    picker = require('forge.picker')
+  end)
+
+  it('returns cancel for in-progress runs', function()
     for _, status in ipairs({ 'in_progress', 'queued', 'pending', 'running' }) do
-      local verb = picker.toggle_verb('ci', { value = { id = '1', status = status } })
-      assert.equals('cancel', verb, 'status=' .. status)
+      assert.equals(
+        'cancel',
+        picker.ci_toggle_verb({ value = { id = '1', status = status } }),
+        'status=' .. status
+      )
     end
   end)
 
-  it('returns rerun for completed ci entries', function()
+  it('returns rerun for completed runs', function()
     for _, status in ipairs({ 'success', 'failure', 'cancelled', 'timed_out' }) do
-      local verb = picker.toggle_verb('ci', { value = { id = '1', status = status } })
-      assert.equals('rerun', verb, 'status=' .. status)
+      assert.equals(
+        'rerun',
+        picker.ci_toggle_verb({ value = { id = '1', status = status } }),
+        'status=' .. status
+      )
     end
   end)
 
-  it('returns nil for skipped ci entries', function()
-    local verb = picker.toggle_verb('ci', { value = { id = '1', status = 'skipped' } })
-    assert.is_nil(verb)
+  it('returns nil for skipped runs', function()
+    assert.is_nil(picker.ci_toggle_verb({ value = { id = '1', status = 'skipped' } }))
   end)
 
-  it('returns nil for placeholder or load_more entries', function()
-    assert.is_nil(picker.toggle_verb('pr', { placeholder = true, value = { state = 'OPEN' } }))
-    assert.is_nil(picker.toggle_verb('ci', { load_more = true, value = { status = 'running' } }))
+  it('returns nil for placeholder or load_more rows', function()
+    assert.is_nil(picker.ci_toggle_verb({ placeholder = true, value = { status = 'running' } }))
+    assert.is_nil(picker.ci_toggle_verb({ load_more = true, value = { status = 'running' } }))
   end)
 
-  it('returns nil for entries missing value tables', function()
-    assert.is_nil(picker.toggle_verb('pr', nil))
-    assert.is_nil(picker.toggle_verb('pr', { value = 'not-a-table' }))
-  end)
-
-  it('returns nil for unknown picker names', function()
-    assert.is_nil(picker.toggle_verb('release', { value = { state = 'OPEN' } }))
+  it('returns nil when the entry has no value table', function()
+    assert.is_nil(picker.ci_toggle_verb(nil))
+    assert.is_nil(picker.ci_toggle_verb({ value = 'not-a-table' }))
   end)
 end)
 

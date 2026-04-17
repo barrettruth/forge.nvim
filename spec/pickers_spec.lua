@@ -202,46 +202,49 @@ describe('pickers', function()
         pick = function(opts)
           captured = opts
         end,
-        toggle_verb = function(picker_name, entry)
+        pr_toggle_verb = function(entry)
           if not entry or type(entry.value) ~= 'table' then
             return nil
           end
-          if picker_name == 'pr' then
-            local state = (entry.value.state or ''):lower()
-            if state == 'open' or state == 'opened' then
-              return 'close'
-            end
-            if state == 'closed' then
-              return 'reopen'
-            end
-            return nil
+          local state = (entry.value.state or ''):lower()
+          if state == 'open' or state == 'opened' then
+            return 'close'
           end
-          if picker_name == 'issue' then
-            local state = (entry.value.state or ''):lower()
-            if state == 'open' or state == 'opened' then
-              return 'close'
-            end
-            if state == 'closed' then
-              return 'reopen'
-            end
-            return nil
-          end
-          if picker_name == 'ci' then
-            local status = (entry.value.status or ''):lower()
-            if
-              status == 'in_progress'
-              or status == 'queued'
-              or status == 'pending'
-              or status == 'running'
-            then
-              return 'cancel'
-            end
-            if status == 'skipped' then
-              return nil
-            end
-            return 'rerun'
+          if state == 'closed' then
+            return 'reopen'
           end
           return nil
+        end,
+        issue_toggle_verb = function(entry)
+          if not entry or type(entry.value) ~= 'table' then
+            return nil
+          end
+          local state = (entry.value.state or ''):lower()
+          if state == 'open' or state == 'opened' then
+            return 'close'
+          end
+          if state == 'closed' then
+            return 'reopen'
+          end
+          return nil
+        end,
+        ci_toggle_verb = function(entry)
+          if not entry or type(entry.value) ~= 'table' then
+            return nil
+          end
+          local status = (entry.value.status or ''):lower()
+          if
+            status == 'in_progress'
+            or status == 'queued'
+            or status == 'pending'
+            or status == 'running'
+          then
+            return 'cancel'
+          end
+          if status == 'skipped' then
+            return nil
+          end
+          return 'rerun'
         end,
       }
     end

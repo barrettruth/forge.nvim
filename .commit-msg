@@ -1,0 +1,15 @@
+refactor(picker): split toggle_verb into dedicated per-kind functions
+
+Replace the generic picker.toggle_verb(picker_name, entry) dispatcher
+with three dedicated exports: picker.pr_toggle_verb, issue_toggle_verb,
+and ci_toggle_verb. Each takes an entry directly and returns its own
+precise union type (PRToggleVerb, IssueToggleVerb, CIToggleVerb) so
+callers and luals get better type information.
+
+Shared placeholder/load_more/value-type guarding is factored into a
+private entry_value helper so the per-kind bodies stay focused on the
+actual state-to-verb mapping.
+
+Callsites in pickers.lua and the preload stub in pickers_spec.lua are
+updated accordingly. picker_init_spec.lua is split into three describe
+blocks mirroring the function boundaries.

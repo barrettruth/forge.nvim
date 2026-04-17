@@ -629,7 +629,7 @@ function M.ci(f, branch, filter, opts)
         if entry == nil then
           return 'cancel/rerun'
         end
-        return picker.toggle_verb('ci', entry)
+        return picker.ci_toggle_verb(entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
@@ -895,13 +895,13 @@ function M.pr(state, f, opts)
         if entry == nil then
           return 'close/reopen'
         end
-        return picker.toggle_verb('pr', entry)
+        return picker.pr_toggle_verb(entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
           return
         end
-        local verb = picker.toggle_verb('pr', entry)
+        local verb = picker.pr_toggle_verb(entry)
         local callbacks = { on_success = reopen_list, on_failure = reopen_list }
         if verb == 'close' then
           ops.pr_close(f, entry.value, callbacks)
@@ -1139,13 +1139,13 @@ function M.issue(state, f, opts)
         if entry == nil then
           return 'close/reopen'
         end
-        return picker.toggle_verb('issue', entry)
+        return picker.issue_toggle_verb(entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
           return
         end
-        local verb = picker.toggle_verb('issue', entry)
+        local verb = picker.issue_toggle_verb(entry)
         local callbacks = { on_success = reopen_list, on_failure = reopen_list }
         if verb == 'close' then
           ops.issue_close(f, entry.value, callbacks)

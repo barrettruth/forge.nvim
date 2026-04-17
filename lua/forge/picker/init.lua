@@ -205,8 +205,76 @@ function M.has_dynamic_label(def)
   return type(rawget(def, 'label')) == 'function'
 end
 
-local function ci_verb(status)
-  status = (status or ''):lower()
+---@param entry forge.PickerEntry?
+---@return table?
+local function entry_value(entry)
+  if not entry or rawget(entry, 'placeholder') or rawget(entry, 'load_more') then
+    return nil
+  end
+  if type(entry.value) ~= 'table' then
+    return nil
+  end
+  return entry.value
+end
+
+---@alias forge.IssueToggleVerb 'close'|'reopen'
+
+---Verb that the issue toggle action will execute on `entry`, or `nil` when no
+---valid transition exists (missing/unknown state, placeholder, or load_more
+---row).
+---@param entry forge.PickerEntry?
+---@return forge.IssueToggleVerb?
+function M.issue_toggle_verb(entry)
+  local value = entry_value(entry)
+  if not value then
+    return nil
+  end
+  local state = (value.state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return 'close'
+  end
+  if state == 'closed' then
+    return 'reopen'
+  end
+  return nil
+end
+
+---@alias forge.PRToggleVerb 'close'|'reopen'
+
+---Verb that the PR toggle action will execute on `entry`, or `nil` when no
+---valid transition exists. Merged PRs return `nil` because merged is a
+---terminal state (`gh pr reopen` and its GitLab/Codeberg analogues all
+---refuse a merged PR).
+---@param entry forge.PickerEntry?
+---@return forge.PRToggleVerb?
+function M.pr_toggle_verb(entry)
+  local value = entry_value(entry)
+  if not value then
+    return nil
+  end
+  local state = (value.state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return 'close'
+  end
+  if state == 'closed' then
+    return 'reopen'
+  end
+  return nil
+end
+
+---@alias forge.CIToggleVerb 'cancel'|'rerun'
+
+---Verb that the CI toggle action will execute on `entry`, or `nil` when no
+---valid transition exists. `skipped` runs return `nil` because neither
+---cancel nor rerun makes sense for a workflow that never started.
+---@param entry forge.PickerEntry?
+---@return forge.CIToggleVerb?
+function M.ci_toggle_verb(entry)
+  local value = entry_value(entry)
+  if not value then
+    return nil
+  end
+  local status = (value.status or ''):lower()
   if
     status == 'in_progress'
     or status == 'queued'
@@ -219,51 +287,6 @@ local function ci_verb(status)
     return nil
   end
   return 'rerun'
-end
-
-local function pr_verb(state)
-  state = (state or ''):lower()
-  if state == 'open' or state == 'opened' then
-    return 'close'
-  end
-  if state == 'closed' then
-    return 'reopen'
-  end
-  return nil
-end
-
-local function issue_verb(state)
-  state = (state or ''):lower()
-  if state == 'open' or state == 'opened' then
-    return 'close'
-  end
-  if state == 'closed' then
-    return 'reopen'
-  end
-  return nil
-end
-
----@param picker_name string
----@param entry forge.PickerEntry?
----@return string?
-function M.toggle_verb(picker_name, entry)
-  if not entry or rawget(entry, 'placeholder') or rawget(entry, 'load_more') then
-    return nil
-  end
-  local value = entry.value
-  if type(value) ~= 'table' then
-    return nil
-  end
-  if picker_name == 'pr' then
-    return pr_verb(value.state)
-  end
-  if picker_name == 'issue' then
-    return issue_verb(value.state)
-  end
-  if picker_name == 'ci' then
-    return ci_verb(value.status)
-  end
-  return nil
 end
 
 ---@param opts forge.PickerOpts
