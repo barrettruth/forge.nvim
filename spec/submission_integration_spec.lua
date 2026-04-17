@@ -102,10 +102,10 @@ describe('submission integration', function()
     end
 
     package.loaded['forge'] = nil
-    package.loaded['forge.codeberg'] = nil
+    package.loaded['forge.backends.codeberg'] = nil
     package.loaded['forge.compose'] = nil
-    package.loaded['forge.github'] = nil
-    package.loaded['forge.gitlab'] = nil
+    package.loaded['forge.backends.github'] = nil
+    package.loaded['forge.backends.gitlab'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.submission'] = nil
     package.loaded['forge.template'] = nil
@@ -121,10 +121,10 @@ describe('submission integration', function()
     package.preload['forge.template'] = old_preload['forge.template']
 
     package.loaded['forge'] = nil
-    package.loaded['forge.codeberg'] = nil
+    package.loaded['forge.backends.codeberg'] = nil
     package.loaded['forge.compose'] = nil
-    package.loaded['forge.github'] = nil
-    package.loaded['forge.gitlab'] = nil
+    package.loaded['forge.backends.github'] = nil
+    package.loaded['forge.backends.gitlab'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.submission'] = nil
     package.loaded['forge.template'] = nil
@@ -142,7 +142,7 @@ describe('submission integration', function()
 
   it('submits GitHub issue metadata through compose into the real adapter', function()
     local compose = require('forge.compose')
-    local gh = require('forge.github')
+    local gh = require('forge.backends.github')
 
     compose.open_issue(gh, {
       title = 'bug: ',
@@ -181,7 +181,7 @@ describe('submission integration', function()
 
   it('submits GitLab PR updates and draft toggle through compose into the real adapter', function()
     local compose = require('forge.compose')
-    local gl = require('forge.gitlab')
+    local gl = require('forge.backends.gitlab')
 
     compose.open_pr_edit(gl, '23', {
       title = 'PR title',
@@ -233,7 +233,7 @@ describe('submission integration', function()
 
   it('submits Codeberg PR updates through compose using only supported metadata fields', function()
     local compose = require('forge.compose')
-    local cb = require('forge.codeberg')
+    local cb = require('forge.backends.codeberg')
 
     compose.open_pr_edit(cb, '23', {
       title = 'PR title',
