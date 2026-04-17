@@ -421,8 +421,9 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr worktree` {num} [repo=...]                     *:Forge-pr-worktree*
     Fetch PR `{num}` and create a git worktree.
 
-`:Forge pr browse` {num} [repo=...]                         *:Forge-pr-browse*
-    Open PR `{num}` in the browser.
+`:Forge pr browse` [{num}] [repo=...]                       *:Forge-pr-browse*
+    Open PR `{num}` in the browser, or the PR list landing page when
+    `{num}` is omitted.
 
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
@@ -440,8 +441,9 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
     Mark PR `{num}` as ready when supported by the forge.
 
-`:Forge issue browse` {num} [repo=...]                   *:Forge-issue-browse*
-    Open issue `{num}` in the browser.
+`:Forge issue browse` [{num}] [repo=...]                 *:Forge-issue-browse*
+    Open issue `{num}` in the browser, or the issue list landing page
+    when `{num}` is omitted.
 
 `:Forge issue close` {num} [repo=...]                     *:Forge-issue-close*
     Close issue `{num}`.
@@ -472,8 +474,9 @@ BANG SEMANTICS                                            *forge-command-bang*
     opens a refreshing per-job log because `gh` only supports live watch at
     the run level.
 
-`:Forge release browse` {tag} [repo=...]               *:Forge-release-browse*
-    Open release `{tag}` in the browser.
+`:Forge release browse` [{tag}] [repo=...]             *:Forge-release-browse*
+    Open release `{tag}` in the browser, or the releases list landing
+    page when `{tag}` is omitted.
 
 `:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
     Delete release `{tag}` (with confirmation prompt).
@@ -1675,6 +1678,12 @@ and `num`/`id`/`tag`.
                                                    *forge.ops.release_delete()*
 `release_delete(f, release, opts?)`
     Deletes `release`. `opts`: `{ confirm?, on_success?, on_failure? }`.
+
+                                                     *forge.ops.list_browse()*
+`list_browse(f, kind, opts?)`
+    Opens the forge's web list landing page for `kind` (`'pr'`,
+    `'issue'`, `'ci'`, or `'release'`). `opts`: `{ scope? }`. Warns
+    when the source has no such page.
 
                                                     *forge.ops.browse_commit()*
 `browse_commit(opts?)`

@@ -117,6 +117,24 @@ describe('command schema', function()
     assert.equals('unknown pr action: ci', pr_ci.message)
   end)
 
+  it('accepts argless browse for kind families that have a list landing page', function()
+    local pr = assert(cmd.parse({ 'pr', 'browse' }))
+    local issue = assert(cmd.parse({ 'issue', 'browse' }))
+    local release = assert(cmd.parse({ 'release', 'browse' }))
+
+    assert.equals('browse', pr.name)
+    assert.same({}, pr.subjects)
+    assert.equals('browse', issue.name)
+    assert.same({}, issue.subjects)
+    assert.equals('browse', release.name)
+    assert.same({}, release.subjects)
+
+    local pr_with = assert(cmd.parse({ 'pr', 'browse', '42' }))
+    local release_with = assert(cmd.parse({ 'release', 'browse', 'v1.2.3' }))
+    assert.same({ '42' }, pr_with.subjects)
+    assert.same({ 'v1.2.3' }, release_with.subjects)
+  end)
+
   it('attaches parsed target-bearing modifiers to normalized commands', function()
     local create = assert(cmd.parse({
       'pr',

@@ -55,7 +55,7 @@ local families = {
         modifiers = { 'repo' },
       },
       browse = {
-        subject = { kind = 'pr', min = 1, max = 1 },
+        subject = { kind = 'pr', min = 0, max = 1 },
         modifiers = { 'repo' },
       },
       close = {
@@ -99,7 +99,7 @@ local families = {
     verb_order = { 'browse', 'close', 'reopen', 'create', 'edit' },
     verbs = {
       browse = {
-        subject = { kind = 'issue', min = 1, max = 1 },
+        subject = { kind = 'issue', min = 0, max = 1 },
         modifiers = { 'repo' },
       },
       close = {
@@ -142,7 +142,7 @@ local families = {
     verb_order = { 'browse', 'delete' },
     verbs = {
       browse = {
-        subject = { kind = 'release', min = 1, max = 1 },
+        subject = { kind = 'release', min = 0, max = 1 },
         modifiers = { 'repo' },
       },
       delete = {
@@ -407,7 +407,11 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'browse' then
-    ops.pr_browse(f, { num = num, scope = scope })
+    if num then
+      ops.pr_browse(f, { num = num, scope = scope })
+    else
+      ops.list_browse(f, 'pr', { scope = scope })
+    end
     return
   end
   if command.name == 'approve' then
@@ -458,7 +462,11 @@ local function dispatch_issue(command)
     return
   end
   if command.name == 'browse' then
-    ops.issue_browse(f, { num = num, scope = scope })
+    if num then
+      ops.issue_browse(f, { num = num, scope = scope })
+    else
+      ops.list_browse(f, 'issue', { scope = scope })
+    end
     return
   end
   if command.name == 'edit' then
@@ -507,7 +515,11 @@ local function dispatch_release(command)
   local tag = command.subjects[1]
   local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'browse' then
-    ops.release_browse(f, { tag = tag, scope = scope })
+    if tag then
+      ops.release_browse(f, { tag = tag, scope = scope })
+    else
+      ops.list_browse(f, 'release', { scope = scope })
+    end
     return
   end
   if command.name == 'delete' then

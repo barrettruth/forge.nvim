@@ -507,6 +507,21 @@ function M.release_delete(f, release, opts)
   end)
 end
 
+---@param kind forge.WebKind
+---@param opts? forge.ScopedOpts
+function M.list_browse(f, kind, opts)
+  opts = opts or {}
+  local url = f.list_web_url and f:list_web_url(kind, opts.scope) or nil
+  if not url or url == '' then
+    log.warn(('%s does not support %s landing pages'):format(f.name, kind))
+    return
+  end
+  local _, err = vim.ui.open(url)
+  if err then
+    log.error(err)
+  end
+end
+
 function M.browse_commit(opts)
   require('forge').open('browse.commit', opts)
 end
