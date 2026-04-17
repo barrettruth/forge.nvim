@@ -523,6 +523,7 @@ describe('fzf picker', function()
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             if entry then
               invoked = invoked + 1
@@ -540,9 +541,6 @@ describe('fzf picker', function()
     assert.equals('{3}', enter.field_index)
     captured.lines(function() end)
     enter.fn({ '1' })
-    vim.wait(50, function()
-      return invoked == 1
-    end)
     assert.equals(1, invoked)
   end)
 
@@ -680,6 +678,7 @@ describe('fzf picker', function()
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             selected = entry
           end,
@@ -716,9 +715,6 @@ describe('fzf picker', function()
     assert.is_true(done)
 
     captured.opts.actions.enter.fn({ '2' })
-    vim.wait(100, function()
-      return type(selected) == 'table'
-    end)
     assert.equals('2', selected.value)
   end)
 
@@ -739,6 +735,7 @@ describe('fzf picker', function()
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             selected = entry
           end,
@@ -774,9 +771,6 @@ describe('fzf picker', function()
     assert.same({ '1\t#1\t1', '2\t#2\t2' }, second)
 
     captured.opts.actions.enter.fn({ '2' })
-    vim.wait(100, function()
-      return selected ~= false
-    end)
     assert.equals('2', selected.value)
   end)
 

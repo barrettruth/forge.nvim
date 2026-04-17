@@ -31,13 +31,6 @@ function M.action_by_name(actions, name)
   end
 end
 
-function M.drive_stream(captured)
-  if type(captured) == 'table' and type(captured.stream) == 'function' then
-    captured.stream(function() end)
-  end
-  return captured
-end
-
 function M.action_labels(actions, entry)
   local labels = {}
   for _, def in ipairs(actions or {}) do
