@@ -38,7 +38,6 @@ local M = {}
 ---@field close string|false
 ---@field draft string|false
 ---@field filter string|false
----@field filter_prev string|false
 ---@field refresh string|false
 
 ---@class forge.IssuePickerKeys
@@ -47,7 +46,6 @@ local M = {}
 ---@field close string|false
 ---@field create string|false
 ---@field filter string|false
----@field filter_prev string|false
 ---@field refresh string|false
 
 ---@class forge.CIPickerKeys
@@ -55,7 +53,6 @@ local M = {}
 ---@field watch string|false
 ---@field browse string|false
 ---@field filter string|false
----@field filter_prev string|false
 ---@field failed? string|false
 ---@field passed? string|false
 ---@field running? string|false
@@ -67,7 +64,6 @@ local M = {}
 ---@field yank string|false
 ---@field delete string|false
 ---@field filter string|false
----@field filter_prev string|false
 ---@field refresh string|false
 
 ---@class forge.LogViewerKeys
@@ -148,7 +144,6 @@ local DEFAULTS = {
       close = '<c-s>',
       draft = '<c-d>',
       filter = '<tab>',
-      filter_prev = false,
       refresh = '<c-r>',
     },
     issue = {
@@ -156,7 +151,6 @@ local DEFAULTS = {
       edit = '<c-e>',
       close = '<c-s>',
       filter = '<tab>',
-      filter_prev = false,
       refresh = '<c-r>',
       create = '<c-a>',
     },
@@ -165,7 +159,6 @@ local DEFAULTS = {
       watch = '<c-w>',
       browse = '<c-x>',
       filter = '<tab>',
-      filter_prev = false,
       refresh = '<c-r>',
     },
     release = {
@@ -173,7 +166,6 @@ local DEFAULTS = {
       yank = '<c-y>',
       delete = '<c-d>',
       filter = '<tab>',
-      filter_prev = false,
       refresh = '<c-r>',
     },
     log = {
@@ -463,7 +455,6 @@ function M.config()
         'close',
         'draft',
         'filter',
-        'filter_prev',
         'refresh',
       }) do
         vim.validate('forge.keys.pr.' .. k, keys.pr[k], key_or_false, 'valid key string or false')
@@ -471,7 +462,7 @@ function M.config()
     end
     if keys.issue ~= nil then
       vim.validate('forge.keys.issue', keys.issue, 'table')
-      for _, k in ipairs({ 'browse', 'edit', 'close', 'create', 'filter', 'filter_prev', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'edit', 'close', 'create', 'filter', 'refresh' }) do
         vim.validate(
           'forge.keys.issue.' .. k,
           keys.issue[k],
@@ -487,7 +478,6 @@ function M.config()
         'watch',
         'browse',
         'filter',
-        'filter_prev',
         'failed',
         'passed',
         'running',
@@ -499,7 +489,7 @@ function M.config()
     end
     if keys.release ~= nil then
       vim.validate('forge.keys.release', keys.release, 'table')
-      for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'filter_prev', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'yank', 'delete', 'filter', 'refresh' }) do
         vim.validate(
           'forge.keys.release.' .. k,
           keys.release[k],

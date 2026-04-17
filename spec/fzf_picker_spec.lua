@@ -108,7 +108,6 @@ describe('fzf picker', function()
         { name = 'default', label = 'more', fn = function() end },
         { name = 'browse', label = 'browse', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
-        { name = 'filter_prev', label = 'prev', fn = function() end },
       },
       picker_name = 'pr',
     })
@@ -187,7 +186,6 @@ describe('fzf picker', function()
         { name = 'close', label = 'close', fn = function() end },
         { name = 'create', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
-        { name = 'filter_prev', label = 'prev', fn = function() end },
         { name = 'refresh', fn = function() end },
       },
       picker_name = 'issue',
