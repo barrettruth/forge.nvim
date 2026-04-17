@@ -662,6 +662,24 @@ function M.ci(f, branch, filter, opts)
       end,
     },
     {
+      name = 'toggle',
+      label = function(entry)
+        if entry == nil then
+          return 'cancel/rerun'
+        end
+        return picker.state_verb('ci', entry)
+      end,
+      fn = function(entry)
+        if not entry or entry.load_more then
+          return
+        end
+        local reopen = function()
+          M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
+        end
+        ops.ci_toggle(f, entry.value, { on_success = reopen, on_failure = reopen })
+      end,
+    },
+    {
       name = 'refresh',
       label = 'refresh',
       fn = function()
@@ -916,8 +934,13 @@ function M.pr(state, f, opts)
       end,
     },
     {
-      name = 'close',
-      label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'close/reopen',
+      name = 'toggle',
+      label = function(entry)
+        if entry == nil then
+          return 'close/reopen'
+        end
+        return picker.state_verb('pr', entry)
+      end,
       fn = function(entry)
         if entry and not entry.load_more then
           pr_toggle_state(
@@ -1081,7 +1104,7 @@ function M.issue(state, f, opts)
         render_display = function(width)
           return rows_for(width)[i]
         end,
-        value = { num = n, scope = ref },
+        value = { num = n, scope = ref, state = issue[state_field] },
         ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
       })
     end
@@ -1160,8 +1183,13 @@ function M.issue(state, f, opts)
       end,
     },
     {
-      name = 'close',
-      label = state == 'open' and 'close' or state == 'closed' and 'reopen' or 'toggle',
+      name = 'toggle',
+      label = function(entry)
+        if entry == nil then
+          return 'close/reopen'
+        end
+        return picker.state_verb('issue', entry)
+      end,
       fn = function(entry)
         if entry and not entry.load_more then
           issue_toggle_state(

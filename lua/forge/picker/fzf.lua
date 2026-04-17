@@ -107,13 +107,19 @@ local function track_id(entry, index)
   return tostring(index)
 end
 
-local function render_line(index, entry, width, tracked)
+local function render_line(index, entry, width, tracked, header_text)
   local text = render(entry_display(entry, width))
   if vim.trim(text) == '' then
     return nil
   end
   if tracked then
+    if header_text then
+      return ('%s\t%s\t%d\t%s'):format(track_id(entry, index), text, index, header_text)
+    end
     return ('%s\t%s\t%d'):format(track_id(entry, index), text, index)
+  end
+  if header_text then
+    return ('%s\t%d\t%s'):format(text, index, header_text)
   end
   return ('%s\t%d'):format(text, index)
 end
@@ -128,21 +134,24 @@ end
 
 ---@param actions forge.PickerActionDef[]
 ---@param bindings table<string, string|false>
+---@param entry forge.PickerEntry?
 ---@return string?
-local function render_header(actions, bindings)
+local function render_header_for(actions, bindings, entry)
+  local picker_mod = require('forge.picker')
   local utils = require('fzf-lua.utils')
   local parts = {}
   local seen_keys = {}
   for _, def in ipairs(actions) do
     local key = def.name == 'default' and '<cr>' or bindings[def.name]
     local header_key = key and to_header_key(key) or nil
-    if header_key and def.label and not seen_keys[header_key] then
+    local label = header_key and picker_mod.resolve_label(def, entry) or nil
+    if header_key and label and not seen_keys[header_key] then
       seen_keys[header_key] = true
       table.insert(
         parts,
         ('%s %s'):format(
           utils.ansi_from_hl('FzfLuaHeaderBind', header_key),
-          utils.ansi_from_hl('FzfLuaHeaderText', def.label)
+          utils.ansi_from_hl('FzfLuaHeaderText', label)
         )
       )
     end
@@ -151,6 +160,32 @@ local function render_header(actions, bindings)
     return nil
   end
   return table.concat(parts, '|')
+end
+
+---@param actions forge.PickerActionDef[]
+---@param bindings table<string, string|false>
+---@return string?
+local function render_header(actions, bindings)
+  return render_header_for(actions, bindings, nil)
+end
+
+---@param actions forge.PickerActionDef[]
+---@return boolean
+local function has_dynamic_label(actions)
+  local picker_mod = require('forge.picker')
+  for _, def in ipairs(actions) do
+    if picker_mod.has_dynamic_label(def) then
+      return true
+    end
+  end
+  return false
+end
+
+local function sanitize_header(text)
+  if type(text) ~= 'string' then
+    return nil
+  end
+  return (text:gsub('\t', ' '):gsub('\n', ' '))
 end
 
 ---@param opts forge.PickerOpts
@@ -213,6 +248,31 @@ function M.pick(opts)
     }
   end
 
+  local dynamic_header = has_dynamic_label(actions)
+  local header_field = dynamic_header and (tracked and 4 or 3) or nil
+
+  local function entry_header(entry)
+    if not dynamic_header then
+      return nil
+    end
+    return sanitize_header(render_header_for(actions, bindings, entry))
+  end
+
+  local initial_header
+  if dynamic_header then
+    for _, entry in ipairs(entries) do
+      if not rawget(entry, 'placeholder') and not rawget(entry, 'load_more') then
+        initial_header = render_header_for(actions, bindings, entry)
+        break
+      end
+    end
+    if not initial_header then
+      initial_header = render_header_for(actions, bindings, nil)
+    end
+  else
+    initial_header = render_header(actions, bindings)
+  end
+
   local lines
   if live_width then
     lines = function(fzf_cb)
@@ -224,7 +284,7 @@ function M.pick(opts)
           entry = vim.tbl_extend('force', {}, entry, { track_id = track_redirect.source_id })
           track_redirect = nil
         end
-        local line = render_line(i, entry, picker_width(), tracked)
+        local line = render_line(i, entry, picker_width(), tracked, entry_header(entry))
         if line then
           fzf_cb(line)
         end
@@ -238,7 +298,7 @@ function M.pick(opts)
           end
           next_index = next_index + 1
           entries[next_index] = entry
-          local line = render_line(next_index, entry, picker_width(), tracked)
+          local line = render_line(next_index, entry, picker_width(), tracked, entry_header(entry))
           if line then
             fzf_cb(line)
           end
@@ -250,7 +310,7 @@ function M.pick(opts)
   else
     lines = {}
     for i, entry in ipairs(entries) do
-      local line = render_line(i, entry, nil, tracked)
+      local line = render_line(i, entry, nil, tracked, entry_header(entry))
       if line then
         lines[#lines + 1] = line
       end
@@ -317,12 +377,12 @@ function M.pick(opts)
     end
   end
 
-  require('fzf-lua').fzf_exec(lines, {
+  local fzf_exec_opts = {
     fzf_args = fzf_args,
     prompt = opts.prompt or '',
     fzf_opts = {
       ['--ansi'] = '',
-      ['--header'] = render_header(actions, bindings),
+      ['--header'] = initial_header,
       ['--no-multi'] = '',
       ['--with-nth'] = tracked and '2' or '1',
       ['--accept-nth'] = tracked and '3' or '2',
@@ -331,7 +391,17 @@ function M.pick(opts)
       ['--id-nth'] = tracked and '1' or nil,
     },
     actions = fzf_actions,
-  })
+  }
+
+  if header_field then
+    fzf_exec_opts.keymap = {
+      fzf = {
+        focus = ("transform-header:printf '%%s' {%d}"):format(header_field),
+      },
+    }
+  end
+
+  require('fzf-lua').fzf_exec(lines, fzf_exec_opts)
 end
 
 return M

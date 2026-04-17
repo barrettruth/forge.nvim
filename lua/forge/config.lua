@@ -35,7 +35,7 @@ local M = {}
 ---@field approve string|false
 ---@field merge string|false
 ---@field create string|false
----@field close string|false
+---@field toggle string|false
 ---@field draft string|false
 ---@field filter string|false
 ---@field refresh string|false
@@ -43,7 +43,7 @@ local M = {}
 ---@class forge.IssuePickerKeys
 ---@field browse string|false
 ---@field edit string|false
----@field close string|false
+---@field toggle string|false
 ---@field create string|false
 ---@field filter string|false
 ---@field refresh string|false
@@ -53,6 +53,7 @@ local M = {}
 ---@field log string|false
 ---@field watch string|false
 ---@field browse string|false
+---@field toggle string|false
 ---@field filter string|false
 ---@field failed? string|false
 ---@field passed? string|false
@@ -142,7 +143,7 @@ local DEFAULTS = {
       approve = '<c-y>',
       merge = '<c-g>',
       create = '<c-a>',
-      close = '<c-s>',
+      toggle = '<c-s>',
       draft = '<c-d>',
       filter = '<tab>',
       refresh = '<c-r>',
@@ -150,7 +151,7 @@ local DEFAULTS = {
     issue = {
       browse = '<c-x>',
       edit = '<c-e>',
-      close = '<c-s>',
+      toggle = '<c-s>',
       filter = '<tab>',
       refresh = '<c-r>',
       create = '<c-a>',
@@ -160,6 +161,7 @@ local DEFAULTS = {
       log = '<c-l>',
       watch = '<c-w>',
       browse = '<c-x>',
+      toggle = '<c-s>',
       filter = '<tab>',
       refresh = '<c-r>',
     },
@@ -454,7 +456,7 @@ function M.config()
         'approve',
         'merge',
         'create',
-        'close',
+        'toggle',
         'draft',
         'filter',
         'refresh',
@@ -464,7 +466,7 @@ function M.config()
     end
     if keys.issue ~= nil then
       vim.validate('forge.keys.issue', keys.issue, 'table')
-      for _, k in ipairs({ 'browse', 'edit', 'close', 'create', 'filter', 'refresh' }) do
+      for _, k in ipairs({ 'browse', 'edit', 'toggle', 'create', 'filter', 'refresh' }) do
         vim.validate(
           'forge.keys.issue.' .. k,
           keys.issue[k],
@@ -480,6 +482,7 @@ function M.config()
         'log',
         'watch',
         'browse',
+        'toggle',
         'filter',
         'failed',
         'passed',

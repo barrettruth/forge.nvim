@@ -215,6 +215,171 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
+  it('confirms CI run cancellation before invoking the backend command', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.ci_cancel({
+      name = 'github',
+      cancel_run_cmd = function(_, id, scope)
+        return { 'cancel', id, scope or 'none' }
+      end,
+    }, { id = '77', scope = 'repo/ref', status = 'running' }, {
+      on_success = function()
+        done = done + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'cancel 77 repo/ref' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
+  it('skips cancellation when the user declines the confirmation', function()
+    local cancelled = 0
+    vim.ui.select = function(_, _, cb)
+      cb('No')
+    end
+    local ops = require('forge.ops')
+    ops.ci_cancel({
+      name = 'github',
+      cancel_run_cmd = function(_, id)
+        return { 'cancel', id }
+      end,
+    }, { id = '77', status = 'running' }, {
+      on_cancel = function()
+        cancelled = cancelled + 1
+      end,
+    })
+
+    assert.same({}, captured.commands)
+    assert.equals(1, cancelled)
+  end)
+
+  it('reports when a backend cannot cancel runs', function()
+    local failed = 0
+    local ops = require('forge.ops')
+    ops.ci_cancel({ name = 'codeberg' }, { id = '77', status = 'running' }, {
+      on_failure = function()
+        failed = failed + 1
+      end,
+    })
+
+    assert.same({}, captured.commands)
+    assert.equals(1, failed)
+    local warned = false
+    for _, msg in ipairs(captured.infos) do
+      if msg:match('does not support cancelling runs') then
+        warned = true
+      end
+    end
+    assert.is_true(warned)
+  end)
+
+  it('reruns runs without a confirmation prompt', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.ci_rerun({
+      name = 'github',
+      rerun_run_cmd = function(_, id, scope)
+        return { 'rerun', id, scope or 'none' }
+      end,
+    }, { id = '77', scope = 'repo/ref', status = 'failure' }, {
+      on_success = function()
+        done = done + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'rerun 77 repo/ref' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
+  it('reports when a backend cannot rerun runs', function()
+    local failed = 0
+    local ops = require('forge.ops')
+    ops.ci_rerun({ name = 'gitlab' }, { id = '77', status = 'failure' }, {
+      on_failure = function()
+        failed = failed + 1
+      end,
+    })
+
+    assert.same({}, captured.commands)
+    assert.equals(1, failed)
+  end)
+
+  it('dispatches CI toggle to cancel for in-progress runs', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.ci_toggle({
+      name = 'github',
+      cancel_run_cmd = function(_, id)
+        return { 'cancel', id }
+      end,
+      rerun_run_cmd = function(_, id)
+        return { 'rerun', id }
+      end,
+    }, { id = '77', status = 'in_progress' }, {
+      on_success = function()
+        done = done + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'cancel 77' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
+  it('dispatches CI toggle to rerun for completed runs', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.ci_toggle({
+      name = 'github',
+      cancel_run_cmd = function(_, id)
+        return { 'cancel', id }
+      end,
+      rerun_run_cmd = function(_, id)
+        return { 'rerun', id }
+      end,
+    }, { id = '77', status = 'failure' }, {
+      on_success = function()
+        done = done + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'rerun 77' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
+  it('no-ops CI toggle for skipped runs', function()
+    local failed = 0
+    local ops = require('forge.ops')
+    ops.ci_toggle({
+      name = 'github',
+      cancel_run_cmd = function() end,
+      rerun_run_cmd = function() end,
+    }, { id = '77', status = 'skipped' }, {
+      on_failure = function()
+        failed = failed + 1
+      end,
+    })
+
+    assert.same({}, captured.commands)
+    assert.equals(1, failed)
+  end)
+
   it('opens GitHub CI run views in a terminal buffer', function()
     local ops = require('forge.ops')
     ops.ci_log({

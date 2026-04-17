@@ -22,7 +22,9 @@ without leaving your editor.
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
 - (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive
-  picker workflows
+  picker workflows; requires `fzf >= 0.40.0` for per-row dynamic action hints
+  (`focus:transform-header`). Older `fzf` still works but falls back to the
+  initial picker-level header.
 
 Direct `:Forge` action commands work without `fzf-lua`. Install it only if you
 want the interactive picker UI.

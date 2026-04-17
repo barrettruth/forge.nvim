@@ -202,6 +202,37 @@ describe('pickers', function()
         pick = function(opts)
           captured = opts
         end,
+        state_verb = function(picker_name, entry)
+          if not entry or type(entry.value) ~= 'table' then
+            return nil
+          end
+          if picker_name == 'pr' or picker_name == 'issue' then
+            local state = (entry.value.state or ''):lower()
+            if state == 'open' or state == 'opened' then
+              return 'close'
+            end
+            if state == 'closed' or state == 'merged' then
+              return 'reopen'
+            end
+            return nil
+          end
+          if picker_name == 'ci' then
+            local status = (entry.value.status or ''):lower()
+            if
+              status == 'in_progress'
+              or status == 'queued'
+              or status == 'pending'
+              or status == 'running'
+            then
+              return 'cancel'
+            end
+            if status == 'skipped' then
+              return nil
+            end
+            return 'rerun'
+          end
+          return nil
+        end,
       }
     end
     package.preload['forge.ops'] = function()
@@ -265,6 +296,12 @@ describe('pickers', function()
         end,
         ci_browse = function(_, run)
           table.insert(op_calls, { name = 'ci_browse', run = run })
+        end,
+        ci_toggle = function(_, run, opts)
+          table.insert(op_calls, { name = 'ci_toggle', run = run, opts = opts })
+          if opts and opts.on_success then
+            opts.on_success()
+          end
         end,
         issue_browse = function(_, issue)
           table.insert(op_calls, { name = 'issue_browse', issue = issue })
@@ -422,7 +459,7 @@ describe('pickers', function()
     assert.equals('<c-y>', cfg.keys.pr.approve)
     assert.equals('<c-g>', cfg.keys.pr.merge)
     assert.equals('<c-a>', cfg.keys.pr.create)
-    assert.equals('<c-s>', cfg.keys.pr.close)
+    assert.equals('<c-s>', cfg.keys.pr.toggle)
     assert.equals('<c-d>', cfg.keys.pr.draft)
     assert.equals('<tab>', cfg.keys.ci.filter)
 
@@ -438,7 +475,7 @@ describe('pickers', function()
     assert.equals('approve', labels.approve)
     assert.equals('merge', labels.merge)
     assert.equals('create', labels.create)
-    assert.equals('close', labels.close)
+    assert.equals('close/reopen', labels.toggle)
     assert.equals('draft/ready', labels.draft)
     assert.equals('filter', labels.filter)
     assert.equals('refresh', labels.refresh)
@@ -475,7 +512,7 @@ describe('pickers', function()
     action_by_name('edit').fn(entry)
     action_by_name('approve').fn(entry)
     action_by_name('merge').fn(entry)
-    action_by_name('close').fn(entry)
+    action_by_name('toggle').fn(entry)
     action_by_name('draft').fn(entry)
 
     assert.same({
@@ -843,7 +880,7 @@ describe('pickers', function()
     assert.is_false(rawget(action_by_name('default'), 'close'))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('edit'), 'close'))
-    assert.is_nil(rawget(action_by_name('close'), 'close'))
+    assert.is_nil(rawget(action_by_name('toggle'), 'close'))
   end)
 
   it('adds a load more row when the issue list exceeds the configured limit', function()
@@ -983,14 +1020,11 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    local labels = {}
-    for _, def in ipairs(captured.actions) do
-      labels[def.name] = def.label
-    end
+    local labels = helpers.action_labels(captured.actions)
     assert.equals('open', labels.default)
     assert.equals('web', labels.browse)
     assert.equals('edit', labels.edit)
-    assert.equals('toggle', labels.close)
+    assert.equals('close/reopen', labels.toggle)
     assert.equals('create', labels.create)
     assert.equals('filter', labels.filter)
     assert.equals('refresh', labels.refresh)
@@ -1060,11 +1094,20 @@ describe('pickers', function()
     local entry = captured.entries[1]
     action_by_name('default').fn(entry)
     action_by_name('edit').fn(entry)
-    action_by_name('close').fn(entry)
+    action_by_name('toggle').fn(entry)
 
-    assert.same({ name = 'issue_browse', issue = { num = '42', scope = nil } }, op_calls[1])
-    assert.same({ name = 'issue_edit', issue = { num = '42', scope = nil } }, op_calls[2])
-    assert.same({ name = 'issue_close', issue = { num = '42', scope = nil } }, {
+    assert.same(
+      { name = 'issue_browse', issue = { num = '42', scope = nil, state = 'OPEN' } },
+      op_calls[1]
+    )
+    assert.same(
+      { name = 'issue_edit', issue = { num = '42', scope = nil, state = 'OPEN' } },
+      op_calls[2]
+    )
+    assert.same({
+      name = 'issue_close',
+      issue = { num = '42', scope = nil },
+    }, {
       name = op_calls[3].name,
       issue = op_calls[3].issue,
     })
@@ -1241,6 +1284,45 @@ describe('pickers', function()
         scope = nil,
       },
     }, op_calls[4])
+  end)
+
+  it('routes the CI toggle action through forge.ops.ci_toggle', function()
+    local pickers = require('forge.pickers')
+    local entry = {
+      value = {
+        id = '5',
+        name = 'CI',
+        branch = 'main',
+        status = 'in_progress',
+        url = 'https://example.com',
+      },
+    }
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    local toggle = action_by_name('toggle')
+    assert.is_not_nil(toggle)
+    toggle.fn(entry)
+
+    assert.same({
+      id = '5',
+      name = 'CI',
+      branch = 'main',
+      status = 'in_progress',
+      url = 'https://example.com',
+    }, op_calls[#op_calls].run)
+    assert.equals('ci_toggle', op_calls[#op_calls].name)
+  end)
+
+  it('labels the CI toggle action from the highlighted run status', function()
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    local toggle = action_by_name('toggle')
+    assert.is_not_nil(toggle)
+    assert.equals('cancel/rerun', toggle.label(nil))
+    assert.equals('cancel', toggle.label({ value = { id = '1', status = 'in_progress' } }))
+    assert.equals('rerun', toggle.label({ value = { id = '2', status = 'failure' } }))
+    assert.is_nil(toggle.label({ value = { id = '3', status = 'skipped' } }))
   end)
 
   it('shows an info notification when skipped checks have no logs', function()

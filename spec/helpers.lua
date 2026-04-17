@@ -31,10 +31,14 @@ function M.action_by_name(actions, name)
   end
 end
 
-function M.action_labels(actions)
+function M.action_labels(actions, entry)
   local labels = {}
   for _, def in ipairs(actions or {}) do
-    labels[def.name] = def.label
+    local label = def.label
+    if type(label) == 'function' then
+      label = label(entry)
+    end
+    labels[def.name] = label
   end
   return labels
 end
