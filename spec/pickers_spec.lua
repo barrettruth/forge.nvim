@@ -438,7 +438,6 @@ describe('pickers', function()
     assert.equals('close', labels.close)
     assert.equals('draft/ready', labels.draft)
     assert.equals('filter', labels.filter)
-    assert.equals('prev', labels.filter_prev)
     assert.equals('refresh', labels.refresh)
   end)
 
@@ -991,7 +990,6 @@ describe('pickers', function()
     assert.equals('toggle', labels.close)
     assert.equals('create', labels.create)
     assert.equals('filter', labels.filter)
-    assert.equals('prev', labels.filter_prev)
     assert.equals('refresh', labels.refresh)
   end)
 
@@ -1890,11 +1888,7 @@ describe('pickers', function()
     assert.equals('Pre-releases (1)> ', captured.prompt)
     assert.equals('v1.1.0-rc1', captured.entries[1].value.tag)
 
-    action_by_name('filter_prev').fn()
-    assert.equals('Draft Releases (1)> ', captured.prompt)
-    assert.equals('v2.0.0-draft', captured.entries[1].value.tag)
-
-    action_by_name('filter_prev').fn()
+    action_by_name('filter').fn()
     assert.equals('Releases (3)> ', captured.prompt)
     assert.equals('v1.0.0', captured.entries[1].value.tag)
 
