@@ -179,6 +179,7 @@
 ---@field watch_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field run_status_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field list_web_url (fun(self: forge.Forge, kind: forge.WebKind, scope?: forge.Scope): string?)?
+---@field browse_run (fun(self: forge.Forge, id: string, scope?: forge.Scope))?
 ---@field run_web_url (fun(self: forge.Forge, id: string, scope?: forge.Scope): string?)?
 ---@field job_web_url (fun(self: forge.Forge, run_id: string, job_id: string, scope?: forge.Scope): string?)?
 ---@field live_tail_cmd (fun(self: forge.Forge, run_id: string, job_id: string?, scope?: forge.Scope): string[])?

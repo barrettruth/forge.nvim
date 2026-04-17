@@ -448,4 +448,41 @@ describe('shared operations', function()
     assert.same({}, captured.urls)
     assert.same({ 'custom does not support ci landing pages' }, captured.infos)
   end)
+
+  it('ci_browse opens a backend run page', function()
+    local ops = require('forge.ops')
+    local f = {
+      browse_run = function(_, id, scope)
+        table.insert(captured.urls, ('https://example.com/runs/%s/%s'):format(id, scope or 'none'))
+      end,
+    }
+
+    ops.ci_browse(f, { id = '77', scope = 'owner/repo' })
+
+    assert.same({ 'https://example.com/runs/77/owner/repo' }, captured.urls)
+  end)
+
+  it('ci_browse falls back to run_web_url when browse_run is unavailable', function()
+    local ops = require('forge.ops')
+    local f = {
+      name = 'custom',
+      run_web_url = function(_, id, scope)
+        return ('https://example.com/runs/%s/%s'):format(id, scope or 'none')
+      end,
+    }
+
+    ops.ci_browse(f, { id = '88', scope = 'owner/repo' })
+
+    assert.same({ 'https://example.com/runs/88/owner/repo' }, captured.urls)
+    assert.same({}, captured.errors)
+  end)
+
+  it('ci_browse warns when the source has no run page support', function()
+    local ops = require('forge.ops')
+
+    ops.ci_browse({ name = 'custom' }, { id = '88' })
+
+    assert.same({}, captured.urls)
+    assert.same({ 'custom does not support ci run pages' }, captured.infos)
+  end)
 end)

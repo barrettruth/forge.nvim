@@ -124,7 +124,7 @@ local families = {
   {
     name = 'ci',
     surface = 'forge',
-    verb_order = { 'log', 'watch' },
+    verb_order = { 'log', 'watch', 'browse' },
     verbs = {
       log = {
         subject = { kind = 'run', min = 1, max = 1 },
@@ -132,6 +132,10 @@ local families = {
       },
       watch = {
         subject = { kind = 'run', min = 1, max = 1 },
+        modifiers = { 'repo' },
+      },
+      browse = {
+        subject = { kind = 'run', min = 0, max = 1 },
         modifiers = { 'repo' },
       },
     },
@@ -499,6 +503,15 @@ local function dispatch_ci(command)
   end
   if command.name == 'watch' then
     ops.ci_watch(f, { id = command.subjects[1], scope = scope })
+    return
+  end
+  if command.name == 'browse' then
+    local id = command.subjects[1]
+    if id then
+      ops.ci_browse(f, { id = id, scope = scope })
+    else
+      ops.list_browse(f, 'ci', { scope = scope })
+    end
     return
   end
   warn(('unsupported ci action: %s'):format(command.name))

@@ -474,6 +474,10 @@ BANG SEMANTICS                                            *forge-command-bang*
     opens a refreshing per-job log because `gh` only supports live watch at
     the run level.
 
+`:Forge ci browse` [{run-id}] [repo=...]                    *:Forge-ci-browse*
+    Open CI run `{run-id}` in the browser, or the CI list landing page
+    when `{run-id}` is omitted.
+
 `:Forge release browse` [{tag}] [repo=...]             *:Forge-release-browse*
     Open release `{tag}` in the browser, or the releases list landing
     page when `{tag}` is omitted.
@@ -1121,6 +1125,8 @@ Optional methods: ~
                                         `'issue'`, `'ci'`, `'release'`).
                                         Return `nil` if the source has no
                                         such page.
+  `browse_run(id, scope?)`             `nil` Open CI run `id` in the
+                                        browser.
   `list_runs_json_cmd(branch?)`        `string[]` JSON CI list cmd.
                                         If absent, Forge reports that
                                         structured CI data is unavailable
@@ -1665,6 +1671,11 @@ and `num`/`id`/`tag`.
                                                          *forge.ops.ci_watch()*
 `ci_watch(f, run)`
     Opens a watch terminal for an in-progress run.
+
+                                                        *forge.ops.ci_browse()*
+`ci_browse(f, run)`
+    Opens the browser page for CI run `run`. Falls back to `run_web_url()`
+    when the source does not implement `browse_run()`.
 
                                                      *forge.ops.release_list()*
 `release_list(state?, opts?)`

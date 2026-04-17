@@ -302,6 +302,22 @@ describe('github', function()
     local scope = { web_url = 'https://github.com/owner/repo' }
     assert.is_nil(gh:list_web_url('bogus', scope))
   end)
+
+  it('builds a run web url and browse_run target', function()
+    local scope = { web_url = 'https://github.com/owner/repo' }
+    local old_open = vim.ui.open
+    local opened
+    vim.ui.open = function(url)
+      opened = url
+      return {}, nil
+    end
+
+    assert.equals('https://github.com/owner/repo/actions/runs/123', gh:run_web_url('123', scope))
+    gh:browse_run('123', scope)
+
+    vim.ui.open = old_open
+    assert.equals('https://github.com/owner/repo/actions/runs/123', opened)
+  end)
 end)
 
 describe('github browse', function()
@@ -649,6 +665,22 @@ describe('gitlab', function()
     local scope = { web_url = 'https://gitlab.com/group/repo' }
     assert.is_nil(gl:list_web_url('bogus', scope))
   end)
+
+  it('builds a run web url and browse_run target', function()
+    local scope = { web_url = 'https://gitlab.com/group/repo' }
+    local old_open = vim.ui.open
+    local opened
+    vim.ui.open = function(url)
+      opened = url
+      return {}, nil
+    end
+
+    assert.equals('https://gitlab.com/group/repo/-/pipelines/123', gl:run_web_url('123', scope))
+    gl:browse_run('123', scope)
+
+    vim.ui.open = old_open
+    assert.equals('https://gitlab.com/group/repo/-/pipelines/123', opened)
+  end)
 end)
 
 describe('codeberg', function()
@@ -858,5 +890,21 @@ describe('codeberg', function()
   it('returns nil from list_web_url for unknown kinds', function()
     local scope = { web_url = 'https://codeberg.org/owner/repo' }
     assert.is_nil(cb:list_web_url('bogus', scope))
+  end)
+
+  it('builds a run web url and browse_run target', function()
+    local scope = { web_url = 'https://codeberg.org/owner/repo' }
+    local old_open = vim.ui.open
+    local opened
+    vim.ui.open = function(url)
+      opened = url
+      return {}, nil
+    end
+
+    assert.equals('https://codeberg.org/owner/repo/actions/runs/123', cb:run_web_url('123', scope))
+    cb:browse_run('123', scope)
+
+    vim.ui.open = old_open
+    assert.equals('https://codeberg.org/owner/repo/actions/runs/123', opened)
   end)
 end)

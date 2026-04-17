@@ -291,6 +291,25 @@ function M:watch_cmd(id, ref)
   return cmd
 end
 
+---@param id string
+---@return string?
+function M:run_web_url(id, ref)
+  local base = forge.remote_web_url(ref)
+  if not base or base == '' then
+    return nil
+  end
+  return ('%s/-/pipelines/%s'):format(base, id)
+end
+
+---@param id string
+function M:browse_run(id, ref)
+  local url = self:run_web_url(id, ref)
+  if not url then
+    return
+  end
+  vim.ui.open(url)
+end
+
 function M:list_runs_json_cmd(branch, ref, limit)
   local cmd = {
     'glab',

@@ -618,9 +618,10 @@ function M.ci(f, branch, filter, opts)
       label = 'web',
       close = false,
       fn = function(entry)
-        if entry and not entry.load_more and entry.value.url ~= '' then
-          vim.ui.open(entry.value.url)
+        if not entry or entry.load_more then
+          return
         end
+        ops.ci_browse(f, entry.value)
       end,
     },
     {
