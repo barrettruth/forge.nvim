@@ -29,6 +29,7 @@ describe('shared operations', function()
       ['forge'] = package.preload['forge'],
       ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.pickers'] = package.preload['forge.pickers'],
       ['forge.term'] = package.preload['forge.term'],
     }
 
@@ -103,6 +104,28 @@ describe('shared operations', function()
       }
     end
 
+    package.preload['forge.pickers'] = function()
+      return {
+        checks = function(f, num, filter, cached_checks, opts)
+          captured.checks = {
+            f = f,
+            num = num,
+            filter = filter,
+            cached_checks = cached_checks,
+            opts = opts,
+          }
+        end,
+        ci = function(f, branch, filter, opts)
+          captured.ci = {
+            f = f,
+            branch = branch,
+            filter = filter,
+            opts = opts,
+          }
+        end,
+      }
+    end
+
     package.preload['forge.term'] = function()
       return {
         open = function(cmd, opts)
@@ -124,6 +147,7 @@ describe('shared operations', function()
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
+    package.loaded['forge.pickers'] = nil
     package.loaded['forge.term'] = nil
   end)
 
@@ -136,13 +160,57 @@ describe('shared operations', function()
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.pickers'] = old_preload['forge.pickers']
     package.preload['forge.term'] = old_preload['forge.term']
 
     package.loaded['forge'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
+    package.loaded['forge.pickers'] = nil
     package.loaded['forge.term'] = nil
+  end)
+
+  it('opens PR checks when the backend supports per-PR checks', function()
+    local ops = require('forge.ops')
+    local f = {
+      name = 'github',
+      labels = { pr_one = 'PR' },
+      capabilities = {
+        per_pr_checks = true,
+      },
+    }
+
+    ops.pr_ci(f, { num = '42', scope = 'owner/repo' }, { back = 'root' })
+
+    assert.same({
+      f = f,
+      num = '42',
+      filter = nil,
+      cached_checks = nil,
+      opts = {
+        back = 'root',
+        scope = 'owner/repo',
+      },
+    }, captured.checks)
+    assert.is_nil(captured.ci)
+    assert.same({}, captured.infos)
+  end)
+
+  it('warns instead of falling back to repo CI when per-PR checks are unsupported', function()
+    local ops = require('forge.ops')
+
+    ops.pr_ci({
+      name = 'codeberg',
+      labels = { pr_one = 'PR' },
+      capabilities = {
+        per_pr_checks = false,
+      },
+    }, { num = '42', scope = 'owner/repo' }, { back = 'root' })
+
+    assert.is_nil(captured.checks)
+    assert.is_nil(captured.ci)
+    assert.same({ 'codeberg does not support PR checks' }, captured.infos)
   end)
 
   it('runs PR close commands and success callbacks through the shared operation', function()
