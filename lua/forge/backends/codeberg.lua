@@ -279,6 +279,25 @@ function M:list_runs_json_cmd(branch, ref, limit)
   return { 'sh', '-c', cmd }
 end
 
+---@param id string
+---@return string?
+function M:run_web_url(id, ref)
+  local base = forge.remote_web_url(ref)
+  if not base or base == '' then
+    return nil
+  end
+  return ('%s/actions/runs/%s'):format(base, id)
+end
+
+---@param id string
+function M:browse_run(id, ref)
+  local url = self:run_web_url(id, ref)
+  if not url then
+    return
+  end
+  vim.ui.open(url)
+end
+
 function M:normalize_run(entry)
   local status = entry.status or ''
   if status == 'completed' then

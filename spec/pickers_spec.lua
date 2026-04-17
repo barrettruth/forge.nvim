@@ -260,6 +260,9 @@ describe('pickers', function()
         ci_watch = function(_, run)
           table.insert(op_calls, { name = 'ci_watch', run = run })
         end,
+        ci_browse = function(_, run)
+          table.insert(op_calls, { name = 'ci_browse', run = run })
+        end,
         issue_browse = function(_, issue)
           table.insert(op_calls, { name = 'issue_browse', issue = issue })
         end,
@@ -1190,6 +1193,7 @@ describe('pickers', function()
 
     action_by_name('log').fn(streamed[1])
     action_by_name('watch').fn(streamed[1])
+    action_by_name('browse').fn(streamed[1])
 
     assert.same({
       name = 'ci_log',
@@ -1213,6 +1217,17 @@ describe('pickers', function()
         scope = nil,
       },
     }, op_calls[2])
+    assert.same({
+      name = 'ci_browse',
+      run = {
+        id = '1',
+        name = 'CI',
+        branch = 'main',
+        status = 'success',
+        url = 'https://example.com',
+        scope = nil,
+      },
+    }, op_calls[3])
   end)
 
   it('shows an info notification when skipped checks have no logs', function()

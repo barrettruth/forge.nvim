@@ -334,6 +334,15 @@ function M:run_web_url(id, scope)
   return ('%s/actions/runs/%s'):format(base, id)
 end
 
+---@param id string
+function M:browse_run(id, scope)
+  local url = self:run_web_url(id, scope)
+  if not url then
+    return
+  end
+  vim.ui.open(url)
+end
+
 ---@param run_id string
 ---@param job_id string
 ---@return string?

@@ -518,6 +518,24 @@ function M.ci_watch(f, run)
   return true
 end
 
+---@param f forge.Forge
+---@param run forge.RunRefLike
+function M.ci_browse(f, run)
+  run = normalize_run_ref(run)
+  if f.browse_run then
+    return f:browse_run(run.id, run.scope)
+  end
+  local url = f.run_web_url and f:run_web_url(run.id, run.scope) or nil
+  if not url or url == '' then
+    log.warn(('%s does not support ci run pages'):format(f.name))
+    return
+  end
+  local _, err = vim.ui.open(url)
+  if err then
+    log.error(err)
+  end
+end
+
 ---@param state? 'all'|'draft'|'prerelease'
 ---@param opts? forge.PickerBackOpts
 function M.release_list(state, opts)
