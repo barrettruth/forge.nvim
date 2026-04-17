@@ -754,7 +754,7 @@ modified-buffer protection. Use `:q!`, `:bd!`, or `:bwipeout!` to discard the
 buffer.
 
 Creating a PR (without `--fill` or `--web`) opens a compose buffer at
-`forge://pr/new` with filetype `markdown` and buftype `acwrite`.
+`forge://{host}/{slug}/pr/new` with filetype `markdown` and buftype `acwrite`.
 
 Layout: ~
   Line 1      PR title (pre-filled from single commit subject or branch)
@@ -768,7 +768,8 @@ the title or body is empty. The PR URL is copied to the `+` register on
 success.
 
 Creating an issue (without `--web`) opens a compose buffer at
-`forge://issue/new` with filetype `markdown` and buftype `acwrite`.
+`forge://{host}/{slug}/issue/new` with filetype `markdown` and buftype
+`acwrite`.
 
 Layout: ~
   Line 1      Issue title
@@ -780,9 +781,10 @@ Layout: ~
 Writing (`:w`) creates the issue. Creation is aborted if the title is empty.
 The issue URL is copied to the `+` register on success.
 
-Editing an issue opens a compose buffer at `forge://issue/{num}/edit` with
-the same title/body layout as issue creation. Writing (`:w`) updates the
-issue. Editing is aborted if the title is empty. Empty bodies are allowed.
+Editing an issue opens a compose buffer at
+`forge://{host}/{slug}/issue/{num}/edit` with the same title/body layout as
+issue creation. Writing (`:w`) updates the issue. Editing is aborted if the
+title is empty. Empty bodies are allowed.
 
 Integration: ~                                                 *forge-compose-integration*
   Compose buffers expose a small public buffer-local table for completion

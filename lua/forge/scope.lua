@@ -133,6 +133,23 @@ function M.key(scope)
   }, '|')
 end
 
+---@param scope forge.Scope?
+---@return string?
+function M.bufpath(scope)
+  if type(scope) ~= 'table' then
+    return nil
+  end
+  local host = scope.host
+  local slug = scope.slug
+  if type(host) ~= 'string' or host == '' then
+    return nil
+  end
+  if type(slug) ~= 'string' or slug == '' then
+    return nil
+  end
+  return host .. '/' .. slug
+end
+
 ---@param a forge.Scope?
 ---@param b forge.Scope?
 ---@return boolean

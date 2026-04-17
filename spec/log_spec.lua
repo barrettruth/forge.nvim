@@ -8,6 +8,8 @@ local parse_summary = log_mod._parse_summary
 local summary_job_at_line = log_mod._summary_job_at_line
 local parse_summary_json = log_mod._parse_summary_json
 
+local test_scope = { kind = 'github', host = 'github.com', slug = 'owner/repo' }
+
 describe('strip_ansi', function()
   it('strips SGR codes and extracts highlights', function()
     local text, hls = strip_ansi('\027[31mhello\027[0m world')
@@ -587,7 +589,8 @@ describe('buffer reuse refreshes', function()
 
     log_mod.open({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
-      title = 'ci',
+      scope = test_scope,
+      run_id = '111',
     }, buf)
 
     assert.equals(1, #calls)
@@ -601,8 +604,8 @@ describe('buffer reuse refreshes', function()
 
     log_mod.open_summary({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
+      scope = test_scope,
       run_id = '123',
-      title = 'summary',
     }, buf)
 
     assert.equals(1, #calls)
@@ -616,11 +619,13 @@ describe('buffer reuse refreshes', function()
 
     log_mod.open({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
-      title = 'ci',
+      scope = test_scope,
+      run_id = '111',
     }, buf)
     log_mod.open({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
-      title = 'ci',
+      scope = test_scope,
+      run_id = '111',
     }, buf)
 
     assert.equals(2, #calls)
@@ -645,13 +650,13 @@ describe('buffer reuse refreshes', function()
 
     log_mod.open_summary({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
+      scope = test_scope,
       run_id = '123',
-      title = 'summary',
     }, buf)
     log_mod.open_summary({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
+      scope = test_scope,
       run_id = '123',
-      title = 'summary',
     }, buf)
 
     assert.equals(2, #calls)
@@ -722,10 +727,10 @@ describe('summary job mappings', function()
 
     log_mod.open_summary({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
+      scope = test_scope,
       run_id = '12345',
-      title = 'summary',
       log_cmd_fn = function(job_id, failed)
-        return { 'log', job_id, tostring(failed) }, { title = job_id }
+        return { 'log', job_id, tostring(failed) }, { job_id = job_id }
       end,
     })
 
@@ -744,7 +749,7 @@ describe('summary job mappings', function()
     end)
 
     assert.same({ 'log', '12345', 'false' }, opened[1].cmd)
-    assert.same({ title = '12345', replace_win = win }, opened[1].opts)
+    assert.same({ job_id = '12345', replace_win = win }, opened[1].opts)
 
     vim.api.nvim_win_set_cursor(0, { 6, 0 })
     enter()
@@ -777,8 +782,8 @@ describe('summary job mappings', function()
 
     log_mod.open_summary({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
+      scope = test_scope,
       run_id = '12345',
-      title = 'summary',
       url = 'https://example.com/runs/12345',
       browse_url_fn = function(job_id)
         return 'https://example.com/runs/12345/job/' .. job_id
@@ -822,7 +827,9 @@ describe('summary job mappings', function()
 
     log_mod.open({ 'gh', 'run', 'view', '--log', '--job', '12345' }, {
       forge_name = 'github',
-      title = 'job',
+      scope = test_scope,
+      run_id = '77',
+      job_id = '12345',
       url = 'https://example.com/runs/77/job/12345',
     })
 
@@ -867,7 +874,8 @@ describe('log folds', function()
 
     log_mod.open({ 'gh', 'run', 'view' }, {
       forge_name = 'github',
-      title = 'ci',
+      scope = test_scope,
+      run_id = '99',
     })
 
     local buf = vim.api.nvim_get_current_buf()

@@ -342,8 +342,9 @@ function M.checks(f, num, filter, cached_checks, opts)
           local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id, check_ref) or nil
           require('forge.log').open(cmd, {
             forge_name = f.name,
+            scope = check_ref,
+            run_id = run_id,
             url = c.link,
-            title = c.name or run_id,
             steps_cmd = steps_cmd,
             job_id = job_id,
             in_progress = in_progress,

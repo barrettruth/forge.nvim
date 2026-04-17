@@ -1,7 +1,44 @@
 local M = {}
 
+local scope_mod = require('forge.scope')
 local ns = vim.api.nvim_create_namespace('forge_log')
 local buf_data = {}
+
+---@param opts forge.LogOpts
+---@return string?
+local function log_bufname(opts)
+  local prefix = scope_mod.bufpath(opts.scope)
+  if not prefix or not opts.run_id or opts.run_id == '' then
+    return nil
+  end
+  if opts.job_id and opts.job_id ~= '' then
+    return ('forge://%s/ci/%s/job/%s'):format(prefix, opts.run_id, opts.job_id)
+  end
+  return ('forge://%s/ci/%s/log'):format(prefix, opts.run_id)
+end
+
+---@param opts forge.SummaryOpts
+---@return string?
+local function summary_bufname(opts)
+  local prefix = scope_mod.bufpath(opts.scope)
+  if not prefix or not opts.run_id or opts.run_id == '' then
+    return nil
+  end
+  return ('forge://%s/ci/%s'):format(prefix, opts.run_id)
+end
+
+---@param name string?
+---@return integer?
+local function find_buf_by_name(name)
+  if not name or name == '' then
+    return nil
+  end
+  local bn = vim.fn.bufnr(name)
+  if bn ~= -1 and vim.api.nvim_buf_is_valid(bn) then
+    return bn
+  end
+  return nil
+end
 
 local function data_for(buf)
   local d = buf_data[buf]
@@ -722,8 +759,9 @@ end
 
 ---@class forge.LogOpts
 ---@field forge_name string
+---@field scope forge.Scope?
+---@field run_id string?
 ---@field url string?
----@field title string?
 ---@field steps_cmd string[]?
 ---@field job_id string?
 ---@field replace_win integer?
@@ -791,6 +829,7 @@ end
 ---@param reuse_buf integer?
 function M.open(cmd, opts, reuse_buf)
   local parse = parser_for[opts.forge_name] or parse_github
+  local bufname = log_bufname(opts)
   local buf
   local saved_cursor
   local old_line_count
@@ -804,33 +843,48 @@ function M.open(cmd, opts, reuse_buf)
       saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
     end
   else
-    local replace_win = opts.replace_win
-    if replace_win and vim.api.nvim_win_is_valid(replace_win) then
-      local old_buf = vim.api.nvim_win_get_buf(replace_win)
-      buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_win_set_buf(replace_win, buf)
-      if vim.api.nvim_buf_is_valid(old_buf) and old_buf ~= buf then
-        vim.api.nvim_buf_delete(old_buf, { force = true })
+    local existing = find_buf_by_name(bufname)
+    if existing then
+      reusing = true
+      buf = existing
+      old_line_count = vim.api.nvim_buf_line_count(buf)
+      local wins = vim.fn.win_findbuf(buf)
+      if #wins > 0 then
+        saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
+      else
+        vim.cmd('noautocmd botright sbuffer ' .. buf)
       end
     else
-      vim.cmd('noautocmd botright new')
-      buf = vim.api.nvim_get_current_buf()
+      local replace_win = opts.replace_win
+      if replace_win and vim.api.nvim_win_is_valid(replace_win) then
+        local old_buf = vim.api.nvim_win_get_buf(replace_win)
+        buf = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_win_set_buf(replace_win, buf)
+        if vim.api.nvim_buf_is_valid(old_buf) and old_buf ~= buf then
+          vim.api.nvim_buf_delete(old_buf, { force = true })
+        end
+      else
+        vim.cmd('noautocmd botright new')
+        buf = vim.api.nvim_get_current_buf()
+      end
+      vim.bo[buf].buftype = 'nofile'
+      vim.bo[buf].bufhidden = 'wipe'
+      vim.bo[buf].swapfile = false
+      vim.bo[buf].modifiable = false
+      vim.bo[buf].filetype = 'forge_log'
+      if bufname then
+        vim.api.nvim_buf_set_name(buf, bufname)
+      end
+      setup_keymaps(buf, opts.url, cmd, opts)
+      vim.api.nvim_create_autocmd('BufWipeout', {
+        buffer = buf,
+        callback = function()
+          stop_timer(buf)
+          stop_procs(buf)
+          buf_data[buf] = nil
+        end,
+      })
     end
-    vim.bo[buf].buftype = 'nofile'
-    vim.bo[buf].bufhidden = 'wipe'
-    vim.bo[buf].swapfile = false
-    vim.bo[buf].modifiable = false
-    vim.bo[buf].filetype = 'forge_log'
-    pcall(vim.api.nvim_buf_set_name, buf, 'forge://log/' .. (opts.title or 'ci'))
-    setup_keymaps(buf, opts.url, cmd, opts)
-    vim.api.nvim_create_autocmd('BufWipeout', {
-      buffer = buf,
-      callback = function()
-        stop_timer(buf)
-        stop_procs(buf)
-        buf_data[buf] = nil
-      end,
-    })
   end
   if not reusing then
     vim.bo[buf].modifiable = true
@@ -929,9 +983,9 @@ end
 
 ---@class forge.SummaryOpts
 ---@field forge_name string
+---@field scope forge.Scope?
 ---@field run_id string
 ---@field url string?
----@field title string?
 ---@field in_progress boolean?
 ---@field status_cmd string[]?
 ---@field json boolean?
@@ -1079,6 +1133,7 @@ end
 ---@param opts forge.SummaryOpts
 ---@param reuse_buf integer?
 function M.open_summary(cmd, opts, reuse_buf)
+  local bufname = summary_bufname(opts)
   local buf
   local saved_cursor
   local old_line_count
@@ -1092,25 +1147,43 @@ function M.open_summary(cmd, opts, reuse_buf)
       saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
     end
   else
-    local cfg = require('forge').config()
-    local split = cfg.ci.split or cfg.split
-    local prefix = split == 'vertical' and 'vertical' or 'botright'
-    vim.cmd('noautocmd ' .. prefix .. ' new')
-    buf = vim.api.nvim_get_current_buf()
-    vim.bo[buf].buftype = 'nofile'
-    vim.bo[buf].bufhidden = 'wipe'
-    vim.bo[buf].swapfile = false
-    vim.bo[buf].modifiable = false
-    vim.bo[buf].filetype = 'forge_log'
-    pcall(vim.api.nvim_buf_set_name, buf, 'forge://ci/' .. (opts.title or 'summary'))
-    vim.api.nvim_create_autocmd('BufWipeout', {
-      buffer = buf,
-      callback = function()
-        stop_timer(buf)
-        stop_procs(buf)
-        buf_data[buf] = nil
-      end,
-    })
+    local existing = find_buf_by_name(bufname)
+    if existing then
+      reusing = true
+      buf = existing
+      old_line_count = vim.api.nvim_buf_line_count(buf)
+      local wins = vim.fn.win_findbuf(buf)
+      if #wins > 0 then
+        saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
+      else
+        local cfg = require('forge').config()
+        local split = cfg.ci.split or cfg.split
+        local prefix = split == 'vertical' and 'vertical' or 'botright'
+        vim.cmd('noautocmd ' .. prefix .. ' sbuffer ' .. buf)
+      end
+    else
+      local cfg = require('forge').config()
+      local split = cfg.ci.split or cfg.split
+      local prefix = split == 'vertical' and 'vertical' or 'botright'
+      vim.cmd('noautocmd ' .. prefix .. ' new')
+      buf = vim.api.nvim_get_current_buf()
+      vim.bo[buf].buftype = 'nofile'
+      vim.bo[buf].bufhidden = 'wipe'
+      vim.bo[buf].swapfile = false
+      vim.bo[buf].modifiable = false
+      vim.bo[buf].filetype = 'forge_log'
+      if bufname then
+        vim.api.nvim_buf_set_name(buf, bufname)
+      end
+      vim.api.nvim_create_autocmd('BufWipeout', {
+        buffer = buf,
+        callback = function()
+          stop_timer(buf)
+          stop_procs(buf)
+          buf_data[buf] = nil
+        end,
+      })
+    end
   end
 
   if not reusing then

@@ -297,8 +297,9 @@ describe('shared operations', function()
     assert.same({ 'check-log', '88', 'true', '22', 'repo/ref' }, captured.logs[1].cmd)
     assert.same({
       forge_name = 'github',
+      scope = 'repo/ref',
+      run_id = '88',
       url = 'https://example.com/runs/88/jobs/22/repo/ref',
-      title = 'Deploy / 22',
       steps_cmd = { 'steps', '88', 'repo/ref' },
       job_id = '22',
       replace_win = win,
@@ -336,9 +337,9 @@ describe('shared operations', function()
     summary_opts.log_cmd_fn, summary_opts.browse_url_fn = nil, nil
     assert.same({
       forge_name = 'custom',
+      scope = 'repo/ref',
       run_id = '77',
       url = 'https://example.com/runs/77',
-      title = 'CI',
       in_progress = true,
       status_cmd = { 'status', '77', 'repo/ref' },
       json = true,
@@ -385,8 +386,9 @@ describe('shared operations', function()
     assert.same({ 'run-log', '88', 'true', 'repo/ref' }, captured.logs[1].cmd)
     assert.same({
       forge_name = 'gitlab',
+      scope = 'repo/ref',
+      run_id = '88',
       url = 'https://example.com/runs/88/repo/ref',
-      title = 'Deploy',
       steps_cmd = { 'steps', '88', 'repo/ref' },
       in_progress = false,
       status_cmd = { 'status', '88', 'repo/ref' },
