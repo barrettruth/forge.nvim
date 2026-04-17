@@ -91,6 +91,25 @@ describe('fzf picker', function()
     assert.equals('2', captured.opts.fzf_opts['--accept-nth'])
   end)
 
+  it('opts out of fzf-lua hide and resume so <c-c> fully exits forge pickers', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { '#42' } },
+          value = '42',
+        },
+      },
+      actions = {},
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_true(captured.opts.no_hide)
+    assert.is_true(captured.opts.no_resume)
+  end)
+
   it('renders headers with enter, ctrl, and tab labels without to text', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
@@ -484,6 +503,76 @@ describe('fzf picker', function()
     assert.is_nil(captured.opts.actions['ctrl-x'].noclose)
     captured.opts.actions['ctrl-x'].fn({ '1' })
     assert.equals('42', selected.value)
+  end)
+
+  it('pins reload actions to the index field so fzf passes just that column', function()
+    local picker = require('forge.picker.fzf')
+    local invoked = 0
+    picker.pick({
+      prompt = 'CI> ',
+      entries = {
+        {
+          display = { { 'run' } },
+          value = { id = '1', status = 'in_progress' },
+        },
+      },
+      entry_source = function()
+        return {
+          {
+            display = { { 'run' } },
+            value = { id = '1', status = 'in_progress' },
+          },
+        }
+      end,
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function(entry)
+            if entry then
+              invoked = invoked + 1
+            end
+          end,
+        },
+      },
+      picker_name = 'ci',
+    })
+
+    assert.is_not_nil(captured)
+    local enter = captured.opts.actions['enter']
+    assert.same('table', type(enter))
+    assert.is_true(enter.reload)
+    assert.equals('{3}', enter.field_index)
+    enter.fn({ '1' })
+    vim.wait(50, function()
+      return invoked == 1
+    end)
+    assert.equals(1, invoked)
+  end)
+
+  it('pins reload actions to field 2 on untracked pickers', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { '#42' } },
+          value = '42',
+        },
+      },
+      actions = {
+        {
+          name = 'browse',
+          label = 'browse',
+          close = false,
+          fn = function() end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals('{2}', captured.opts.actions['ctrl-x'].field_index)
   end)
 
   it('resolves selections when fzf-lua returns the full rendered row', function()

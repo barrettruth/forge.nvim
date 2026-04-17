@@ -370,7 +370,11 @@ function M.pick(opts)
         def.fn(entry)
       end
       if reloads then
-        fzf_actions[to_fzf_key(key)] = { fn = action_fn, reload = true }
+        fzf_actions[to_fzf_key(key)] = {
+          fn = action_fn,
+          reload = true,
+          field_index = tracked and '{3}' or '{2}',
+        }
       else
         fzf_actions[to_fzf_key(key)] = action_fn
       end
@@ -379,6 +383,8 @@ function M.pick(opts)
 
   local fzf_exec_opts = {
     fzf_args = fzf_args,
+    no_hide = true,
+    no_resume = true,
     prompt = opts.prompt or '',
     fzf_opts = {
       ['--ansi'] = '',
