@@ -24,8 +24,7 @@ local M = {}
 ---@field actions forge.PickerActionDef[]
 ---@field picker_name string
 ---@field back fun()?
----@field entry_source? fun(): forge.PickerEntry[]?
----@field initial_stream_only? boolean
+---@field stream? fun(emit: fun(entry: forge.PickerEntry?))
 
 M.backends = {
   ['fzf-lua'] = 'forge.picker.fzf',

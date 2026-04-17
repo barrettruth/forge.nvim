@@ -114,12 +114,6 @@ local function clear_list_cache(forge_mod, key)
   picker_session.invalidate(key)
 end
 
-local function fetch_json_now(cmd)
-  local result = vim.system(cmd, { text = true }):wait()
-  local ok, data = picker_session.decode_json(result)
-  return ok, data, result
-end
-
 local function limit_settings(base_limit, requested_limit)
   local visible_limit = requested_limit or base_limit
   return {
@@ -446,7 +440,6 @@ function M.ci(f, branch, filter, opts)
   local limits = limit_settings(forge_mod.config().display.limits.runs, opts.limit)
   local limit_step = limits.step
   local visible_limit = limits.visible
-  local fetch_limit = limits.fetch
   local ref = scoped_forge_ref(f, opts.scope)
   local request_key =
     forge_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
@@ -462,9 +455,9 @@ function M.ci(f, branch, filter, opts)
     pending = 'Running',
   }
   local scope_label = branch or 'all branches'
-  local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
   local current_runs
+  local runs_stale = true
 
   local function ci_prompt(count)
     local filter_label = prompt_labels[filter]
@@ -507,7 +500,7 @@ function M.ci(f, branch, filter, opts)
       })
     end
     if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
     end
     local filter_label = labels[filter] or filter
     local empty_text
@@ -523,14 +516,41 @@ function M.ci(f, branch, filter, opts)
     return with_placeholder(entries, empty_text), count
   end
 
-  local function load_more_runs(next_limit)
-    local ok, runs = fetch_json_now(f:list_runs_json_cmd(branch, ref, next_limit + 1))
-    if not ok then
-      log.error('failed to fetch CI runs')
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function emit_cached(emit)
+    local entries = build_ci_entries(current_runs, current_limit)
+    for _, entry in ipairs(entries) do
+      emit(entry)
+    end
+    emit(nil)
+  end
+
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function stream_runs(emit)
+    if current_runs and not runs_stale then
+      emit_cached(emit)
       return
     end
-    current_runs = runs
-    current_limit = next_limit
+    log.info('fetching CI runs...')
+    picker_session.request_json(
+      request_key,
+      f:list_runs_json_cmd(branch, ref, current_limit + 1),
+      function(ok, runs, _, stale)
+        if stale then
+          emit(nil)
+          return
+        end
+        if not ok then
+          log.error('failed to fetch CI runs')
+          emit(placeholder_entry('Failed to fetch CI runs'))
+          emit(nil)
+          return
+        end
+        current_runs = runs
+        runs_stale = false
+        emit_cached(emit)
+      end
+    )
   end
 
   local actions = {
@@ -542,11 +562,8 @@ function M.ci(f, branch, filter, opts)
           return
         end
         if entry.load_more then
-          if live_load_more then
-            load_more_runs(entry.next_limit)
-          else
-            M.ci(f, branch, filter, { limit = entry.next_limit, back = opts.back, scope = ref })
-          end
+          current_limit = entry.next_limit
+          runs_stale = true
           return
         end
         ops.ci_open(f, entry.value)
@@ -651,56 +668,14 @@ function M.ci(f, branch, filter, opts)
     },
   }
 
-  local function open_ci_picker(runs)
-    current_runs = runs
-    local entries, count = build_ci_entries(runs, current_limit)
-
-    picker.pick({
-      prompt = ci_prompt(count),
-      entries = entries,
-      entry_source = live_load_more and function()
-        if not current_runs then
-          return {}
-        end
-        return build_ci_entries(current_runs, current_limit)
-      end or nil,
-      actions = actions,
-      picker_name = 'ci',
-      back = opts.back,
-    })
-  end
-
   if f.list_runs_json_cmd then
-    picker_session.pick_json({
-      key = request_key,
-      loading_prompt = ci_prompt,
+    picker.pick({
+      prompt = ci_prompt(),
+      entries = {},
       actions = actions,
       picker_name = 'ci',
       back = opts.back,
-      cmd = function()
-        return f:list_runs_json_cmd(branch, ref, fetch_limit)
-      end,
-      on_fetch = function()
-        log.info('fetching CI runs...')
-      end,
-      entry_source = live_load_more and function()
-        if not current_runs then
-          return {}
-        end
-        return build_ci_entries(current_runs, current_limit)
-      end or nil,
-      initial_stream_only = live_load_more,
-      build_entries = function(runs)
-        current_runs = runs
-        return build_ci_entries(runs, current_limit)
-      end,
-      open = open_ci_picker,
-      on_failure = function()
-        log.error('failed to fetch CI runs')
-      end,
-      error_entry = function()
-        return placeholder_entry('Failed to fetch CI runs')
-      end,
+      stream = stream_runs,
     })
   elseif f.list_runs_cmd then
     log.info('structured CI data not available for this forge')
@@ -726,9 +701,9 @@ function M.pr(state, f, opts)
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
   local show_state = state ~= 'open'
-  local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
   local current_prs
+  local prs_stale = true
 
   local function build_pr_entries(prs, limit)
     limit = limit or current_limit
@@ -764,30 +739,20 @@ function M.pr(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
       or ('No %s %s'):format(state, f.labels.pr)
     return with_placeholder(entries, empty_text), count
   end
 
-  local function load_more_prs(next_limit)
-    local ok, prs = fetch_json_now(f:list_pr_json_cmd(state, next_limit + 1, ref))
-    if not ok then
-      log.error('failed to fetch ' .. f.labels.pr)
-      return
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function emit_cached_prs(emit)
+    local entries = build_pr_entries(current_prs, current_limit)
+    for _, entry in ipairs(entries) do
+      emit(entry)
     end
-    current_prs = prs
-    current_limit = next_limit
-  end
-
-  local function reopen_list()
-    clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
-    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
-  end
-
-  local function back_to_list()
-    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
+    emit(nil)
   end
 
   local function maybe_prefetch_next()
@@ -804,17 +769,55 @@ function M.pr(state, f, opts)
     )
   end
 
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function stream_prs(emit)
+    if current_prs and not prs_stale then
+      emit_cached_prs(emit)
+      return
+    end
+    log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
+    picker_session.request_json(
+      cache_key,
+      f:list_pr_json_cmd(state, current_limit + 1, ref),
+      function(ok, prs, _, stale)
+        if stale then
+          emit(nil)
+          return
+        end
+        if not ok then
+          log.error('failed to fetch ' .. f.labels.pr)
+          emit(placeholder_entry('Failed to fetch ' .. f.labels.pr))
+          emit(nil)
+          return
+        end
+        current_prs = prs
+        prs_stale = false
+        if use_cache then
+          forge_mod.set_list(cache_key, prs)
+        end
+        emit_cached_prs(emit)
+        maybe_prefetch_next()
+      end
+    )
+  end
+
+  local function reopen_list()
+    clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
+    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
+  local function back_to_list()
+    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
   local actions = {
     {
       name = 'default',
       label = 'checkout',
       fn = function(entry)
         if entry and entry.load_more then
-          if live_load_more then
-            load_more_prs(entry.next_limit)
-          else
-            M.pr(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
-          end
+          current_limit = entry.next_limit
+          prs_stale = true
         elseif entry then
           pr_action_fns(f, entry.value).checkout()
         end
@@ -939,74 +942,32 @@ function M.pr(state, f, opts)
     },
   }
 
-  local function open_pr_list(prs)
-    current_prs = prs
-    local entries, count = build_pr_entries(prs, current_limit)
-
-    picker.pick({
-      prompt = ('%s %s (%d)> '):format(state_label, f.labels.pr, count),
-      entries = entries,
-      entry_source = live_load_more and function()
-        if not current_prs then
-          return {}
-        end
-        return build_pr_entries(current_prs, current_limit)
-      end or nil,
-      actions = actions,
-      picker_name = 'pr',
-      back = opts.back,
-    })
-    maybe_prefetch_next()
-  end
-
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
-  if cached and live_load_more then
-    open_pr_list(cached)
-    return
+  if cached then
+    current_prs = cached
+    prs_stale = false
   end
-  picker_session.pick_json({
-    key = cache_key,
-    cached = cached,
-    loading_prompt = function()
-      return ('%s %s> '):format(state_label, f.labels.pr)
-    end,
+
+  local initial_prompt
+  if current_prs then
+    local _, count = build_pr_entries(current_prs, current_limit)
+    initial_prompt = ('%s %s (%d)> '):format(state_label, f.labels.pr, count)
+  else
+    initial_prompt = ('%s %s> '):format(state_label, f.labels.pr)
+  end
+
+  picker.pick({
+    prompt = initial_prompt,
+    entries = {},
     actions = actions,
     picker_name = 'pr',
     back = opts.back,
-    cmd = function()
-      return f:list_pr_json_cmd(state, fetch_limit, ref)
-    end,
-    on_fetch = function()
-      log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
-    end,
-    on_success = function(prs)
-      current_prs = prs
-      if use_cache then
-        forge_mod.set_list(cache_key, prs)
-      end
-      if picker.backend() == 'fzf-lua' then
-        maybe_prefetch_next()
-      end
-    end,
-    entry_source = live_load_more and function()
-      if not current_prs then
-        return {}
-      end
-      return build_pr_entries(current_prs, current_limit)
-    end or nil,
-    initial_stream_only = live_load_more,
-    build_entries = function(prs)
-      current_prs = prs
-      return build_pr_entries(prs, current_limit)
-    end,
-    open = open_pr_list,
-    on_failure = function()
-      log.error('failed to fetch ' .. f.labels.pr)
-    end,
-    error_entry = function()
-      return placeholder_entry('Failed to fetch ' .. f.labels.pr)
-    end,
+    stream = stream_prs,
   })
+
+  if current_prs then
+    maybe_prefetch_next()
+  end
 end
 
 ---@param state 'all'|'open'|'closed'
@@ -1028,9 +989,9 @@ function M.issue(state, f, opts)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
   local issue_show_state = state == 'all'
-  local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
   local current_issues
+  local issues_stale = true
 
   local function build_issue_entries(issues, limit)
     limit = limit or current_limit
@@ -1061,26 +1022,20 @@ function M.issue(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
     end
     local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
       or ('No %s %s'):format(state, f.labels.issue)
     return with_placeholder(entries, empty_text), count
   end
 
-  local function load_more_issues(next_limit)
-    local ok, issues = fetch_json_now(f:list_issue_json_cmd(state, next_limit + 1, ref))
-    if not ok then
-      log.error('failed to fetch issues')
-      return
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function emit_cached_issues(emit)
+    local entries = build_issue_entries(current_issues, current_limit)
+    for _, entry in ipairs(entries) do
+      emit(entry)
     end
-    current_issues = issues
-    current_limit = next_limit
-  end
-
-  local function reopen_list()
-    clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
-    M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
+    emit(nil)
   end
 
   local function maybe_prefetch_next()
@@ -1097,6 +1052,43 @@ function M.issue(state, f, opts)
     )
   end
 
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function stream_issues(emit)
+    if current_issues and not issues_stale then
+      emit_cached_issues(emit)
+      return
+    end
+    log.info('fetching issue list (' .. state .. ')...')
+    picker_session.request_json(
+      cache_key,
+      f:list_issue_json_cmd(state, current_limit + 1, ref),
+      function(ok, issues, _, stale)
+        if stale then
+          emit(nil)
+          return
+        end
+        if not ok then
+          log.error('failed to fetch issues')
+          emit(placeholder_entry('Failed to fetch issues'))
+          emit(nil)
+          return
+        end
+        current_issues = issues
+        issues_stale = false
+        if use_cache then
+          forge_mod.set_list(cache_key, issues)
+        end
+        emit_cached_issues(emit)
+        maybe_prefetch_next()
+      end
+    )
+  end
+
+  local function reopen_list()
+    clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
+    M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
   local actions = {
     {
       name = 'default',
@@ -1104,11 +1096,8 @@ function M.issue(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and entry.load_more then
-          if live_load_more then
-            load_more_issues(entry.next_limit)
-          else
-            M.issue(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
-          end
+          current_limit = entry.next_limit
+          issues_stale = true
         elseif entry then
           issue_action_fns(f, entry.value).browse()
         end
@@ -1178,74 +1167,32 @@ function M.issue(state, f, opts)
     },
   }
 
-  local function open_issue_list(issues)
-    current_issues = issues
-    local entries, count = build_issue_entries(issues, current_limit)
-
-    picker.pick({
-      prompt = ('%s %s (%d)> '):format(state_label, f.labels.issue, count),
-      entries = entries,
-      entry_source = live_load_more and function()
-        if not current_issues then
-          return {}
-        end
-        return build_issue_entries(current_issues, current_limit)
-      end or nil,
-      actions = actions,
-      picker_name = 'issue',
-      back = opts.back,
-    })
-    maybe_prefetch_next()
-  end
-
   local cached = use_cache and forge_mod.get_list(cache_key) or nil
-  if cached and live_load_more then
-    open_issue_list(cached)
-    return
+  if cached then
+    current_issues = cached
+    issues_stale = false
   end
-  picker_session.pick_json({
-    key = cache_key,
-    cached = cached,
-    loading_prompt = function()
-      return ('%s %s> '):format(state_label, f.labels.issue)
-    end,
+
+  local initial_prompt
+  if current_issues then
+    local _, count = build_issue_entries(current_issues, current_limit)
+    initial_prompt = ('%s %s (%d)> '):format(state_label, f.labels.issue, count)
+  else
+    initial_prompt = ('%s %s> '):format(state_label, f.labels.issue)
+  end
+
+  picker.pick({
+    prompt = initial_prompt,
+    entries = {},
     actions = actions,
     picker_name = 'issue',
     back = opts.back,
-    cmd = function()
-      return f:list_issue_json_cmd(state, fetch_limit, ref)
-    end,
-    on_fetch = function()
-      log.info('fetching issue list (' .. state .. ')...')
-    end,
-    on_success = function(issues)
-      current_issues = issues
-      if use_cache then
-        forge_mod.set_list(cache_key, issues)
-      end
-      if picker.backend() == 'fzf-lua' then
-        maybe_prefetch_next()
-      end
-    end,
-    entry_source = live_load_more and function()
-      if not current_issues then
-        return {}
-      end
-      return build_issue_entries(current_issues, current_limit)
-    end or nil,
-    initial_stream_only = live_load_more,
-    build_entries = function(issues)
-      current_issues = issues
-      return build_issue_entries(issues, current_limit)
-    end,
-    open = open_issue_list,
-    on_failure = function()
-      log.error('failed to fetch issues')
-    end,
-    error_entry = function()
-      return placeholder_entry('Failed to fetch issues')
-    end,
+    stream = stream_issues,
   })
+
+  if current_issues then
+    maybe_prefetch_next()
+  end
 end
 
 ---@param f forge.Forge
@@ -1299,9 +1246,9 @@ function M.release(state, f, opts)
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
   local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
     or 'Releases'
-  local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
   local current_releases
+  local releases_stale = true
 
   local function remember_release_fetch(releases, requested_limit)
     if type(releases) == 'table' then
@@ -1370,7 +1317,7 @@ function M.release(state, f, opts)
     end
     local count = #entries
     if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), live_load_more)
+      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
     end
     local empty_text = state == 'all' and 'No releases'
       or state == 'draft' and 'No draft releases'
@@ -1378,15 +1325,43 @@ function M.release(state, f, opts)
     return with_placeholder(entries, empty_text), count
   end
 
-  local function load_more_releases(next_visible_limit)
-    local ok, releases = fetch_json_now(f:list_releases_json_cmd(ref, next_visible_limit + 1))
-    if not ok then
-      log.error('failed to fetch releases')
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function emit_cached_releases(emit)
+    local entries = build_release_entries(current_releases, current_limit)
+    for _, entry in ipairs(entries) do
+      emit(entry)
+    end
+    emit(nil)
+  end
+
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function stream_releases(emit)
+    if current_releases and not releases_stale then
+      emit_cached_releases(emit)
       return
     end
-    current_releases = remember_release_fetch(releases, next_visible_limit + 1)
-    forge_mod.set_list(cache_key, current_releases)
-    current_limit = next_visible_limit
+    log.info('fetching releases...')
+    local requested = current_limit + 1
+    picker_session.request_json(
+      cache_key,
+      f:list_releases_json_cmd(ref, requested),
+      function(ok, releases, _, stale)
+        if stale then
+          emit(nil)
+          return
+        end
+        if not ok then
+          log.error('failed to fetch releases')
+          emit(placeholder_entry('Failed to fetch releases'))
+          emit(nil)
+          return
+        end
+        current_releases = remember_release_fetch(releases, requested)
+        releases_stale = false
+        forge_mod.set_list(cache_key, current_releases)
+        emit_cached_releases(emit)
+      end
+    )
   end
 
   local function reopen_list()
@@ -1401,11 +1376,8 @@ function M.release(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and entry.load_more then
-          if live_load_more then
-            load_more_releases(entry.next_limit)
-          else
-            M.release(state, f, { limit = entry.next_limit, back = opts.back, scope = ref })
-          end
+          current_limit = entry.next_limit
+          releases_stale = true
         elseif entry then
           ops.release_browse(f, entry.value)
         end
@@ -1458,62 +1430,27 @@ function M.release(state, f, opts)
     },
   }
 
-  local function open_release_list(releases)
-    current_releases = releases
-    local entries, count = build_release_entries(releases, current_limit)
-
-    picker.pick({
-      prompt = release_prompt(count),
-      entries = entries,
-      entry_source = live_load_more and function()
-        if not current_releases then
-          return {}
-        end
-        return build_release_entries(current_releases, current_limit)
-      end or nil,
-      actions = actions,
-      picker_name = 'release',
-      back = opts.back,
-    })
+  local cached = cached_releases()
+  if cached then
+    current_releases = cached
+    releases_stale = false
   end
 
-  local cached = cached_releases()
-  picker_session.pick_json({
-    key = cache_key,
-    cached = cached,
-    loading_prompt = release_prompt,
+  local initial_prompt
+  if current_releases then
+    local _, count = build_release_entries(current_releases, current_limit)
+    initial_prompt = release_prompt(count)
+  else
+    initial_prompt = release_prompt()
+  end
+
+  picker.pick({
+    prompt = initial_prompt,
+    entries = {},
     actions = actions,
     picker_name = 'release',
     back = opts.back,
-    cmd = function()
-      return f:list_releases_json_cmd(ref, fetch_limit)
-    end,
-    on_fetch = function()
-      log.info('fetching releases...')
-    end,
-    on_success = function(releases)
-      current_releases = remember_release_fetch(releases, fetch_limit)
-      forge_mod.set_list(cache_key, current_releases)
-    end,
-    entry_source = live_load_more and function()
-      if not current_releases then
-        return {}
-      end
-      return build_release_entries(current_releases, current_limit)
-    end or nil,
-    initial_stream_only = live_load_more,
-    build_entries = function(releases)
-      current_releases = remember_release_fetch(releases, fetch_limit)
-      local entries = build_release_entries(releases, current_limit)
-      return entries
-    end,
-    open = open_release_list,
-    on_failure = function()
-      log.error('failed to fetch releases')
-    end,
-    error_entry = function()
-      return placeholder_entry('Failed to fetch releases')
-    end,
+    stream = stream_releases,
   })
 end
 

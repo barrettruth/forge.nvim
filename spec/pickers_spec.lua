@@ -201,6 +201,21 @@ describe('pickers', function()
         end,
         pick = function(opts)
           captured = opts
+          if type(opts.stream) == 'function' then
+            local inner = opts.stream
+            opts.entries = {}
+            opts.stream = function(cb)
+              opts.entries = {}
+              inner(function(entry)
+                if entry ~= nil then
+                  opts.entries[#opts.entries + 1] = entry
+                end
+                if cb then
+                  cb(entry)
+                end
+              end)
+            end
+          end
         end,
         pr_toggle_verb = function(entry)
           if not entry or type(entry.value) ~= 'table' then
@@ -518,6 +533,7 @@ describe('pickers', function()
   it('dispatches flattened PR actions directly from the root picker', function()
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
     local entry = captured.entries[1]
@@ -551,6 +567,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
     assert.equals('Open PRs (0)> ', captured.prompt)
@@ -723,6 +740,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
     assert.same(
@@ -749,6 +767,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
     assert.same(
@@ -796,8 +815,11 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
+    captured.stream(function() end)
 
-    action_by_name('default').fn(captured.entries[3])
+    local load_more = captured.entries[3]
+    action_by_name('default').fn(load_more)
+    captured.stream(function() end)
     vim.system = old_system
 
     assert.equals(2, #calls)
@@ -912,6 +934,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.issue('all', fake_issue_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
     assert.same(
@@ -959,8 +982,10 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.issue('all', fake_issue_forge())
+    captured.stream(function() end)
 
     action_by_name('default').fn(captured.entries[3])
+    captured.stream(function() end)
     vim.system = old_system
 
     assert.equals(2, #calls)
@@ -1102,6 +1127,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.issue('open', fake_issue_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
     local entry = captured.entries[1]
@@ -1733,6 +1759,7 @@ describe('pickers', function()
     end)
 
     action_by_name('default').fn(streamed[3])
+    captured.stream(function() end)
 
     vim.system = old_system
 
@@ -1840,6 +1867,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.release('all', fake_release_forge())
+    captured.stream(function() end)
 
     assert.same({ 'v3.0.0', 'v2.0.0' }, {
       captured.entries[1].value.tag,
@@ -1869,37 +1897,42 @@ describe('pickers', function()
       calls[#calls + 1] = { cmd = cmd, cb = cb }
       return {
         wait = function()
-          return {
-            code = 0,
-            stdout = vim.json.encode({
-              { tag = 'v5.0.0', title = 'Fifth', is_draft = false, is_prerelease = false },
-              { tag = 'v4.0.0', title = 'Fourth', is_draft = false, is_prerelease = false },
-              { tag = 'v3.0.0', title = 'Third', is_draft = false, is_prerelease = false },
-              { tag = 'v2.0.0', title = 'Second', is_draft = false, is_prerelease = false },
-              { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
-            }),
-          }
+          return { code = 0 }
         end,
       }
     end
 
     local pickers = require('forge.pickers')
     pickers.release('all', fake_release_forge())
+    captured.stream(function() end)
 
     action_by_name('browse').fn(captured.entries[3])
+    captured.stream(function() end)
+    assert.same({ 'releases', '5' }, calls[1].cmd)
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { tag = 'v5.0.0', title = 'Fifth', is_draft = false, is_prerelease = false },
+        { tag = 'v4.0.0', title = 'Fourth', is_draft = false, is_prerelease = false },
+        { tag = 'v3.0.0', title = 'Third', is_draft = false, is_prerelease = false },
+        { tag = 'v2.0.0', title = 'Second', is_draft = false, is_prerelease = false },
+        { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+      }),
+    })
+
+    vim.wait(100, function()
+      return captured.entries[4] ~= nil
+    end)
     vim.system = old_system
 
-    assert.same({ 'releases', '5' }, calls[1].cmd)
-
-    local entries = captured.entry_source()
     assert.same({ 'v5.0.0', 'v4.0.0', 'v3.0.0', 'v2.0.0' }, {
-      entries[1].value.tag,
-      entries[2].value.tag,
-      entries[3].value.tag,
-      entries[4].value.tag,
+      captured.entries[1].value.tag,
+      captured.entries[2].value.tag,
+      captured.entries[3].value.tag,
+      captured.entries[4].value.tag,
     })
-    assert.equals('Load more...', entries[5].display[1][1])
-    assert.equals(6, entries[5].next_limit)
+    assert.equals('Load more...', captured.entries[5].display[1][1])
+    assert.equals(6, captured.entries[5].next_limit)
   end)
 
   it('keeps release copy working when the clipboard register is unavailable', function()
@@ -1914,6 +1947,7 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.release('all', fake_release_forge())
+    captured.stream(function() end)
     action_by_name('yank').fn(captured.entries[1])
 
     vim.fn.setreg = old_setreg
@@ -1990,16 +2024,20 @@ describe('pickers', function()
 
     local pickers = require('forge.pickers')
     pickers.release('all', fake_release_forge())
+    captured.stream(function() end)
 
     action_by_name('filter').fn()
+    captured.stream(function() end)
     assert.equals('Draft Releases (1)> ', captured.prompt)
     assert.equals('v2.0.0-draft', captured.entries[1].value.tag)
 
     action_by_name('filter').fn()
+    captured.stream(function() end)
     assert.equals('Pre-releases (1)> ', captured.prompt)
     assert.equals('v1.1.0-rc1', captured.entries[1].value.tag)
 
     action_by_name('filter').fn()
+    captured.stream(function() end)
     assert.equals('Releases (3)> ', captured.prompt)
     assert.equals('v1.0.0', captured.entries[1].value.tag)
 

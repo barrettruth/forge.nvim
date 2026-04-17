@@ -394,7 +394,7 @@ describe('fzf picker', function()
     assert.truthy(captured.lines[1]:find(' %[origin/main%]\t1$', 1))
   end)
 
-  it('does not duplicate streamed rows when the source is invoked again', function()
+  it('re-runs stream on each source invocation without duplicating rows', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'CI> ',
@@ -427,8 +427,9 @@ describe('fzf picker', function()
       return lines
     end
 
-    assert.same({ 'check one\t1', 'check two\t2' }, collect_streamed_lines())
-    assert.same({ 'check one\t1', 'check two\t2' }, collect_streamed_lines())
+    local expected = { 'check-1\tcheck one\t1', 'check-2\tcheck two\t2' }
+    assert.same(expected, collect_streamed_lines())
+    assert.same(expected, collect_streamed_lines())
   end)
 
   it('renders entries against the live picker width when available', function()
@@ -568,24 +569,19 @@ describe('fzf picker', function()
     local invoked = 0
     picker.pick({
       prompt = 'CI> ',
-      entries = {
-        {
+      entries = {},
+      stream = function(emit)
+        emit({
           display = { { 'run' } },
           value = { id = '1', status = 'in_progress' },
-        },
-      },
-      entry_source = function()
-        return {
-          {
-            display = { { 'run' } },
-            value = { id = '1', status = 'in_progress' },
-          },
-        }
+        })
+        emit(nil)
       end,
       actions = {
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             if entry then
               invoked = invoked + 1
@@ -601,10 +597,8 @@ describe('fzf picker', function()
     assert.same('table', type(enter))
     assert.is_true(enter.reload)
     assert.equals('{3}', enter.field_index)
+    captured.lines(function() end)
     enter.fn({ '1' })
-    vim.wait(50, function()
-      return invoked == 1
-    end)
     assert.equals(1, invoked)
   end)
 
@@ -737,16 +731,12 @@ describe('fzf picker', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'Issues> ',
-      entries = {
-        {
-          display = { { '#1' } },
-          value = '1',
-        },
-      },
+      entries = {},
       actions = {
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             selected = entry
           end,
@@ -754,6 +744,10 @@ describe('fzf picker', function()
       },
       picker_name = 'issue',
       stream = function(emit)
+        emit({
+          display = { { '#1' } },
+          value = '1',
+        })
         emit({
           display = { { '#2' } },
           value = '2',
@@ -775,48 +769,31 @@ describe('fzf picker', function()
       lines[#lines + 1] = line
     end)
 
-    assert.same({ '#1\t1', '#2\t2' }, lines)
+    assert.same({ '1\t#1\t1', '2\t#2\t2' }, lines)
     assert.is_true(done)
 
-    captured.opts.actions.enter({ '2' })
+    captured.opts.actions.enter.fn({ '2' })
     assert.equals('2', selected.value)
   end)
 
-  it('rebuilds dynamic entry sources each time the source function runs', function()
+  it('rebuilds streamed entries each time the source function runs', function()
     local picker = require('forge.picker.fzf')
     local phase = 1
     picker.pick({
       prompt = 'PRs> ',
-      entries = {
-        {
-          display = { { '#1' } },
-          value = '1',
-        },
-      },
-      entry_source = function()
-        if phase == 1 then
-          return {
-            {
-              display = { { '#1' } },
-              value = '1',
-            },
-          }
+      entries = {},
+      stream = function(emit)
+        emit({ display = { { '#1' } }, value = '1' })
+        if phase == 2 then
+          emit({ display = { { '#2' } }, value = '2' })
         end
-        return {
-          {
-            display = { { '#1' } },
-            value = '1',
-          },
-          {
-            display = { { '#2' } },
-            value = '2',
-          },
-        }
+        emit(nil)
       end,
       actions = {
         {
           name = 'default',
           label = 'open',
+          close = false,
           fn = function(entry)
             selected = entry
           end,
@@ -852,9 +829,6 @@ describe('fzf picker', function()
     assert.same({ '1\t#1\t1', '2\t#2\t2' }, second)
 
     captured.opts.actions.enter.fn({ '2' })
-    vim.wait(100, function()
-      return selected ~= false
-    end)
     assert.equals('2', selected.value)
   end)
 
@@ -864,39 +838,20 @@ describe('fzf picker', function()
     picker.pick({
       prompt = 'CI> ',
       entries = {},
-      entry_source = function()
-        if phase == 1 then
-          return {
-            {
-              display = { { '#1' } },
-              value = '1',
-            },
-            {
-              display = { { 'Load more...' } },
-              value = nil,
-              load_more = true,
-              next_limit = 2,
-              keep_open = true,
-            },
-          }
+      stream = function(emit)
+        emit({ display = { { '#1' } }, value = '1' })
+        if phase == 2 then
+          emit({ display = { { '#2' } }, value = '2' })
         end
-        return {
-          {
-            display = { { '#1' } },
-            value = '1',
-          },
-          {
-            display = { { '#2' } },
-            value = '2',
-          },
-          {
-            display = { { 'Load more...' } },
-            value = nil,
-            load_more = true,
-            next_limit = 3,
-            keep_open = true,
-          },
-        }
+        local next_limit = phase == 1 and 2 or 3
+        emit({
+          display = { { 'Load more...' } },
+          value = nil,
+          load_more = true,
+          next_limit = next_limit,
+          keep_open = true,
+        })
+        emit(nil)
       end,
       actions = {
         {
@@ -984,7 +939,7 @@ describe('fzf picker', function()
       end
     end)
 
-    assert.same({ '#2\t2' }, lines)
+    assert.same({ '2\t#2\t2' }, lines)
   end)
 
   it('strips merged and branch background ANSI so the selected row highlight can win', function()
