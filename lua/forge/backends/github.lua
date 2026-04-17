@@ -385,6 +385,18 @@ end
 
 ---@param id string
 ---@return string[]
+function M:cancel_run_cmd(id, scope)
+  return { 'gh', 'run', 'cancel', id, '-R', nwo(scope) }
+end
+
+---@param id string
+---@return string[]
+function M:rerun_run_cmd(id, scope)
+  return { 'gh', 'run', 'rerun', id, '-R', nwo(scope) }
+end
+
+---@param id string
+---@return string[]
 function M:run_status_cmd(id, scope)
   return { 'gh', 'run', 'view', id, '-R', nwo(scope), '--json', 'status,conclusion' }
 end

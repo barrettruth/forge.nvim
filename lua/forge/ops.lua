@@ -545,6 +545,90 @@ function M.ci_browse(f, run)
   end
 end
 
+---@param f forge.Forge
+---@param run forge.RunRefLike
+---@param opts? forge.OpCallbacks|{ confirm?: boolean }
+function M.ci_cancel(f, run, opts)
+  run = normalize_run_ref(run)
+  opts = opts or {}
+  if not f.cancel_run_cmd then
+    log.warn(('%s does not support cancelling runs'):format(f.name))
+    if opts.on_failure then
+      opts.on_failure()
+    end
+    return
+  end
+  local function do_cancel()
+    run_forge_cmd(
+      'run',
+      run.id,
+      'cancelling',
+      f:cancel_run_cmd(run.id, run.scope),
+      'cancelled',
+      'cancel failed',
+      opts
+    )
+  end
+  if opts.confirm == false then
+    do_cancel()
+    return
+  end
+  vim.ui.select({ 'Yes', 'No' }, {
+    prompt = 'Cancel run #' .. run.id .. '? ',
+  }, function(choice)
+    if choice == 'Yes' then
+      do_cancel()
+    elseif opts.on_cancel then
+      opts.on_cancel()
+    end
+  end)
+end
+
+---@param f forge.Forge
+---@param run forge.RunRefLike
+---@param opts? forge.OpCallbacks
+function M.ci_rerun(f, run, opts)
+  run = normalize_run_ref(run)
+  opts = opts or {}
+  if not f.rerun_run_cmd then
+    log.warn(('%s does not support rerunning runs'):format(f.name))
+    if opts.on_failure then
+      opts.on_failure()
+    end
+    return
+  end
+  run_forge_cmd(
+    'run',
+    run.id,
+    'rerunning',
+    f:rerun_run_cmd(run.id, run.scope),
+    'rerun started',
+    'rerun failed',
+    opts
+  )
+end
+
+---@param f forge.Forge
+---@param run forge.RunRefLike
+---@param opts? forge.OpCallbacks|{ confirm?: boolean }
+function M.ci_toggle(f, run, opts)
+  run = normalize_run_ref(run)
+  opts = opts or {}
+  local status = trim(run.status):lower()
+  if status == 'skipped' then
+    log.info('nothing to toggle for skipped run')
+    if opts.on_failure then
+      opts.on_failure()
+    end
+    return
+  end
+  if run_in_progress(status) then
+    M.ci_cancel(f, run, opts)
+  else
+    M.ci_rerun(f, run, opts)
+  end
+end
+
 ---@param state? 'all'|'draft'|'prerelease'
 ---@param opts? forge.PickerBackOpts
 function M.release_list(state, opts)
