@@ -13,6 +13,17 @@ local function strip_bg_ansi(text)
   return (text:gsub('\27%[48;2;%d+;%d+;%d+m', ''):gsub('\27%[48;5;%d+m', ''))
 end
 
+local function header_hls()
+  local ok, config = pcall(require, 'fzf-lua.config')
+  local hls = ok and type(config.globals) == 'table' and config.globals.hls or nil
+  local fzf_hls = type(hls) == 'table' and hls.fzf or nil
+  return {
+    bind = type(hls) == 'table' and hls.header_bind or 'FzfLuaHeaderBind',
+    text = type(hls) == 'table' and hls.header_text or 'FzfLuaHeaderText',
+    separator = type(fzf_hls) == 'table' and fzf_hls.info or 'FzfLuaFzfInfo',
+  }
+end
+
 ---@param key string
 ---@return string
 local function to_fzf_key(key)
@@ -139,6 +150,7 @@ end
 local function render_header_for(actions, bindings, entry)
   local picker_mod = require('forge.picker')
   local utils = require('fzf-lua.utils')
+  local hls = header_hls()
   local parts = {}
   local seen_keys = {}
   for _, def in ipairs(actions) do
@@ -150,8 +162,8 @@ local function render_header_for(actions, bindings, entry)
       table.insert(
         parts,
         ('%s %s'):format(
-          utils.ansi_from_hl('FzfLuaHeaderBind', header_key),
-          utils.ansi_from_hl('FzfLuaHeaderText', label)
+          utils.ansi_from_hl(hls.bind, header_key),
+          utils.ansi_from_hl(hls.text, label)
         )
       )
     end
@@ -159,7 +171,7 @@ local function render_header_for(actions, bindings, entry)
   if #parts < 2 then
     return nil
   end
-  return table.concat(parts, '|')
+  return table.concat(parts, utils.ansi_from_hl(hls.separator, ' · '))
 end
 
 ---@param actions forge.PickerActionDef[]
