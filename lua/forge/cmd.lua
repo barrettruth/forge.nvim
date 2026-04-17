@@ -124,8 +124,12 @@ local families = {
   {
     name = 'ci',
     surface = 'forge',
-    verb_order = { 'log', 'watch', 'browse' },
+    verb_order = { 'open', 'log', 'watch', 'browse' },
     verbs = {
+      open = {
+        subject = { kind = 'run', min = 1, max = 1 },
+        modifiers = { 'repo' },
+      },
       log = {
         subject = { kind = 'run', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -497,6 +501,10 @@ local function dispatch_ci(command)
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
+  if command.name == 'open' then
+    ops.ci_open(f, { id = command.subjects[1], scope = scope })
+    return
+  end
   if command.name == 'log' then
     ops.ci_log(f, { id = command.subjects[1], scope = scope })
     return

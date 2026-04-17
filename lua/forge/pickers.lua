@@ -304,47 +304,54 @@ function M.checks(f, num, filter, cached_checks, opts)
     return with_placeholder(entries, empty_text), count
   end
 
+  local function open_check(entry)
+    if not entry then
+      return
+    end
+    local c = entry.value
+    local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
+    if not run_id then
+      log.info('logs not available, use browse to view')
+      return
+    end
+    local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
+    local bucket = (c.bucket or ''):lower()
+    if bucket == 'skipping' then
+      log.info('no log available - job was not started')
+      return
+    end
+    local in_progress = bucket == 'pending'
+    local check_ref = c.scope or ref
+    if in_progress and f.live_tail_cmd then
+      require('forge.term').open(f:live_tail_cmd(run_id, job_id, check_ref), { url = c.link })
+      return
+    end
+    log.info('fetching check logs...')
+    local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id, check_ref)
+    local steps_cmd = f.steps_cmd and f:steps_cmd(run_id, check_ref) or nil
+    local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id, check_ref) or nil
+    require('forge.log').open(cmd, {
+      forge_name = f.name,
+      scope = check_ref,
+      run_id = run_id,
+      url = c.link,
+      steps_cmd = steps_cmd,
+      job_id = job_id,
+      in_progress = in_progress,
+      status_cmd = status_cmd,
+    })
+  end
+
   local actions = {
+    {
+      name = 'default',
+      label = 'open',
+      fn = open_check,
+    },
     {
       name = 'log',
       label = 'log',
-      fn = function(entry)
-        if not entry then
-          return
-        end
-        local c = entry.value
-        local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
-        if not run_id then
-          log.info('logs not available, use browse to view')
-          return
-        end
-        local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
-        local bucket = (c.bucket or ''):lower()
-        if bucket == 'skipping' then
-          log.info('no log available - job was not started')
-          return
-        end
-        local in_progress = bucket == 'pending'
-        local check_ref = c.scope or ref
-        if in_progress and f.live_tail_cmd then
-          require('forge.term').open(f:live_tail_cmd(run_id, job_id, check_ref), { url = c.link })
-        else
-          log.info('fetching check logs...')
-          local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id, check_ref)
-          local steps_cmd = f.steps_cmd and f:steps_cmd(run_id, check_ref) or nil
-          local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id, check_ref) or nil
-          require('forge.log').open(cmd, {
-            forge_name = f.name,
-            scope = check_ref,
-            run_id = run_id,
-            url = c.link,
-            steps_cmd = steps_cmd,
-            job_id = job_id,
-            in_progress = in_progress,
-            status_cmd = status_cmd,
-          })
-        end
-      end,
+      fn = open_check,
     },
     {
       name = 'browse',
@@ -566,8 +573,8 @@ function M.ci(f, branch, filter, opts)
 
   local actions = {
     {
-      name = 'log',
-      label = 'log',
+      name = 'default',
+      label = 'open',
       fn = function(entry)
         if not entry then
           return
@@ -578,6 +585,16 @@ function M.ci(f, branch, filter, opts)
           else
             M.ci(f, branch, filter, { limit = entry.next_limit, back = opts.back, scope = ref })
           end
+          return
+        end
+        ops.ci_open(f, entry.value)
+      end,
+    },
+    {
+      name = 'log',
+      label = 'log',
+      fn = function(entry)
+        if not entry or entry.load_more then
           return
         end
         ops.ci_log(f, entry.value)
