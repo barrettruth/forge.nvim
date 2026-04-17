@@ -68,6 +68,13 @@ describe('compose issue create', function()
         clear_list = function()
           captured.cleared = captured.cleared + 1
         end,
+        current_scope = function()
+          return {
+            kind = 'github',
+            host = 'github.com',
+            slug = 'owner/repo',
+          }
+        end,
       }
     end
 
@@ -114,7 +121,8 @@ describe('compose issue create', function()
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if
-        vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == 'forge://issue/new'
+        vim.api.nvim_buf_is_valid(buf)
+        and vim.api.nvim_buf_get_name(buf) == 'forge://github.com/owner/repo/issue/new'
       then
         vim.api.nvim_buf_delete(buf, { force = true })
       end
@@ -440,6 +448,13 @@ describe('compose issue edit', function()
         clear_list = function()
           captured.cleared = captured.cleared + 1
         end,
+        current_scope = function()
+          return {
+            kind = 'github',
+            host = 'github.com',
+            slug = 'owner/repo',
+          }
+        end,
       }
     end
 
@@ -487,7 +502,7 @@ describe('compose issue edit', function()
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if
         vim.api.nvim_buf_is_valid(buf)
-        and vim.api.nvim_buf_get_name(buf) == 'forge://issue/42/edit'
+        and vim.api.nvim_buf_get_name(buf) == 'forge://github.com/owner/repo/issue/42/edit'
       then
         vim.api.nvim_buf_delete(buf, { force = true })
       end

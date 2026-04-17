@@ -35,6 +35,13 @@ describe('compose abandon behavior', function()
     package.preload['forge'] = function()
       return {
         clear_list = function() end,
+        current_scope = function()
+          return {
+            kind = 'github',
+            host = 'github.com',
+            slug = 'owner/repo',
+          }
+        end,
       }
     end
 

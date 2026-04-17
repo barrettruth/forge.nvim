@@ -86,8 +86,9 @@ local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd
     return f:check_log_cmd(run.id, failed, job_id, run_ref),
       {
         forge_name = f.name,
+        scope = run_ref,
+        run_id = run.id,
         url = job_url,
-        title = (run.name or run.id) .. ' / ' .. (job_id or ''),
         steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
         job_id = job_id,
         in_progress = in_progress,
@@ -358,9 +359,9 @@ function M.ci_log(f, run)
   if f.view_cmd then
     require('forge.log').open_summary(f:view_cmd(run.id, { scope = run_ref }), {
       forge_name = f.name,
+      scope = run_ref,
       run_id = run.id,
       url = url,
-      title = run.name or run.id,
       in_progress = in_progress,
       status_cmd = status_cmd,
       browse_url_fn = function(job_id)
@@ -377,8 +378,9 @@ function M.ci_log(f, run)
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
             forge_name = f.name,
+            scope = run_ref,
+            run_id = run.id,
             url = job_url,
-            title = (run.name or run.id) .. ' / ' .. (job_id or ''),
             steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
             job_id = job_id,
             in_progress = in_progress,
@@ -391,9 +393,9 @@ function M.ci_log(f, run)
   if f.summary_json_cmd then
     require('forge.log').open_summary(f:summary_json_cmd(run.id, run_ref), {
       forge_name = f.name,
+      scope = run_ref,
       run_id = run.id,
       url = url,
-      title = run.name or run.id,
       in_progress = in_progress,
       status_cmd = status_cmd,
       json = true,
@@ -411,8 +413,9 @@ function M.ci_log(f, run)
         return f:check_log_cmd(run.id, failed, job_id, run_ref),
           {
             forge_name = f.name,
+            scope = run_ref,
+            run_id = run.id,
             url = job_url,
-            title = (run.name or run.id) .. ' / ' .. (job_id or ''),
             steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
             job_id = job_id,
             in_progress = in_progress,
@@ -427,8 +430,9 @@ function M.ci_log(f, run)
     f:run_log_cmd(run.id, status == 'failure' or status == 'failed', run_ref),
     {
       forge_name = f.name,
+      scope = run_ref,
+      run_id = run.id,
       url = url,
-      title = run.name or run.id,
       steps_cmd = f.steps_cmd and f:steps_cmd(run.id, run_ref) or nil,
       in_progress = in_progress,
       status_cmd = status_cmd,

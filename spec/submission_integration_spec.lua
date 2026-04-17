@@ -65,6 +65,13 @@ describe('submission integration', function()
         scope_key = function(scope)
           return scope and scope.repo_arg or ''
         end,
+        current_scope = function()
+          return {
+            kind = 'github',
+            host = 'github.com',
+            slug = 'owner/repo',
+          }
+        end,
       }
     end
 

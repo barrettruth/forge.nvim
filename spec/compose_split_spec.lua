@@ -77,6 +77,13 @@ describe('compose split session', function()
         clear_list = function()
           captured.cleared = captured.cleared + 1
         end,
+        current_scope = function()
+          return {
+            kind = 'github',
+            host = 'github.com',
+            slug = 'owner/repo',
+          }
+        end,
       }
     end
 

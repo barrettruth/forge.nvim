@@ -6,6 +6,21 @@ local template = require('forge.template')
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 
+---@param ref? forge.Scope
+---@param forge_name string
+---@return string?
+local function resolve_bufpath(ref, forge_name)
+  local path = scope.bufpath(ref)
+  if path then
+    return path
+  end
+  local ok, forge = pcall(require, 'forge')
+  if not ok or type(forge) ~= 'table' or type(forge.current_scope) ~= 'function' then
+    return nil
+  end
+  return scope.bufpath(forge.current_scope(forge_name))
+end
+
 ---@class forge.ComposeBuilder
 ---@field lines string[]
 ---@field marks {line: integer, col: integer, end_col: integer, hl: string}[]
@@ -424,7 +439,12 @@ end
 ---@param result forge.TemplateResult?
 ---@param ref? forge.Scope
 function M.open_issue(f, result, ref)
-  local buf = create_compose_buf('forge://issue/new')
+  local prefix = resolve_bufpath(ref, f.name)
+  if not prefix then
+    require('forge.logger').warn('cannot open compose buffer: no repo scope available')
+    return
+  end
+  local buf = create_compose_buf(('forge://%s/issue/new'):format(prefix))
   vim.b[buf].forge_scope = ref
   set_public_buffer_state(buf, f.name, 'issue', ref)
 
@@ -500,7 +520,12 @@ function M.open_issue(f, result, ref)
 end
 
 function M.open_issue_edit(f, num, details, ref)
-  local buf = create_compose_buf(('forge://issue/%s/edit'):format(num))
+  local prefix = resolve_bufpath(ref, f.name)
+  if not prefix then
+    require('forge.logger').warn('cannot open compose buffer: no repo scope available')
+    return
+  end
+  local buf = create_compose_buf(('forge://%s/issue/%s/edit'):format(prefix, num))
   vim.b[buf].forge_scope = ref
   set_public_buffer_state(buf, f.name, 'issue', ref)
 
@@ -572,6 +597,11 @@ end
 ---@param base_ref string?
 ---@param head_ref string?
 function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, head_ref)
+  local bufpath = resolve_bufpath(ref, f.name)
+  if not bufpath then
+    require('forge.logger').warn('cannot open compose buffer: no repo scope available')
+    return
+  end
   base_ref = base_ref or ('origin/' .. base)
   head_ref = head_ref or 'HEAD'
   local title, commit_body = template.fill_from_commits(branch, base_ref, head_ref)
@@ -584,7 +614,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
     reviewers = {},
   }
 
-  local buf = create_compose_buf('forge://pr/new')
+  local buf = create_compose_buf(('forge://%s/pr/new'):format(bufpath))
   vim.b[buf].forge_scope = ref
   set_public_buffer_state(buf, f.name, 'pr', ref)
 
@@ -768,7 +798,12 @@ end
 ---@param current_branch string
 ---@param ref? forge.Scope
 function M.open_pr_edit(f, num, details, current_branch, ref)
-  local buf = create_compose_buf(('forge://pr/%s/edit'):format(num))
+  local prefix = resolve_bufpath(ref, f.name)
+  if not prefix then
+    require('forge.logger').warn('cannot open compose buffer: no repo scope available')
+    return
+  end
+  local buf = create_compose_buf(('forge://%s/pr/%s/edit'):format(prefix, num))
   vim.b[buf].forge_scope = ref
   set_public_buffer_state(buf, f.name, 'pr', ref)
 

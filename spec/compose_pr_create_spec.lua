@@ -57,6 +57,9 @@ describe('compose pr create', function()
       if cmd == 'git remote get-url origin' then
         return captured.remote_url
       end
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo'
+      end
       return ''
     end
     vim.system = function(_, _, cb)
@@ -101,7 +104,10 @@ describe('compose pr create', function()
     package.loaded['forge.template'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-      if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == 'forge://pr/new' then
+      if
+        vim.api.nvim_buf_is_valid(buf)
+        and vim.api.nvim_buf_get_name(buf) == 'forge://github.com/barrettruth/forge.nvim/pr/new'
+      then
         vim.api.nvim_buf_delete(buf, { force = true })
       end
     end
