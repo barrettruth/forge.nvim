@@ -280,6 +280,34 @@ function M:list_runs_json_cmd(branch, ref, limit)
 end
 
 ---@param id string
+---@return string[]
+function M:cancel_run_cmd(id, ref)
+  return {
+    'tea',
+    'api',
+    '--repo',
+    repo_arg(ref),
+    '-X',
+    'POST',
+    ('/repos/{owner}/{repo}/actions/runs/%s/cancel'):format(id),
+  }
+end
+
+---@param id string
+---@return string[]
+function M:rerun_run_cmd(id, ref)
+  return {
+    'tea',
+    'api',
+    '--repo',
+    repo_arg(ref),
+    '-X',
+    'POST',
+    ('/repos/{owner}/{repo}/actions/runs/%s/rerun'):format(id),
+  }
+end
+
+---@param id string
 ---@return string?
 function M:run_web_url(id, ref)
   local base = forge.remote_web_url(ref)

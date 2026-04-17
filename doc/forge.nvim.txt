@@ -704,7 +704,15 @@ interval.
                                rerun it when completed; the header hint
                                reflects the current status of the row. No-op
                                on skipped runs. Cancellation prompts for
-                               confirmation. GitHub only.
+                               confirmation. GitHub uses `gh run
+                               {cancel,rerun}`; GitLab uses `glab ci cancel
+                               pipeline` for cancel and `glab api ... /retry`
+                               for rerun (retries failed and cancelled jobs
+                               only, does not rebuild successful stages);
+                               Codeberg uses `tea api ... /cancel` and
+                               `tea api ... /rerun` against
+                               `/repos/{owner}/{repo}/actions/runs/{id}`,
+                               which require Gitea >= 1.22 or Forgejo >= 10.
   `filter`      `<tab>`          Cycle filter: all -> failed -> passed -> running
   `refresh`     `<c-r>`          Re-fetch runs
 
@@ -986,7 +994,7 @@ support for features that vary among the verbs forge.nvim exposes today:
   Per-PR CI checks             yes       yes       yes (2)
   Per-check log viewing        yes       yes        -
   CI runs (repo-wide)          yes       yes       yes
-  CI cancel / rerun            yes        -         -
+  CI cancel / rerun            yes       yes (4)   yes (5)
   Issue create / edit / list   yes       yes       yes
   Branches / commits           yes       yes       yes
   Worktrees                    yes       yes       yes
@@ -1006,6 +1014,16 @@ support for features that vary among the verbs forge.nvim exposes today:
   (3) GitLab releases are tag + notes + asset links + milestone associations;
       the GitLab API has no draft or prerelease concept, so the
       draft/prerelease badges shown on other forges do not apply.
+
+  (4) GitLab rerun maps to `POST /projects/:id/pipelines/:pid/retry`, which
+      retries only failed and cancelled jobs rather than rebuilding the
+      full pipeline. Cancel uses `glab ci cancel pipeline`.
+
+  (5) Codeberg cancel and rerun call
+      `POST /repos/{owner}/{repo}/actions/runs/{id}/{cancel,rerun}` via
+      `tea api`. Both endpoints require Gitea >= 1.22 or Forgejo >= 10; on
+      older instances the request will fail with a 404. Codeberg itself
+      runs recent Forgejo, so this affects self-hosted Gitea/Forgejo only.
 
   The "Release draft/prerelease" row reflects what each CLI / API supports.
   forge.nvim does not currently expose release creation from any forge, so
