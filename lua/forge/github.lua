@@ -180,6 +180,27 @@ function M:browse_commit(commit, scope)
   open_browse_url(cmd)
 end
 
+local LIST_PATHS = {
+  pr = '/pulls',
+  issue = '/issues',
+  ci = '/actions',
+  release = '/releases',
+}
+
+---@param kind forge.WebKind
+---@return string?
+function M:list_web_url(kind, scope)
+  local base = forge.remote_web_url(scope)
+  if not base or base == '' then
+    return nil
+  end
+  local path = LIST_PATHS[kind]
+  if not path then
+    return nil
+  end
+  return base .. path
+end
+
 function M:checkout_cmd(num, scope)
   local cmd = { 'gh', 'pr', 'checkout', num }
   local repo = nwo(scope)

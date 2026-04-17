@@ -1113,6 +1113,11 @@ Optional methods: ~
                                         `status` and `conclusion` fields.
   `live_tail_cmd(run_id, job_id?)`     `string[]?` cmd to live-tail a
                                         specific job in a terminal.
+  `list_web_url(kind, scope?)`         `string?` Web URL for the list
+                                        landing page of `kind` (`'pr'`,
+                                        `'issue'`, `'ci'`, `'release'`).
+                                        Return `nil` if the source has no
+                                        such page.
   `list_runs_json_cmd(branch?)`        `string[]` JSON CI list cmd.
                                         If absent, Forge reports that
                                         structured CI data is unavailable

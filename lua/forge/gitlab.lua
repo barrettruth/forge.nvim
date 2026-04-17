@@ -149,6 +149,27 @@ function M:browse_commit(commit, ref)
   vim.ui.open(base .. '/-/commit/' .. commit)
 end
 
+local LIST_PATHS = {
+  pr = '/-/merge_requests',
+  issue = '/-/issues',
+  ci = '/-/pipelines',
+  release = '/-/releases',
+}
+
+---@param kind forge.WebKind
+---@return string?
+function M:list_web_url(kind, ref)
+  local base = forge.remote_web_url(ref)
+  if not base or base == '' then
+    return nil
+  end
+  local path = LIST_PATHS[kind]
+  if not path then
+    return nil
+  end
+  return base .. path
+end
+
 function M:checkout_cmd(num, ref)
   return { 'glab', 'mr', 'checkout', num, '-R', repo_arg(ref) }
 end

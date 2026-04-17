@@ -285,6 +285,23 @@ describe('github', function()
     })
     assert.equals('fix(ci): add load more for repo runs (#196)', run.name)
   end)
+
+  it('builds list_web_url for each kind', function()
+    local scope = { web_url = 'https://github.com/owner/repo' }
+    assert.equals('https://github.com/owner/repo/pulls', gh:list_web_url('pr', scope))
+    assert.equals('https://github.com/owner/repo/issues', gh:list_web_url('issue', scope))
+    assert.equals('https://github.com/owner/repo/actions', gh:list_web_url('ci', scope))
+    assert.equals('https://github.com/owner/repo/releases', gh:list_web_url('release', scope))
+  end)
+
+  it('returns nil from list_web_url when base url is empty', function()
+    assert.is_nil(gh:list_web_url('pr', { web_url = '' }))
+  end)
+
+  it('returns nil from list_web_url for unknown kinds', function()
+    local scope = { web_url = 'https://github.com/owner/repo' }
+    assert.is_nil(gh:list_web_url('bogus', scope))
+  end)
 end)
 
 describe('github browse', function()
@@ -615,6 +632,23 @@ describe('gitlab', function()
   it('uses ref as name for non-MR refs', function()
     assert.equals('main', gl:normalize_run({ id = 1, ref = 'main', status = 'running' }).name)
   end)
+
+  it('builds list_web_url for each kind', function()
+    local scope = { web_url = 'https://gitlab.com/group/repo' }
+    assert.equals('https://gitlab.com/group/repo/-/merge_requests', gl:list_web_url('pr', scope))
+    assert.equals('https://gitlab.com/group/repo/-/issues', gl:list_web_url('issue', scope))
+    assert.equals('https://gitlab.com/group/repo/-/pipelines', gl:list_web_url('ci', scope))
+    assert.equals('https://gitlab.com/group/repo/-/releases', gl:list_web_url('release', scope))
+  end)
+
+  it('returns nil from list_web_url when base url is empty', function()
+    assert.is_nil(gl:list_web_url('pr', { web_url = '' }))
+  end)
+
+  it('returns nil from list_web_url for unknown kinds', function()
+    local scope = { web_url = 'https://gitlab.com/group/repo' }
+    assert.is_nil(gl:list_web_url('bogus', scope))
+  end)
 end)
 
 describe('codeberg', function()
@@ -807,5 +841,22 @@ describe('codeberg', function()
       { 'sh', '-c', 'tea releases delete --confirm --repo forgejo/tea-test v1.2.3' },
       cb:delete_release_cmd('v1.2.3', { repo_arg = 'forgejo/tea-test' })
     )
+  end)
+
+  it('builds list_web_url for each kind', function()
+    local scope = { web_url = 'https://codeberg.org/owner/repo' }
+    assert.equals('https://codeberg.org/owner/repo/pulls', cb:list_web_url('pr', scope))
+    assert.equals('https://codeberg.org/owner/repo/issues', cb:list_web_url('issue', scope))
+    assert.equals('https://codeberg.org/owner/repo/actions', cb:list_web_url('ci', scope))
+    assert.equals('https://codeberg.org/owner/repo/releases', cb:list_web_url('release', scope))
+  end)
+
+  it('returns nil from list_web_url when base url is empty', function()
+    assert.is_nil(cb:list_web_url('pr', { web_url = '' }))
+  end)
+
+  it('returns nil from list_web_url for unknown kinds', function()
+    local scope = { web_url = 'https://codeberg.org/owner/repo' }
+    assert.is_nil(cb:list_web_url('bogus', scope))
   end)
 end)
