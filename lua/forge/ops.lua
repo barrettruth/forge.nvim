@@ -143,19 +143,25 @@ local function location_arg(location)
   return ('%s:%d-%d'):format(location.path, range.start_line, range.end_line)
 end
 
+---@param state? 'open'|'closed'|'all'
+---@param opts? forge.PickerBackOpts
 function M.pr_list(state, opts)
   require('forge').open(state and ('prs.' .. state) or 'prs', opts)
 end
 
+---@param opts? forge.CreatePROpts
 function M.pr_create(opts)
   require('forge').create_pr(opts)
 end
 
+---@param pr forge.PRRefLike
 function M.pr_edit(pr)
   pr = normalize_pr_ref(pr)
   require('forge').edit_pr(pr.num, pr.scope)
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
 function M.pr_checkout(f, pr)
   pr = normalize_pr_ref(pr)
   local kind = f.labels.pr_one
@@ -171,11 +177,15 @@ function M.pr_checkout(f, pr)
   end)
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
 function M.pr_browse(f, pr)
   pr = normalize_pr_ref(pr)
   f:view_web(f.kinds.pr, pr.num, pr.scope)
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
 function M.pr_worktree(f, pr)
   pr = normalize_pr_ref(pr)
   local kind = f.labels.pr_one
@@ -200,6 +210,9 @@ function M.pr_worktree(f, pr)
   end)
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+---@param opts? forge.PickerBackOpts
 function M.pr_ci(f, pr, opts)
   pr = normalize_pr_ref(pr)
   opts = vim.tbl_extend('force', opts or {}, { scope = pr.scope })
@@ -212,6 +225,9 @@ function M.pr_ci(f, pr, opts)
   end
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+---@param opts? forge.OpCallbacks
 function M.pr_close(f, pr, opts)
   pr = normalize_pr_ref(pr)
   run_forge_cmd(
@@ -225,6 +241,9 @@ function M.pr_close(f, pr, opts)
   )
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+---@param opts? forge.OpCallbacks
 function M.pr_reopen(f, pr, opts)
   pr = normalize_pr_ref(pr)
   run_forge_cmd(
@@ -238,6 +257,9 @@ function M.pr_reopen(f, pr, opts)
   )
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+---@param opts? forge.OpCallbacks
 function M.pr_approve(f, pr, opts)
   pr = normalize_pr_ref(pr)
   run_forge_cmd(
@@ -251,6 +273,10 @@ function M.pr_approve(f, pr, opts)
   )
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+---@param method? 'merge'|'squash'|'rebase'
+---@param opts? forge.OpCallbacks
 function M.pr_merge(f, pr, method, opts)
   pr = normalize_pr_ref(pr)
   run_forge_cmd(
@@ -264,6 +290,10 @@ function M.pr_merge(f, pr, method, opts)
   )
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+---@param is_draft boolean
+---@param opts? forge.OpCallbacks
 function M.pr_toggle_draft(f, pr, is_draft, opts)
   pr = normalize_pr_ref(pr)
   local cmd = f:draft_toggle_cmd(pr.num, is_draft, pr.scope)
@@ -281,24 +311,33 @@ function M.pr_toggle_draft(f, pr, is_draft, opts)
   )
 end
 
+---@param state? 'open'|'closed'|'all'
+---@param opts? forge.PickerBackOpts
 function M.issue_list(state, opts)
   require('forge').open(state and ('issues.' .. state) or 'issues', opts)
 end
 
+---@param opts? forge.CreateIssueOpts
 function M.issue_create(opts)
   require('forge').create_issue(opts)
 end
 
+---@param issue forge.IssueRefLike
 function M.issue_edit(issue)
   issue = normalize_issue_ref(issue)
   require('forge').edit_issue(issue.num, issue.scope)
 end
 
+---@param f forge.Forge
+---@param issue forge.IssueRefLike
 function M.issue_browse(f, issue)
   issue = normalize_issue_ref(issue)
   f:view_web(f.kinds.issue, issue.num, issue.scope)
 end
 
+---@param f forge.Forge
+---@param issue forge.IssueRefLike
+---@param opts? forge.OpCallbacks
 function M.issue_close(f, issue, opts)
   issue = normalize_issue_ref(issue)
   run_forge_cmd(
@@ -312,6 +351,9 @@ function M.issue_close(f, issue, opts)
   )
 end
 
+---@param f forge.Forge
+---@param issue forge.IssueRefLike
+---@param opts? forge.OpCallbacks
 function M.issue_reopen(f, issue, opts)
   issue = normalize_issue_ref(issue)
   run_forge_cmd(
@@ -325,11 +367,15 @@ function M.issue_reopen(f, issue, opts)
   )
 end
 
+---@param branch string?
+---@param opts? forge.PickerBackOpts
 function M.ci_list(branch, opts)
   opts = vim.tbl_extend('force', opts or {}, { branch = branch })
   require('forge').open(branch == nil and 'ci.all' or 'ci.current_branch', opts)
 end
 
+---@param f forge.Forge
+---@param run forge.RunRefLike
 function M.ci_log(f, run)
   run = normalize_run_ref(run)
   local run_ref = run.scope
@@ -440,6 +486,9 @@ function M.ci_log(f, run)
   )
 end
 
+---@param f forge.Forge
+---@param run forge.RunRefLike
+---@return boolean
 function M.ci_watch(f, run)
   run = normalize_run_ref(run)
   if not f.watch_cmd then
@@ -469,15 +518,22 @@ function M.ci_watch(f, run)
   return true
 end
 
+---@param state? 'all'|'draft'|'prerelease'
+---@param opts? forge.PickerBackOpts
 function M.release_list(state, opts)
   require('forge').open(state and ('releases.' .. state) or 'releases', opts)
 end
 
+---@param f forge.Forge
+---@param release forge.ReleaseRefLike
 function M.release_browse(f, release)
   release = normalize_release_ref(release)
   f:browse_release(release.tag, release.scope)
 end
 
+---@param f forge.Forge
+---@param release forge.ReleaseRefLike
+---@param opts? forge.OpCallbacks|{ confirm?: boolean }
 function M.release_delete(f, release, opts)
   release = normalize_release_ref(release)
   opts = opts or {}

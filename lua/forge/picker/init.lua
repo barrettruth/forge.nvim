@@ -13,6 +13,7 @@ local M = {}
 ---@class forge.PickerActionDef
 ---@field name string
 ---@field label string?
+---@field close boolean?
 ---@field fn fun(entry: forge.PickerEntry?)
 
 ---@class forge.PickerOpts
@@ -165,6 +166,9 @@ function M.selected(entry)
   return entry
 end
 
+---@param def forge.PickerActionDef
+---@param entry forge.PickerEntry?
+---@return boolean
 function M.closes(def, entry)
   if entry and entry.keep_open then
     return false
