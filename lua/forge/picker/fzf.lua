@@ -107,6 +107,12 @@ local function track_id(entry, index)
   return tostring(index)
 end
 
+---@param index integer
+---@param entry forge.PickerEntry
+---@param width integer?
+---@param tracked boolean
+---@param header_text string?
+---@return string?
 local function render_line(index, entry, width, tracked, header_text)
   local text = render(entry_display(entry, width))
   if vim.trim(text) == '' then
@@ -181,6 +187,8 @@ local function has_dynamic_label(actions)
   return false
 end
 
+---@param text string?
+---@return string?
 local function sanitize_header(text)
   if type(text) ~= 'string' then
     return nil
@@ -199,30 +207,20 @@ function M.pick(opts)
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
-  local entry_source = rawget(opts, 'entry_source')
-  local initial_stream_only = rawget(opts, 'initial_stream_only') == true
   local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
-  local live_width = stream ~= nil or type(entry_source) == 'function'
-  local tracked = type(entry_source) == 'function'
-  local streamed = false
+  local live_width = stream ~= nil
+  local tracked = stream ~= nil
   local track_redirect
 
-  local function source_entries()
-    if type(entry_source) == 'function' then
-      return vim.list_extend({}, entry_source() or {})
-    end
-    return vim.list_extend({}, seed_entries)
-  end
-
   local function action_reloads(def)
-    if type(entry_source) == 'function' then
+    if stream then
       return true
     end
     if not picker_mod.closes(def) then
       return true
     end
-    for _, entry in ipairs(source_entries()) do
+    for _, entry in ipairs(seed_entries) do
       if not picker_mod.closes(def, entry) then
         return true
       end
@@ -276,35 +274,31 @@ function M.pick(opts)
   local lines
   if live_width then
     lines = function(fzf_cb)
-      entries = source_entries()
+      entries = {}
       local next_index = 0
-      for i, entry in ipairs(entries) do
-        next_index = i
-        if track_redirect and i == track_redirect.target_index and not entry.load_more then
+      local function emit(entry)
+        if entry == nil then
+          fzf_cb(nil)
+          return
+        end
+        next_index = next_index + 1
+        if track_redirect and next_index == track_redirect.target_index and not entry.load_more then
           entry = vim.tbl_extend('force', {}, entry, { track_id = track_redirect.source_id })
           track_redirect = nil
         end
-        local line = render_line(i, entry, picker_width(), tracked, entry_header(entry))
+        entries[next_index] = entry
+        local line = render_line(next_index, entry, picker_width(), tracked, entry_header(entry))
         if line then
           fzf_cb(line)
         end
       end
-      if stream and (not initial_stream_only or not streamed) then
-        streamed = true
-        stream(function(entry)
-          if not entry then
-            fzf_cb(nil)
-            return
-          end
-          next_index = next_index + 1
-          entries[next_index] = entry
-          local line = render_line(next_index, entry, picker_width(), tracked, entry_header(entry))
-          if line then
-            fzf_cb(line)
-          end
-        end)
+      if stream then
+        stream(emit)
       else
-        fzf_cb(nil)
+        for _, entry in ipairs(seed_entries) do
+          emit(entry)
+        end
+        emit(nil)
       end
     end
   else

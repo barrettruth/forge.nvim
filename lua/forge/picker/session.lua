@@ -40,6 +40,8 @@ local function request_json(key, cmd, callback)
   end)
 end
 
+M.request_json = request_json
+
 function M.begin(key)
   local item = scope(key)
   item.epoch = item.epoch + 1
@@ -157,9 +159,7 @@ function M.pick_json(opts)
       actions = opts.actions,
       picker_name = opts.picker_name,
       back = opts.back,
-      entry_source = opts.entry_source,
-      initial_stream_only = opts.initial_stream_only,
-      stream = function(emit)
+      stream = opts.stream or function(emit)
         request(emit)
       end,
     })
