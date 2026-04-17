@@ -221,10 +221,32 @@ local function ci_verb(status)
   return 'rerun'
 end
 
+local function pr_verb(state)
+  state = (state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return 'close'
+  end
+  if state == 'closed' then
+    return 'reopen'
+  end
+  return nil
+end
+
+local function issue_verb(state)
+  state = (state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return 'close'
+  end
+  if state == 'closed' then
+    return 'reopen'
+  end
+  return nil
+end
+
 ---@param picker_name string
 ---@param entry forge.PickerEntry?
 ---@return string?
-function M.state_verb(picker_name, entry)
+function M.toggle_verb(picker_name, entry)
   if not entry or rawget(entry, 'placeholder') or rawget(entry, 'load_more') then
     return nil
   end
@@ -232,15 +254,11 @@ function M.state_verb(picker_name, entry)
   if type(value) ~= 'table' then
     return nil
   end
-  if picker_name == 'pr' or picker_name == 'issue' then
-    local state = (value.state or ''):lower()
-    if state == 'open' or state == 'opened' then
-      return 'close'
-    end
-    if state == 'closed' or state == 'merged' then
-      return 'reopen'
-    end
-    return nil
+  if picker_name == 'pr' then
+    return pr_verb(value.state)
+  end
+  if picker_name == 'issue' then
+    return issue_verb(value.state)
   end
   if picker_name == 'ci' then
     return ci_verb(value.status)

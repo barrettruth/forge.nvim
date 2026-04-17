@@ -152,44 +152,6 @@ local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
   end
 end
 
----@param f forge.Forge
----@param num string
----@param is_open boolean
-local function issue_toggle_state(f, num, is_open, on_success, ref)
-  if is_open then
-    ops.issue_close(
-      f,
-      { num = num, scope = ref },
-      { on_success = on_success, on_failure = on_success }
-    )
-  else
-    ops.issue_reopen(
-      f,
-      { num = num, scope = ref },
-      { on_success = on_success, on_failure = on_success }
-    )
-  end
-end
-
----@param f forge.Forge
----@param num string
----@param is_open boolean
-local function pr_toggle_state(f, num, is_open, on_success, ref)
-  if is_open then
-    ops.pr_close(
-      f,
-      { num = num, scope = ref },
-      { on_success = on_success, on_failure = on_success }
-    )
-  else
-    ops.pr_reopen(
-      f,
-      { num = num, scope = ref },
-      { on_success = on_success, on_failure = on_success }
-    )
-  end
-end
-
 ---@param pr forge.PRRefLike
 ---@return forge.PRRef
 local function normalize_pr_ref(pr)
@@ -667,7 +629,7 @@ function M.ci(f, branch, filter, opts)
         if entry == nil then
           return 'cancel/rerun'
         end
-        return picker.state_verb('ci', entry)
+        return picker.toggle_verb('ci', entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
@@ -764,16 +726,12 @@ function M.pr(state, f, opts)
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
   local show_state = state ~= 'open'
-  local state_map = {}
   local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
   local current_prs
 
   local function build_pr_entries(prs, limit)
     limit = limit or current_limit
-    for key in pairs(state_map) do
-      state_map[key] = nil
-    end
 
     table.sort(prs, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
@@ -789,9 +747,7 @@ function M.pr(state, f, opts)
     local displays = rows_for()
     for i, pr in ipairs(prs) do
       local num = tostring(pr[pr_fields.number] or '')
-      local s = (pr[pr_fields.state] or ''):lower()
       local draft_field = rawget(pr_fields, 'is_draft')
-      state_map[num] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
         render_display = function(width)
@@ -939,17 +895,18 @@ function M.pr(state, f, opts)
         if entry == nil then
           return 'close/reopen'
         end
-        return picker.state_verb('pr', entry)
+        return picker.toggle_verb('pr', entry)
       end,
       fn = function(entry)
-        if entry and not entry.load_more then
-          pr_toggle_state(
-            f,
-            entry.value.num,
-            state_map[entry.value.num] ~= false,
-            reopen_list,
-            entry.value.scope
-          )
+        if not entry or entry.load_more then
+          return
+        end
+        local verb = picker.toggle_verb('pr', entry)
+        local callbacks = { on_success = reopen_list, on_failure = reopen_list }
+        if verb == 'close' then
+          ops.pr_close(f, entry.value, callbacks)
+        elseif verb == 'reopen' then
+          ops.pr_reopen(f, entry.value, callbacks)
         end
       end,
     },
@@ -1071,16 +1028,12 @@ function M.issue(state, f, opts)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
   local issue_show_state = state == 'all'
-  local state_map = {}
   local live_load_more = picker.backend() == 'fzf-lua'
   local current_limit = visible_limit
   local current_issues
 
   local function build_issue_entries(issues, limit)
     limit = limit or current_limit
-    for key in pairs(state_map) do
-      state_map[key] = nil
-    end
 
     table.sort(issues, function(a, b)
       return (a[num_field] or 0) > (b[num_field] or 0)
@@ -1097,8 +1050,6 @@ function M.issue(state, f, opts)
     local displays = rows_for()
     for i, issue in ipairs(issues) do
       local n = tostring(issue[num_field] or '')
-      local s = (issue[state_field] or ''):lower()
-      state_map[n] = s == 'open' or s == 'opened'
       table.insert(entries, {
         display = displays[i],
         render_display = function(width)
@@ -1188,17 +1139,18 @@ function M.issue(state, f, opts)
         if entry == nil then
           return 'close/reopen'
         end
-        return picker.state_verb('issue', entry)
+        return picker.toggle_verb('issue', entry)
       end,
       fn = function(entry)
-        if entry and not entry.load_more then
-          issue_toggle_state(
-            f,
-            entry.value.num,
-            state_map[entry.value.num] ~= false,
-            reopen_list,
-            entry.value.scope
-          )
+        if not entry or entry.load_more then
+          return
+        end
+        local verb = picker.toggle_verb('issue', entry)
+        local callbacks = { on_success = reopen_list, on_failure = reopen_list }
+        if verb == 'close' then
+          ops.issue_close(f, entry.value, callbacks)
+        elseif verb == 'reopen' then
+          ops.issue_reopen(f, entry.value, callbacks)
         end
       end,
     },

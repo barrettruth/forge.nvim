@@ -648,8 +648,10 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
   `merge`       `<c-g>`          Merge the selected PR
   `create`      `<c-a>`          Create new PR (|forge-compose|)
   `toggle`      `<c-s>`          Close the selected PR when open, reopen when
-                               closed; the header hint reflects the current
-                               state of the highlighted row.
+                               closed; no-op on merged PRs (merged is a
+                               terminal state). The header hint reflects the
+                               current state of the highlighted row and is
+                               hidden when no valid verb exists.
   `draft`       `<c-d>`          Toggle draft/ready for the selected PR
   `filter`      `<tab>`          Cycle state: open -> closed -> all
   `refresh`     `<c-r>`          Clear cache and re-fetch

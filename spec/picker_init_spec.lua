@@ -1,6 +1,6 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-describe('forge.picker.state_verb', function()
+describe('forge.picker.toggle_verb', function()
   local picker
 
   before_each(function()
@@ -9,61 +9,66 @@ describe('forge.picker.state_verb', function()
   end)
 
   it('returns close for open pr entries', function()
-    local verb = picker.state_verb('pr', { value = { num = '1', state = 'OPEN' } })
+    local verb = picker.toggle_verb('pr', { value = { num = '1', state = 'OPEN' } })
     assert.equals('close', verb)
   end)
 
-  it('returns reopen for closed pr entries', function()
-    local verb = picker.state_verb('pr', { value = { num = '1', state = 'CLOSED' } })
+  it('returns reopen for closed (non-merged) pr entries', function()
+    local verb = picker.toggle_verb('pr', { value = { num = '1', state = 'CLOSED' } })
     assert.equals('reopen', verb)
   end)
 
-  it('returns reopen for merged pr entries', function()
-    local verb = picker.state_verb('pr', { value = { num = '1', state = 'MERGED' } })
-    assert.equals('reopen', verb)
+  it('returns nil for merged pr entries because merged is a terminal state', function()
+    local verb = picker.toggle_verb('pr', { value = { num = '1', state = 'MERGED' } })
+    assert.is_nil(verb)
   end)
 
   it('returns close for open issue entries', function()
-    local verb = picker.state_verb('issue', { value = { num = '1', state = 'opened' } })
+    local verb = picker.toggle_verb('issue', { value = { num = '1', state = 'opened' } })
     assert.equals('close', verb)
   end)
 
   it('returns reopen for closed issue entries', function()
-    local verb = picker.state_verb('issue', { value = { num = '1', state = 'closed' } })
+    local verb = picker.toggle_verb('issue', { value = { num = '1', state = 'closed' } })
     assert.equals('reopen', verb)
+  end)
+
+  it('does not treat merged as a valid issue state', function()
+    local verb = picker.toggle_verb('issue', { value = { num = '1', state = 'merged' } })
+    assert.is_nil(verb)
   end)
 
   it('returns cancel for in-progress ci entries', function()
     for _, status in ipairs({ 'in_progress', 'queued', 'pending', 'running' }) do
-      local verb = picker.state_verb('ci', { value = { id = '1', status = status } })
+      local verb = picker.toggle_verb('ci', { value = { id = '1', status = status } })
       assert.equals('cancel', verb, 'status=' .. status)
     end
   end)
 
   it('returns rerun for completed ci entries', function()
     for _, status in ipairs({ 'success', 'failure', 'cancelled', 'timed_out' }) do
-      local verb = picker.state_verb('ci', { value = { id = '1', status = status } })
+      local verb = picker.toggle_verb('ci', { value = { id = '1', status = status } })
       assert.equals('rerun', verb, 'status=' .. status)
     end
   end)
 
   it('returns nil for skipped ci entries', function()
-    local verb = picker.state_verb('ci', { value = { id = '1', status = 'skipped' } })
+    local verb = picker.toggle_verb('ci', { value = { id = '1', status = 'skipped' } })
     assert.is_nil(verb)
   end)
 
   it('returns nil for placeholder or load_more entries', function()
-    assert.is_nil(picker.state_verb('pr', { placeholder = true, value = { state = 'OPEN' } }))
-    assert.is_nil(picker.state_verb('ci', { load_more = true, value = { status = 'running' } }))
+    assert.is_nil(picker.toggle_verb('pr', { placeholder = true, value = { state = 'OPEN' } }))
+    assert.is_nil(picker.toggle_verb('ci', { load_more = true, value = { status = 'running' } }))
   end)
 
   it('returns nil for entries missing value tables', function()
-    assert.is_nil(picker.state_verb('pr', nil))
-    assert.is_nil(picker.state_verb('pr', { value = 'not-a-table' }))
+    assert.is_nil(picker.toggle_verb('pr', nil))
+    assert.is_nil(picker.toggle_verb('pr', { value = 'not-a-table' }))
   end)
 
   it('returns nil for unknown picker names', function()
-    assert.is_nil(picker.state_verb('release', { value = { state = 'OPEN' } }))
+    assert.is_nil(picker.toggle_verb('release', { value = { state = 'OPEN' } }))
   end)
 end)
 

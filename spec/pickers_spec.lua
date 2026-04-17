@@ -202,16 +202,26 @@ describe('pickers', function()
         pick = function(opts)
           captured = opts
         end,
-        state_verb = function(picker_name, entry)
+        toggle_verb = function(picker_name, entry)
           if not entry or type(entry.value) ~= 'table' then
             return nil
           end
-          if picker_name == 'pr' or picker_name == 'issue' then
+          if picker_name == 'pr' then
             local state = (entry.value.state or ''):lower()
             if state == 'open' or state == 'opened' then
               return 'close'
             end
-            if state == 'closed' or state == 'merged' then
+            if state == 'closed' then
+              return 'reopen'
+            end
+            return nil
+          end
+          if picker_name == 'issue' then
+            local state = (entry.value.state or ''):lower()
+            if state == 'open' or state == 'opened' then
+              return 'close'
+            end
+            if state == 'closed' then
               return 'reopen'
             end
             return nil
@@ -524,7 +534,7 @@ describe('pickers', function()
         pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
         method = nil,
       },
-      { name = 'pr_close', pr = { num = '42', scope = nil } },
+      { name = 'pr_close', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
       {
         name = 'pr_toggle_draft',
         pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
@@ -1106,7 +1116,7 @@ describe('pickers', function()
     )
     assert.same({
       name = 'issue_close',
-      issue = { num = '42', scope = nil },
+      issue = { num = '42', scope = nil, state = 'OPEN' },
     }, {
       name = op_calls[3].name,
       issue = op_calls[3].issue,
