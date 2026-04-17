@@ -224,10 +224,9 @@ function M.pr_ci(f, pr, opts)
   local pickers = require('forge.pickers')
   if f.capabilities.per_pr_checks then
     pickers.checks(f, pr.num, nil, nil, opts)
-  else
-    log.debug(('per-%s checks unavailable on %s, showing repo CI'):format(f.labels.pr_one, f.name))
-    pickers.ci(f, nil, nil, opts)
+    return
   end
+  log.warn(('%s does not support %s checks'):format(f.name, f.labels.pr_one))
 end
 
 ---@param f forge.Forge
