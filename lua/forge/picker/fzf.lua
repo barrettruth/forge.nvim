@@ -379,6 +379,8 @@ function M.pick(opts)
 
   local fzf_exec_opts = {
     fzf_args = fzf_args,
+    no_hide = true,
+    no_resume = true,
     prompt = opts.prompt or '',
     fzf_opts = {
       ['--ansi'] = '',

@@ -91,6 +91,25 @@ describe('fzf picker', function()
     assert.equals('2', captured.opts.fzf_opts['--accept-nth'])
   end)
 
+  it('opts out of fzf-lua hide and resume so <c-c> fully exits forge pickers', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { '#42' } },
+          value = '42',
+        },
+      },
+      actions = {},
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_true(captured.opts.no_hide)
+    assert.is_true(captured.opts.no_resume)
+  end)
+
   it('renders headers with enter, ctrl, and tab labels without to text', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
