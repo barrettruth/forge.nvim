@@ -290,6 +290,9 @@ describe(':Forge command', function()
             { name = 'release_delete', release = release, opts = opts }
           )
         end,
+        list_browse = function(_, kind, opts)
+          table.insert(captured.ops_calls, { name = 'list_browse', kind = kind, opts = opts })
+        end,
         browse_commit = function(opts)
           table.insert(captured.ops_calls, { name = 'browse_commit', opts = opts })
           require('forge').open('browse.commit', opts)
@@ -500,6 +503,37 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
     assert.equals('browse.commit', captured.opens[1].route)
     assert.equals('abc1234', captured.opens[1].opts.commit)
+  end)
+
+  it('dispatches argless kind browse through ops.list_browse', function()
+    vim.cmd('Forge pr browse')
+    vim.cmd('Forge issue browse')
+    vim.cmd('Forge release browse')
+
+    assert.same({ name = 'list_browse', kind = 'pr', opts = {} }, captured.ops_calls[1])
+    assert.same({ name = 'list_browse', kind = 'issue', opts = {} }, captured.ops_calls[2])
+    assert.same({ name = 'list_browse', kind = 'release', opts = {} }, captured.ops_calls[3])
+  end)
+
+  it('threads repo= through list_browse for argless kind browse', function()
+    vim.cmd('Forge pr browse repo=upstream')
+
+    assert.equals('list_browse', captured.ops_calls[1].name)
+    assert.equals('pr', captured.ops_calls[1].kind)
+    assert.equals('owner/upstream', captured.ops_calls[1].opts.scope.slug)
+  end)
+
+  it('keeps argful kind browse routed to entity-scoped ops helpers', function()
+    vim.cmd('Forge pr browse 42')
+    vim.cmd('Forge issue browse 7')
+    vim.cmd('Forge release browse v1.2.3')
+
+    assert.equals('pr_browse', captured.ops_calls[1].name)
+    assert.equals('42', captured.ops_calls[1].pr.num)
+    assert.equals('issue_browse', captured.ops_calls[2].name)
+    assert.equals('7', captured.ops_calls[2].issue.num)
+    assert.equals('release_browse', captured.ops_calls[3].name)
+    assert.equals('v1.2.3', captured.ops_calls[3].release.tag)
   end)
 
   it('passes ex ranges through browse file resolution', function()

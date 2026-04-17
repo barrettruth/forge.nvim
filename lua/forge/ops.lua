@@ -507,10 +507,29 @@ function M.release_delete(f, release, opts)
   end)
 end
 
+---@param f forge.Forge
+---@param kind forge.WebKind
+---@param opts? forge.ScopedOpts
+function M.list_browse(f, kind, opts)
+  opts = opts or {}
+  local url = f.list_web_url and f:list_web_url(kind, opts.scope) or nil
+  if not url or url == '' then
+    log.warn(('%s does not support %s landing pages'):format(f.name, kind))
+    return
+  end
+  local _, err = vim.ui.open(url)
+  if err then
+    log.error(err)
+  end
+end
+
+---@param opts? { commit?: string, scope?: forge.Scope }
 function M.browse_commit(opts)
   require('forge').open('browse.commit', opts)
 end
 
+---@param opts? forge.ScopedOpts
+---@return boolean
 function M.browse_repo(opts)
   local scope = type(opts) == 'table' and opts.scope or nil
   local url = require('forge').remote_web_url(scope)
@@ -521,14 +540,21 @@ function M.browse_repo(opts)
   return true
 end
 
+---@param branch string?
+---@param opts? forge.ScopedOpts
 function M.browse_branch(branch, opts)
   require('forge').open('browse.branch', vim.tbl_extend('force', opts or {}, { branch = branch }))
 end
 
+---@param opts? forge.ScopedOpts
 function M.browse_contextual(opts)
   require('forge').open('browse.contextual', opts)
 end
 
+---@param f forge.Forge
+---@param location table
+---@param scope? forge.Scope
+---@return boolean
 function M.browse_location(f, location, scope)
   local loc = location_arg(location)
   if not loc then
@@ -538,8 +564,15 @@ function M.browse_location(f, location, scope)
   return true
 end
 
+---@param f forge.Forge
+---@param file_loc string?
+---@param branch string?
+---@param scope? forge.Scope
+---@return boolean
 function M.browse_file(f, file_loc, branch, scope)
-  if trim(file_loc) == '' or trim(branch) == '' then
+  file_loc = trim(file_loc)
+  branch = trim(branch)
+  if file_loc == '' or branch == '' then
     return false
   end
   f:browse(file_loc, branch, scope)

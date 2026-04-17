@@ -5,6 +5,7 @@ describe('shared operations', function()
   local old_system
   local old_fn_system
   local old_ui_select
+  local old_ui_open
   local old_preload
 
   before_each(function()
@@ -17,11 +18,13 @@ describe('shared operations', function()
       summaries = {},
       logs = {},
       terms = {},
+      urls = {},
     }
 
     old_system = vim.system
     old_fn_system = vim.fn.system
     old_ui_select = vim.ui.select
+    old_ui_open = vim.ui.open
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.log'] = package.preload['forge.log'],
@@ -62,6 +65,11 @@ describe('shared operations', function()
 
     vim.ui.select = function(_, _, cb)
       cb('Yes')
+    end
+
+    vim.ui.open = function(url)
+      captured.urls[#captured.urls + 1] = url
+      return {}, nil
     end
 
     package.preload['forge.logger'] = function()
@@ -123,6 +131,7 @@ describe('shared operations', function()
     vim.system = old_system
     vim.fn.system = old_fn_system
     vim.ui.select = old_ui_select
+    vim.ui.open = old_ui_open
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.log'] = old_preload['forge.log']
@@ -396,5 +405,47 @@ describe('shared operations', function()
     assert.is_true(watched)
     assert.same({ 'watch', '88', 'repo/ref' }, captured.terms[1].cmd)
     assert.same({ url = 'https://example.com/runs/88/repo/ref' }, captured.terms[1].opts)
+  end)
+
+  it('list_browse opens the forge list landing page', function()
+    local ops = require('forge.ops')
+    local f = {
+      name = 'github',
+      list_web_url = function(_, kind, scope)
+        return ('https://example.com/%s/%s'):format(scope or 'repo', kind)
+      end,
+    }
+
+    ops.list_browse(f, 'pr', { scope = 'owner/repo' })
+    ops.list_browse(f, 'issue')
+
+    assert.same(
+      { 'https://example.com/owner/repo/pr', 'https://example.com/repo/issue' },
+      captured.urls
+    )
+    assert.same({}, captured.errors)
+  end)
+
+  it('list_browse warns when the source has no landing page for the kind', function()
+    local ops = require('forge.ops')
+    local f = {
+      name = 'codeberg',
+      list_web_url = function()
+        return nil
+      end,
+    }
+
+    ops.list_browse(f, 'release', {})
+
+    assert.same({}, captured.urls)
+    assert.same({ 'codeberg does not support release landing pages' }, captured.infos)
+  end)
+
+  it('list_browse warns when the source has no list_web_url method at all', function()
+    local ops = require('forge.ops')
+    ops.list_browse({ name = 'custom' }, 'ci', {})
+
+    assert.same({}, captured.urls)
+    assert.same({ 'custom does not support ci landing pages' }, captured.infos)
   end)
 end)
