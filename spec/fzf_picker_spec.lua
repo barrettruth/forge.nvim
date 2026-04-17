@@ -183,7 +183,7 @@ describe('fzf picker', function()
       actions = {
         { name = 'default', label = 'open', fn = function() end },
         { name = 'browse', fn = function() end },
-        { name = 'close', label = 'close', fn = function() end },
+        { name = 'toggle', label = 'close', fn = function() end },
         { name = 'create', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
         { name = 'refresh', fn = function() end },
@@ -214,6 +214,78 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.same({ 'CI\t1' }, captured.lines)
+  end)
+
+  it('wires a focus bind and appends per-row headers when a label is dynamic', function()
+    vim.g.forge = { keys = { ci = { toggle = '<c-s>', filter = '<tab>' } } }
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'CI> ',
+      entries = {
+        {
+          display = { { 'run' } },
+          value = { id = '1', status = 'in_progress' },
+        },
+        {
+          display = { { 'done' } },
+          value = { id = '2', status = 'success' },
+        },
+      },
+      actions = {
+        { name = 'default', label = 'open', fn = function() end },
+        {
+          name = 'toggle',
+          label = function(entry)
+            if not entry then
+              return 'cancel/rerun'
+            end
+            local status = entry.value.status
+            if status == 'in_progress' then
+              return 'cancel'
+            end
+            return 'rerun'
+          end,
+          fn = function() end,
+        },
+        { name = 'filter', label = 'filter', fn = function() end },
+      },
+      picker_name = 'ci',
+    })
+
+    assert.is_not_nil(captured)
+    local bind = captured.opts.keymap
+      and captured.opts.keymap.fzf
+      and captured.opts.keymap.fzf.focus
+    assert.is_string(bind)
+    assert.truthy(bind:match('^transform%-header:'))
+    assert.truthy(bind:match('{3}'))
+    assert.equals(2, #captured.lines)
+    assert.truthy(captured.lines[1]:match('FzfLuaHeaderText:cancel'))
+    assert.truthy(captured.lines[2]:match('FzfLuaHeaderText:rerun'))
+    assert.truthy(captured.opts.fzf_opts['--header']:find('cancel'))
+  end)
+
+  it('does not wire a focus bind when no action labels are dynamic', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Releases> ',
+      entries = {
+        {
+          display = { { 'v1.0' } },
+          value = { tag = 'v1.0' },
+        },
+      },
+      actions = {
+        { name = 'default', label = 'browse', fn = function() end },
+      },
+      picker_name = 'release',
+    })
+
+    assert.is_not_nil(captured)
+    local has_focus = captured.opts.keymap
+      and captured.opts.keymap.fzf
+      and captured.opts.keymap.fzf.focus
+    assert.is_falsy(has_focus)
   end)
 
   it('renders branch rows with visible labels and hidden selection ids', function()

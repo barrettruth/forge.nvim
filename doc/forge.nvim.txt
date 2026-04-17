@@ -238,19 +238,18 @@ Top-level keys: ~
           approve = '<c-y>',
           merge = '<c-g>',
           create = '<c-a>',
-          close = '<c-s>',
+          toggle = '<c-s>',
           draft = '<c-d>',
           filter = '<tab>',
           refresh = '<c-r>',
         },
         issue = {
           browse = '<c-x>',
-          close = '<c-s>',
+          toggle = '<c-s>',
           edit = '<c-e>',
           approve = '<c-a>',
           merge = '<c-g>',
           create = '<c-n>',
-          close = '<c-s>',
           draft = '<c-d>',
           filter = '<tab>',
           refresh = '<c-r>',
@@ -260,6 +259,7 @@ Top-level keys: ~
           log = '<c-l>',
           watch = '<c-w>',
           browse = '<c-x>',
+          toggle = '<c-s>',
           filter = '<tab>',
           refresh = '<c-r>',
         },
@@ -287,12 +287,12 @@ Top-level keys: ~
     nested pickers and is not shown in header hints.
 
   `keys.pr` supports secondary bindings for `worktree`, `ci`, `browse`,
-  `edit`, `approve`, `merge`, `create`, `close`, `draft`, and `refresh`.
+  `edit`, `approve`, `merge`, `create`, `toggle`, `draft`, and `refresh`.
   The primary PR action remains `<cr>` checkout.
 
   `keys.ci` supports secondary bindings for `log`, `watch`, `browse`,
-  filter cycling, and `refresh`. The primary CI action remains `<cr>`
-  open.
+  `toggle`, filter cycling, and `refresh`. The primary CI action remains
+  `<cr>` open.
 
   Additional picker groups:
     `keys.log` supports `close` and `browse` across CI terminal/log views,
@@ -647,7 +647,11 @@ PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
   `approve`     `<c-y>`          Approve the selected PR
   `merge`       `<c-g>`          Merge the selected PR
   `create`      `<c-a>`          Create new PR (|forge-compose|)
-  `close`       `<c-s>`          Close or reopen the selected PR
+  `toggle`      `<c-s>`          Close the selected PR when open, reopen when
+                               closed; no-op on merged PRs (merged is a
+                               terminal state). The header hint reflects the
+                               current state of the highlighted row and is
+                               hidden when no valid verb exists.
   `draft`       `<c-d>`          Toggle draft/ready for the selected PR
   `filter`      `<tab>`          Cycle state: open -> closed -> all
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -657,7 +661,9 @@ ISSUE PICKER ~ Lists issues with number, title, author, and relative time.
 
   Action      Default Key    Description ~
   `browse`      `<cr>` / `<c-x>`     Open issue in browser
-  `close`       `<c-s>`          Close or reopen the issue
+  `toggle`      `<c-s>`          Close the issue when open, reopen when closed;
+                               the header hint reflects the current state of
+                               the highlighted row.
   `create`      `<c-a>`          Create new issue
   `filter`      `<tab>`          Cycle state: all -> open -> closed
   `refresh`     `<c-r>`          Clear cache and re-fetch
@@ -694,6 +700,19 @@ interval.
   `log`         `<c-l>`          Force the log/summary view
   `watch`       `<c-w>`          Run watch terminal
   `browse`      `<c-x>`          Open run/check URL in browser
+  `toggle`      `<c-s>`          Cancel the highlighted run when in progress,
+                               rerun it when completed; the header hint
+                               reflects the current status of the row. No-op
+                               on skipped runs. Cancellation prompts for
+                               confirmation. GitHub uses `gh run
+                               {cancel,rerun}`; GitLab uses `glab ci cancel
+                               pipeline` for cancel and `glab api ... /retry`
+                               for rerun (retries failed and cancelled jobs
+                               only, does not rebuild successful stages);
+                               Codeberg uses `tea api ... /cancel` and
+                               `tea api ... /rerun` against
+                               `/repos/{owner}/{repo}/actions/runs/{id}`,
+                               which require Gitea >= 1.22 or Forgejo >= 10.
   `filter`      `<tab>`          Cycle filter: all -> failed -> passed -> running
   `refresh`     `<c-r>`          Re-fetch runs
 
@@ -975,6 +994,7 @@ support for features that vary among the verbs forge.nvim exposes today:
   Per-PR CI checks             yes       yes       yes (2)
   Per-check log viewing        yes       yes        -
   CI runs (repo-wide)          yes       yes       yes
+  CI cancel / rerun            yes       yes (4)   yes (5)
   Issue create / edit / list   yes       yes       yes
   Branches / commits           yes       yes       yes
   Worktrees                    yes       yes       yes
@@ -994,6 +1014,16 @@ support for features that vary among the verbs forge.nvim exposes today:
   (3) GitLab releases are tag + notes + asset links + milestone associations;
       the GitLab API has no draft or prerelease concept, so the
       draft/prerelease badges shown on other forges do not apply.
+
+  (4) GitLab rerun maps to `POST /projects/:id/pipelines/:pid/retry`, which
+      retries only failed and cancelled jobs rather than rebuilding the
+      full pipeline. Cancel uses `glab ci cancel pipeline`.
+
+  (5) Codeberg cancel and rerun call
+      `POST /repos/{owner}/{repo}/actions/runs/{id}/{cancel,rerun}` via
+      `tea api`. Both endpoints require Gitea >= 1.22 or Forgejo >= 10; on
+      older instances the request will fail with a 404. Codeberg itself
+      runs recent Forgejo, so this affects self-hosted Gitea/Forgejo only.
 
   The "Release draft/prerelease" row reflects what each CLI / API supports.
   forge.nvim does not currently expose release creation from any forge, so
@@ -1085,6 +1115,12 @@ All methods receive `self` as the first argument (use `:` syntax).
   `list_runs_cmd(branch?)`             `string` shell command for CI runs.
   `normalize_run(entry)`                `forge.CIRun` normalized run entry.
   `run_log_cmd(id, failed_only)`       `string[]` cmd to view run log.
+  `cancel_run_cmd(id)`                  `string[]?` cmd to cancel a run.
+                                        Return `nil` (or omit) when the
+                                        backend does not support cancel.
+  `rerun_run_cmd(id)`                   `string[]?` cmd to rerun a completed
+                                        run. Return `nil` (or omit) when the
+                                        backend does not support rerun.
   `merge_cmd(num, method?)`            `string[]` cmd to merge PR.
   `approve_cmd(num)`                    `string[]` cmd to approve PR.
   `repo_info()`                         `forge.RepoInfo` with `permission`
@@ -1694,6 +1730,23 @@ and `num`/`id`/`tag`.
 `ci_browse(f, run)`
     Opens the browser page for CI run `run`. Falls back to `run_web_url()`
     when the source does not implement `browse_run()`.
+
+                                                        *forge.ops.ci_cancel()*
+`ci_cancel(f, run, opts?)`
+    Cancels run `run`. Prompts for confirmation unless `opts.confirm == false`.
+    Logs a warning and invokes `opts.on_failure` when the backend does not
+    define `cancel_run_cmd`.
+
+                                                         *forge.ops.ci_rerun()*
+`ci_rerun(f, run, opts?)`
+    Reruns completed run `run`. No confirmation prompt. Logs a warning and
+    invokes `opts.on_failure` when the backend does not define
+    `rerun_run_cmd`.
+
+                                                        *forge.ops.ci_toggle()*
+`ci_toggle(f, run, opts?)`
+    Dispatches to `ci_cancel` for in-progress runs and `ci_rerun` for
+    completed runs. Skipped runs are a no-op with an info notification.
 
                                                      *forge.ops.release_list()*
 `release_list(state?, opts?)`

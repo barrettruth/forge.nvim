@@ -10,9 +10,11 @@ local M = {}
 ---@field keep_open? boolean
 ---@field force_close boolean?
 
+---@alias forge.PickerActionLabel string|fun(entry: forge.PickerEntry?): string?
+
 ---@class forge.PickerActionDef
 ---@field name string
----@field label string?
+---@field label forge.PickerActionLabel?
 ---@field close boolean?
 ---@field fn fun(entry: forge.PickerEntry?)
 
@@ -177,6 +179,114 @@ function M.closes(def, entry)
     return true
   end
   return rawget(def, 'close') ~= false
+end
+
+---@param def forge.PickerActionDef
+---@param entry forge.PickerEntry?
+---@return string?
+function M.resolve_label(def, entry)
+  local label = rawget(def, 'label')
+  if type(label) == 'function' then
+    local ok, result = pcall(label, entry)
+    if ok and type(result) == 'string' then
+      return result
+    end
+    return nil
+  end
+  if type(label) == 'string' then
+    return label
+  end
+  return nil
+end
+
+---@param def forge.PickerActionDef
+---@return boolean
+function M.has_dynamic_label(def)
+  return type(rawget(def, 'label')) == 'function'
+end
+
+---@param entry forge.PickerEntry?
+---@return table?
+local function entry_value(entry)
+  if not entry or rawget(entry, 'placeholder') or rawget(entry, 'load_more') then
+    return nil
+  end
+  if type(entry.value) ~= 'table' then
+    return nil
+  end
+  return entry.value
+end
+
+---@alias forge.IssueToggleVerb 'close'|'reopen'
+
+---Verb that the issue toggle action will execute on `entry`, or `nil` when no
+---valid transition exists (missing/unknown state, placeholder, or load_more
+---row).
+---@param entry forge.PickerEntry?
+---@return forge.IssueToggleVerb?
+function M.issue_toggle_verb(entry)
+  local value = entry_value(entry)
+  if not value then
+    return nil
+  end
+  local state = (value.state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return 'close'
+  end
+  if state == 'closed' then
+    return 'reopen'
+  end
+  return nil
+end
+
+---@alias forge.PRToggleVerb 'close'|'reopen'
+
+---Verb that the PR toggle action will execute on `entry`, or `nil` when no
+---valid transition exists. Merged PRs return `nil` because merged is a
+---terminal state (`gh pr reopen` and its GitLab/Codeberg analogues all
+---refuse a merged PR).
+---@param entry forge.PickerEntry?
+---@return forge.PRToggleVerb?
+function M.pr_toggle_verb(entry)
+  local value = entry_value(entry)
+  if not value then
+    return nil
+  end
+  local state = (value.state or ''):lower()
+  if state == 'open' or state == 'opened' then
+    return 'close'
+  end
+  if state == 'closed' then
+    return 'reopen'
+  end
+  return nil
+end
+
+---@alias forge.CIToggleVerb 'cancel'|'rerun'
+
+---Verb that the CI toggle action will execute on `entry`, or `nil` when no
+---valid transition exists. `skipped` runs return `nil` because neither
+---cancel nor rerun makes sense for a workflow that never started.
+---@param entry forge.PickerEntry?
+---@return forge.CIToggleVerb?
+function M.ci_toggle_verb(entry)
+  local value = entry_value(entry)
+  if not value then
+    return nil
+  end
+  local status = (value.status or ''):lower()
+  if
+    status == 'in_progress'
+    or status == 'queued'
+    or status == 'pending'
+    or status == 'running'
+  then
+    return 'cancel'
+  end
+  if status == 'skipped' then
+    return nil
+  end
+  return 'rerun'
 end
 
 ---@param opts forge.PickerOpts

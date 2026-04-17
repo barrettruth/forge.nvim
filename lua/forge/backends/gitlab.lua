@@ -292,6 +292,26 @@ function M:watch_cmd(id, ref)
 end
 
 ---@param id string
+---@return string[]
+function M:cancel_run_cmd(id, ref)
+  return { 'glab', 'ci', 'cancel', 'pipeline', id, '-R', repo_arg(ref) }
+end
+
+---@param id string
+---@return string[]
+function M:rerun_run_cmd(id, ref)
+  return {
+    'glab',
+    'api',
+    '--hostname',
+    hostname(ref) or 'gitlab.com',
+    '--method',
+    'POST',
+    ('projects/%s/pipelines/%s/retry'):format(project(ref), id),
+  }
+end
+
+---@param id string
 ---@return string?
 function M:run_web_url(id, ref)
   local base = forge.remote_web_url(ref)

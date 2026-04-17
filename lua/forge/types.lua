@@ -177,6 +177,8 @@
 ---@field view_cmd (fun(self: forge.Forge, id: string, opts?: forge.RunViewOpts): string[])?
 ---@field summary_json_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field watch_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
+---@field cancel_run_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
+---@field rerun_run_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field run_status_cmd (fun(self: forge.Forge, id: string, scope?: forge.Scope): string[])?
 ---@field list_web_url (fun(self: forge.Forge, kind: forge.WebKind, scope?: forge.Scope): string?)?
 ---@field browse_run (fun(self: forge.Forge, id: string, scope?: forge.Scope))?
