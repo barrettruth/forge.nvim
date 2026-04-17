@@ -935,29 +935,49 @@ overrides take priority.
 COMPATIBILITY ~
                                                          *forge-compatibility*
 Not all features are available on every forge. The table below shows per-forge
-support for features that vary:
+support for features that vary among the verbs forge.nvim exposes today:
 
   Feature                    GitHub    GitLab    Codeberg ~
   PR list/filter               yes       yes       yes
   PR create                    yes       yes       yes
   PR create (draft)            yes       yes        -
   PR draft toggle              yes       yes        -
-  Per-PR CI checks             yes       yes       yes*
+  PR add/remove reviewer       yes       yes       yes
+  PR add/remove label          yes       yes       yes
+  PR add assignee              yes       yes       yes
+  PR remove assignee           yes       yes        - (1)
+  PR set/clear milestone       yes       yes       yes
+  Issue add/remove label       yes       yes       yes
+  Issue add assignee           yes       yes       yes
+  Issue remove assignee        yes       yes        - (1)
+  Issue set/clear milestone    yes       yes       yes
+  Per-PR CI checks             yes       yes       yes (2)
   Per-check log viewing        yes       yes        -
   CI runs (repo-wide)          yes       yes       yes
-  Issue create                   yes       yes       yes
-  Issue edit                    yes       yes       yes
-  Issues                       yes       yes       yes
-  Branches                     yes       yes       yes
-  Commits                      yes       yes       yes
+  Issue create / edit / list   yes       yes       yes
+  Branches / commits           yes       yes       yes
   Worktrees                    yes       yes       yes
-  Releases                     yes       yes       yes
-  Release draft/prerelease     yes        -        yes
+  Release list / browse        yes       yes       yes
+  Release delete               yes       yes       yes
+  Release draft/prerelease     yes       n/a (3)   yes
   Browse                       yes       yes       yes
 
-  * Codeberg per-PR checks show commit statuses reported by external CI.
-    The browse action opens the CI provider's page. Log viewing requires
-    forge-native CI (GitHub Actions or GitLab pipelines).
+  (1) `tea` does not expose `--remove-assignees` for `pulls edit` /
+      `issues edit`, so removal-only updates are not wired up on Codeberg.
+      Adds and full replacements work normally.
+
+  (2) Codeberg per-PR checks show commit statuses reported by external CI.
+      The browse action opens the CI provider's page. Log viewing requires
+      forge-native CI (GitHub Actions or GitLab pipelines).
+
+  (3) GitLab releases are tag + notes + asset links + milestone associations;
+      the GitLab API has no draft or prerelease concept, so the
+      draft/prerelease badges shown on other forges do not apply.
+
+  The "Release draft/prerelease" row reflects what each CLI / API supports.
+  forge.nvim does not currently expose release creation from any forge, so
+  these flags are only relevant to release listings (badges) and to future
+  release-create wiring.
 
 Features marked `-` are unavailable due to CLI or API limitations. When a
 feature is unsupported, forge.nvim either hides the option or falls back
