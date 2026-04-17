@@ -1,5 +1,11 @@
 local M = {}
 
+---@class forge.Action
+---@field label string?
+---@field close boolean?
+---@field fn fun(entry: forge.PickerEntry?, opts: table)
+
+---@type table<string, forge.Action>
 local actions = {}
 
 actions.open = {
@@ -21,6 +27,8 @@ actions.open = {
   end,
 }
 
+---@param name string
+---@param action forge.Action|fun(entry: forge.PickerEntry?, opts: table)
 function M.register(name, action)
   if type(action) == 'function' then
     action = { fn = action }
@@ -28,10 +36,17 @@ function M.register(name, action)
   actions[name] = action
 end
 
+---@param name string
+---@return forge.Action?
 function M.get(name)
   return actions[name]
 end
 
+---@param name string
+---@param entry forge.PickerEntry?
+---@param opts? table
+---@return boolean success
+---@return string? error
 function M.run(name, entry, opts)
   local action = actions[name]
   if not action then
@@ -41,6 +56,10 @@ function M.run(name, entry, opts)
   return true
 end
 
+---@param name string
+---@param opts? table
+---@return forge.PickerActionDef?
+---@return string? error
 function M.bind(name, opts)
   local action = actions[name]
   if not action then

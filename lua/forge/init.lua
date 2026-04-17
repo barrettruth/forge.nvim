@@ -243,6 +243,7 @@ function M.detect()
 end
 
 ---@param f forge.Forge
+---@param scope? forge.Scope
 ---@return forge.RepoInfo
 function M.repo_info(f, scope)
   local root = git_root()
@@ -293,6 +294,7 @@ function M.clear_cache()
   list_cache = {}
 end
 
+---@param range? { start_line: integer, end_line: integer }
 ---@return string
 function M.file_loc(range)
   local root = git_root()
@@ -335,6 +337,7 @@ function M.file_loc(range)
   return file
 end
 
+---@param scope? forge.Scope
 ---@return string
 function M.remote_web_url(scope)
   if scope then
@@ -353,18 +356,27 @@ function M.remote_web_url(scope)
   return remote
 end
 
+---@param name forge.ScopeKind
+---@param url string
+---@return forge.Scope?
 function M.scope_from_url(name, url)
   return scope_mod.from_url(name, url)
 end
 
+---@param scope forge.Scope?
+---@return string?
 function M.scope_repo_arg(scope)
   return scope_mod.repo_arg(scope)
 end
 
+---@param scope forge.Scope?
+---@return string
 function M.scope_key(scope)
   return scope_mod.key(scope)
 end
 
+---@param name? forge.ScopeKind
+---@return forge.Scope?
 function M.current_scope(name)
   local url = M.remote_web_url()
   if url == '' then
@@ -381,10 +393,15 @@ function M.current_scope(name)
   return scope_mod.from_url(forge_name, url)
 end
 
+---@param scope forge.Scope?
+---@return string?
 function M.remote_name(scope)
   return scope_mod.remote_name(scope)
 end
 
+---@param scope forge.Scope?
+---@param branch string
+---@return string?
 function M.remote_ref(scope, branch)
   return scope_mod.remote_ref(scope, branch)
 end
@@ -576,6 +593,8 @@ function M.edit_pr(num, ref)
   end)
 end
 
+---@param num string
+---@param ref? forge.Scope
 function M.edit_issue(num, ref)
   local log = require('forge.logger')
 
@@ -669,6 +688,7 @@ function M.create_issue(opts)
   compose_mod.open_issue(f, templates and nil or template, ref)
 end
 
+---@return string[]
 function M.template_slugs()
   local f = M.detect()
   if not f then

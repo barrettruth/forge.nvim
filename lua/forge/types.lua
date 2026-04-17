@@ -26,10 +26,24 @@
 ---@field tag string
 ---@field scope forge.Scope?
 
+---@class forge.RunRef
+---@field id string
+---@field scope forge.Scope?
+---@field status string?
+---@field url string?
+
 ---@alias forge.PRRefLike forge.PRRef|string
+---@alias forge.IssueRefLike forge.IssueRef|string
+---@alias forge.ReleaseRefLike forge.ReleaseRef|string
+---@alias forge.RunRefLike forge.RunRef|string
 
 ---@class forge.ScopedOpts
 ---@field scope forge.Scope?
+
+---@class forge.OpCallbacks
+---@field on_success fun()?
+---@field on_failure fun()?
+---@field on_cancel fun()?
 
 ---@class forge.PickerBackOpts: forge.ScopedOpts
 ---@field back fun()?
@@ -172,7 +186,7 @@
 ---@field list_runs_cmd fun(self: forge.Forge, branch: string?, scope?: forge.Scope): string
 ---@field normalize_run fun(self: forge.Forge, entry: table): forge.CIRun
 ---@field run_log_cmd fun(self: forge.Forge, id: string, failed_only: boolean, scope?: forge.Scope): string[]
----@field merge_cmd fun(self: forge.Forge, num: string, method: string, scope?: forge.Scope): string[]
+---@field merge_cmd fun(self: forge.Forge, num: string, method: string?, scope?: forge.Scope): string[]
 ---@field approve_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field repo_info fun(self: forge.Forge, scope?: forge.Scope): forge.RepoInfo
 ---@field pr_state fun(self: forge.Forge, num: string, scope?: forge.Scope): forge.PRState
