@@ -174,9 +174,6 @@ local function resolve_source(name)
     return sources[name]
   end
   local ok, mod = pcall(require, 'forge.backends.' .. name)
-  if not ok then
-    ok, mod = pcall(require, 'forge.' .. name)
-  end
   if ok then
     sources[name] = mod
     return mod
