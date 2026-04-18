@@ -546,7 +546,7 @@ end
 
 ---@param f forge.Forge
 ---@param run forge.RunRefLike
----@param opts? forge.OpCallbacks|{ confirm?: boolean }
+---@param opts? forge.OpCallbacks
 function M.ci_cancel(f, run, opts)
   run = normalize_run_ref(run)
   opts = opts or {}
@@ -557,30 +557,15 @@ function M.ci_cancel(f, run, opts)
     end
     return
   end
-  local function do_cancel()
-    run_forge_cmd(
-      'run',
-      run.id,
-      'cancelling',
-      f:cancel_run_cmd(run.id, run.scope),
-      'cancelled',
-      'cancel failed',
-      opts
-    )
-  end
-  if opts.confirm == false then
-    do_cancel()
-    return
-  end
-  vim.ui.select({ 'Yes', 'No' }, {
-    prompt = 'Cancel run #' .. run.id .. '? ',
-  }, function(choice)
-    if choice == 'Yes' then
-      do_cancel()
-    elseif opts.on_cancel then
-      opts.on_cancel()
-    end
-  end)
+  run_forge_cmd(
+    'run',
+    run.id,
+    'cancelling',
+    f:cancel_run_cmd(run.id, run.scope),
+    'cancelled',
+    'cancel failed',
+    opts
+  )
 end
 
 ---@param f forge.Forge
@@ -609,7 +594,7 @@ end
 
 ---@param f forge.Forge
 ---@param run forge.RunRefLike
----@param opts? forge.OpCallbacks|{ confirm?: boolean }
+---@param opts? forge.OpCallbacks
 function M.ci_toggle(f, run, opts)
   run = normalize_run_ref(run)
   opts = opts or {}
@@ -643,34 +628,19 @@ end
 
 ---@param f forge.Forge
 ---@param release forge.ReleaseRefLike
----@param opts? forge.OpCallbacks|{ confirm?: boolean }
+---@param opts? forge.OpCallbacks
 function M.release_delete(f, release, opts)
   release = normalize_release_ref(release)
   opts = opts or {}
-  local function do_delete()
-    run_forge_cmd(
-      'release',
-      release.tag,
-      'deleting',
-      f:delete_release_cmd(release.tag, release.scope),
-      'deleted',
-      'delete failed',
-      opts
-    )
-  end
-  if opts.confirm == false then
-    do_delete()
-    return
-  end
-  vim.ui.select({ 'Yes', 'No' }, {
-    prompt = 'Delete release ' .. release.tag .. '? ',
-  }, function(choice)
-    if choice == 'Yes' then
-      do_delete()
-    elseif opts.on_cancel then
-      opts.on_cancel()
-    end
-  end)
+  run_forge_cmd(
+    'release',
+    release.tag,
+    'deleting',
+    f:delete_release_cmd(release.tag, release.scope),
+    'deleted',
+    'delete failed',
+    opts
+  )
 end
 
 ---@param f forge.Forge

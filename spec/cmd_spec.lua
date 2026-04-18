@@ -176,15 +176,6 @@ describe('command schema', function()
     assert.equals('owner/upstream', create.default_targets.base.repo.slug)
   end)
 
-  it('tracks the intended bang matrix', function()
-    assert.is_true(cmd.supports_bang('pr', 'close'))
-    assert.is_true(cmd.supports_bang('issue', 'close'))
-    assert.is_true(cmd.supports_bang('release', 'delete'))
-    assert.is_false(cmd.supports_bang('pr', 'reopen'))
-    assert.is_false(cmd.supports_bang('ci', 'watch'))
-    assert.is_false(cmd.supports_bang('browse'))
-  end)
-
   it('exposes per-verb modifiers for canonical operations', function()
     assert.same(
       { 'repo', 'head', 'base', 'draft', 'fill', 'web' },
@@ -225,13 +216,6 @@ describe('command schema', function()
     local method = cmd.modifier('method')
 
     assert.same({ 'merge', 'squash', 'rebase' }, method.values)
-  end)
-
-  it('rejects unsupported bang before dispatch', function()
-    local _, err = cmd.parse({ 'pr', 'checkout', '42' }, { bang = true })
-
-    assert.equals('E477', err.code)
-    assert.equals('E477: No ! allowed', err.message)
   end)
 
   it('rejects invalid modifiers and duplicate modifiers', function()

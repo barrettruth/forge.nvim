@@ -704,22 +704,6 @@ describe(':Forge command', function()
     assert.is_nil(captured.opens[1])
   end)
 
-  it('rejects unsupported bang with E477 and no side effects', function()
-    local ok, err = pcall(vim.cmd, 'Forge! pr checkout 42')
-
-    assert.is_false(ok)
-    assert.matches('E477: No ! allowed', err)
-    assert.is_nil(captured.ops_calls[1])
-  end)
-
-  it('allows supported bang on close subcommands', function()
-    vim.cmd('Forge! pr close 42')
-    vim.cmd('Forge! issue close 9')
-
-    assert.same({ name = 'pr_close', pr = { num = '42', scope = nil } }, captured.ops_calls[1])
-    assert.same({ name = 'issue_close', issue = { num = '9', scope = nil } }, captured.ops_calls[2])
-  end)
-
   it('dispatches PR management parity subcommands through forge.ops', function()
     for _, case in ipairs({
       {

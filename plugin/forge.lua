@@ -46,7 +46,6 @@ end
 vim.api.nvim_create_user_command('Forge', function(opts)
   require('forge.cmd').run(opts)
 end, {
-  bang = true,
   bar = true,
   nargs = '*',
   range = true,
