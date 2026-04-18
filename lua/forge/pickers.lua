@@ -189,6 +189,22 @@ local function issue_action_fns(f, issue)
   }
 end
 
+local function actionable_entry(entry)
+  return entry ~= nil and not entry.load_more
+end
+
+local function pr_open_entry(entry)
+  return actionable_entry(entry) and picker.pr_toggle_verb(entry) == 'close'
+end
+
+local function pr_toggle_entry(entry)
+  return actionable_entry(entry) and picker.pr_toggle_verb(entry) ~= nil
+end
+
+local function issue_toggle_entry(entry)
+  return actionable_entry(entry) and picker.issue_toggle_verb(entry) ~= nil
+end
+
 ---@param f forge.Forge
 ---@param pr forge.PRRef
 local function pr_toggle_draft_action(f, pr, opts)
@@ -877,6 +893,7 @@ function M.pr(state, f, opts)
     {
       name = 'approve',
       label = 'approve',
+      available = pr_open_entry,
       fn = function(entry)
         if entry and not entry.load_more then
           ops.pr_approve(f, entry.value, {
@@ -889,6 +906,7 @@ function M.pr(state, f, opts)
     {
       name = 'merge',
       label = 'merge',
+      available = pr_open_entry,
       fn = function(entry)
         if entry and not entry.load_more then
           ops.pr_merge(f, entry.value, nil, {
@@ -907,6 +925,7 @@ function M.pr(state, f, opts)
     },
     {
       name = 'toggle',
+      available = pr_toggle_entry,
       label = function(entry)
         if entry == nil then
           return 'close/reopen'
@@ -929,6 +948,9 @@ function M.pr(state, f, opts)
     {
       name = 'draft',
       label = 'draft/ready',
+      available = function(entry)
+        return f.capabilities.draft and pr_open_entry(entry)
+      end,
       fn = function(entry)
         if entry and not entry.load_more and f.capabilities.draft then
           pr_toggle_draft_action(f, entry.value, {
@@ -1139,6 +1161,7 @@ function M.issue(state, f, opts)
     },
     {
       name = 'toggle',
+      available = issue_toggle_entry,
       label = function(entry)
         if entry == nil then
           return 'close/reopen'

@@ -194,6 +194,16 @@ describe('pickers', function()
       }
     end
     package.preload['forge.picker'] = function()
+      local function available(def, entry)
+        local fn = rawget(def, 'available')
+        if type(fn) == 'function' then
+          return fn(entry) ~= false
+        end
+        if fn ~= nil then
+          return fn ~= false
+        end
+        return true
+      end
       return {
         backends = { ['fzf-lua'] = 'forge.picker.fzf' },
         backend = function()
@@ -216,6 +226,17 @@ describe('pickers', function()
               end)
             end
           end
+        end,
+        available = available,
+        resolve_label = function(def, entry)
+          if not available(def, entry) then
+            return nil
+          end
+          local label = rawget(def, 'label')
+          if type(label) == 'function' then
+            return label(entry)
+          end
+          return label
         end,
         pr_toggle_verb = function(entry)
           if not entry or type(entry.value) ~= 'table' then
@@ -481,7 +502,7 @@ describe('pickers', function()
     helpers.clear_loaded(loaded_modules)
   end)
 
-  it('uses more as the default PR action without a separate default key binding', function()
+  it('uses row-aware labels for the highlighted open PR', function()
     local cfg = require('forge.config').config()
     assert.equals('<c-e>', cfg.keys.pr.edit)
     assert.equals('<c-y>', cfg.keys.pr.approve)
@@ -496,17 +517,43 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('Open PRs (1)> ', captured.prompt)
-    local labels = helpers.action_labels(captured.actions)
+    captured.stream(function() end)
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
     assert.equals('checkout', labels.default)
     assert.equals('worktree', labels.worktree)
     assert.equals('edit', labels.edit)
     assert.equals('approve', labels.approve)
     assert.equals('merge', labels.merge)
     assert.equals('create', labels.create)
-    assert.equals('close/reopen', labels.toggle)
+    assert.equals('close', labels.toggle)
     assert.equals('draft/ready', labels.draft)
     assert.equals('filter', labels.filter)
     assert.equals('refresh', labels.refresh)
+  end)
+
+  it('hides open-only PR actions on closed and merged rows', function()
+    cache['pr:all'] = {
+      { number = 42, title = 'Closed', state = 'CLOSED', author = 'alice', created_at = '' },
+      { number = 41, title = 'Merged', state = 'MERGED', author = 'bob', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('all', fake_forge())
+    captured.stream(function() end)
+
+    assert.is_not_nil(captured)
+
+    local closed_labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.is_nil(closed_labels.approve)
+    assert.is_nil(closed_labels.merge)
+    assert.equals('reopen', closed_labels.toggle)
+    assert.is_nil(closed_labels.draft)
+
+    local merged_labels = helpers.action_labels(captured.actions, captured.entries[2])
+    assert.is_nil(merged_labels.approve)
+    assert.is_nil(merged_labels.merge)
+    assert.is_nil(merged_labels.toggle)
+    assert.is_nil(merged_labels.draft)
   end)
 
   it('keeps auxiliary PR actions open', function()
@@ -1072,14 +1119,34 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    local labels = helpers.action_labels(captured.actions)
+    captured.stream(function() end)
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
     assert.equals('open', labels.default)
     assert.equals('web', labels.browse)
     assert.equals('edit', labels.edit)
-    assert.equals('close/reopen', labels.toggle)
+    assert.equals('close', labels.toggle)
     assert.equals('create', labels.create)
     assert.equals('filter', labels.filter)
     assert.equals('refresh', labels.refresh)
+  end)
+
+  it('shows reopen for closed issue rows only', function()
+    cache['issue:all'] = {
+      { number = 7, title = 'Closed bug', state = 'CLOSED', author = 'alice', created_at = '' },
+      { number = 6, title = 'Open bug', state = 'OPEN', author = 'bob', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('all', fake_issue_forge())
+    captured.stream(function() end)
+
+    assert.is_not_nil(captured)
+
+    local closed_labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.equals('reopen', closed_labels.toggle)
+
+    local open_labels = helpers.action_labels(captured.actions, captured.entries[2])
+    assert.equals('close', open_labels.toggle)
   end)
 
   it('opens the issue picker immediately on fzf before the fetch completes', function()
