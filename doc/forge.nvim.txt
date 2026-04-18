@@ -2,59 +2,43 @@
 
 CONTENTS                                                 *forge.nvim-contents*
 
-    INTRODUCTION..........................................|forge.nvim| |forge|
-    CONFIGURATION...............................................|forge-config|
-    `picker`.............................................|forge-config-picker|
-    `client`.............................................|forge-config-client|
-    `context`...........................................|forge-config-context|
-    `debug`...............................................|forge-config-debug|
-    `split`...............................................|forge-config-split|
-    `ci`.....................................................|forge-config-ci|
-    `targets`.........................................|forge-config-targets|
-    `sources`...........................................|forge-config-sources|
-    `contexts`.........................................|forge-config-contexts|
-    `sections`.........................................|forge-config-sections|
-    `routes`.............................................|forge-config-routes|
-    `keys`.................................................|forge-config-keys|
-    `display`...........................................|forge-config-display|
-    `display.icons`...............................|forge-config-display-icons|
-    `display.widths`.............................|forge-config-display-widths|
-    `display.limits`.............................|forge-config-display-limits|
-    COMMANDS..........................................................|:Forge|
-    `:Forge`..................................................|:Forge-no-args|
-    TARGET DEFAULTS AND OVERRIDES......................|forge-target-defaults|
-    COMMAND COMPLETION................................|forge-command-completion|
-    CANONICAL SYNTAX AND COMPATIBILITY..............|forge-command-compatibility|
-    BANG SEMANTICS.........................................|forge-command-bang|
-    `:Forge pr create` [modifiers]......................|:Forge-pr-create|
-    `:Forge pr checkout` {num} [repo=...]............|:Forge-pr-checkout|
-    `:Forge pr worktree` {num}............................|:Forge-pr-worktree|
-    `:Forge pr browse` {num}................................|:Forge-pr-browse|
-    `:Forge pr approve` {num}..............................|:Forge-pr-approve|
-    `:Forge pr merge` {num} [`method=`]....................|:Forge-pr-merge|
-    `:Forge pr draft` {num}..................................|:Forge-pr-draft|
-    `:Forge pr ready` {num}..................................|:Forge-pr-ready|
-    `:Forge issue browse` {num} [repo=...]................|:Forge-issue-browse|
-    `:Forge issue close` {num} [repo=...]..................|:Forge-issue-close|
-    `:Forge issue reopen` {num} [repo=...]................|:Forge-issue-reopen|
-    `:Forge issue create` [modifiers]......................|:Forge-issue-create|
-    `:Forge issue edit` {num} [repo=...]....................|:Forge-issue-edit|
-    `:Forge ci log` {run-id} [repo=...]......................|:Forge-ci-log|
-    `:Forge ci watch` {run-id} [repo=...]..................|:Forge-ci-watch|
-    `:Forge release browse` {tag} [repo=...]............|:Forge-release-browse|
-    `:Forge release delete` {tag} [repo=...]............|:Forge-release-delete|
-    `:Forge browse` [branch=...] [commit=...]...................|:Forge-browse|
-    `:Forge clear`..............................................|:Forge-clear|
-    PLUG MAPPINGS.............................................|forge-plug|
-    PICKERS....................................................|forge-pickers|
-    WORKFLOW SURFACE.........................................|forge-workflow|
-    COMPOSE BUFFER.............................................|forge-compose|
-    COMPOSE INTEGRATION...........................|forge-compose-integration|
-    HIGHLIGHTS..............................................|forge-highlights|
-    SOURCES....................................................|forge-sources|
-    HEALTH......................................................|forge-health|
-    EXTENDING................................................|forge-extending|
-    API............................................................|forge-api|
+    INTRODUCTION..............................................|forge.nvim| |forge|
+
+    CONFIGURATION...................................................|forge-config|
+    Top-level options.......................................|forge-config-picker|
+    Picker keys...............................................|forge-config-keys|
+    Display settings......................................|forge-config-display|
+
+    COMMANDS..............................................................|:Forge|
+    Command model..............................................|:Forge-no-args|
+    Target modifiers and defaults......................|forge-target-defaults|
+    Command completion..............................|forge-command-completion|
+    Syntax and compatibility...................|forge-command-compatibility|
+    Bang semantics............................................|forge-command-bang|
+    PR commands..........................................|forge-pr-commands|
+    Issue commands....................................|forge-issue-commands|
+    CI commands..........................................|forge-ci-commands|
+    Release commands..............................|forge-release-commands|
+    Browse commands.................................|forge-browse-commands|
+    Review commands.................................|forge-review-commands|
+    Cache commands...................................|forge-cache-commands|
+
+    PICKERS AND WORKFLOW........................................|forge-pickers|
+    Plug mappings...................................................|forge-plug|
+    Workflow surface...........................................|forge-workflow|
+    Picker workflows...........................................|forge-pickers|
+
+    COMPOSE.........................................................|forge-compose|
+    Compose integration............................|forge-compose-integration|
+
+    REFERENCE...................................................|forge-highlights|
+    Highlights................................................|forge-highlights|
+    Sources......................................................|forge-sources|
+    Health........................................................|forge-health|
+
+    EXTENDING AND API................................................|forge-api|
+    Extending..................................................|forge-extending|
+    API................................................................|forge-api|
 
 ==============================================================================
 INTRODUCTION                                              *forge* *forge.nvim*
@@ -400,6 +384,8 @@ BANG SEMANTICS                                            *forge-command-bang*
 
     All other `!` forms fail with `E477: No ! allowed`.
 
+PR COMMANDS                                            *forge-pr-commands*
+
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
                                                             *:Forge-pr-create*
     Create a new PR.
@@ -446,6 +432,8 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
     Mark PR `{num}` as ready when supported by the forge.
 
+ISSUE COMMANDS                                      *forge-issue-commands*
+
 `:Forge issue browse` [{num}] [repo=...]                 *:Forge-issue-browse*
     Open issue `{num}` in the browser, or the issue list landing page
     when `{num}` is omitted.
@@ -469,6 +457,8 @@ BANG SEMANTICS                                            *forge-command-bang*
 `:Forge issue edit` {num} [repo=...]                       *:Forge-issue-edit*
     Open the issue edit compose flow for issue `{num}`.
 
+CI COMMANDS                                            *forge-ci-commands*
+
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
     Open the primary local run view for CI run `{run-id}`. Active runs
     use the forge's watch/follow surface when available; otherwise Forge
@@ -488,12 +478,16 @@ BANG SEMANTICS                                            *forge-command-bang*
     Open CI run `{run-id}` in the browser, or the CI list landing page
     when `{run-id}` is omitted.
 
+RELEASE COMMANDS                                  *forge-release-commands*
+
 `:Forge release browse` [{tag}] [repo=...]             *:Forge-release-browse*
     Open release `{tag}` in the browser, or the releases list landing
     page when `{tag}` is omitted.
 
 `:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
     Delete release `{tag}` (with confirmation prompt).
+
+BROWSE COMMANDS                                    *forge-browse-commands*
 
 `:Forge browse` [branch=...] [commit=...]                      *:Forge-browse*
     Open a forge web URL.
@@ -505,6 +499,8 @@ BANG SEMANTICS                                            *forge-command-bang*
                        anchored to that branch instead; otherwise the
                        branch landing page is opened.
     `commit=<sha>`     Open the given commit on the forge.
+
+REVIEW COMMANDS                                    *forge-review-commands*
 
 `:Forge review branch` [{branch}]                       *:Forge-review-branch*
     Start a branch review session. Defaults to the current branch and
@@ -535,6 +531,9 @@ BANG SEMANTICS                                            *forge-command-bang*
 
 `:Forge review toggle`                                  *:Forge-review-toggle*
     Toggle between patch and file-context view.
+
+CACHE COMMANDS                                      *forge-cache-commands*
+
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
@@ -979,19 +978,19 @@ support for features that vary among the verbs forge.nvim exposes today:
   Feature                    GitHub    GitLab    Codeberg ~
   PR list/filter               yes       yes       yes
   PR create                    yes       yes       yes
-  PR create (draft)            yes       yes        -
-  PR draft toggle              yes       yes        -
+  PR create (draft)            yes       yes       no
+  PR draft toggle              yes       yes       no
   PR add/remove reviewer       yes       yes       yes
   PR add/remove label          yes       yes       yes
   PR add assignee              yes       yes       yes
-  PR remove assignee           yes       yes        - (1)
+  PR remove assignee           yes       yes       no (1)
   PR set/clear milestone       yes       yes       yes
   Issue add/remove label       yes       yes       yes
   Issue add assignee           yes       yes       yes
-  Issue remove assignee        yes       yes        - (1)
+  Issue remove assignee        yes       yes       no (1)
   Issue set/clear milestone    yes       yes       yes
   Per-PR CI checks             yes       yes       yes (2)
-  Per-check log viewing        yes       yes        -
+  Per-check log viewing        yes       yes       no
   CI runs (repo-wide)          yes       yes       yes
   CI cancel / rerun            yes       yes (4)   yes (5)
   Issue create / edit / list   yes       yes       yes
@@ -999,7 +998,7 @@ support for features that vary among the verbs forge.nvim exposes today:
   Worktrees                    yes       yes       yes
   Release list / browse        yes       yes       yes
   Release delete               yes       yes       yes
-  Release draft/prerelease     yes       n/a (3)   yes
+  Release draft/prerelease     yes       no (3)    yes
   Browse                       yes       yes       yes
 
   (1) `tea` does not expose `--remove-assignees` for `pulls edit` /
@@ -1029,9 +1028,10 @@ support for features that vary among the verbs forge.nvim exposes today:
   these flags are only relevant to release listings (badges) and to future
   release-create wiring.
 
-Features marked `-` are unavailable due to CLI or API limitations. When a
+Features marked `no` are unavailable due to CLI or API limitations. When a
 feature is unsupported, forge.nvim either hides the option or falls back
-gracefully (log action shows a notification and suggests browse).
+gracefully (for example, the log action shows a notification and suggests
+browse).
 
 Each source declares its capabilities in a `capabilities` table. See
 |forge-Forge-interface|.
