@@ -1424,9 +1424,6 @@ function M.release(state, f, opts)
         ops.release_delete(f, entry.value, {
           on_success = reopen_list,
           on_failure = reopen_list,
-          on_cancel = function()
-            M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
-          end,
         })
       end,
     },

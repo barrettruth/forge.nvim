@@ -262,7 +262,7 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
-  it('confirms release deletion before running the shared delete operation', function()
+  it('runs the shared delete operation when deleting a release', function()
     local done = 0
     local ops = require('forge.ops')
     ops.release_delete({
@@ -283,7 +283,7 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
-  it('confirms CI run cancellation before invoking the backend command', function()
+  it('invokes the backend command when cancelling a CI run', function()
     local done = 0
     local ops = require('forge.ops')
     ops.ci_cancel({
@@ -303,27 +303,6 @@ describe('shared operations', function()
 
     assert.same({ 'cancel 77 repo/ref' }, captured.commands)
     assert.equals(1, done)
-  end)
-
-  it('skips cancellation when the user declines the confirmation', function()
-    local cancelled = 0
-    vim.ui.select = function(_, _, cb)
-      cb('No')
-    end
-    local ops = require('forge.ops')
-    ops.ci_cancel({
-      name = 'github',
-      cancel_run_cmd = function(_, id)
-        return { 'cancel', id }
-      end,
-    }, { id = '77', status = 'running' }, {
-      on_cancel = function()
-        cancelled = cancelled + 1
-      end,
-    })
-
-    assert.same({}, captured.commands)
-    assert.equals(1, cancelled)
   end)
 
   it('reports when a backend cannot cancel runs', function()

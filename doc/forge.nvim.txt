@@ -14,7 +14,6 @@ CONTENTS                                                 *forge.nvim-contents*
     Target modifiers and defaults......................|forge-target-defaults|
     Command completion..............................|forge-command-completion|
     Syntax and compatibility...................|forge-command-compatibility|
-    Bang semantics............................................|forge-command-bang|
     PR commands..........................................|forge-pr-commands|
     Issue commands....................................|forge-issue-commands|
     CI commands..........................................|forge-ci-commands|
@@ -102,23 +101,6 @@ Top-level keys: ~
   `string`  (default `"horizontal"`)
     Default split direction for terminal views. One of `"horizontal"` or
     `"vertical"`. Individual scopes (e.g. `ci.split`) override this value.
-
-`confirm`                                               *forge-config-confirm*
-  `table`  (default shown below)
-    Confirmation settings for destructive picker actions.
-
-  Defaults: >lua
-      confirm = {
-        branch_delete = true,
-        worktree_delete = true,
-      }
-<
-
-  `branch_delete`   `boolean`  (default `true`)
-    Ask for confirmation before deleting a branch from the branch picker.
-
-  `worktree_delete` `boolean`  (default `true`)
-    Ask for confirmation before deleting a worktree from the worktree picker.
 
 `ci`                                                         *forge-config-ci*
   `ci.lines`        `integer`  (default `1000`)
@@ -376,14 +358,6 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     This includes list navigation, list-scoped filters/refresh, nested per-PR
     checks, and copy helpers.
 
-BANG SEMANTICS                                            *forge-command-bang*
-    `!` is only accepted on mutating commands with an explicit force variant:
-    - `:Forge! pr close`
-    - `:Forge! issue close`
-    - `:Forge! release delete`
-
-    All other `!` forms fail with `E477: No ! allowed`.
-
 PR COMMANDS                                            *forge-pr-commands*
 
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
@@ -485,7 +459,7 @@ RELEASE COMMANDS                                  *forge-release-commands*
     page when `{tag}` is omitted.
 
 `:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
-    Delete release `{tag}` (with confirmation prompt).
+    Delete release `{tag}`.
 
 BROWSE COMMANDS                                    *forge-browse-commands*
 
@@ -702,8 +676,7 @@ interval.
   `toggle`      `<c-s>`          Cancel the highlighted run when in progress,
                                rerun it when completed; the header hint
                                reflects the current status of the row. No-op
-                               on skipped runs. Cancellation prompts for
-                               confirmation. GitHub uses `gh run
+                               on skipped runs. GitHub uses `gh run
                                {cancel,rerun}`; GitLab uses `glab ci cancel
                                pipeline` for cancel and `glab api ... /retry`
                                for rerun (retries failed and cancelled jobs
@@ -722,7 +695,7 @@ prerelease badges are shown for forges that support them (GitHub, Codeberg).
   Action      Default Key    Description ~
   `browse`      `<cr>`           Open release in browser
   `yank`        `<c-y>`          Copy release URL to `+` register
-  `delete`      `<c-d>`          Delete release (with confirmation)
+  `delete`      `<c-d>`          Delete release
   `filter`      `<tab>`          Cycle filter: all -> draft -> prerelease
   `refresh`     `<c-r>`          Clear cache and re-fetch
 
@@ -1733,15 +1706,13 @@ a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
 
                                                        *forge.ops.ci_cancel()*
 `ci_cancel(f, run, opts?)`
-    Cancels run `run`. Prompts for confirmation unless `opts.confirm == false`.
-    Logs a warning and invokes `opts.on_failure` when the backend does not
-    define `cancel_run_cmd`.
+    Cancels run `run`. Logs a warning and invokes `opts.on_failure` when
+    the backend does not define `cancel_run_cmd`.
 
                                                         *forge.ops.ci_rerun()*
 `ci_rerun(f, run, opts?)`
-    Reruns completed run `run`. No confirmation prompt. Logs a warning and
-    invokes `opts.on_failure` when the backend does not define
-    `rerun_run_cmd`.
+    Reruns completed run `run`. Logs a warning and invokes `opts.on_failure`
+    when the backend does not define `rerun_run_cmd`.
 
                                                        *forge.ops.ci_toggle()*
 `ci_toggle(f, run, opts?)`
@@ -1759,7 +1730,7 @@ a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
 
                                                   *forge.ops.release_delete()*
 `release_delete(f, release, opts?)`
-    Deletes `release`. `opts`: `{ confirm?, on_success?, on_failure? }`.
+    Deletes `release`. `opts`: `{ on_success?, on_failure? }`.
 
                                                      *forge.ops.list_browse()*
 `list_browse(f, kind, opts?)`

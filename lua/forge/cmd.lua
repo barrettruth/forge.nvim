@@ -59,7 +59,6 @@ local families = {
         modifiers = { 'repo' },
       },
       close = {
-        bang = true,
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo' },
       },
@@ -103,7 +102,6 @@ local families = {
         modifiers = { 'repo' },
       },
       close = {
-        bang = true,
         subject = { kind = 'issue', min = 1, max = 1 },
         modifiers = { 'repo' },
       },
@@ -154,7 +152,6 @@ local families = {
         modifiers = { 'repo' },
       },
       delete = {
-        bang = true,
         subject = { kind = 'release', min = 1, max = 1 },
         modifiers = { 'repo' },
       },
@@ -544,7 +541,7 @@ local function dispatch_release(command)
     return
   end
   if command.name == 'delete' then
-    ops.release_delete(f, { tag = tag, scope = scope }, { confirm = not command.bang })
+    ops.release_delete(f, { tag = tag, scope = scope })
     return
   end
 end
@@ -678,11 +675,6 @@ function M.legacy_modifier_names(family_name, verb_name)
   return copy(command.legacy_modifiers or {})
 end
 
-function M.supports_bang(family_name, verb_name)
-  local command = M.resolve(family_name, verb_name)
-  return command ~= nil and command.bang == true
-end
-
 function M.parse(args, opts)
   opts = opts or {}
   if type(args) ~= 'table' or #args == 0 or args[1] == '' then
@@ -713,11 +705,6 @@ function M.parse(args, opts)
       return error_result(unknown_verb_error(family_name, verb_token))
     end
     return error_result(missing_verb_error(family_name))
-  end
-
-  command.bang = opts.bang == true
-  if command.bang and not M.supports_bang(command.family, command.name) then
-    return error_result('E477: No ! allowed', { code = 'E477' })
   end
 
   command.subjects = {}
@@ -841,11 +828,9 @@ function M.run(opts)
     return false
   end
 
-  local command, err = M.parse(split_words(opts.args), { bang = opts.bang })
+  local command, err = M.parse(split_words(opts.args))
   if not command then
-    if err and err.code == 'E477' then
-      vim.api.nvim_err_writeln(err.message)
-    elseif err and err.message then
+    if err and err.message then
       warn(err.message)
     end
     return false

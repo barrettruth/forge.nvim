@@ -43,7 +43,6 @@
 ---@class forge.OpCallbacks
 ---@field on_success fun()?
 ---@field on_failure fun()?
----@field on_cancel fun()?
 
 ---@class forge.PickerBackOpts: forge.ScopedOpts
 ---@field back fun()?
