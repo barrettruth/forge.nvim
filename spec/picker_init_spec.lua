@@ -121,6 +121,18 @@ describe('forge.picker.resolve_label', function()
     assert.equals('merge', picker.resolve_label({ name = 'merge', label = 'merge' }))
   end)
 
+  it('hides labels when the action is unavailable', function()
+    local def = {
+      name = 'merge',
+      label = 'merge',
+      available = function()
+        return false
+      end,
+    }
+
+    assert.is_nil(picker.resolve_label(def, { value = { state = 'OPEN' } }))
+  end)
+
   it('invokes function labels with the entry', function()
     local captured
     local def = {
@@ -145,9 +157,40 @@ describe('forge.picker.resolve_label', function()
     assert.is_nil(picker.resolve_label(def, nil))
   end)
 
+  it('treats availability function failures as unavailable', function()
+    local def = {
+      name = 'toggle',
+      label = 'close',
+      available = function()
+        error('boom')
+      end,
+    }
+
+    assert.is_nil(picker.resolve_label(def, nil))
+    assert.is_false(picker.available(def, nil))
+  end)
+
+  it('resolves static and dynamic availability', function()
+    assert.is_true(picker.available({ name = 'a' }, nil))
+    assert.is_false(picker.available({ name = 'b', available = false }, nil))
+    assert.is_true(picker.available({
+      name = 'c',
+      available = function(entry)
+        return entry ~= nil
+      end,
+    }, { value = 1 }))
+    assert.is_false(picker.available({
+      name = 'd',
+      available = function(entry)
+        return entry ~= nil
+      end,
+    }, nil))
+  end)
+
   it('reports dynamic labels', function()
     assert.is_true(picker.has_dynamic_label({ name = 'a', label = function() end }))
     assert.is_false(picker.has_dynamic_label({ name = 'b', label = 'static' }))
-    assert.is_false(picker.has_dynamic_label({ name = 'c' }))
+    assert.is_true(picker.has_dynamic_label({ name = 'c', available = function() end }))
+    assert.is_false(picker.has_dynamic_label({ name = 'd' }))
   end)
 end)

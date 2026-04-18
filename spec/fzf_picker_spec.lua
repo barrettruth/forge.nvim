@@ -290,6 +290,50 @@ describe('fzf picker', function()
     assert.equals(1, back_calls)
   end)
 
+  it('skips unavailable actions without closing the picker', function()
+    local picker = require('forge.picker.fzf')
+    local calls = 0
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = { { '#42' } },
+          value = { num = '42', state = 'OPEN' },
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function()
+            calls = calls + 1
+          end,
+        },
+        {
+          name = 'browse',
+          label = 'browse',
+          available = function()
+            return false
+          end,
+          fn = function()
+            calls = calls + 10
+          end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_nil(captured.opts.fzf_opts['--header'])
+    assert.is_function(captured.opts.actions['ctrl-x'])
+
+    captured.opts.actions['ctrl-x']({ '1' })
+
+    assert.equals(0, calls)
+    assert.equals(0, close_calls)
+    assert.equals(0, ctx_clears)
+  end)
+
   it('renders the issue filter hint when the action is labeled', function()
     local picker = require('forge.picker.fzf')
     picker.pick({

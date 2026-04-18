@@ -33,10 +33,16 @@ end
 
 function M.action_labels(actions, entry)
   local labels = {}
+  local ok, picker = pcall(require, 'forge.picker')
   for _, def in ipairs(actions or {}) do
-    local label = def.label
-    if type(label) == 'function' then
-      label = label(entry)
+    local label
+    if ok and type(picker.resolve_label) == 'function' then
+      label = picker.resolve_label(def, entry)
+    else
+      label = def.label
+      if type(label) == 'function' then
+        label = label(entry)
+      end
     end
     labels[def.name] = label
   end
