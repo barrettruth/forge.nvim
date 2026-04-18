@@ -35,6 +35,9 @@ local forge_cache = {}
 ---@type table<string, forge.RepoInfo>
 local repo_info_cache = {}
 
+---@type table<string, forge.PRState>
+local pr_state_cache = {}
+
 ---@type table<string, string>
 local root_cache = {}
 
@@ -255,6 +258,47 @@ function M.repo_info(f, scope)
   return info
 end
 
+---@param f forge.Forge
+---@param num string
+---@param scope? forge.Scope
+---@return forge.PRState
+function M.pr_state(f, num, scope)
+  local root = git_root()
+  local key = root and (root .. '|' .. scope_mod.key(scope) .. '|' .. num) or nil
+  if key and pr_state_cache[key] then
+    return pr_state_cache[key]
+  end
+  local state = f:pr_state(num, scope)
+  if key then
+    pr_state_cache[key] = state
+  end
+  return state
+end
+
+---@param num? string
+---@param scope? forge.Scope
+function M.clear_pr_state(num, scope)
+  local root = git_root()
+  if not root then
+    pr_state_cache = {}
+    return
+  end
+  if num ~= nil then
+    pr_state_cache[root .. '|' .. scope_mod.key(scope) .. '|' .. num] = nil
+    return
+  end
+  if scope ~= nil then
+    local prefix = root .. '|' .. scope_mod.key(scope) .. '|'
+    for key in pairs(pr_state_cache) do
+      if key:sub(1, #prefix) == prefix then
+        pr_state_cache[key] = nil
+      end
+    end
+    return
+  end
+  pr_state_cache = {}
+end
+
 ---@param kind string
 ---@param state string
 ---@return string
@@ -287,6 +331,7 @@ end
 function M.clear_cache()
   forge_cache = {}
   repo_info_cache = {}
+  pr_state_cache = {}
   root_cache = {}
   list_cache = {}
 end

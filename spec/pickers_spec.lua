@@ -28,11 +28,12 @@ local loaded_modules = {
   'forge.pickers',
 }
 
-local function fake_forge()
+local function fake_forge(opts)
+  opts = opts or {}
   return {
     labels = { pr = 'PRs', pr_one = 'PR' },
     kinds = { pr = 'pull_request' },
-    capabilities = { draft = true },
+    capabilities = opts.capabilities or { draft = true },
     pr_fields = {
       number = 'number',
       title = 'title',
@@ -40,15 +41,27 @@ local function fake_forge()
       author = 'author',
       created_at = 'created_at',
     },
-    repo_info = function()
-      return {
-        permission = 'WRITE',
-        merge_methods = { 'merge' },
-      }
+    repo_info = function(_, scope)
+      if type(opts.repo_info) == 'function' then
+        return opts.repo_info(scope)
+      end
+      return opts.repo_info
+        or {
+          permission = 'WRITE',
+          merge_methods = { 'merge' },
+        }
     end,
-    pr_state = function()
+    pr_state = function(_, num, scope)
+      if type(opts.pr_state) == 'function' then
+        return opts.pr_state(num, scope)
+      end
+      if type(opts.pr_states) == 'table' and opts.pr_states[num] then
+        return opts.pr_states[num]
+      end
       return {
         state = 'OPEN',
+        mergeable = 'UNKNOWN',
+        review_decision = '',
         is_draft = false,
       }
     end,
@@ -481,6 +494,10 @@ describe('pickers', function()
         repo_info = function(f)
           return f:repo_info()
         end,
+        pr_state = function(f, num, scope)
+          return f:pr_state(num, scope)
+        end,
+        clear_pr_state = function() end,
         create_issue = function(...)
           issue_create_calls = issue_create_calls + 1
           issue_create_opts = select(1, ...)
@@ -526,7 +543,7 @@ describe('pickers', function()
     assert.equals('merge', labels.merge)
     assert.equals('create', labels.create)
     assert.equals('close', labels.toggle)
-    assert.equals('draft/ready', labels.draft)
+    assert.equals('draft', labels.draft)
     assert.equals('filter', labels.filter)
     assert.equals('refresh', labels.refresh)
   end)
@@ -554,6 +571,73 @@ describe('pickers', function()
     assert.is_nil(merged_labels.merge)
     assert.is_nil(merged_labels.toggle)
     assert.is_nil(merged_labels.draft)
+  end)
+
+  it('uses cached PR details to tighten approve, merge, and draft labels', function()
+    cache['pr:open'] = {
+      {
+        number = 42,
+        title = 'Already approved',
+        state = 'OPEN',
+        author = 'alice',
+        created_at = '',
+      },
+      { number = 41, title = 'Draft PR', state = 'OPEN', author = 'bob', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr(
+      'open',
+      fake_forge({
+        pr_states = {
+          ['42'] = {
+            state = 'OPEN',
+            mergeable = 'UNKNOWN',
+            review_decision = 'APPROVED',
+            is_draft = false,
+          },
+          ['41'] = {
+            state = 'OPEN',
+            mergeable = 'UNKNOWN',
+            review_decision = '',
+            is_draft = true,
+          },
+        },
+      })
+    )
+    captured.stream(function() end)
+
+    local approved_labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.is_nil(approved_labels.approve)
+    assert.equals('merge', approved_labels.merge)
+    assert.equals('draft', approved_labels.draft)
+
+    local draft_labels = helpers.action_labels(captured.actions, captured.entries[2])
+    assert.equals('approve', draft_labels.approve)
+    assert.is_nil(draft_labels.merge)
+    assert.equals('ready', draft_labels.draft)
+  end)
+
+  it('hides merge when repo permissions do not allow it', function()
+    cache['pr:open'] = {
+      { number = 40, title = 'Read-only repo', state = 'OPEN', author = 'carol', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr(
+      'open',
+      fake_forge({
+        repo_info = function()
+          return { permission = 'READ', merge_methods = { 'merge' } }
+        end,
+      })
+    )
+    captured.stream(function() end)
+
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.equals('approve', labels.approve)
+    assert.is_nil(labels.merge)
+    assert.equals('draft', labels.draft)
   end)
 
   it('keeps auxiliary PR actions open', function()

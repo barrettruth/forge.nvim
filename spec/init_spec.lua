@@ -136,6 +136,71 @@ describe('file_loc', function()
   end)
 end)
 
+describe('pr_state cache', function()
+  after_each(function()
+    forge.clear_cache()
+  end)
+
+  it('caches PR state lookups per repo, scope, and number', function()
+    local calls = 0
+    local fake = {
+      pr_state = function(_, num, scope)
+        calls = calls + 1
+        return {
+          state = 'OPEN',
+          mergeable = 'UNKNOWN',
+          review_decision = num .. '|' .. (scope and scope.slug or ''),
+          is_draft = false,
+        }
+      end,
+    }
+    local scope = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'barrettruth/forge.nvim',
+    }
+
+    local first = forge.pr_state(fake, '42', scope)
+    local second = forge.pr_state(fake, '42', scope)
+
+    assert.equals(1, calls)
+    assert.same(first, second)
+  end)
+
+  it('clears scoped PR state entries without touching other scopes', function()
+    local calls = 0
+    local fake = {
+      pr_state = function(_, num, scope)
+        calls = calls + 1
+        return {
+          state = 'OPEN',
+          mergeable = 'UNKNOWN',
+          review_decision = num .. '|' .. (scope and scope.slug or ''),
+          is_draft = false,
+        }
+      end,
+    }
+    local left = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'barrettruth/forge.nvim',
+    }
+    local right = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'barrettruth/example.nvim',
+    }
+
+    forge.pr_state(fake, '42', left)
+    forge.pr_state(fake, '42', right)
+    forge.clear_pr_state(nil, left)
+    forge.pr_state(fake, '42', left)
+    forge.pr_state(fake, '42', right)
+
+    assert.equals(3, calls)
+  end)
+end)
+
 describe('format_pr', function()
   local fields = {
     number = 'number',
