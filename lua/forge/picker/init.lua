@@ -11,10 +11,12 @@ local M = {}
 ---@field force_close boolean?
 
 ---@alias forge.PickerActionLabel string|fun(entry: forge.PickerEntry?): string?
+---@alias forge.PickerActionAvailability boolean|fun(entry: forge.PickerEntry?): boolean?
 
 ---@class forge.PickerActionDef
 ---@field name string
 ---@field label forge.PickerActionLabel?
+---@field available forge.PickerActionAvailability?
 ---@field close boolean?
 ---@field reload boolean?
 ---@field fn fun(entry: forge.PickerEntry?)
@@ -183,8 +185,26 @@ end
 
 ---@param def forge.PickerActionDef
 ---@param entry forge.PickerEntry?
+---@return boolean
+function M.available(def, entry)
+  local available = rawget(def, 'available')
+  if type(available) == 'function' then
+    local ok, result = pcall(available, entry)
+    return ok and result ~= false
+  end
+  if available ~= nil then
+    return available ~= false
+  end
+  return true
+end
+
+---@param def forge.PickerActionDef
+---@param entry forge.PickerEntry?
 ---@return string?
 function M.resolve_label(def, entry)
+  if not M.available(def, entry) then
+    return nil
+  end
   local label = rawget(def, 'label')
   if type(label) == 'function' then
     local ok, result = pcall(label, entry)
@@ -202,7 +222,7 @@ end
 ---@param def forge.PickerActionDef
 ---@return boolean
 function M.has_dynamic_label(def)
-  return type(rawget(def, 'label')) == 'function'
+  return type(rawget(def, 'label')) == 'function' or type(rawget(def, 'available')) == 'function'
 end
 
 ---@param entry forge.PickerEntry?

@@ -349,6 +349,9 @@ function M.pick(opts)
       local reloads = action_reloads(def)
       local action_fn = function(selected)
         if not selected[1] then
+          if not picker_mod.available(def, nil) then
+            return
+          end
           if reloads and picker_mod.closes(def) then
             local utils = require('fzf-lua.utils')
             local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
@@ -368,6 +371,9 @@ function M.pick(opts)
         end
         local idx = selected_index(selected[1])
         local entry = picker_mod.selected(idx and entries[idx] or nil)
+        if not picker_mod.available(def, entry) then
+          return
+        end
         if reloads and entry and rawget(entry, 'load_more') and tracked and idx then
           track_redirect = {
             source_id = track_id(entry, idx),
