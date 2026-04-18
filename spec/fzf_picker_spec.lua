@@ -29,7 +29,7 @@ package.preload['fzf-lua.utils'] = function()
         or group == 'ForgeTestHeaderText'
         or group == 'ForgeTestHeaderSep'
       then
-        return ('[%s:%s]'):format(group, text)
+        return ('[%s:%s]'):format(group, text), '\27[38;2;1;2;3m'
       end
       if group == 'ForgeBranch' or group == 'ForgeBranchCurrent' or group == 'ForgeMerged' then
         return ('\27[48;2;255;255;255m\27[38;2;1;2;3m%s\27[0m'):format(text)

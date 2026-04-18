@@ -177,7 +177,8 @@ local function render_header_for(actions, bindings, entry)
   if #parts < 2 then
     return nil
   end
-  return table.concat(parts, utils.ansi_from_hl(hls.separator, ' · '))
+  local separator = utils.ansi_from_hl(hls.separator, ' · ')
+  return table.concat(parts, separator)
 end
 
 ---@param actions forge.PickerActionDef[]
