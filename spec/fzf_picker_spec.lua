@@ -2,15 +2,28 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 local close_calls = 0
 local ctx_clears = 0
-local fzf_config = {
-  globals = {
-    hls = {
-      header_bind = 'FzfLuaHeaderBind',
-      header_text = 'FzfLuaHeaderText',
-      fzf = {
-        info = 'FzfLuaFzfInfo',
-      },
+local ansi_headers = false
+local fzf_config
+local function header_hls(bind, text, separator)
+  return {
+    header_bind = bind or 'FzfLuaHeaderBind',
+    header_text = text or 'FzfLuaHeaderText',
+    fzf = {
+      info = separator or 'FzfLuaFzfInfo',
     },
+  }
+end
+
+local function set_header_hls(bind, text, separator, legacy)
+  local hls = header_hls(bind, text, separator)
+  fzf_config.globals.hls = legacy == false and nil or vim.deepcopy(hls)
+  fzf_config.globals.__HLS = vim.deepcopy(hls)
+end
+
+fzf_config = {
+  globals = {
+    hls = header_hls(),
+    __HLS = header_hls(),
   },
 }
 
@@ -29,6 +42,9 @@ package.preload['fzf-lua.utils'] = function()
         or group == 'ForgeTestHeaderText'
         or group == 'ForgeTestHeaderSep'
       then
+        if ansi_headers then
+          return ('\27[38;2;1;2;3m%s\27[0m'):format(text), '\27[38;2;1;2;3m'
+        end
         return ('[%s:%s]'):format(group, text), '\27[38;2;1;2;3m'
       end
       if group == 'ForgeBranch' or group == 'ForgeBranchCurrent' or group == 'ForgeMerged' then
@@ -81,14 +97,13 @@ describe('fzf picker', function()
     selected = false
     close_calls = 0
     ctx_clears = 0
+    ansi_headers = false
     package.loaded['forge'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.picker.fzf'] = nil
     package.loaded['fzf-lua.config'] = nil
     vim.g.forge = nil
-    fzf_config.globals.hls.header_bind = 'FzfLuaHeaderBind'
-    fzf_config.globals.hls.header_text = 'FzfLuaHeaderText'
-    fzf_config.globals.hls.fzf.info = 'FzfLuaFzfInfo'
+    set_header_hls()
   end)
 
   it('renders highlighted segments when ansi_from_hl returns extra values', function()
@@ -159,7 +174,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more][FzfLuaFzfInfo: · ][FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse][FzfLuaFzfInfo: · ][FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more][FzfLuaFzfInfo:|][FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse][FzfLuaFzfInfo:|][FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
@@ -167,9 +182,7 @@ describe('fzf picker', function()
   end)
 
   it('uses resolved fzf-lua header highlight config for binds, labels, and separators', function()
-    fzf_config.globals.hls.header_bind = 'ForgeTestHeaderBind'
-    fzf_config.globals.hls.header_text = 'ForgeTestHeaderText'
-    fzf_config.globals.hls.fzf.info = 'ForgeTestHeaderSep'
+    set_header_hls('ForgeTestHeaderBind', 'ForgeTestHeaderText', 'ForgeTestHeaderSep')
 
     local picker = require('forge.picker.fzf')
     picker.pick({
@@ -193,7 +206,37 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[ForgeTestHeaderBind:<cr>] [ForgeTestHeaderText:more][ForgeTestHeaderSep: · ][ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse][ForgeTestHeaderSep: · ][ForgeTestHeaderBind:<tab>] [ForgeTestHeaderText:filter]',
+      '[ForgeTestHeaderBind:<cr>] [ForgeTestHeaderText:more][ForgeTestHeaderSep:|][ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse][ForgeTestHeaderSep:|][ForgeTestHeaderBind:<tab>] [ForgeTestHeaderText:filter]',
+      captured.opts.fzf_opts['--header']
+    )
+  end)
+
+  it('supports fzf-lua __HLS header highlight config', function()
+    set_header_hls('ForgeTestHeaderBind', 'ForgeTestHeaderText', 'ForgeTestHeaderSep', false)
+
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'PRs> ',
+      entries = {
+        {
+          display = {
+            { '#42', 'ForgeNumber' },
+            { ' fix api drift ' },
+          },
+          value = '42',
+        },
+      },
+      actions = {
+        { name = 'default', label = 'more', fn = function() end },
+        { name = 'browse', label = 'browse', fn = function() end },
+        { name = 'filter', label = 'filter', fn = function() end },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals(
+      '[ForgeTestHeaderBind:<cr>] [ForgeTestHeaderText:more][ForgeTestHeaderSep:|][ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse][ForgeTestHeaderSep:|][ForgeTestHeaderBind:<tab>] [ForgeTestHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)
@@ -270,7 +313,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open][FzfLuaFzfInfo: · ][FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close][FzfLuaFzfInfo: · ][FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open][FzfLuaFzfInfo:|][FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close][FzfLuaFzfInfo:|][FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)
@@ -334,12 +377,57 @@ describe('fzf picker', function()
       and captured.opts.keymap.fzf
       and captured.opts.keymap.fzf.focus
     assert.is_string(bind)
-    assert.truthy(bind:match('^transform%-header:'))
-    assert.truthy(bind:match('{3}'))
+    assert.equals("transform-header:printf '%b' {3}", bind)
     assert.equals(2, #captured.lines)
     assert.truthy(captured.lines[1]:match('FzfLuaHeaderText:cancel'))
     assert.truthy(captured.lines[2]:match('FzfLuaHeaderText:rerun'))
     assert.truthy(captured.opts.fzf_opts['--header']:find('cancel'))
+  end)
+
+  it('escapes dynamic header ansi for focus transform replay', function()
+    ansi_headers = true
+
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'CI> ',
+      entries = {
+        {
+          display = { { 'build' } },
+          value = { status = 'in_progress' },
+        },
+        {
+          display = { { 'deploy' } },
+          value = { status = 'done' },
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = 'open',
+          fn = function() end,
+        },
+        {
+          name = 'toggle',
+          label = function(entry)
+            local status = entry and entry.value and entry.value.status
+            if status == 'in_progress' then
+              return 'cancel'
+            end
+            return 'rerun'
+          end,
+          fn = function() end,
+        },
+        { name = 'filter', label = 'filter', fn = function() end },
+      },
+      picker_name = 'ci',
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals("transform-header:printf '%b' {3}", captured.opts.keymap.fzf.focus)
+    assert.truthy(captured.opts.fzf_opts['--header']:find('\27%[38;2;1;2;3m'))
+    assert.truthy(captured.lines[1]:find('\\033%[38;2;1;2;3m'))
+    assert.truthy(captured.lines[1]:find('cancel'))
+    assert.truthy(captured.lines[2]:find('rerun'))
   end)
 
   it('does not wire a focus bind when no action labels are dynamic', function()

@@ -15,7 +15,8 @@ end
 
 local function header_hls()
   local ok, config = pcall(require, 'fzf-lua.config')
-  local hls = ok and type(config.globals) == 'table' and config.globals.hls or nil
+  local globals = ok and type(config.globals) == 'table' and config.globals or nil
+  local hls = type(globals) == 'table' and (globals.hls or globals.__HLS) or nil
   local fzf_hls = type(hls) == 'table' and hls.fzf or nil
   return {
     bind = type(hls) == 'table' and hls.header_bind or 'FzfLuaHeaderBind',
@@ -177,7 +178,7 @@ local function render_header_for(actions, bindings, entry)
   if #parts < 2 then
     return nil
   end
-  local separator = utils.ansi_from_hl(hls.separator, ' · ')
+  local separator = utils.ansi_from_hl(hls.separator, '|')
   return table.concat(parts, separator)
 end
 
@@ -206,7 +207,17 @@ local function sanitize_header(text)
   if type(text) ~= 'string' then
     return nil
   end
-  return (text:gsub('\t', ' '):gsub('\n', ' '))
+  return (text:gsub('\t', ' '):gsub('\r', ' '):gsub('\n', ' '))
+end
+
+---@param text string?
+---@return string?
+local function transport_header(text)
+  local sanitized = sanitize_header(text)
+  if sanitized == nil then
+    return nil
+  end
+  return (sanitized:gsub('\\', '\\\\'):gsub('\27', '\\033'))
 end
 
 ---@param opts forge.PickerOpts
@@ -271,7 +282,7 @@ function M.pick(opts)
     if not dynamic_header then
       return nil
     end
-    return sanitize_header(render_header_for(actions, bindings, entry))
+    return transport_header(render_header_for(actions, bindings, entry))
   end
 
   local initial_header
@@ -414,7 +425,7 @@ function M.pick(opts)
   if header_field then
     fzf_exec_opts.keymap = {
       fzf = {
-        focus = ("transform-header:printf '%%s' {%d}"):format(header_field),
+        focus = ("transform-header:printf '%%b' {%d}"):format(header_field),
       },
     }
   end
