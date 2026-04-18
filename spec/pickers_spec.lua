@@ -1538,7 +1538,7 @@ describe('pickers', function()
     assert.is_nil(toggle.label({ value = { id = '3', status = 'skipped' } }))
   end)
 
-  it('shows a warning when skipped checks have no logs', function()
+  it('gates the open action as unavailable for skipped checks', function()
     local pickers = require('forge.pickers')
     pickers.checks(fake_ci_forge(), '42', 'all', {
       {
@@ -1551,12 +1551,12 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    action_by_name('default').fn(captured.entries[1])
-
-    assert.same({ 'no log available - job was not started' }, logger_messages.warn)
+    local default = action_by_name('default')
+    assert.is_function(default.available)
+    assert.is_false(default.available(captured.entries[1]))
   end)
 
-  it('shows a warning when checks logs are unavailable', function()
+  it('gates the open action as unavailable for checks without an extractable run id', function()
     local pickers = require('forge.pickers')
     pickers.checks(fake_ci_forge(), '42', 'all', {
       {
@@ -1567,9 +1567,21 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    action_by_name('default').fn(captured.entries[1])
+    local default = action_by_name('default')
+    assert.is_function(default.available)
+    assert.is_false(default.available(captured.entries[1]))
+  end)
 
-    assert.same({ 'logs not available, use browse to view' }, logger_messages.warn)
+  it('keeps the open action available for checks with a run id', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all', {
+      { name = 'lint', bucket = 'pass', link = 'https://example.com/check', run_id = '789' },
+    })
+
+    assert.is_not_nil(captured)
+    local default = action_by_name('default')
+    assert.is_function(default.available)
+    assert.is_true(default.available(captured.entries[1]))
   end)
 
   it('builds checks entries with live display renderers', function()
