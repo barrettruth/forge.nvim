@@ -544,10 +544,10 @@ All subcommands support tab completion.
 PLUG MAPPINGS                                                     *forge-plug*
 
 forge.nvim exposes stateless |<Plug>| mappings for root launchers, exact
-routes, and configurable section aliases. They are intended
-for user-defined mappings and do not add any additional Ex commands. The
-public `<Plug>` surface contains only the root launcher, one plug per
-configurable section alias, and one plug per exact no-argument route.
+routes, and configurable section aliases. They are intended for user-defined
+mappings and do not add any additional Ex commands. The public `<Plug>`
+surface contains only the root launcher, one plug per configurable section
+alias, and one plug per exact no-argument route.
 
 Examples: >lua
     vim.keymap.set('n', '<leader>gf', '<Plug>(forge)')
@@ -630,8 +630,8 @@ require a forge are hidden when no forge is detected. Browse file and line
 targets require a named buffer on a branch.
 
 When using fzf-lua, picker headers follow fzf-lua's configured header bind,
-text, and info highlights. Headers emphasize primary item actions;
-list controls remain available but are not all shown. Prompts show workflow
+text, and info highlights. Headers emphasize primary item actions; list
+controls remain available but are not all shown. Prompts show workflow
 context, primary action, and item count. Empty data pickers render a
 placeholder row instead of appearing blank.
 
@@ -673,20 +673,20 @@ CI PICKER ~ Used for interactive repo/current-branch CI routes and nested
 per-PR checks opened from the PR picker. Both share the `keys.ci` bindings.
 
 For repo-wide CI runs, Forge fetches an initial page using
-`display.limits.runs`. When more runs are available, the picker shows a
-`Load more...` row on `<cr>`. The `all` view is shown newest-first, and
-loading more appends older runs below the current list.
+`display.limits.runs`. When more runs are available, the picker shows a `Load
+more...` row on `<cr>`. The `all` view is shown newest-first, and loading more
+appends older runs below the current list.
 
-On GitHub, `log` opens a normal-mode terminal using `gh run view`, and
-`watch` opens a normal-mode terminal using `gh run watch`. In either view,
-`gx` opens the run URL by default, the job URL on job lines, and the parent
-job URL on step lines. Press `<cr>` on a job or step line to open that job's
-log. During an active GitHub watch, Forge opens a refreshing per-job log
-buffer because GitHub does not expose a per-job live-watch surface.
+On GitHub, `log` opens a normal-mode terminal using `gh run view`, and `watch`
+opens a normal-mode terminal using `gh run watch`. In either view, `gx` opens
+the run URL by default, the job URL on job lines, and the parent job URL on
+step lines. Press `<cr>` on a job or step line to open that job's log. During
+an active GitHub watch, Forge opens a refreshing per-job log buffer because
+GitHub does not expose a per-job live-watch surface.
 
-On GitLab and Codeberg, in-progress jobs open a live-tailing terminal
-(`glab ci trace`, `tea actions runs logs --follow`); completed jobs render
-in a buffer with highlighting and folds left open by default.
+On GitLab and Codeberg, in-progress jobs open a live-tailing terminal (`glab
+ci trace`, `tea actions runs logs --follow`); completed jobs render in a
+buffer with highlighting and folds left open by default.
 
 Forge-managed in-progress log and summary buffers auto-refresh at the
 `ci.refresh` interval. GitHub run terminals rely on native `gh` rendering;
@@ -731,10 +731,9 @@ prerelease badges are shown for forges that support them (GitHub, Codeberg).
 WORKFLOW SURFACE                                              *forge-workflow*
 
 The interactive workflow surface is separate from the action-oriented `:Forge`
-command interface. Open it with `<Plug>(forge)` or
-`require('forge').open()`. The root picker uses label-only entries so the top
-level stays compact, while nested pickers and help docs carry the workflow
-detail.
+command interface. Open it with `<Plug>(forge)` or `require('forge').open()`.
+The root picker uses label-only entries so the top level stays compact, while
+nested pickers and help docs carry the workflow detail.
 
 CLI parity: ~
 - Explicit forge actions exposed in pickers are also available through
@@ -824,7 +823,7 @@ Editing an issue opens a compose buffer at
 issue creation. Writing (`:w`) updates the issue. Editing is aborted if the
 title is empty. Empty bodies are allowed.
 
-Integration: ~                                                 *forge-compose-integration*
+Integration: ~                                     *forge-compose-integration*
   Compose buffers expose a small public buffer-local table for completion
   and other integrations: >
       vim.b.forge = {
@@ -1241,8 +1240,8 @@ EXTENDING                                                    *forge-extending*
 forge.nvim is designed to be used as a library as well as a plugin. You can
 call any of its forge-aware actions from your own picker, keymap, or command
 without replacing or configuring the built-in root surface. The public Lua
-surfaces exist at three layers; pick the one that matches how much control
-you want.
+surfaces exist at three layers; pick the one that matches how much control you
+want.
 
 MENTAL MODEL                                           *forge-extending-model*
 
@@ -1276,17 +1275,18 @@ Routes are the highest-level and most stable surface; they hide context
 resolution, scope detection, and forge dispatch behind a single string. Verbs
 are the layer `:Forge` and the built-in pickers both call into, so binding a
 verb to your own keymap or picker row gets exactly the behavior a `:Forge`
-invocation would. The picker primitive is the same call the built-in
-pickers use; it is backend-agnostic and forwards to the adapter configured
-under |forge-config-picker|.
+invocation would. The picker primitive is the same call the built-in pickers
+use; it is backend-agnostic and forwards to the adapter configured under
+|forge-config-picker|.
 
-CALLING FORGE FROM YOUR OWN PICKER            *forge-extending-custom-picker*
+CALLING FORGE FROM YOUR OWN PICKER             *forge-extending-custom-picker*
 
 The simplest pattern is to build a master picker in your own config (using
 `fzf-lua`, snacks.nvim, or any backend), list the forge sections you care
 about, and bind each row to `require('forge').open()`. Forge-specific rows
 inherit all built-in actions (checkout, worktree, browse, merge, approve,
-etc.). Non-forge rows can call into whatever you already use for local git. >lua
+etc.). Non-forge rows can call into whatever you already use for local git.
+>lua
     local forge = require('forge')
     local fzf = require('fzf-lua')
 
@@ -1318,11 +1318,11 @@ etc.). Non-forge rows can call into whatever you already use for local git. >lua
     end)
 <
 
-CALLING VERBS DIRECTLY                                *forge-extending-verbs*
+CALLING VERBS DIRECTLY                                 *forge-extending-verbs*
 
-When you already have a PR number, issue number, run id, or commit in hand
-and do not need a picker, call `require('forge.ops')` directly. This is the
-layer `:Forge pr checkout 42` and the PR picker's `<cr>` both dispatch to. >lua
+When you already have a PR number, issue number, run id, or commit in hand and
+do not need a picker, call `require('forge.ops')` directly. This is the layer
+`:Forge pr checkout 42` and the PR picker's `<cr>` both dispatch to. >lua
     local forge = require('forge')
     local ops = require('forge.ops')
     local f = assert(forge.detect(), 'no forge detected')
@@ -1338,12 +1338,12 @@ layer `:Forge pr checkout 42` and the PR picker's `<cr>` both dispatch to. >lua
 
 See |forge-ops| for the full verb inventory.
 
-BUILDING A CUSTOM PICKER FROM SCRATCH                *forge-extending-picker*
+BUILDING A CUSTOM PICKER FROM SCRATCH                 *forge-extending-picker*
 
-If you want forge to render your picker with the same backend it uses for
-its own (so you inherit picker-level styling, highlight groups, and the
-configured fzf-lua adapter), call `require('forge.picker').pick()` directly.
-Entries and actions follow the shapes documented under |forge-picker-api|. >lua
+If you want forge to render your picker with the same backend it uses for its
+own (so you inherit picker-level styling, highlight groups, and the configured
+fzf-lua adapter), call `require('forge.picker').pick()` directly. Entries and
+actions follow the shapes documented under |forge-picker-api|. >lua
     local picker = require('forge.picker')
     local forge = require('forge')
 
@@ -1629,135 +1629,135 @@ PUBLIC API: `require('forge.pickers')` ~
 PUBLIC API: `require('forge.ops')` ~                               *forge-ops*
 
 The `ops` module is the verb layer. Each function is the same entry point
-`:Forge` and the built-in pickers dispatch to, so calling `ops.pr_browse(f,
-{ num = '42' })` from your config is identical to running `:Forge pr browse
-42` or pressing `browse` in the PR picker. Functions that take a ref accept
-either a bare id (`num`, `id`, or `tag`) or a normalized table with `scope`
-and `num`/`id`/`tag`.
+`:Forge` and the built-in pickers dispatch to, so calling `ops.pr_browse(f, {
+num = '42' })` from your config is identical to running `:Forge pr browse 42`
+or pressing `browse` in the PR picker. Functions that take a ref accept either
+a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
+`num`/`id`/`tag`.
 
-                                                          *forge.ops.pr_list()*
+                                                         *forge.ops.pr_list()*
 `pr_list(state?, opts?)`
     Opens the PR list picker. `state`: `"open"`, `"closed"`, or `"all"`.
 
-                                                        *forge.ops.pr_create()*
+                                                       *forge.ops.pr_create()*
 `pr_create(opts?)`
     Creates a PR. See |forge.create_pr()| for `opts` shape.
 
-                                                          *forge.ops.pr_edit()*
+                                                         *forge.ops.pr_edit()*
 `pr_edit(pr)`
     Opens the PR edit compose buffer for `pr`.
 
-                                                      *forge.ops.pr_checkout()*
+                                                     *forge.ops.pr_checkout()*
 `pr_checkout(f, pr)`
     Checks out the branch for `pr` via the forge CLI.
 
-                                                        *forge.ops.pr_browse()*
+                                                       *forge.ops.pr_browse()*
 `pr_browse(f, pr)`
     Opens `pr` in the browser.
 
-                                                      *forge.ops.pr_worktree()*
+                                                     *forge.ops.pr_worktree()*
 `pr_worktree(f, pr)`
     Fetches `pr` and creates a git worktree for it.
 
-                                                            *forge.ops.pr_ci()*
+                                                           *forge.ops.pr_ci()*
 `pr_ci(f, pr, opts?)`
     Opens the CI checks picker for `pr`.
 
-                                                         *forge.ops.pr_close()*
+                                                        *forge.ops.pr_close()*
 `pr_close(f, pr, opts?)`
     Closes `pr`. `opts`: `{ on_success?, on_failure? }`.
 
-                                                        *forge.ops.pr_reopen()*
+                                                       *forge.ops.pr_reopen()*
 `pr_reopen(f, pr, opts?)`
     Reopens `pr`. `opts`: `{ on_success?, on_failure? }`.
 
-                                                       *forge.ops.pr_approve()*
+                                                      *forge.ops.pr_approve()*
 `pr_approve(f, pr, opts?)`
     Approves `pr`. `opts`: `{ on_success?, on_failure? }`.
 
-                                                         *forge.ops.pr_merge()*
+                                                        *forge.ops.pr_merge()*
 `pr_merge(f, pr, method?, opts?)`
     Merges `pr`. `method`: `"merge"`, `"squash"`, or `"rebase"`. `opts`:
     `{ on_success?, on_failure? }`.
 
-                                                  *forge.ops.pr_toggle_draft()*
+                                                 *forge.ops.pr_toggle_draft()*
 `pr_toggle_draft(f, pr, is_draft, opts?)`
     Toggles draft/ready on `pr`. Pass the current `is_draft` state.
 
-                                                       *forge.ops.issue_list()*
+                                                      *forge.ops.issue_list()*
 `issue_list(state?, opts?)`
     Opens the issue list picker. `state`: `"open"`, `"closed"`, or `"all"`.
 
-                                                     *forge.ops.issue_create()*
+                                                    *forge.ops.issue_create()*
 `issue_create(opts?)`
     Creates an issue. See |forge.create_issue()| for `opts` shape.
 
-                                                       *forge.ops.issue_edit()*
+                                                      *forge.ops.issue_edit()*
 `issue_edit(issue)`
     Opens the issue edit compose buffer for `issue`.
 
-                                                     *forge.ops.issue_browse()*
+                                                    *forge.ops.issue_browse()*
 `issue_browse(f, issue)`
     Opens `issue` in the browser.
 
-                                                      *forge.ops.issue_close()*
+                                                     *forge.ops.issue_close()*
 `issue_close(f, issue, opts?)`
     Closes `issue`. `opts`: `{ on_success?, on_failure? }`.
 
-                                                     *forge.ops.issue_reopen()*
+                                                    *forge.ops.issue_reopen()*
 `issue_reopen(f, issue, opts?)`
     Reopens `issue`. `opts`: `{ on_success?, on_failure? }`.
 
-                                                          *forge.ops.ci_list()*
+                                                         *forge.ops.ci_list()*
 `ci_list(branch?, opts?)`
     Opens the CI runs picker. `nil` branch shows all runs.
 
-                                                          *forge.ops.ci_open()*
+                                                         *forge.ops.ci_open()*
 `ci_open(f, run)`
     Opens the primary local CI view for `run`. Active runs use watch when
     available; completed or unsupported runs fall back to `ci_log()`.
 
-                                                           *forge.ops.ci_log()*
+                                                          *forge.ops.ci_log()*
 `ci_log(f, run)`
     Opens the log view for run `run` (terminal on GitHub, log buffer on
     GitLab/Codeberg).
 
-                                                         *forge.ops.ci_watch()*
+                                                        *forge.ops.ci_watch()*
 `ci_watch(f, run)`
     Opens a watch terminal for an in-progress run.
 
-                                                        *forge.ops.ci_browse()*
+                                                       *forge.ops.ci_browse()*
 `ci_browse(f, run)`
     Opens the browser page for CI run `run`. Falls back to `run_web_url()`
     when the source does not implement `browse_run()`.
 
-                                                        *forge.ops.ci_cancel()*
+                                                       *forge.ops.ci_cancel()*
 `ci_cancel(f, run, opts?)`
     Cancels run `run`. Prompts for confirmation unless `opts.confirm == false`.
     Logs a warning and invokes `opts.on_failure` when the backend does not
     define `cancel_run_cmd`.
 
-                                                         *forge.ops.ci_rerun()*
+                                                        *forge.ops.ci_rerun()*
 `ci_rerun(f, run, opts?)`
     Reruns completed run `run`. No confirmation prompt. Logs a warning and
     invokes `opts.on_failure` when the backend does not define
     `rerun_run_cmd`.
 
-                                                        *forge.ops.ci_toggle()*
+                                                       *forge.ops.ci_toggle()*
 `ci_toggle(f, run, opts?)`
     Dispatches to `ci_cancel` for in-progress runs and `ci_rerun` for
     completed runs. Skipped runs are a no-op with an info notification.
 
-                                                     *forge.ops.release_list()*
+                                                    *forge.ops.release_list()*
 `release_list(state?, opts?)`
     Opens the release list picker. `state`: `"all"`, `"draft"`, or
     `"prerelease"`.
 
-                                                   *forge.ops.release_browse()*
+                                                  *forge.ops.release_browse()*
 `release_browse(f, release)`
     Opens `release` in the browser.
 
-                                                   *forge.ops.release_delete()*
+                                                  *forge.ops.release_delete()*
 `release_delete(f, release, opts?)`
     Deletes `release`. `opts`: `{ confirm?, on_success?, on_failure? }`.
 
@@ -1767,30 +1767,30 @@ and `num`/`id`/`tag`.
     `'issue'`, `'ci'`, or `'release'`). `opts`: `{ scope? }`. Warns
     when the source has no such page.
 
-                                                    *forge.ops.browse_commit()*
+                                                   *forge.ops.browse_commit()*
 `browse_commit(opts?)`
     Opens a commit on the forge. `opts`: `{ commit?, scope? }`. Defaults
     `commit` to current HEAD.
 
-                                                    *forge.ops.browse_branch()*
+                                                   *forge.ops.browse_branch()*
 `browse_branch(branch?, opts?)`
     Opens a branch on the forge. Defaults `branch` to the current branch.
 
-                                                *forge.ops.browse_contextual()*
+                                               *forge.ops.browse_contextual()*
 `browse_contextual(opts?)`
     Opens the current file/line permalink on the forge, falling back to the
     repo root in non-file buffers.
 
-                                                      *forge.ops.browse_repo()*
+                                                     *forge.ops.browse_repo()*
 `browse_repo(opts?)`
     Opens the repo root on the forge.
 
-                                                      *forge.ops.browse_file()*
+                                                     *forge.ops.browse_file()*
 `browse_file(f, file_loc, branch, scope?)`
     Opens `file_loc` on `branch`. Returns `true` on success, `false` if
     `file_loc` or `branch` is empty.
 
-                                                  *forge.ops.browse_location()*
+                                                 *forge.ops.browse_location()*
 `browse_location(f, location, scope?)`
     Opens a parsed location (from `target.parse_location`).
 
@@ -1799,7 +1799,7 @@ PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 The picker primitive. Forwards to the adapter configured under
 |forge-config-picker| (currently only `fzf-lua`).
 
-                                                           *forge.picker.pick()*
+                                                         *forge.picker.pick()*
 `pick(opts)`
     Opens a picker with the given `opts`:
       `prompt`       `string?`                Prompt line.
@@ -1830,7 +1830,7 @@ The picker primitive. Forwards to the adapter configured under
       `close`  `boolean?`             If `false`, the picker stays open.
       `fn`     `fun(entry: forge.PickerEntry?)`   Action handler.
 
-                                                        *forge.picker.backend()*
+                                                      *forge.picker.backend()*
 `backend()`
     Returns the name of the active picker backend (e.g. `"fzf-lua"`).
 
