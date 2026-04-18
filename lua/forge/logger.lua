@@ -19,8 +19,8 @@ end
 
 local function notify(msg, level)
   local run = function()
-    vim.notify('[forge]: ' .. msg, level)
     vim.cmd.redraw()
+    vim.notify('[forge]: ' .. msg, level)
   end
   if vim.in_fast_event() then
     vim.schedule(run)

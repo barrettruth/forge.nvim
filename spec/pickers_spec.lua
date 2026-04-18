@@ -1559,7 +1559,7 @@ describe('pickers', function()
     assert.is_nil(toggle.label({ value = { id = '3', status = 'skipped' } }))
   end)
 
-  it('shows an info notification when skipped checks have no logs', function()
+  it('shows a warning when skipped checks have no logs', function()
     local pickers = require('forge.pickers')
     pickers.checks(fake_ci_forge(), '42', 'all', {
       {
@@ -1574,7 +1574,23 @@ describe('pickers', function()
     assert.is_not_nil(captured)
     action_by_name('log').fn(captured.entries[1])
 
-    assert.same({ 'no log available - job was not started' }, logger_messages.info)
+    assert.same({ 'no log available - job was not started' }, logger_messages.warn)
+  end)
+
+  it('shows a warning when checks logs are unavailable', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all', {
+      {
+        name = 'lint',
+        link = 'https://example.com/checks/456',
+        bucket = 'pass',
+      },
+    })
+
+    assert.is_not_nil(captured)
+    action_by_name('log').fn(captured.entries[1])
+
+    assert.same({ 'logs not available, use browse to view' }, logger_messages.warn)
   end)
 
   it('builds checks entries with live display renderers', function()
@@ -1608,6 +1624,24 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('Failed CI for main> ', captured.prompt)
+  end)
+
+  it('warns when structured checks are unavailable for a forge', function()
+    local pickers = require('forge.pickers')
+    pickers.checks({ labels = { pr_one = 'PR' } }, '42', 'all')
+
+    assert.same({ 'structured checks not available for this forge' }, logger_messages.warn)
+  end)
+
+  it('warns when structured CI data is unavailable for a forge', function()
+    local pickers = require('forge.pickers')
+    pickers.ci({
+      list_runs_cmd = function()
+        return { 'runs' }
+      end,
+    }, 'main', 'all')
+
+    assert.same({ 'structured CI data not available for this forge' }, logger_messages.warn)
   end)
 
   it('marks CI state jumps and refresh as hard reopen actions', function()
