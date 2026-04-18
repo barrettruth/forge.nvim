@@ -54,8 +54,8 @@ describe('logger', function()
     scheduled[1]()
 
     assert.same({
-      { msg = '[forge]: fast', level = vim.log.levels.INFO },
       { redraw = true },
+      { msg = '[forge]: fast', level = vim.log.levels.INFO },
     }, notified)
   end)
 
@@ -68,8 +68,8 @@ describe('logger', function()
 
     assert.equals(0, #scheduled)
     assert.same({
-      { msg = '[forge]: slow', level = vim.log.levels.WARN },
       { redraw = true },
+      { msg = '[forge]: slow', level = vim.log.levels.WARN },
     }, notified)
   end)
 end)

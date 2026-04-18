@@ -283,13 +283,13 @@ function M.checks(f, num, filter, cached_checks, opts)
     local c = entry.value
     local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
     if not run_id then
-      log.info('logs not available, use browse to view')
+      log.warn('logs not available, use browse to view')
       return
     end
     local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
     local bucket = (c.bucket or ''):lower()
     if bucket == 'skipping' then
-      log.info('no log available - job was not started')
+      log.warn('no log available - job was not started')
       return
     end
     local in_progress = bucket == 'pending'
@@ -447,7 +447,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       end,
     })
   else
-    log.info('structured checks not available for this forge')
+    log.warn('structured checks not available for this forge')
   end
 end
 
@@ -706,7 +706,7 @@ function M.ci(f, branch, filter, opts)
       stream = stream_runs,
     })
   elseif f.list_runs_cmd then
-    log.info('structured CI data not available for this forge')
+    log.warn('structured CI data not available for this forge')
   end
 end
 
