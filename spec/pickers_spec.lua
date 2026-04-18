@@ -903,6 +903,20 @@ describe('pickers', function()
     assert.same('function', type(captured.stream))
   end)
 
+  it('marks PR refresh and checks transitions as hard reopen actions', function()
+    cache['pr:open'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(action_by_name('ci').reload)
+    assert.is_false(action_by_name('filter').reload)
+    assert.is_false(action_by_name('refresh').reload)
+  end)
+
   it('keeps issue web actions open', function()
     cache['issue:all'] = {
       { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
@@ -1120,6 +1134,30 @@ describe('pickers', function()
     assert.same(7, cache['issue:all'][1].number)
   end)
 
+  it('marks the issue filter transition as a hard reopen action', function()
+    cache['issue:open'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('open', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(action_by_name('filter').reload)
+  end)
+
+  it('marks issue refresh as a hard reopen action', function()
+    cache['issue:open'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('open', fake_issue_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(action_by_name('refresh').reload)
+  end)
+
   it('dispatches flattened issue actions directly from the root picker', function()
     cache['issue:open'] = {
       { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
@@ -1203,6 +1241,12 @@ describe('pickers', function()
     assert.equals('PR #42 Checks (1)> ', captured.prompt)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_false(action_by_name('filter').reload)
+    assert.is_false(action_by_name('failed').reload)
+    assert.is_false(action_by_name('passed').reload)
+    assert.is_false(action_by_name('running').reload)
+    assert.is_false(action_by_name('all').reload)
+    assert.is_false(action_by_name('refresh').reload)
 
     local old_system = vim.system
     vim.system = function(_, _, cb)
@@ -1413,6 +1457,19 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('Failed CI for main> ', captured.prompt)
+  end)
+
+  it('marks CI state jumps and refresh as hard reopen actions', function()
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    assert.is_not_nil(captured)
+    assert.is_false(action_by_name('filter').reload)
+    assert.is_false(action_by_name('failed').reload)
+    assert.is_false(action_by_name('passed').reload)
+    assert.is_false(action_by_name('running').reload)
+    assert.is_false(action_by_name('all').reload)
+    assert.is_false(action_by_name('refresh').reload)
   end)
 
   it('opens the checks picker immediately on fzf before the fetch completes', function()
@@ -2043,5 +2100,18 @@ describe('pickers', function()
 
     vim.system = old_system
     assert.same({}, calls)
+  end)
+
+  it('marks release filter and refresh as hard reopen actions', function()
+    cache['release:list'] = {
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+
+    assert.is_not_nil(captured)
+    assert.is_false(action_by_name('filter').reload)
+    assert.is_false(action_by_name('refresh').reload)
   end)
 end)

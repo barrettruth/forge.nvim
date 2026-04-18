@@ -16,6 +16,7 @@ local M = {}
 ---@field name string
 ---@field label forge.PickerActionLabel?
 ---@field close boolean?
+---@field reload boolean?
 ---@field fn fun(entry: forge.PickerEntry?)
 
 ---@class forge.PickerOpts

@@ -227,6 +227,10 @@ function M.pick(opts)
   local track_redirect
 
   local function action_reloads(def)
+    local explicit = rawget(def, 'reload')
+    if explicit ~= nil then
+      return explicit == true
+    end
     if stream then
       return true
     end
@@ -253,6 +257,7 @@ function M.pick(opts)
   if opts.back and keys.back then
     actions[#actions + 1] = {
       name = 'back',
+      reload = false,
       fn = function()
         opts.back()
       end,

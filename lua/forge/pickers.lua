@@ -322,6 +322,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'filter',
       label = 'filter',
+      reload = false,
       fn = function()
         M.checks(
           f,
@@ -335,6 +336,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'failed',
       label = 'failed',
+      reload = false,
       fn = function()
         M.checks(f, num, 'fail', current_checks, { back = opts.back, scope = ref })
       end,
@@ -342,6 +344,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'passed',
       label = 'passed',
+      reload = false,
       fn = function()
         M.checks(f, num, 'pass', current_checks, { back = opts.back, scope = ref })
       end,
@@ -349,6 +352,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'running',
       label = 'running',
+      reload = false,
       fn = function()
         M.checks(f, num, 'pending', current_checks, { back = opts.back, scope = ref })
       end,
@@ -356,6 +360,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'all',
       label = 'all',
+      reload = false,
       fn = function()
         M.checks(f, num, 'all', current_checks, { back = opts.back, scope = ref })
       end,
@@ -363,6 +368,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'refresh',
       label = 'refresh',
+      reload = false,
       fn = function()
         log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
         M.checks(f, num, filter, nil, { back = opts.back, scope = ref })
@@ -603,6 +609,7 @@ function M.ci(f, branch, filter, opts)
     {
       name = 'filter',
       label = 'filter',
+      reload = false,
       fn = function()
         M.ci(
           f,
@@ -615,6 +622,7 @@ function M.ci(f, branch, filter, opts)
     {
       name = 'failed',
       label = 'failed',
+      reload = false,
       fn = function()
         M.ci(f, branch, 'fail', { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -622,6 +630,7 @@ function M.ci(f, branch, filter, opts)
     {
       name = 'passed',
       label = 'passed',
+      reload = false,
       fn = function()
         M.ci(f, branch, 'pass', { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -629,6 +638,7 @@ function M.ci(f, branch, filter, opts)
     {
       name = 'running',
       label = 'running',
+      reload = false,
       fn = function()
         M.ci(f, branch, 'pending', { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -636,6 +646,7 @@ function M.ci(f, branch, filter, opts)
     {
       name = 'all',
       label = 'all',
+      reload = false,
       fn = function()
         M.ci(f, branch, 'all', { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -661,6 +672,7 @@ function M.ci(f, branch, filter, opts)
     {
       name = 'refresh',
       label = 'refresh',
+      reload = false,
       fn = function()
         log.info('refreshing CI runs...')
         M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
@@ -836,6 +848,7 @@ function M.pr(state, f, opts)
     {
       name = 'ci',
       label = 'checks',
+      reload = false,
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).ci({ back = back_to_list })
@@ -928,6 +941,7 @@ function M.pr(state, f, opts)
     {
       name = 'filter',
       label = 'filter',
+      reload = false,
       fn = function()
         M.pr(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -935,6 +949,7 @@ function M.pr(state, f, opts)
     {
       name = 'refresh',
       label = 'refresh',
+      reload = false,
       fn = function()
         clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
         M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
@@ -1153,6 +1168,7 @@ function M.issue(state, f, opts)
     {
       name = 'filter',
       label = 'filter',
+      reload = false,
       fn = function()
         M.issue(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -1160,6 +1176,7 @@ function M.issue(state, f, opts)
     {
       name = 'refresh',
       label = 'refresh',
+      reload = false,
       fn = function()
         clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
         M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
@@ -1416,6 +1433,7 @@ function M.release(state, f, opts)
     {
       name = 'filter',
       label = 'filter',
+      reload = false,
       fn = function()
         M.release(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -1423,6 +1441,7 @@ function M.release(state, f, opts)
     {
       name = 'refresh',
       label = 'refresh',
+      reload = false,
       fn = function()
         clear_list_cache(forge_mod, cache_key)
         M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })

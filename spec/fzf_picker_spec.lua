@@ -602,6 +602,64 @@ describe('fzf picker', function()
     assert.equals(1, invoked)
   end)
 
+  it('lets streamed filter actions opt out of reload wrapping', function()
+    local picker = require('forge.picker.fzf')
+    local invoked = 0
+    picker.pick({
+      prompt = 'Issues> ',
+      entries = {},
+      stream = function(emit)
+        emit({
+          display = { { '#1' } },
+          value = '1',
+        })
+        emit(nil)
+      end,
+      actions = {
+        {
+          name = 'filter',
+          label = 'filter',
+          reload = false,
+          fn = function()
+            invoked = invoked + 1
+          end,
+        },
+      },
+      picker_name = 'issue',
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_function(captured.opts.actions.tab)
+    captured.opts.actions.tab({ '1' })
+    assert.equals(1, invoked)
+  end)
+
+  it('lets streamed back actions opt out of reload wrapping', function()
+    local picker = require('forge.picker.fzf')
+    local invoked = 0
+    picker.pick({
+      prompt = 'Checks> ',
+      entries = {},
+      stream = function(emit)
+        emit({
+          display = { { 'lint' } },
+          value = 'lint',
+        })
+        emit(nil)
+      end,
+      actions = {},
+      picker_name = 'ci',
+      back = function()
+        invoked = invoked + 1
+      end,
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_function(captured.opts.actions['ctrl-o'])
+    captured.opts.actions['ctrl-o']({})
+    assert.equals(1, invoked)
+  end)
+
   it('pins reload actions to field 2 on untracked pickers', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
