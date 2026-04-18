@@ -1391,7 +1391,7 @@ describe('pickers', function()
     assert.is_not_nil(captured)
     assert.equals('PR #42 Checks (1)> ', captured.prompt)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_nil(action_by_name('log'))
     assert.is_false(action_by_name('filter').reload)
     assert.is_false(action_by_name('failed').reload)
     assert.is_false(action_by_name('passed').reload)
@@ -1428,11 +1428,11 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
-    assert.is_nil(rawget(action_by_name('watch'), 'close'))
+    assert.is_nil(action_by_name('log'))
+    assert.is_nil(action_by_name('watch'))
   end)
 
-  it('routes CI log and watch actions through forge.ops', function()
+  it('routes CI default and browse actions through forge.ops', function()
     local old_system = vim.system
     vim.system = function(_, _, cb)
       cb({
@@ -1469,9 +1469,10 @@ describe('pickers', function()
     end)
     vim.system = old_system
 
+    assert.is_nil(action_by_name('log'))
+    assert.is_nil(action_by_name('watch'))
+
     action_by_name('default').fn(streamed[1])
-    action_by_name('log').fn(streamed[1])
-    action_by_name('watch').fn(streamed[1])
     action_by_name('browse').fn(streamed[1])
 
     assert.same({
@@ -1486,28 +1487,6 @@ describe('pickers', function()
       },
     }, op_calls[1])
     assert.same({
-      name = 'ci_log',
-      run = {
-        id = '1',
-        name = 'CI',
-        branch = 'main',
-        status = 'success',
-        url = 'https://example.com',
-        scope = nil,
-      },
-    }, op_calls[2])
-    assert.same({
-      name = 'ci_watch',
-      run = {
-        id = '1',
-        name = 'CI',
-        branch = 'main',
-        status = 'success',
-        url = 'https://example.com',
-        scope = nil,
-      },
-    }, op_calls[3])
-    assert.same({
       name = 'ci_browse',
       run = {
         id = '1',
@@ -1517,7 +1496,7 @@ describe('pickers', function()
         url = 'https://example.com',
         scope = nil,
       },
-    }, op_calls[4])
+    }, op_calls[2])
   end)
 
   it('routes the CI toggle action through forge.ops.ci_toggle', function()
@@ -1572,7 +1551,7 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    action_by_name('log').fn(captured.entries[1])
+    action_by_name('default').fn(captured.entries[1])
 
     assert.same({ 'no log available - job was not started' }, logger_messages.warn)
   end)
@@ -1588,7 +1567,7 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    action_by_name('log').fn(captured.entries[1])
+    action_by_name('default').fn(captured.entries[1])
 
     assert.same({ 'logs not available, use browse to view' }, logger_messages.warn)
   end)
@@ -1678,7 +1657,7 @@ describe('pickers', function()
     assert.same('function', type(captured.stream))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('default'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_nil(action_by_name('log'))
 
     local streamed = {}
     captured.stream(function(entry)
@@ -1791,8 +1770,8 @@ describe('pickers', function()
     assert.same('function', type(captured.stream))
 
     assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
-    assert.is_nil(rawget(action_by_name('watch'), 'close'))
+    assert.is_nil(action_by_name('log'))
+    assert.is_nil(action_by_name('watch'))
 
     local streamed = {}
     captured.stream(function(entry)

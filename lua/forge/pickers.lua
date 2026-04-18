@@ -321,11 +321,6 @@ function M.checks(f, num, filter, cached_checks, opts)
       fn = open_check,
     },
     {
-      name = 'log',
-      label = 'log',
-      fn = open_check,
-    },
-    {
       name = 'browse',
       label = 'web',
       close = false,
@@ -589,26 +584,6 @@ function M.ci(f, branch, filter, opts)
           return
         end
         ops.ci_open(f, entry.value)
-      end,
-    },
-    {
-      name = 'log',
-      label = 'log',
-      fn = function(entry)
-        if not entry or entry.load_more then
-          return
-        end
-        ops.ci_log(f, entry.value)
-      end,
-    },
-    {
-      name = 'watch',
-      label = 'watch',
-      fn = function(entry)
-        if not entry or entry.load_more then
-          return
-        end
-        ops.ci_watch(f, entry.value)
       end,
     },
     {
