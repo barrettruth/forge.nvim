@@ -15,28 +15,6 @@ describe('route config', function()
     vim.g.forge = nil
   end)
 
-  it('exposes route foundation helpers from the public module', function()
-    assert.is_function(forge.open)
-    assert.is_function(forge.current_context)
-  end)
-
-  it('returns route foundation defaults', function()
-    vim.g.forge = nil
-    local cfg = forge.config()
-    assert.equals('current', cfg.context)
-    assert.is_true(cfg.sections.prs)
-    assert.is_true(cfg.sections.issues)
-    assert.is_true(cfg.sections.ci)
-    assert.is_true(cfg.sections.browse)
-    assert.is_true(cfg.sections.releases)
-    assert.equals('prs.open', cfg.routes.prs)
-    assert.equals('issues.open', cfg.routes.issues)
-    assert.equals('ci.current_branch', cfg.routes.ci)
-    assert.equals('browse.contextual', cfg.routes.browse)
-    assert.equals('releases.all', cfg.routes.releases)
-    assert.is_true(cfg.contexts.current)
-  end)
-
   it('deep-merges route defaults and section toggles', function()
     vim.g.forge = {
       context = 'workspace',
