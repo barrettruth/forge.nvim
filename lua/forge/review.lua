@@ -37,7 +37,7 @@ local function adapter_name(opts)
     return explicit
   end
   local cfg = require('forge').config()
-  local configured = trim(((cfg.review or {}).adapter))
+  local configured = trim((cfg.review or {}).adapter)
   if configured ~= '' then
     return configured
   end
@@ -79,15 +79,19 @@ local function builtins()
         local wt_path = vim.fs.normalize(root .. '/../' .. branch)
         log.info(('fetching %s #%s into worktree...'):format(kind, pr.num))
         vim.system(fetch_cmd, { text = true }, function()
-          vim.system({ 'git', 'worktree', 'add', wt_path, branch }, { text = true }, function(result)
-            vim.schedule(function()
-              if result.code == 0 then
-                log.info(('worktree at %s'):format(wt_path))
-              else
-                log.error(cmd_error(result, 'worktree failed'))
-              end
-            end)
-          end)
+          vim.system(
+            { 'git', 'worktree', 'add', wt_path, branch },
+            { text = true },
+            function(result)
+              vim.schedule(function()
+                if result.code == 0 then
+                  log.info(('worktree at %s'):format(wt_path))
+                else
+                  log.error(cmd_error(result, 'worktree failed'))
+                end
+              end)
+            end
+          )
         end)
       end,
     },
