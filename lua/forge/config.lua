@@ -3,7 +3,6 @@ local M = {}
 ---@alias forge.Split 'horizontal'|'vertical'
 
 ---@class forge.Config
----@field picker 'fzf-lua'|'auto'
 ---@field debug boolean|string?
 ---@field split forge.Split
 ---@field ci forge.CIConfig
@@ -20,7 +19,6 @@ local M = {}
 ---@field hosts string[]
 
 ---@class forge.KeysConfig
----@field back string|false?
 ---@field pr forge.PRPickerKeys?
 ---@field issue forge.IssuePickerKeys?
 ---@field ci forge.CIPickerKeys?
@@ -69,14 +67,10 @@ local M = {}
 ---@class forge.LogViewerKeys
 ---@field next_step string|false
 ---@field prev_step string|false
----@field next_error string|false
----@field prev_error string|false
----@field browse string|false
 ---@field refresh string|false
 
 ---@class forge.DisplayConfig
 ---@field icons forge.IconsConfig
----@field widths forge.WidthsConfig
 ---@field limits forge.LimitsConfig
 
 ---@class forge.IconsConfig
@@ -89,12 +83,6 @@ local M = {}
 ---@field skip string
 ---@field unknown string
 
----@class forge.WidthsConfig
----@field title integer
----@field author integer
----@field name integer
----@field branch integer
-
 ---@class forge.LimitsConfig
 ---@field pulls integer
 ---@field issues integer
@@ -103,8 +91,6 @@ local M = {}
 
 ---@type forge.Config
 local DEFAULTS = {
-  picker = 'auto',
-  client = 'picker',
   context = 'current',
   debug = false,
   split = 'horizontal',
@@ -131,7 +117,6 @@ local DEFAULTS = {
     releases = 'releases.all',
   },
   keys = {
-    back = '<c-o>',
     pr = {
       worktree = '<c-w>',
       ci = '<c-t>',
@@ -170,9 +155,6 @@ local DEFAULTS = {
     log = {
       next_step = ']]',
       prev_step = '[[',
-      next_error = ']e',
-      prev_error = '[e',
-      browse = 'gx',
       refresh = '<c-r>',
     },
   },
@@ -186,12 +168,6 @@ local DEFAULTS = {
       pending = '~',
       skip = 's',
       unknown = '?',
-    },
-    widths = {
-      title = 45,
-      author = 15,
-      name = 35,
-      branch = 25,
     },
     limits = {
       pulls = 100,
@@ -333,11 +309,6 @@ function M.config()
     cfg.keys = false
   end
 
-  local picker_backends = require('forge.picker').backends
-  vim.validate('forge.picker', cfg.picker, function(v)
-    return v == 'auto' or picker_backends[v] ~= nil
-  end, "'auto' or 'fzf-lua'")
-  vim.validate('forge.client', cfg.client, nonempty_string, 'non-empty string')
   vim.validate('forge.context', cfg.context, nonempty_string, 'non-empty string')
   vim.validate('forge.debug', cfg.debug, function(v)
     return v == false or v == true or nonempty_string(v)
@@ -382,32 +353,6 @@ function M.config()
   vim.validate('forge.display.icons.skip', cfg.display.icons.skip, 'string')
   vim.validate('forge.display.icons.unknown', cfg.display.icons.unknown, 'string')
 
-  vim.validate('forge.display.widths', cfg.display.widths, 'table')
-  vim.validate(
-    'forge.display.widths.title',
-    cfg.display.widths.title,
-    integer_at_least(1),
-    'integer >= 1'
-  )
-  vim.validate(
-    'forge.display.widths.author',
-    cfg.display.widths.author,
-    integer_at_least(1),
-    'integer >= 1'
-  )
-  vim.validate(
-    'forge.display.widths.name',
-    cfg.display.widths.name,
-    integer_at_least(1),
-    'integer >= 1'
-  )
-  vim.validate(
-    'forge.display.widths.branch',
-    cfg.display.widths.branch,
-    integer_at_least(1),
-    'integer >= 1'
-  )
-
   vim.validate('forge.display.limits', cfg.display.limits, 'table')
   vim.validate(
     'forge.display.limits.pulls',
@@ -439,7 +384,6 @@ function M.config()
   end
   if type(cfg.keys) == 'table' then
     local keys = cfg.keys --[[@as forge.KeysConfig]]
-    vim.validate('forge.keys.back', keys.back, key_or_false, 'valid key string or false')
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({
@@ -501,9 +445,6 @@ function M.config()
       for _, k in ipairs({
         'next_step',
         'prev_step',
-        'next_error',
-        'prev_error',
-        'browse',
         'refresh',
       }) do
         vim.validate('forge.keys.log.' .. k, keys.log[k], key_or_false, 'valid key string or false')

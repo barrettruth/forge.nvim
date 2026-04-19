@@ -28,10 +28,6 @@ describe('config validation', function()
     assert.matches('forge%.ci%.lines', config_error({ ci = { lines = -1 } }))
     assert.matches('forge%.ci%.refresh', config_error({ ci = { refresh = 1.5 } }))
     assert.matches(
-      'forge%.display%.widths%.title',
-      config_error({ display = { widths = { title = 0 } } })
-    )
-    assert.matches(
       'forge%.display%.limits%.pulls',
       config_error({ display = { limits = { pulls = 0 } } })
     )
@@ -75,11 +71,11 @@ describe('config validation', function()
     )
 
     assert.matches(
-      'forge%.keys%.log%.browse',
+      'forge%.keys%.log%.refresh',
       config_error({
         keys = {
           log = {
-            browse = '<c->',
+            refresh = '<c->',
           },
         },
       })
@@ -93,7 +89,7 @@ describe('config validation', function()
           browse = '<c-x>',
         },
         log = {
-          browse = '<leader>x',
+          refresh = '<leader>r',
         },
       },
     }
@@ -101,7 +97,7 @@ describe('config validation', function()
     local cfg = config.config()
 
     assert.equals('<c-x>', cfg.keys.pr.browse)
-    assert.equals('<leader>x', cfg.keys.log.browse)
+    assert.equals('<leader>r', cfg.keys.log.refresh)
   end)
 
   it('rejects blank source hosts and non-list host tables', function()

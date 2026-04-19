@@ -45,7 +45,6 @@ describe('config', function()
     assert.equals(1000, cfg.ci.lines)
     assert.equals('horizontal', cfg.split)
     assert.same({}, cfg.targets.aliases)
-    assert.equals(45, cfg.display.widths.title)
     assert.equals(100, cfg.display.limits.pulls)
     assert.equals('o', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
@@ -61,7 +60,7 @@ describe('config', function()
     assert.equals('<c-a>', cfg.keys.pr.create)
     assert.equals('<c-s>', cfg.keys.pr.toggle)
     assert.equals('<c-d>', cfg.keys.pr.draft)
-    assert.equals('<c-o>', cfg.keys.back)
+    assert.is_nil(cfg.keys.back)
     assert.equals('<tab>', cfg.keys.pr.filter)
     assert.equals('<c-e>', cfg.keys.issue.edit)
     assert.equals('<tab>', cfg.keys.issue.filter)
@@ -85,7 +84,7 @@ describe('config', function()
     assert.equals(500, cfg.ci.lines)
     assert.equals('>', cfg.display.icons.open)
     assert.equals('m', cfg.display.icons.merged)
-    assert.equals(45, cfg.display.widths.title)
+    assert.equals(100, cfg.display.limits.pulls)
   end)
 
   it('derives the current branch highlight from Special with bold emphasis', function()
@@ -724,7 +723,6 @@ describe('config validation', function()
     { name = 'rejects non-table display', config = { display = 42 } },
     { name = 'rejects non-number ci.lines', config = { ci = { lines = 'many' } } },
     { name = 'rejects non-string icon', config = { display = { icons = { open = 123 } } } },
-    { name = 'rejects non-number width', config = { display = { widths = { title = 'wide' } } } },
     { name = 'rejects non-number limit', config = { display = { limits = { pulls = true } } } },
     { name = 'rejects non-string key binding', config = { keys = { pr = { edit = 42 } } } },
     { name = 'rejects non-table targets', config = { targets = 'bad' } },

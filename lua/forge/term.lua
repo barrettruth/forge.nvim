@@ -21,9 +21,8 @@ function M.open(cmd, opts)
     vim.cmd('startinsert')
   end
 
-  local keys = cfg.keys and cfg.keys.log or {}
-  if keys.browse ~= false and (opts.url or opts.browse_fn) then
-    vim.keymap.set('n', keys.browse or 'gx', function()
+  if opts.url or opts.browse_fn then
+    vim.keymap.set('n', 'gx', function()
       local url = opts.browse_fn and opts.browse_fn(buf) or opts.url
       if not url then
         url = opts.url

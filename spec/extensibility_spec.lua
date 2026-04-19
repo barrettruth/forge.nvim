@@ -11,8 +11,6 @@ end
 local forge = require('forge')
 
 describe('extensibility', function()
-  local client_name = 'custom-test-client'
-  local context_name = 'workspace-test-context'
   local action_name = 'custom-test-action'
   local captured
 
@@ -25,48 +23,9 @@ describe('extensibility', function()
   end)
 
   it('exposes the public extensibility helpers', function()
-    assert.is_function(forge.register_client)
     assert.is_function(forge.register_context_provider)
     assert.is_function(forge.register_action)
     assert.is_function(forge.run_action)
-  end)
-
-  it('uses a registered custom client for the root picker', function()
-    forge.register_context_provider(context_name, function()
-      return {
-        id = context_name,
-        branch = 'main',
-        head = 'abc123',
-        forge = {
-          name = 'github',
-          labels = {
-            pr_full = 'PRs',
-            issue = 'Issues',
-            ci = 'CI',
-          },
-        },
-      }
-    end)
-
-    forge.register_client(client_name, function(opts)
-      captured = opts
-    end)
-
-    vim.g.forge = {
-      client = client_name,
-      context = context_name,
-      contexts = {
-        current = true,
-        [context_name] = true,
-      },
-    }
-
-    forge.open()
-
-    assert.is_not_nil(captured)
-    assert.equals('Forge (main)> ', captured.prompt)
-    assert.equals('default', captured.actions[1].name)
-    assert.is_true(#captured.entries > 0)
   end)
 
   it('runs registered custom actions through the public API', function()

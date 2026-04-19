@@ -109,9 +109,7 @@ describe('health', function()
 
     assert.same({ 'forge.nvim' }, captured.starts)
     assert.is_true(vim.tbl_contains(captured.oks, 'git found'))
-    assert.is_true(
-      vim.tbl_contains(captured.oks, 'fzf-lua found (active) (interactive picker UI enabled)')
-    )
+    assert.is_true(vim.tbl_contains(captured.oks, 'fzf-lua found (interactive picker UI enabled)'))
     assert.is_true(
       vim.tbl_contains(
         captured.errors,

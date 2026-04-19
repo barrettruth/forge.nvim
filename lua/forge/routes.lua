@@ -1,7 +1,6 @@
 local M = {}
 
 local action = require('forge.action')
-local client = require('forge.client')
 local context = require('forge.context')
 local log = require('forge.logger')
 
@@ -196,7 +195,6 @@ local function open_root(ctx, opts)
   local cfg = require('forge').config()
   local sections = rawget(cfg, 'sections') or {}
   local routes = rawget(cfg, 'routes') or {}
-  local client_name = rawget(cfg, 'client') or 'picker'
   local handlers = route_handlers()
   local entries = {}
 
@@ -234,16 +232,13 @@ local function open_root(ctx, opts)
     return
   end
 
-  local ok, client_err = client.open_root(client_name, {
-    context = ctx,
+  require('forge.picker').pick({
     prompt = prompt(ctx),
     entries = entries,
     actions = { default_action },
+    picker_name = '_menu',
     back = opts.back,
   })
-  if not ok and client_err then
-    log.error(client_err)
-  end
 end
 
 function M.open(name, opts)

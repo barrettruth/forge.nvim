@@ -57,12 +57,7 @@ local function fzf_picker_width()
 end
 
 function M.picker_width()
-  local ok, picker = pcall(require, 'forge.picker')
-  local backend = ok and type(picker.backend) == 'function' and picker.backend() or nil
-  if backend == 'fzf-lua' then
-    return fzf_picker_width() or current_window_width()
-  end
-  return current_window_width()
+  return fzf_picker_width() or current_window_width()
 end
 
 function M.display_width(text)
