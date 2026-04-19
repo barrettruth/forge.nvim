@@ -643,9 +643,10 @@ describe('pickers', function()
   it('keeps auxiliary PR actions open', function()
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
+    captured.stream(function() end)
 
     assert.is_not_nil(captured)
-    assert.equals('checkout', action_by_name('default').label)
+    assert.equals('checkout', helpers.action_labels(captured.actions, captured.entries[1]).default)
     for _, case in ipairs({
       { name = 'browse', close = false },
       { name = 'worktree', close = false },
@@ -665,6 +666,9 @@ describe('pickers', function()
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
     captured.stream(function() end)
+    vim.wait(100, function()
+      return captured.entries[1] ~= nil
+    end)
 
     assert.is_not_nil(captured)
     local entry = captured.entries[1]
@@ -704,6 +708,75 @@ describe('pickers', function()
     assert.equals('Open PRs (0)> ', captured.prompt)
     assert.equals('No open PRs', captured.entries[1].display[1][1])
     assert.is_true(captured.entries[1].placeholder)
+    assert.equals('empty', captured.entries[1].placeholder_kind)
+  end)
+
+  it('shows only global header actions on empty PR rows', function()
+    cache['pr:open'] = {}
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+    captured.stream(function() end)
+
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.is_nil(labels.default)
+    assert.is_nil(labels.worktree)
+    assert.is_nil(labels.ci)
+    assert.is_nil(labels.browse)
+    assert.is_nil(labels.edit)
+    assert.is_nil(labels.approve)
+    assert.is_nil(labels.merge)
+    assert.is_nil(labels.toggle)
+    assert.is_nil(labels.draft)
+    assert.equals('create', labels.create)
+    assert.equals('filter', labels.filter)
+    assert.equals('refresh', labels.refresh)
+  end)
+
+  it('shows only global header actions on PR error rows', function()
+    cache['pr:open'] = nil
+
+    local old_system = vim.system
+    vim.system = function(_, _, cb)
+      if cb then
+        cb({ code = 1, stdout = '', stderr = 'boom' })
+      end
+      return {
+        wait = function()
+          return { code = 1, stdout = '', stderr = 'boom' }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals('error', streamed[1].placeholder_kind)
+    local labels = helpers.action_labels(captured.actions, streamed[1])
+    assert.is_nil(labels.default)
+    assert.is_nil(labels.worktree)
+    assert.is_nil(labels.ci)
+    assert.is_nil(labels.browse)
+    assert.is_nil(labels.edit)
+    assert.is_nil(labels.approve)
+    assert.is_nil(labels.merge)
+    assert.is_nil(labels.toggle)
+    assert.is_nil(labels.draft)
+    assert.equals('create', labels.create)
+    assert.is_nil(labels.filter)
+    assert.equals('refresh', labels.refresh)
   end)
 
   it('opens the PR picker immediately on fzf before the fetch completes', function()
@@ -909,6 +982,39 @@ describe('pickers', function()
     )
     assert.equals('Load more...', captured.entries[3].display[1][1])
     assert.is_true(captured.entries[3].load_more)
+  end)
+
+  it('shows only active header actions on PR load more rows', function()
+    vim.g.forge = {
+      display = {
+        limits = {
+          pulls = 2,
+        },
+      },
+    }
+    cache['pr:open'] = {
+      { number = 42, title = 'Newer', state = 'OPEN', author = 'bob', created_at = '' },
+      { number = 13, title = 'Middle', state = 'OPEN', author = 'cora', created_at = '' },
+      { number = 7, title = 'Older', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+    captured.stream(function() end)
+
+    local labels = helpers.action_labels(captured.actions, captured.entries[3])
+    assert.equals('load more', labels.default)
+    assert.is_nil(labels.worktree)
+    assert.is_nil(labels.ci)
+    assert.is_nil(labels.browse)
+    assert.is_nil(labels.edit)
+    assert.is_nil(labels.approve)
+    assert.is_nil(labels.merge)
+    assert.is_nil(labels.toggle)
+    assert.is_nil(labels.draft)
+    assert.equals('create', labels.create)
+    assert.equals('filter', labels.filter)
+    assert.equals('refresh', labels.refresh)
   end)
 
   it('fetches more PRs in place when the load more row is activated', function()

@@ -15,13 +15,15 @@ local next_ci_filter = {
 }
 
 ---@param text string
+---@param kind? 'empty'|'error'
 ---@return forge.PickerEntry
-local function placeholder_entry(text)
+local function placeholder_entry(text, kind)
   return {
     display = { { text, 'ForgeDim' } },
     value = nil,
     ordinal = text,
     placeholder = true,
+    placeholder_kind = kind or 'empty',
   }
 end
 
@@ -51,7 +53,7 @@ local function with_placeholder(entries, text)
   if #entries > 0 then
     return entries
   end
-  return { placeholder_entry(text) }
+  return { placeholder_entry(text, 'empty') }
 end
 
 local function set_clipboard(text)
@@ -192,6 +194,30 @@ end
 
 local function actionable_entry(entry)
   return entry ~= nil and not entry.load_more
+end
+
+local function picker_row_kind(entry)
+  if type(picker.row_kind) ~= 'function' then
+    if entry == nil then
+      return 'none'
+    end
+    if entry.load_more then
+      return 'load_more'
+    end
+    if entry.placeholder then
+      return entry.placeholder_kind == 'error' and 'error' or 'empty'
+    end
+    return 'entity'
+  end
+  return picker.row_kind(entry)
+end
+
+local function entity_row(entry)
+  return picker_row_kind(entry) == 'entity'
+end
+
+local function load_more_row(entry)
+  return picker_row_kind(entry) == 'load_more'
 end
 
 local function pr_toggle_entry(entry)
@@ -794,7 +820,7 @@ function M.pr(state, f, opts)
         end
         if not ok then
           log.error('failed to fetch ' .. f.labels.pr)
-          emit(placeholder_entry('Failed to fetch ' .. f.labels.pr))
+          emit(placeholder_entry('Failed to fetch ' .. f.labels.pr, 'error'))
           emit(nil)
           return
         end
@@ -819,10 +845,42 @@ function M.pr(state, f, opts)
     M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
+  local function pr_entity_only(entry)
+    return entity_row(entry)
+  end
+
+  local function pr_load_more_or_entity(entry)
+    return entity_row(entry) or load_more_row(entry)
+  end
+
+  local function pr_create_visible(entry)
+    local kind = picker_row_kind(entry)
+    return kind == 'none'
+      or kind == 'load_more'
+      or kind == 'empty'
+      or kind == 'error'
+      or kind == 'entity'
+  end
+
+  local function pr_filter_visible(entry)
+    local kind = picker_row_kind(entry)
+    return kind ~= 'error'
+  end
+
+  local function pr_refresh_visible(_)
+    return true
+  end
+
   local actions = {
     {
       name = 'default',
-      label = 'checkout',
+      label = function(entry)
+        if load_more_row(entry) then
+          return 'load more'
+        end
+        return 'checkout'
+      end,
+      available = pr_load_more_or_entity,
       fn = function(entry)
         if entry and entry.load_more then
           current_limit = entry.next_limit
@@ -836,6 +894,7 @@ function M.pr(state, f, opts)
       name = 'worktree',
       label = 'worktree',
       close = false,
+      available = pr_entity_only,
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).worktree()
@@ -846,6 +905,7 @@ function M.pr(state, f, opts)
       name = 'ci',
       label = 'checks',
       reload = false,
+      available = pr_entity_only,
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).ci({ back = back_to_list })
@@ -856,6 +916,7 @@ function M.pr(state, f, opts)
       name = 'browse',
       label = 'web',
       close = false,
+      available = pr_entity_only,
       fn = function(entry)
         if entry and not entry.load_more then
           ops.pr_browse(f, entry.value)
@@ -865,6 +926,7 @@ function M.pr(state, f, opts)
     {
       name = 'edit',
       label = 'edit',
+      available = pr_entity_only,
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).edit()
@@ -904,6 +966,7 @@ function M.pr(state, f, opts)
     {
       name = 'create',
       label = 'create',
+      available = pr_create_visible,
       fn = function()
         ops.pr_create({ back = opts.back, scope = ref })
       end,
@@ -951,6 +1014,7 @@ function M.pr(state, f, opts)
       name = 'filter',
       label = 'filter',
       reload = false,
+      available = pr_filter_visible,
       fn = function()
         M.pr(next_state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
@@ -959,6 +1023,7 @@ function M.pr(state, f, opts)
       name = 'refresh',
       label = 'refresh',
       reload = false,
+      available = pr_refresh_visible,
       fn = function()
         clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
         forge_mod.clear_pr_state(nil, ref)

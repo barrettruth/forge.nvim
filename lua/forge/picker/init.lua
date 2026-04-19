@@ -7,6 +7,7 @@ local M = {}
 ---@field value any
 ---@field ordinal string?
 ---@field placeholder boolean?
+---@field placeholder_kind? 'empty'|'error'
 ---@field keep_open? boolean
 ---@field force_close boolean?
 
@@ -142,6 +143,21 @@ function M.selected(entry)
     return nil
   end
   return entry
+end
+
+---@param entry forge.PickerEntry?
+---@return 'none'|'entity'|'load_more'|'empty'|'error'
+function M.row_kind(entry)
+  if entry == nil then
+    return 'none'
+  end
+  if rawget(entry, 'load_more') then
+    return 'load_more'
+  end
+  if rawget(entry, 'placeholder') then
+    return rawget(entry, 'placeholder_kind') == 'error' and 'error' or 'empty'
+  end
+  return 'entity'
 end
 
 ---@param def forge.PickerActionDef

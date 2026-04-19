@@ -175,7 +175,7 @@ local function render_header_for(actions, bindings, entry)
       )
     end
   end
-  if #parts < 2 then
+  if #parts == 0 then
     return nil
   end
   local separator = utils.ansi_from_hl(hls.separator, '|')
@@ -292,6 +292,9 @@ function M.pick(opts)
         initial_header = render_header_for(actions, bindings, entry)
         break
       end
+    end
+    if not initial_header and entries[1] ~= nil then
+      initial_header = render_header_for(actions, bindings, entries[1])
     end
     if not initial_header then
       initial_header = render_header_for(actions, bindings, nil)
