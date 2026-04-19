@@ -200,11 +200,43 @@ describe('command schema', function()
       'merge',
       'draft',
       'ready',
+      'refresh',
     }, cmd.verb_names('pr'))
 
-    assert.same({ 'browse', 'close', 'reopen', 'create', 'edit' }, cmd.verb_names('issue'))
-    assert.same({ 'open', 'log', 'watch', 'browse' }, cmd.verb_names('ci'))
-    assert.same({ 'browse', 'delete' }, cmd.verb_names('release'))
+    assert.same(
+      { 'browse', 'close', 'reopen', 'create', 'edit', 'refresh' },
+      cmd.verb_names('issue')
+    )
+    assert.same({ 'open', 'log', 'watch', 'browse', 'refresh' }, cmd.verb_names('ci'))
+    assert.same({ 'browse', 'delete', 'refresh' }, cmd.verb_names('release'))
+  end)
+
+  it('parses argless refresh verbs for all list families', function()
+    local pr = assert(cmd.parse({ 'pr', 'refresh' }))
+    local issue = assert(cmd.parse({ 'issue', 'refresh' }))
+    local ci = assert(cmd.parse({ 'ci', 'refresh' }))
+    local release = assert(cmd.parse({ 'release', 'refresh' }))
+
+    assert.equals('pr', pr.family)
+    assert.equals('refresh', pr.name)
+    assert.same({}, pr.subjects)
+
+    assert.equals('issue', issue.family)
+    assert.equals('refresh', issue.name)
+    assert.same({}, issue.subjects)
+
+    assert.equals('ci', ci.family)
+    assert.equals('refresh', ci.name)
+    assert.same({}, ci.subjects)
+
+    assert.equals('release', release.family)
+    assert.equals('refresh', release.name)
+    assert.same({}, release.subjects)
+  end)
+
+  it('rejects subjects on refresh verbs', function()
+    local _, pr = cmd.parse({ 'pr', 'refresh', '42' })
+    assert.is_not_nil(pr)
   end)
 
   it('keeps legacy browse modifiers separate from canonical ones', function()

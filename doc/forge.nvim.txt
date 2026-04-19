@@ -406,6 +406,11 @@ PR COMMANDS                                            *forge-pr-commands*
 `:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
     Mark PR `{num}` as ready when supported by the forge.
 
+`:Forge pr refresh` [repo=...]                             *:Forge-pr-refresh*
+    Invalidate the cached PR list so the next picker or list-consuming
+    command fetches fresh data from the forge. Mirrors the PR picker's
+    refresh action.
+
 ISSUE COMMANDS                                      *forge-issue-commands*
 
 `:Forge issue browse` [{num}] [repo=...]                 *:Forge-issue-browse*
@@ -431,6 +436,11 @@ ISSUE COMMANDS                                      *forge-issue-commands*
 `:Forge issue edit` {num} [repo=...]                       *:Forge-issue-edit*
     Open the issue edit compose flow for issue `{num}`.
 
+`:Forge issue refresh` [repo=...]                       *:Forge-issue-refresh*
+    Invalidate the cached issue list so the next picker or
+    list-consuming command fetches fresh data from the forge. Mirrors
+    the issue picker's refresh action.
+
 CI COMMANDS                                            *forge-ci-commands*
 
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
@@ -452,6 +462,11 @@ CI COMMANDS                                            *forge-ci-commands*
     Open CI run `{run-id}` in the browser, or the CI list landing page
     when `{run-id}` is omitted.
 
+`:Forge ci refresh` [repo=...]                             *:Forge-ci-refresh*
+    Invalidate the cached CI run list so the next picker or
+    list-consuming command fetches fresh data from the forge. Mirrors
+    the CI picker's refresh action.
+
 RELEASE COMMANDS                                  *forge-release-commands*
 
 `:Forge release browse` [{tag}] [repo=...]             *:Forge-release-browse*
@@ -460,6 +475,11 @@ RELEASE COMMANDS                                  *forge-release-commands*
 
 `:Forge release delete` {tag} [repo=...]               *:Forge-release-delete*
     Delete release `{tag}`.
+
+`:Forge release refresh` [repo=...]                   *:Forge-release-refresh*
+    Invalidate the cached release list so the next picker or
+    list-consuming command fetches fresh data from the forge. Mirrors
+    the release picker's refresh action.
 
 BROWSE COMMANDS                                    *forge-browse-commands*
 
@@ -507,6 +527,12 @@ REVIEW COMMANDS                                    *forge-review-commands*
     Toggle between patch and file-context view.
 
 CACHE COMMANDS                                      *forge-cache-commands*
+
+Forge keeps short-lived caches for list data (PRs, issues, CI runs,
+releases), PR state, and repository metadata. Entries expire
+automatically; the per-family `refresh` verbs invalidate the cached
+list for that family, and `:Forge clear` is the nuclear option that
+also clears forge detection and git-root resolution.
 
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).

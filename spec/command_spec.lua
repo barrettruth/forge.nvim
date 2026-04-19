@@ -171,6 +171,10 @@ describe(':Forge command', function()
         clear_cache = function()
           captured.cleared = true
         end,
+        clear_list_kind = function(kind)
+          captured.cleared_kinds = captured.cleared_kinds or {}
+          table.insert(captured.cleared_kinds, kind)
+        end,
         file_loc = function(range)
           local name = vim.api.nvim_buf_get_name(0)
           if name:match('^%w[%w+.-]*://') then
@@ -792,6 +796,16 @@ describe(':Forge command', function()
     }, captured.ops_calls[3])
   end)
 
+  it('dispatches refresh verbs to forge.clear_list_kind per family', function()
+    vim.cmd('Forge pr refresh')
+    vim.cmd('Forge issue refresh')
+    vim.cmd('Forge ci refresh')
+    vim.cmd('Forge release refresh')
+
+    assert.same({ 'pr', 'issue', 'ci', 'release' }, captured.cleared_kinds)
+    assert.is_nil(captured.cleared)
+  end)
+
   it('completes families, verbs, and valid canonical modifiers contextually', function()
     local families = vim.fn.getcompletion('Forge ', 'cmdline')
     local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
@@ -813,15 +827,19 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'merge'))
     assert.is_true(vim.tbl_contains(pr, 'draft'))
     assert.is_true(vim.tbl_contains(pr, 'ready'))
+    assert.is_true(vim.tbl_contains(pr, 'refresh'))
     assert.is_false(vim.tbl_contains(pr, 'ci'))
     assert.is_true(vim.tbl_contains(ci, 'open'))
     assert.is_true(vim.tbl_contains(ci, 'log'))
     assert.is_true(vim.tbl_contains(ci, 'watch'))
+    assert.is_true(vim.tbl_contains(ci, 'refresh'))
     assert.is_false(vim.tbl_contains(pr, 'state='))
     assert.is_false(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(issue, 'edit'))
+    assert.is_true(vim.tbl_contains(issue, 'refresh'))
     assert.is_true(vim.tbl_contains(release, 'browse'))
     assert.is_true(vim.tbl_contains(release, 'delete'))
+    assert.is_true(vim.tbl_contains(release, 'refresh'))
 
     assert.is_true(vim.tbl_contains(pr_create, 'head='))
     assert.is_true(vim.tbl_contains(pr_create, 'base='))
