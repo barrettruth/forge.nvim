@@ -241,7 +241,7 @@ describe('fzf picker', function()
     )
   end)
 
-  it('suppresses headers for single-action pickers', function()
+  it('renders headers for single-action pickers', function()
     local picker = require('forge.picker.fzf')
     picker.pick({
       prompt = 'Issue Template> ',
@@ -258,7 +258,65 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.is_nil(captured.opts.fzf_opts['--header'])
+    assert.equals(
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:use]',
+      captured.opts.fzf_opts['--header']
+    )
+  end)
+
+  it('seeds dynamic headers from placeholder rows when no entity rows exist', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Open PRs (0)> ',
+      entries = {
+        {
+          display = { { 'Failed to fetch PRs', 'ForgeDim' } },
+          value = nil,
+          placeholder = true,
+          placeholder_kind = 'error',
+        },
+      },
+      actions = {
+        {
+          name = 'default',
+          label = function(entry)
+            if entry and entry.load_more then
+              return 'load more'
+            end
+            return 'checkout'
+          end,
+          available = function(entry)
+            return entry ~= nil and not entry.placeholder
+          end,
+          fn = function() end,
+        },
+        {
+          name = 'create',
+          label = 'create',
+          fn = function() end,
+        },
+        {
+          name = 'filter',
+          label = 'filter',
+          available = function(entry)
+            return not (entry and entry.placeholder_kind == 'error')
+          end,
+          fn = function() end,
+        },
+        {
+          name = 'refresh',
+          label = 'refresh',
+          fn = function() end,
+        },
+      },
+      picker_name = 'pr',
+    })
+
+    assert.is_not_nil(captured)
+    assert.equals(
+      '[FzfLuaHeaderBind:^A] [FzfLuaHeaderText:create][FzfLuaFzfInfo:|][FzfLuaHeaderBind:^R] [FzfLuaHeaderText:refresh]',
+      captured.opts.fzf_opts['--header']
+    )
   end)
 
   it('binds a hidden back action without adding a header hint', function()
@@ -282,7 +340,10 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.is_nil(captured.opts.fzf_opts['--header'])
+    assert.equals(
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:run]',
+      captured.opts.fzf_opts['--header']
+    )
     assert.is_function(captured.opts.actions['ctrl-o'])
 
     captured.opts.actions['ctrl-o']({})
@@ -324,7 +385,10 @@ describe('fzf picker', function()
     })
 
     assert.is_not_nil(captured)
-    assert.is_nil(captured.opts.fzf_opts['--header'])
+    assert.equals(
+      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]',
+      captured.opts.fzf_opts['--header']
+    )
     assert.is_function(captured.opts.actions['ctrl-x'])
 
     captured.opts.actions['ctrl-x']({ '1' })
