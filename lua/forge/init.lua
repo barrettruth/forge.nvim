@@ -1,6 +1,7 @@
 local M = {}
 
 local action_mod = require('forge.action')
+local cache_mod = require('forge.cache')
 local client_mod = require('forge.client')
 local compose_mod = require('forge.compose')
 local config_mod = require('forge.config')
@@ -32,17 +33,12 @@ end
 ---@type table<string, forge.Forge>
 local forge_cache = {}
 
----@type table<string, forge.RepoInfo>
-local repo_info_cache = {}
-
----@type table<string, forge.PRState>
-local pr_state_cache = {}
-
 ---@type table<string, string>
 local root_cache = {}
 
----@type table<string, table[]>
-local list_cache = {}
+local repo_info_cache = cache_mod.new(30 * 60)
+local pr_state_cache = cache_mod.new(60)
+local list_cache = cache_mod.new(2 * 60)
 
 local function fn_system_text(cmd)
   local text = vim.trim(vim.fn.system(cmd))
@@ -248,12 +244,15 @@ end
 function M.repo_info(f, scope)
   local root = git_root()
   local key = root and (root .. '|' .. scope_mod.key(scope)) or nil
-  if key and repo_info_cache[key] then
-    return repo_info_cache[key]
+  if key then
+    local cached = repo_info_cache.get(key)
+    if cached ~= nil then
+      return cached
+    end
   end
   local info = f:repo_info(scope)
   if key then
-    repo_info_cache[key] = info
+    repo_info_cache.set(key, info)
   end
   return info
 end
@@ -265,12 +264,15 @@ end
 function M.pr_state(f, num, scope)
   local root = git_root()
   local key = root and (root .. '|' .. scope_mod.key(scope) .. '|' .. num) or nil
-  if key and pr_state_cache[key] then
-    return pr_state_cache[key]
+  if key then
+    local cached = pr_state_cache.get(key)
+    if cached ~= nil then
+      return cached
+    end
   end
   local state = f:pr_state(num, scope)
   if key then
-    pr_state_cache[key] = state
+    pr_state_cache.set(key, state)
   end
   return state
 end
@@ -280,23 +282,18 @@ end
 function M.clear_pr_state(num, scope)
   local root = git_root()
   if not root then
-    pr_state_cache = {}
+    pr_state_cache.clear()
     return
   end
   if num ~= nil then
-    pr_state_cache[root .. '|' .. scope_mod.key(scope) .. '|' .. num] = nil
+    pr_state_cache.clear(root .. '|' .. scope_mod.key(scope) .. '|' .. num)
     return
   end
   if scope ~= nil then
-    local prefix = root .. '|' .. scope_mod.key(scope) .. '|'
-    for key in pairs(pr_state_cache) do
-      if key:sub(1, #prefix) == prefix then
-        pr_state_cache[key] = nil
-      end
-    end
+    pr_state_cache.clear_prefix(root .. '|' .. scope_mod.key(scope) .. '|')
     return
   end
-  pr_state_cache = {}
+  pr_state_cache.clear()
 end
 
 ---@param kind string
@@ -310,30 +307,32 @@ end
 ---@param key string
 ---@return table[]?
 function M.get_list(key)
-  return list_cache[key]
+  return list_cache.get(key)
 end
 
 ---@param key string
 ---@param data table[]
 function M.set_list(key, data)
-  list_cache[key] = data
+  list_cache.set(key, data)
 end
 
 ---@param key string?
 function M.clear_list(key)
-  if key then
-    list_cache[key] = nil
-  else
-    list_cache = {}
-  end
+  list_cache.clear(key)
+end
+
+---@param kind string
+function M.clear_list_kind(kind)
+  local root = git_root() or ''
+  list_cache.clear_prefix(root .. ':' .. kind .. ':')
 end
 
 function M.clear_cache()
   forge_cache = {}
-  repo_info_cache = {}
-  pr_state_cache = {}
+  repo_info_cache.clear()
+  pr_state_cache.clear()
   root_cache = {}
-  list_cache = {}
+  list_cache.clear()
 end
 
 ---@param range? { start_line: integer, end_line: integer }

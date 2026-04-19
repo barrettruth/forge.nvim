@@ -44,6 +44,7 @@ local families = {
       'merge',
       'draft',
       'ready',
+      'refresh',
     },
     verbs = {
       checkout = {
@@ -90,12 +91,16 @@ local families = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo' },
       },
+      refresh = {
+        subject = { min = 0, max = 0 },
+        modifiers = { 'repo' },
+      },
     },
   },
   {
     name = 'issue',
     surface = 'forge',
-    verb_order = { 'browse', 'close', 'reopen', 'create', 'edit' },
+    verb_order = { 'browse', 'close', 'reopen', 'create', 'edit', 'refresh' },
     verbs = {
       browse = {
         subject = { kind = 'issue', min = 0, max = 1 },
@@ -117,12 +122,16 @@ local families = {
         subject = { kind = 'issue', min = 1, max = 1 },
         modifiers = { 'repo' },
       },
+      refresh = {
+        subject = { min = 0, max = 0 },
+        modifiers = { 'repo' },
+      },
     },
   },
   {
     name = 'ci',
     surface = 'forge',
-    verb_order = { 'open', 'log', 'watch', 'browse' },
+    verb_order = { 'open', 'log', 'watch', 'browse', 'refresh' },
     verbs = {
       open = {
         subject = { kind = 'run', min = 1, max = 1 },
@@ -140,12 +149,16 @@ local families = {
         subject = { kind = 'run', min = 0, max = 1 },
         modifiers = { 'repo' },
       },
+      refresh = {
+        subject = { min = 0, max = 0 },
+        modifiers = { 'repo' },
+      },
     },
   },
   {
     name = 'release',
     surface = 'forge',
-    verb_order = { 'browse', 'delete' },
+    verb_order = { 'browse', 'delete', 'refresh' },
     verbs = {
       browse = {
         subject = { kind = 'release', min = 0, max = 1 },
@@ -153,6 +166,10 @@ local families = {
       },
       delete = {
         subject = { kind = 'release', min = 1, max = 1 },
+        modifiers = { 'repo' },
+      },
+      refresh = {
+        subject = { min = 0, max = 0 },
         modifiers = { 'repo' },
       },
     },
@@ -443,6 +460,11 @@ local function dispatch_pr(command)
     ops.pr_reopen(f, { num = num, scope = scope })
     return
   end
+  if command.name == 'refresh' then
+    require('forge').clear_list_kind('pr')
+    require('forge.logger').info('refreshed ' .. ((f.labels and f.labels.pr) or 'pr') .. ' list')
+    return
+  end
   warn(('unsupported pr action: %s'):format(command.name))
 end
 
@@ -486,6 +508,11 @@ local function dispatch_issue(command)
     ops.issue_reopen(f, { num = num, scope = scope })
     return
   end
+  if command.name == 'refresh' then
+    require('forge').clear_list_kind('issue')
+    require('forge.logger').info('refreshed issue list')
+    return
+  end
   warn(('unsupported issue action: %s'):format(command.name))
 end
 
@@ -519,6 +546,11 @@ local function dispatch_ci(command)
     end
     return
   end
+  if command.name == 'refresh' then
+    require('forge').clear_list_kind('ci')
+    require('forge.logger').info('refreshed CI run list')
+    return
+  end
   warn(('unsupported ci action: %s'):format(command.name))
 end
 
@@ -542,6 +574,11 @@ local function dispatch_release(command)
   end
   if command.name == 'delete' then
     ops.release_delete(f, { tag = tag, scope = scope })
+    return
+  end
+  if command.name == 'refresh' then
+    require('forge').clear_list_kind('release')
+    require('forge.logger').info('refreshed release list')
     return
   end
 end
