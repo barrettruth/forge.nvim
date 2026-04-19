@@ -247,6 +247,18 @@ describe('format_prs', function()
     assert.truthy(rows[2][2][1]:find(' a much', 1, true))
     assert.truthy(rows[2][2][1]:find('...', 1, true))
   end)
+
+  it('grows the title column to fit wide titles when budget allows', function()
+    local long_title =
+      'a deliberately long pull request title that exceeds the old default preferred width of 45'
+    local rows = forge.format_prs({
+      { number = 1, title = long_title, state = 'OPEN', author = 'alice', created_at = '' },
+    }, fields, false, { width = 200 })
+
+    local title_text = rows[1][2][1]
+    assert.equals(nil, title_text:find('...', 1, true))
+    assert.truthy(title_text:find(long_title, 1, true))
+  end)
 end)
 
 describe('format_issue', function()
