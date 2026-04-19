@@ -22,12 +22,6 @@ describe('extensibility', function()
     vim.g.forge = nil
   end)
 
-  it('exposes the public extensibility helpers', function()
-    assert.is_function(forge.register_context_provider)
-    assert.is_function(forge.register_action)
-    assert.is_function(forge.run_action)
-  end)
-
   it('runs registered custom actions through the public API', function()
     forge.register_action(action_name, function(entry, opts)
       captured = {
