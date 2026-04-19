@@ -103,6 +103,13 @@ Top-level keys: ~
   `ci.split`        `string?`  (default `nil`, inherits from `split`)
     Split direction for CI views. Overrides the global `split`.
 
+`review`                                                 *forge-config-review*
+  `review.adapter`  `string`  (default `"checkout"`)
+    Default review adapter used by `:Forge review {num}` and the PR picker's
+    primary action. Built-in adapters are `"checkout"`, `"worktree"`, and
+    `"browse"`. Custom adapters can be registered via
+    `require('forge').register_review_adapter()`.
+
 `targets`                                               *forge-config-targets*
   `targets.aliases`      `table<string, string>`  (default `{}`)
     Symbolic target aliases used by the normalized `:Forge` command
@@ -185,9 +192,7 @@ Top-level keys: ~
   Defaults: >lua
       keys = {
         pr = {
-          worktree = '<c-w>',
           ci = '<c-t>',
-          browse = '<c-x>',
           edit = '<c-e>',
           approve = '<c-y>',
           merge = '<c-g>',
@@ -227,9 +232,11 @@ Top-level keys: ~
       }
 <
 
-  `keys.pr` supports secondary bindings for `worktree`, `ci`, `browse`,
-  `edit`, `approve`, `merge`, `create`, `toggle`, `draft`, and `refresh`.
-  The primary PR action remains `<cr>` checkout.
+  `keys.pr` supports secondary bindings for `ci`, `edit`, `approve`,
+  `merge`, `create`, `toggle`, `draft`, and `refresh`.
+  The primary PR action remains `<cr>` review. Its visible label comes from
+  the active review adapter, so the default header still shows `checkout`
+  until `review.adapter` or `adapter=` chooses something else.
 
   `keys.ci` supports secondary bindings for `browse`, `toggle`, filter
   cycling, and `refresh`. The primary CI action remains `<cr>` open.
@@ -302,6 +309,7 @@ COMMAND COMPLETION                                  *forge-command-completion*
     - families are suggested after `:Forge `
     - verbs are suggested after a family such as `:Forge pr `
     - only valid modifiers are suggested for the resolved subcommand
+    - `adapter=` suggests built-in and registered review adapters
     - `repo=` suggests configured aliases, git remotes, and resolved repo
       addresses
     - `branch=` suggests local branches and tags
@@ -345,15 +353,13 @@ PR COMMANDS                                            *forge-pr-commands*
     context. Forge does not remember a hidden "current PR" between
     commands.
 
-`:Forge pr checkout` {num} [repo=...]                     *:Forge-pr-checkout*
-    Check out the branch for PR `{num}`.
-
-`:Forge pr worktree` {num} [repo=...]                     *:Forge-pr-worktree*
-    Fetch PR `{num}` and create a git worktree.
-
-`:Forge pr browse` [{num}] [repo=...]                       *:Forge-pr-browse*
-    Open PR `{num}` in the browser, or the PR list landing page when
-    `{num}` is omitted.
+:Forge review {num} [repo=...] [adapter=...]                   *:Forge-review*
+    Open PR `{num}` through the configured review adapter. When `adapter=` is
+    omitted, Forge uses `review.adapter` (default: `checkout`).
+    Built-in adapters:
+    `checkout`         Check out the branch for PR `{num}`.
+    `worktree`         Fetch PR `{num}` and create a git worktree.
+    `browse`           Open PR `{num}` in the browser.
 
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
@@ -453,35 +459,14 @@ BROWSE COMMANDS                                    *forge-browse-commands*
 
 REVIEW COMMANDS                                    *forge-review-commands*
 
-`:Forge review branch` [{branch}]                       *:Forge-review-branch*
-    Start a branch review session. Defaults to the current branch and
-    compares it against the detected default base branch.
+Forge treats review as adapter dispatch rather than owning a native review UI.
+Use `:Forge review {num}` for the semantic "review this PR" action, then pick
+an adapter with config or `adapter=...`:
 
-`:Forge review commit` [{sha}]                          *:Forge-review-commit*
-    Start a commit review session. Defaults to the current `HEAD` commit
-    and compares it against its first parent.
-
-`:Forge review end`                                        *:Forge-review-end*
-    End the current review session.
-
-`:Forge review files`                                    *:Forge-review-files*
-    Open the changed-files review index for the active review session.
-
-`:Forge review next-file`                            *:Forge-review-next-file*
-    Open the next file in the active review session, wrapping at the end.
-
-`:Forge review prev-file`                            *:Forge-review-prev-file*
-    Open the previous file in the active review session, wrapping at the
-    beginning.
-
-`:Forge review next-hunk`                            *:Forge-review-next-hunk*
-    Jump to the next hunk in the active review view.
-
-`:Forge review prev-hunk`                            *:Forge-review-prev-hunk*
-    Jump to the previous hunk in the active review view.
-
-`:Forge review toggle`                                  *:Forge-review-toggle*
-    Toggle between patch and file-context view.
+  `:Forge review 42`                     Use `review.adapter`
+  `:Forge review 42 adapter=checkout`   Check out PR `42`
+  `:Forge review 42 adapter=worktree`   Create a worktree for PR `42`
+  `:Forge review 42 adapter=browse`     Open PR `42` in the browser
 
 CACHE COMMANDS                                      *forge-cache-commands*
 
@@ -595,10 +580,11 @@ placeholder row instead of appearing blank.
 PR PICKER ~ Lists PRs/MRs with number, title, author, and relative time.
 
   Action      Default Key    Description ~
-  `checkout`    `<cr>`           Check out the selected PR
-  `worktree`    `<c-w>`          Create worktree from PR
+  `review`      `<cr>`           Open the selected PR through the configured
+                               review adapter. The visible header label uses
+                               the adapter label, so the default appears as
+                               `checkout`.
   `ci`          `<c-t>`          Open CI checks picker for this PR
-  `browse`      `<c-x>`          Open PR in browser
   `edit`        `<c-e>`          Edit the selected PR
   `approve`     `<c-y>`          Approve the selected PR
   `merge`       `<c-g>`          Merge the selected PR
@@ -692,9 +678,9 @@ nested pickers and help docs carry the workflow detail.
 
 CLI parity: ~
 - Explicit forge actions exposed in pickers are also available through
-  `:Forge` when they can be addressed directly: create, edit, browse, close,
-  reopen, checkout, worktree, approve, merge, draft/ready, CI open, and
-  release browse/delete.
+  `:Forge` when they can be addressed directly: review, create, edit, browse,
+  close, reopen, approve, merge, draft/ready, CI open, and release
+  browse/delete.
 - Picker-only actions are the list workflow itself and row-scoped helpers such
   as filter/refresh/load more, nested per-PR checks, and copy-to-clipboard
   helpers.
@@ -1239,8 +1225,8 @@ CALLING FORGE FROM YOUR OWN PICKER             *forge-extending-custom-picker*
 The simplest pattern is to build a master picker in your own config (using
 `fzf-lua`, snacks.nvim, or any backend), list the forge sections you care
 about, and bind each row to `require('forge').open()`. Forge-specific rows
-inherit all built-in actions (checkout, worktree, browse, merge, approve,
-etc.). Non-forge rows can call into whatever you already use for local git.
+inherit all built-in forge actions (review, merge, approve, edit, CI, etc.).
+Non-forge rows can call into whatever you already use for local git.
 >lua
     local forge = require('forge')
     local fzf = require('fzf-lua')
@@ -1277,14 +1263,14 @@ CALLING VERBS DIRECTLY                                 *forge-extending-verbs*
 
 When you already have a PR number, issue number, run id, or commit in hand and
 do not need a picker, call `require('forge.ops')` directly. This is the layer
-`:Forge pr checkout 42` and the PR picker's `<cr>` both dispatch to. >lua
+`:Forge review 42` and the PR picker's `<cr>` both dispatch to. >lua
     local forge = require('forge')
     local ops = require('forge.ops')
     local f = assert(forge.detect(), 'no forge detected')
 
-    ops.pr_browse(f, { num = '42' })
-    ops.pr_checkout(f, { num = '42' })
-    ops.pr_worktree(f, { num = '42' })
+    ops.pr_review(f, { num = '42' })
+    ops.pr_review(f, { num = '42' }, { adapter = 'browse' })
+    ops.pr_review(f, { num = '42' }, { adapter = 'worktree' })
     ops.ci_open(f, { id = '987654321' })
     ops.browse_commit({ commit = 'abc1234' })
     ops.browse_branch('main')
@@ -1381,9 +1367,18 @@ SHARED OPERATIONS: `require('forge.ops')` ~
 `register_action(name, action)`
     Registers a custom root workflow action.
 
+                                             *forge.register_review_adapter()*
+`register_review_adapter(name, adapter)`
+    Registers a custom review adapter.
+
                                                           *forge.run_action()*
 `run_action(name, opts?)`
     Runs a registered action by name.
+
+                                                *forge.review_adapter_names()*
+`review_adapter_names()`
+    Return: ~
+        (`string[]`) Built-in and registered review adapter names
 
                                                   *forge.registered_sources()*
 `registered_sources()`
@@ -1565,8 +1560,7 @@ PUBLIC API: `require('forge.pickers')` ~
                                                *forge.pickers.pr_action_fns()*
 `pr_action_fns(f, num)`
     Returns `table<string, function>`. Action functions for PR `num`,
-    keyed by action name (`"checkout"`, `"worktree"`, `"browse"`, `"ci"`,
-    `"edit"`).
+    keyed by action name (`"review"`, `"ci"`, `"edit"`).
 
                                                  *forge.pickers.issue_close()*
 `issue_close(f, num)`
@@ -1579,10 +1573,11 @@ PUBLIC API: `require('forge.pickers')` ~
 PUBLIC API: `require('forge.ops')` ~                               *forge-ops*
 
 The `ops` module is the verb layer. Each function is the same entry point
-`:Forge` and the built-in pickers dispatch to, so calling `ops.pr_browse(f, {
-num = '42' })` from your config is identical to running `:Forge pr browse 42`
-or pressing `browse` in the PR picker. Functions that take a ref accept either
-a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
+`:Forge` and the built-in pickers dispatch to, so calling `ops.pr_review(f, {
+num = '42' }, { adapter = 'browse' })` from your config is identical to
+running `:Forge review 42 adapter=browse` or selecting the equivalent PR
+action from the picker. Functions that take a ref accept either a bare id
+(`num`, `id`, or `tag`) or a normalized table with `scope` and
 `num`/`id`/`tag`.
 
                                                          *forge.ops.pr_list()*
@@ -1597,17 +1592,10 @@ a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
 `pr_edit(pr)`
     Opens the PR edit compose buffer for `pr`.
 
-                                                     *forge.ops.pr_checkout()*
-`pr_checkout(f, pr)`
-    Checks out the branch for `pr` via the forge CLI.
-
-                                                       *forge.ops.pr_browse()*
-`pr_browse(f, pr)`
-    Opens `pr` in the browser.
-
-                                                     *forge.ops.pr_worktree()*
-`pr_worktree(f, pr)`
-    Fetches `pr` and creates a git worktree for it.
+                                                       *forge.ops.pr_review()*
+`pr_review(f, pr, opts?)`
+    Opens `pr` through the configured or explicit review adapter. `opts` may
+    include `{ adapter = 'name' }`.
 
                                                            *forge.ops.pr_ci()*
 `pr_ci(f, pr, opts?)`

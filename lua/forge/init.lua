@@ -6,6 +6,7 @@ local compose_mod = require('forge.compose')
 local config_mod = require('forge.config')
 local context_mod = require('forge.context')
 local format_mod = require('forge.format')
+local review_mod = require('forge.review')
 local scope_mod = require('forge.scope')
 local template_mod = require('forge.template')
 
@@ -21,11 +22,16 @@ end
 M.register_source = M.register
 M.register_context_provider = context_mod.register
 M.register_action = action_mod.register
+M.register_review_adapter = review_mod.register
 M.run_action = action_mod.run
 
 ---@return table<string, forge.Forge>
 function M.registered_sources()
   return sources
+end
+
+function M.review_adapter_names()
+  return review_mod.names()
 end
 
 ---@type table<string, forge.Forge>

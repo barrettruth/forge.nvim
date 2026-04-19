@@ -36,4 +36,15 @@ describe('extensibility', function()
     assert.equals('route', captured.entry.value)
     assert.equals('current', captured.opts.context)
   end)
+
+  it('registers review adapters through the public API', function()
+    forge.register_review_adapter('custom-test-review', {
+      label = 'custom',
+      open = function(ctx)
+        captured = ctx
+      end,
+    })
+
+    assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'custom-test-review'))
+  end)
 end)

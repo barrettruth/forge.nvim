@@ -299,14 +299,8 @@ describe('pickers', function()
     end
     package.preload['forge.ops'] = function()
       return {
-        pr_checkout = function(_, pr)
-          table.insert(op_calls, { name = 'pr_checkout', pr = pr })
-        end,
-        pr_browse = function(_, pr)
-          table.insert(op_calls, { name = 'pr_browse', pr = pr })
-        end,
-        pr_worktree = function(_, pr)
-          table.insert(op_calls, { name = 'pr_worktree', pr = pr })
+        pr_review = function(_, pr, opts)
+          table.insert(op_calls, { name = 'pr_review', pr = pr, opts = opts or {} })
         end,
         pr_ci = function(_, pr, opts)
           table.insert(op_calls, { name = 'pr_ci', pr = pr, opts = opts })
@@ -537,7 +531,6 @@ describe('pickers', function()
     captured.stream(function() end)
     local labels = helpers.action_labels(captured.actions, captured.entries[1])
     assert.equals('checkout', labels.default)
-    assert.equals('worktree', labels.worktree)
     assert.equals('edit', labels.edit)
     assert.equals('approve', labels.approve)
     assert.equals('merge', labels.merge)
@@ -648,8 +641,6 @@ describe('pickers', function()
     assert.is_not_nil(captured)
     assert.equals('checkout', helpers.action_labels(captured.actions, captured.entries[1]).default)
     for _, case in ipairs({
-      { name = 'browse', close = false },
-      { name = 'worktree', close = false },
       { name = 'approve', close = nil },
       { name = 'merge', close = nil },
     }) do
@@ -680,7 +671,11 @@ describe('pickers', function()
     action_by_name('draft').fn(entry)
 
     assert.same({
-      { name = 'pr_checkout', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
+      {
+        name = 'pr_review',
+        pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
+        opts = {},
+      },
       { name = 'pr_edit', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
       { name = 'pr_approve', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
       {
@@ -720,9 +715,7 @@ describe('pickers', function()
 
     local labels = helpers.action_labels(captured.actions, captured.entries[1])
     assert.is_nil(labels.default)
-    assert.is_nil(labels.worktree)
     assert.is_nil(labels.ci)
-    assert.is_nil(labels.browse)
     assert.is_nil(labels.edit)
     assert.is_nil(labels.approve)
     assert.is_nil(labels.merge)
@@ -766,9 +759,7 @@ describe('pickers', function()
     assert.equals('error', streamed[1].placeholder_kind)
     local labels = helpers.action_labels(captured.actions, streamed[1])
     assert.is_nil(labels.default)
-    assert.is_nil(labels.worktree)
     assert.is_nil(labels.ci)
-    assert.is_nil(labels.browse)
     assert.is_nil(labels.edit)
     assert.is_nil(labels.approve)
     assert.is_nil(labels.merge)
@@ -1004,9 +995,7 @@ describe('pickers', function()
 
     local labels = helpers.action_labels(captured.actions, captured.entries[3])
     assert.equals('load more', labels.default)
-    assert.is_nil(labels.worktree)
     assert.is_nil(labels.ci)
-    assert.is_nil(labels.browse)
     assert.is_nil(labels.edit)
     assert.is_nil(labels.approve)
     assert.is_nil(labels.merge)

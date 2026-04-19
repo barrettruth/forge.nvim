@@ -6,6 +6,7 @@ local M = {}
 ---@field debug boolean|string?
 ---@field split forge.Split
 ---@field ci forge.CIConfig
+---@field review forge.ReviewConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
 ---@field display forge.DisplayConfig
@@ -14,6 +15,9 @@ local M = {}
 ---@field lines integer
 ---@field split forge.Split?
 ---@field refresh integer
+
+---@class forge.ReviewConfig
+---@field adapter string
 
 ---@class forge.SourceConfig
 ---@field hosts string[]
@@ -26,9 +30,7 @@ local M = {}
 ---@field log forge.LogViewerKeys?
 
 ---@class forge.PRPickerKeys
----@field worktree string|false
 ---@field ci string|false
----@field browse string|false
 ---@field edit string|false
 ---@field approve string|false
 ---@field merge string|false
@@ -95,6 +97,7 @@ local DEFAULTS = {
   debug = false,
   split = 'horizontal',
   ci = { lines = 1000, refresh = 5 },
+  review = { adapter = 'checkout' },
   targets = {
     aliases = {},
   },
@@ -118,9 +121,7 @@ local DEFAULTS = {
   },
   keys = {
     pr = {
-      worktree = '<c-w>',
       ci = '<c-t>',
-      browse = '<c-x>',
       edit = '<c-e>',
       approve = '<c-y>',
       merge = '<c-g>',
@@ -325,8 +326,10 @@ function M.config()
   end, "'horizontal' or 'vertical'")
   vim.validate('forge.display', cfg.display, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
+  vim.validate('forge.review', cfg.review, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, integer_at_least(0), 'integer >= 0')
   vim.validate('forge.ci.refresh', cfg.ci.refresh, integer_at_least(0), 'integer >= 0')
+  vim.validate('forge.review.adapter', cfg.review.adapter, nonempty_string, 'non-empty string')
   vim.validate('forge.targets', cfg.targets, 'table')
   if cfg.ci.split ~= nil then
     vim.validate('forge.ci.split', cfg.ci.split, function(v)
@@ -387,9 +390,7 @@ function M.config()
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({
-        'worktree',
         'ci',
-        'browse',
         'edit',
         'approve',
         'merge',

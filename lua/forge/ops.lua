@@ -166,52 +166,10 @@ end
 
 ---@param f forge.Forge
 ---@param pr forge.PRRefLike
-function M.pr_checkout(f, pr)
+---@param opts? table
+function M.pr_review(f, pr, opts)
   pr = normalize_pr_ref(pr)
-  local kind = f.labels.pr_one
-  log.info(('checking out %s #%s...'):format(kind, pr.num))
-  vim.system(f:checkout_cmd(pr.num, pr.scope), { text = true }, function(result)
-    vim.schedule(function()
-      if result.code == 0 then
-        log.info(('checked out %s #%s'):format(kind, pr.num))
-      else
-        log.error(cmd_error(result, 'checkout failed'))
-      end
-    end)
-  end)
-end
-
----@param f forge.Forge
----@param pr forge.PRRefLike
-function M.pr_browse(f, pr)
-  pr = normalize_pr_ref(pr)
-  f:view_web(f.kinds.pr, pr.num, pr.scope)
-end
-
----@param f forge.Forge
----@param pr forge.PRRefLike
-function M.pr_worktree(f, pr)
-  pr = normalize_pr_ref(pr)
-  local kind = f.labels.pr_one
-  local fetch_cmd = f:fetch_pr(pr.num, pr.scope)
-  local branch = fetch_cmd[#fetch_cmd]:match(':(.+)$')
-  if not branch then
-    return
-  end
-  local root = vim.trim(vim.fn.system('git rev-parse --show-toplevel'))
-  local wt_path = vim.fs.normalize(root .. '/../' .. branch)
-  log.info(('fetching %s #%s into worktree...'):format(kind, pr.num))
-  vim.system(fetch_cmd, { text = true }, function()
-    vim.system({ 'git', 'worktree', 'add', wt_path, branch }, { text = true }, function(result)
-      vim.schedule(function()
-        if result.code == 0 then
-          log.info(('worktree at %s'):format(wt_path))
-        else
-          log.error(cmd_error(result, 'worktree failed'))
-        end
-      end)
-    end)
-  end)
+  require('forge.review').open(f, pr, opts)
 end
 
 ---@param f forge.Forge
