@@ -29,6 +29,28 @@ local function repo_scope(repo)
   }
 end
 
+local function scope_key(scope)
+  if type(scope) ~= 'table' then
+    return ''
+  end
+  return table.concat({
+    scope.kind or '',
+    scope.host or '',
+    scope.slug or '',
+  }, '|')
+end
+
+local function scoped_id(id, suffix)
+  if suffix ~= nil and suffix ~= '' then
+    return id .. '|' .. suffix
+  end
+  return id
+end
+
+local function list_key(kind, id, scope)
+  return kind .. ':' .. scoped_id(id, scope_key(scope))
+end
+
 local function use_named_current_buf(name)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == name then
@@ -59,29 +81,34 @@ describe(':Forge command', function()
       closed_issues = {},
       browse_calls = {},
       opened_urls = {},
+      system_calls = {},
+      system_responses = {},
+      lists = {},
+      pr_states = {},
+      repo_infos = {},
     }
     old_preload = helpers.capture_preload(preload_modules)
     old_systemlist = vim.fn.systemlist
     old_system = vim.system
     old_ui_open = vim.ui.open
 
+    captured.system_responses = {
+      ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/current.git\n'),
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['git remote'] = helpers.command_result('origin\nupstream\n'),
+      ['git branch --show-current'] = helpers.command_result('main\n'),
+      ['git config branch.main.pushRemote'] = helpers.command_result('', 1),
+      ['git rev-parse --abbrev-ref main@{upstream}'] = helpers.command_result('origin/main\n'),
+      ['git rev-list --max-count=20 --abbrev-commit HEAD'] = helpers.command_result(
+        'deadbee\nabc123\n'
+      ),
+    }
     vim.system = helpers.system_router({
       default = helpers.command_result('', 1),
-      responses = {
-        ['git remote get-url origin'] = helpers.command_result(
-          'git@github.com:owner/current.git\n'
-        ),
-        ['git remote get-url upstream'] = helpers.command_result(
-          'git@github.com:owner/upstream.git\n'
-        ),
-        ['git remote'] = helpers.command_result('origin\nupstream\n'),
-        ['git branch --show-current'] = helpers.command_result('main\n'),
-        ['git config branch.main.pushRemote'] = helpers.command_result('', 1),
-        ['git rev-parse --abbrev-ref main@{upstream}'] = helpers.command_result('origin/main\n'),
-        ['git rev-list --max-count=20 --abbrev-commit HEAD'] = helpers.command_result(
-          'deadbee\nabc123\n'
-        ),
-      },
+      calls = captured.system_calls,
+      responses = captured.system_responses,
     })
     vim.ui.open = function(url)
       table.insert(captured.opened_urls, url)
@@ -106,6 +133,8 @@ describe(':Forge command', function()
             name = 'github',
             capabilities = {
               per_pr_checks = true,
+              draft = true,
+              ci_json = true,
             },
             labels = {
               pr_one = 'PR',
@@ -114,6 +143,112 @@ describe(':Forge command', function()
               pr = 'pr',
               issue = 'issue',
             },
+            pr_fields = {
+              number = 'number',
+              title = 'title',
+              state = 'state',
+              is_draft = 'isDraft',
+            },
+            issue_fields = {
+              number = 'number',
+              title = 'title',
+              state = 'state',
+            },
+            release_fields = {
+              tag = 'tagName',
+              title = 'name',
+              is_draft = 'isDraft',
+              is_prerelease = 'isPrerelease',
+            },
+            list_pr_json_cmd = function(_, state, limit, scope)
+              local cmd = {
+                'gh',
+                'pr',
+                'list',
+                '--limit',
+                tostring(limit),
+                '--state',
+                state,
+                '--json',
+                'number,title,state,isDraft',
+              }
+              local repo = scope and scope.repo_arg or nil
+              if repo then
+                table.insert(cmd, '-R')
+                table.insert(cmd, repo)
+              end
+              return cmd
+            end,
+            list_issue_json_cmd = function(_, state, limit, scope)
+              local cmd = {
+                'gh',
+                'issue',
+                'list',
+                '--limit',
+                tostring(limit),
+                '--state',
+                state,
+                '--json',
+                'number,title,state',
+              }
+              local repo = scope and scope.repo_arg or nil
+              if repo then
+                table.insert(cmd, '-R')
+                table.insert(cmd, repo)
+              end
+              return cmd
+            end,
+            list_runs_json_cmd = function(_, branch, scope, limit)
+              local cmd = {
+                'gh',
+                'run',
+                'list',
+                '--json',
+                'databaseId,name,headBranch,status,conclusion,url',
+                '--limit',
+                tostring(limit),
+              }
+              local repo = scope and scope.repo_arg or nil
+              if repo then
+                table.insert(cmd, '-R')
+                table.insert(cmd, repo)
+              end
+              if branch then
+                table.insert(cmd, '--branch')
+                table.insert(cmd, branch)
+              end
+              return cmd
+            end,
+            list_releases_json_cmd = function(_, scope, limit)
+              local cmd = {
+                'gh',
+                'release',
+                'list',
+                '--json',
+                'tagName,name,isDraft,isPrerelease',
+                '--limit',
+                tostring(limit),
+              }
+              local repo = scope and scope.repo_arg or nil
+              if repo then
+                table.insert(cmd, '-R')
+                table.insert(cmd, repo)
+              end
+              return cmd
+            end,
+            normalize_run = function(_, entry)
+              local status = entry.status or ''
+              if status == 'completed' then
+                status = entry.conclusion or 'unknown'
+              end
+              return {
+                id = tostring(entry.databaseId or ''),
+                name = entry.name or '',
+                branch = entry.headBranch or '',
+                status = status,
+                url = entry.url or '',
+              }
+            end,
             view_web = function(_, kind, num, scope)
               captured.view_web = {
                 kind = kind,
@@ -142,6 +277,9 @@ describe(':Forge command', function()
             branch = 'main',
             head = 'abc123',
           }
+        end,
+        current_scope = function()
+          return repo_scope('current')
         end,
         config = function()
           return {
@@ -174,6 +312,23 @@ describe(':Forge command', function()
         clear_list_kind = function(kind)
           captured.cleared_kinds = captured.cleared_kinds or {}
           table.insert(captured.cleared_kinds, kind)
+        end,
+        scope_key = scope_key,
+        list_key = function(kind, state)
+          return kind .. ':' .. state
+        end,
+        get_list = function(key)
+          return captured.lists[key]
+        end,
+        set_list = function(key, value)
+          captured.lists[key] = value
+        end,
+        pr_state = function(_, num, scope)
+          return captured.pr_states[(scope and scope.slug or 'owner/current') .. '#' .. num] or {}
+        end,
+        repo_info = function(_, scope)
+          return captured.repo_infos[scope and scope.slug or 'owner/current']
+            or { permission = 'WRITE', merge_methods = { 'merge', 'squash', 'rebase' } }
         end,
         file_loc = function(range)
           local name = vim.api.nvim_buf_get_name(0)
@@ -870,5 +1025,114 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge br', 'cmdline'), 'branches'))
     assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge comm', 'cmdline'), 'commits'))
     assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge work', 'cmdline'), 'worktrees'))
+  end)
+
+  it('completes PR subjects from cached lists with state-aware filtering', function()
+    local scope = repo_scope('current')
+    captured.lists[list_key('pr', 'open', scope)] = {
+      { number = 101, title = 'Ready', state = 'OPEN', isDraft = false },
+      { number = 102, title = 'Draft', state = 'OPEN', isDraft = true },
+      { number = 103, title = 'Approved', state = 'OPEN', isDraft = false },
+    }
+    captured.pr_states['owner/current#101'] = { review_decision = '', is_draft = false }
+    captured.pr_states['owner/current#102'] = { review_decision = '', is_draft = true }
+    captured.pr_states['owner/current#103'] = { review_decision = 'APPROVED', is_draft = false }
+
+    local approve = vim.fn.getcompletion('Forge pr approve ', 'cmdline')
+    local merge = vim.fn.getcompletion('Forge pr merge ', 'cmdline')
+    local draft = vim.fn.getcompletion('Forge pr draft ', 'cmdline')
+    local ready = vim.fn.getcompletion('Forge pr ready ', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(approve, '101'))
+    assert.is_true(vim.tbl_contains(approve, '102'))
+    assert.is_false(vim.tbl_contains(approve, '103'))
+    assert.is_true(vim.tbl_contains(merge, '101'))
+    assert.is_true(vim.tbl_contains(merge, '103'))
+    assert.is_false(vim.tbl_contains(merge, '102'))
+    assert.is_true(vim.tbl_contains(draft, '101'))
+    assert.is_true(vim.tbl_contains(draft, '103'))
+    assert.is_false(vim.tbl_contains(draft, '102'))
+    assert.is_true(vim.tbl_contains(ready, '102'))
+    assert.is_false(vim.tbl_contains(ready, '101'))
+  end)
+
+  it('completes PR reopen subjects from cached closed lists and excludes merged PRs', function()
+    local scope = repo_scope('current')
+    captured.lists[list_key('pr', 'closed', scope)] = {
+      { number = 201, title = 'Closed', state = 'CLOSED' },
+      { number = 202, title = 'Merged', state = 'MERGED' },
+    }
+
+    local reopen = vim.fn.getcompletion('Forge pr reopen ', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(reopen, '201'))
+    assert.is_false(vim.tbl_contains(reopen, '202'))
+  end)
+
+  it('uses explicit repo scope for cached subject completion', function()
+    local current = repo_scope('current')
+    local upstream = repo_scope('upstream')
+    captured.lists[list_key('pr', 'open', current)] = {
+      { number = 301, title = 'Current', state = 'OPEN', isDraft = false },
+    }
+    captured.lists[list_key('pr', 'open', upstream)] = {
+      { number = 302, title = 'Upstream', state = 'OPEN', isDraft = false },
+    }
+
+    local merge = require('forge.cmd').complete('', 'Forge pr merge repo=upstream ', 0)
+
+    assert.is_true(vim.tbl_contains(merge, '302'))
+    assert.is_false(vim.tbl_contains(merge, '301'))
+  end)
+
+  it(
+    'falls back to backend list fetches for dynamic subject completion and caches the result',
+    function()
+      local scope = repo_scope('current')
+      local key = list_key('issue', 'open', scope)
+      captured.system_responses['gh issue list --limit 100 --state open --json number,title,state -R owner/current'] =
+        helpers.command_result('[{"number":7,"title":"Bug","state":"OPEN"}]\n')
+
+      local first = vim.fn.getcompletion('Forge issue close ', 'cmdline')
+      local second = vim.fn.getcompletion('Forge issue close ', 'cmdline')
+
+      assert.is_true(vim.tbl_contains(first, '7'))
+      assert.is_true(vim.tbl_contains(second, '7'))
+      assert.same({
+        { number = 7, title = 'Bug', state = 'OPEN' },
+      }, captured.lists[key])
+      assert.equals(
+        1,
+        vim.iter(captured.system_calls):fold(0, function(acc, item)
+          return acc
+            + (
+              item
+                  == 'gh issue list --limit 100 --state open --json number,title,state -R owner/current'
+                and 1
+              or 0
+            )
+        end)
+      )
+    end
+  )
+
+  it('completes CI run ids and release tags dynamically', function()
+    local scope = repo_scope('current')
+    captured.lists[list_key('ci', 'all', scope)] = {
+      { id = '401', name = 'build', branch = 'main', status = 'success' },
+      { id = '402', name = 'test', branch = 'main', status = 'failure' },
+    }
+    captured.lists[list_key('release', 'list', scope)] = {
+      { tagName = 'v1.0.0', name = 'First' },
+      { tagName = 'v1.1.0', name = 'Second' },
+    }
+
+    local runs = vim.fn.getcompletion('Forge ci open ', 'cmdline')
+    local releases = vim.fn.getcompletion('Forge release delete ', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(runs, '401'))
+    assert.is_true(vim.tbl_contains(runs, '402'))
+    assert.is_true(vim.tbl_contains(releases, 'v1.0.0'))
+    assert.is_true(vim.tbl_contains(releases, 'v1.1.0'))
   end)
 end)

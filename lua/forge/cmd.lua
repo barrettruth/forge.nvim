@@ -1060,6 +1060,285 @@ local function target_completion_values(prefix)
   return filter(items, prefix)
 end
 
+local completion_limits = {
+  pr = 100,
+  issue = 100,
+  ci = 30,
+  release = 30,
+}
+
+local function json_list(cmd)
+  if type(cmd) ~= 'table' then
+    return nil
+  end
+  local result = vim.system(cmd, { text = true }):wait()
+  if result.code ~= 0 then
+    return nil
+  end
+  local ok, data = pcall(vim.json.decode, result.stdout or '[]')
+  if not ok or type(data) ~= 'table' then
+    return nil
+  end
+  return data
+end
+
+local function scoped_id(id, suffix)
+  if suffix ~= nil and suffix ~= '' then
+    return id .. '|' .. suffix
+  end
+  return id
+end
+
+local function completion_scope_key(forge_mod, scope)
+  if type(forge_mod.scope_key) == 'function' then
+    return forge_mod.scope_key(scope)
+  end
+  return ''
+end
+
+local function completion_limit(forge_mod, kind)
+  local cfg = type(forge_mod.config) == 'function' and forge_mod.config() or nil
+  local display = type(cfg) == 'table' and cfg.display or nil
+  local limits = type(display) == 'table' and display.limits or nil
+  if kind == 'pr' then
+    return type(limits) == 'table' and limits.pulls or completion_limits.pr
+  end
+  if kind == 'issue' then
+    return type(limits) == 'table' and limits.issues or completion_limits.issue
+  end
+  if kind == 'ci' then
+    return type(limits) == 'table' and limits.runs or completion_limits.ci
+  end
+  if kind == 'release' then
+    return type(limits) == 'table' and limits.releases or completion_limits.release
+  end
+  return 50
+end
+
+local function completion_scope(forge_mod, f, state)
+  local repo = state.modifiers.repo
+  if type(repo) == 'string' and repo ~= '' then
+    local target = require('forge.target')
+    local resolved = target.resolve_repo(repo, target_parse_opts())
+    if resolved then
+      return target.repo_scope(resolved, f.name)
+    end
+  end
+  if type(forge_mod.current_scope) == 'function' then
+    return forge_mod.current_scope(f.name)
+  end
+  return nil
+end
+
+local function completion_forge(state)
+  local ok, forge_mod = pcall(require, 'forge')
+  if not ok or type(forge_mod) ~= 'table' or type(forge_mod.detect) ~= 'function' then
+    return nil, nil, nil
+  end
+  local f = forge_mod.detect()
+  if not f then
+    return nil, forge_mod, nil
+  end
+  return f, forge_mod, completion_scope(forge_mod, f, state)
+end
+
+local function completion_list_key(forge_mod, kind, state, scope)
+  return forge_mod.list_key(kind, scoped_id(state, completion_scope_key(forge_mod, scope)))
+end
+
+local function cached_completion_list(forge_mod, kind, states, scope)
+  local items = {}
+  local found = false
+  for _, state in ipairs(states) do
+    local cached = forge_mod.get_list(completion_list_key(forge_mod, kind, state, scope))
+    if type(cached) == 'table' then
+      found = true
+      for _, item in ipairs(cached) do
+        items[#items + 1] = item
+      end
+    end
+  end
+  if found then
+    return items
+  end
+  return nil
+end
+
+local function fetch_completion_list(forge_mod, f, kind, state, scope)
+  local limit = completion_limit(forge_mod, kind)
+  local cmd
+  if kind == 'pr' and type(f.list_pr_json_cmd) == 'function' then
+    cmd = f:list_pr_json_cmd(state, limit, scope)
+  elseif kind == 'issue' and type(f.list_issue_json_cmd) == 'function' then
+    cmd = f:list_issue_json_cmd(state, limit, scope)
+  elseif kind == 'ci' and type(f.list_runs_json_cmd) == 'function' then
+    cmd = f:list_runs_json_cmd(state == 'all' and nil or state, scope, limit)
+  elseif kind == 'release' and type(f.list_releases_json_cmd) == 'function' then
+    cmd = f:list_releases_json_cmd(scope, limit)
+  end
+  local data = json_list(cmd)
+  if type(data) ~= 'table' then
+    return {}
+  end
+  if kind == 'ci' and type(f.normalize_run) == 'function' then
+    local normalized = {}
+    for _, item in ipairs(data) do
+      normalized[#normalized + 1] = f:normalize_run(item)
+    end
+    data = normalized
+  end
+  forge_mod.set_list(completion_list_key(forge_mod, kind, state, scope), data)
+  return data
+end
+
+local function completion_list(forge_mod, f, kind, states, fetch_state, scope)
+  return cached_completion_list(forge_mod, kind, states, scope)
+    or fetch_completion_list(forge_mod, f, kind, fetch_state or states[1], scope)
+end
+
+local function pr_completion_states(verb)
+  if
+    verb == 'approve'
+    or verb == 'merge'
+    or verb == 'draft'
+    or verb == 'ready'
+    or verb == 'close'
+  then
+    return { 'open', 'all' }, 'open'
+  end
+  if verb == 'reopen' then
+    return { 'closed', 'all' }, 'closed'
+  end
+  return { 'all', 'open', 'closed' }, 'all'
+end
+
+local function issue_completion_states(verb)
+  if verb == 'close' then
+    return { 'open', 'all' }, 'open'
+  end
+  if verb == 'reopen' then
+    return { 'closed', 'all' }, 'closed'
+  end
+  return { 'all', 'open', 'closed' }, 'all'
+end
+
+local function completion_entry(value)
+  return { value = value }
+end
+
+local function pr_completion_available(verb, f, entry)
+  local availability = require('forge.availability')
+  local picker = require('forge.picker')
+  if verb == 'approve' then
+    return availability.pr_can_approve(f, entry)
+  end
+  if verb == 'merge' then
+    return availability.pr_can_merge(f, entry)
+  end
+  if verb == 'draft' then
+    return availability.pr_can_mark_draft(f, entry)
+  end
+  if verb == 'ready' then
+    return availability.pr_can_mark_ready(f, entry)
+  end
+  if verb == 'close' then
+    return picker.pr_toggle_verb(entry) == 'close'
+  end
+  if verb == 'reopen' then
+    return picker.pr_toggle_verb(entry) == 'reopen'
+  end
+  return true
+end
+
+local function issue_completion_available(verb, entry)
+  local picker = require('forge.picker')
+  if verb == 'close' then
+    return picker.issue_toggle_verb(entry) == 'close'
+  end
+  if verb == 'reopen' then
+    return picker.issue_toggle_verb(entry) == 'reopen'
+  end
+  return true
+end
+
+local function complete_pr_subjects(verb, state, prefix)
+  local f, forge_mod, scope = completion_forge(state)
+  if not f or not forge_mod then
+    return {}
+  end
+  local states, fetch_state = pr_completion_states(verb)
+  local prs = completion_list(forge_mod, f, 'pr', states, fetch_state, scope)
+  local fields = f.pr_fields or {}
+  local items = {}
+  local seen = {}
+  for _, pr in ipairs(prs or {}) do
+    local num = tostring(pr[fields.number] or '')
+    local entry = completion_entry({
+      num = num,
+      scope = scope,
+      state = pr[fields.state],
+      is_draft = fields.is_draft and pr[fields.is_draft] or nil,
+    })
+    if pr_completion_available(verb, f, entry) then
+      add_completion_candidate(items, seen, num)
+    end
+  end
+  return filter(items, prefix)
+end
+
+local function complete_issue_subjects(verb, state, prefix)
+  local f, forge_mod, scope = completion_forge(state)
+  if not f or not forge_mod then
+    return {}
+  end
+  local states, fetch_state = issue_completion_states(verb)
+  local issues = completion_list(forge_mod, f, 'issue', states, fetch_state, scope)
+  local fields = f.issue_fields or {}
+  local items = {}
+  local seen = {}
+  for _, issue in ipairs(issues or {}) do
+    local num = tostring(issue[fields.number] or '')
+    local entry = completion_entry({
+      num = num,
+      scope = scope,
+      state = issue[fields.state],
+    })
+    if issue_completion_available(verb, entry) then
+      add_completion_candidate(items, seen, num)
+    end
+  end
+  return filter(items, prefix)
+end
+
+local function complete_run_subjects(state, prefix)
+  local f, forge_mod, scope = completion_forge(state)
+  if not f or not forge_mod then
+    return {}
+  end
+  local runs = completion_list(forge_mod, f, 'ci', { 'all' }, 'all', scope)
+  local items = {}
+  local seen = {}
+  for _, run in ipairs(runs or {}) do
+    add_completion_candidate(items, seen, tostring(run.id or ''))
+  end
+  return filter(items, prefix)
+end
+
+local function complete_release_subjects(state, prefix)
+  local f, forge_mod, scope = completion_forge(state)
+  if not f or not forge_mod then
+    return {}
+  end
+  local releases = completion_list(forge_mod, f, 'release', { 'list' }, 'list', scope)
+  local fields = f.release_fields or {}
+  local items = {}
+  local seen = {}
+  for _, release in ipairs(releases or {}) do
+    add_completion_candidate(items, seen, tostring(release[fields.tag] or ''))
+  end
+  return filter(items, prefix)
+end
+
 local function completion_values(family_name, verb_name, flag_name, prefix)
   local command = M.resolve(family_name, verb_name)
   if not command then
@@ -1107,6 +1386,18 @@ local function subject_completion_items(command, state, arglead)
       system_lines({ 'git', 'rev-list', '--max-count=20', '--abbrev-commit', 'HEAD' }),
       arglead
     )
+  end
+  if subject.kind == 'pr' then
+    return complete_pr_subjects(command.name, state, arglead)
+  end
+  if subject.kind == 'issue' then
+    return complete_issue_subjects(command.name, state, arglead)
+  end
+  if subject.kind == 'run' then
+    return complete_run_subjects(state, arglead)
+  end
+  if subject.kind == 'release' then
+    return complete_release_subjects(state, arglead)
   end
   return {}
 end
@@ -1167,6 +1458,8 @@ function M.complete(arglead, cmdline, _)
   if not command then
     return {}
   end
+  command.declared_modifiers = command.modifiers or {}
+  command.declared_legacy_modifiers = command.legacy_modifiers or {}
   local rest_index = explicit_verb and 4 or 3
   local consumed = {}
   for i = rest_index, arglead == '' and #words or (#words - 1) do
