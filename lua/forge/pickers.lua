@@ -1,5 +1,6 @@
 local M = {}
 
+local availability = require('forge.availability')
 local layout = require('forge.layout')
 local log = require('forge.logger')
 local ops = require('forge.ops')
@@ -217,10 +218,6 @@ end
 
 local function load_more_row(entry)
   return picker_row_kind(entry) == 'load_more'
-end
-
-local function pr_open_entry(entry)
-  return actionable_entry(entry) and picker.pr_toggle_verb(entry) == 'close'
 end
 
 local function pr_toggle_entry(entry)
@@ -848,44 +845,6 @@ function M.pr(state, f, opts)
     M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
-  local function current_pr_state(entry)
-    if not actionable_entry(entry) then
-      return nil
-    end
-    return forge_mod.pr_state(f, entry.value.num, entry.value.scope)
-  end
-
-  local function merge_permission(info)
-    local permission = ((info or {}).permission or ''):upper()
-    return permission == 'WRITE' or permission == 'ADMIN' or permission == 'MAINTAIN'
-  end
-
-  local function pr_approve_entry(entry)
-    if not pr_open_entry(entry) then
-      return false
-    end
-    local pr_state = current_pr_state(entry)
-    return pr_state == nil or (pr_state.review_decision or ''):upper() ~= 'APPROVED'
-  end
-
-  local function pr_merge_entry(entry)
-    if not pr_open_entry(entry) then
-      return false
-    end
-    local pr_state = current_pr_state(entry)
-    if pr_state and pr_state.is_draft then
-      return false
-    end
-    local info = forge_mod.repo_info(f, entry.value.scope)
-    return merge_permission(info)
-      and type((info or {}).merge_methods) == 'table'
-      and #info.merge_methods > 0
-  end
-
-  local function pr_draft_entry(entry)
-    return f.capabilities.draft and pr_open_entry(entry)
-  end
-
   local function pr_entity_only(entry)
     return entity_row(entry)
   end
@@ -977,7 +936,9 @@ function M.pr(state, f, opts)
     {
       name = 'approve',
       label = 'approve',
-      available = pr_approve_entry,
+      available = function(entry)
+        return availability.pr_can_approve(f, entry)
+      end,
       fn = function(entry)
         if entry and not entry.load_more then
           ops.pr_approve(f, entry.value, {
@@ -990,7 +951,9 @@ function M.pr(state, f, opts)
     {
       name = 'merge',
       label = 'merge',
-      available = pr_merge_entry,
+      available = function(entry)
+        return availability.pr_can_merge(f, entry)
+      end,
       fn = function(entry)
         if entry and not entry.load_more then
           ops.pr_merge(f, entry.value, nil, {
@@ -1033,16 +996,11 @@ function M.pr(state, f, opts)
     {
       name = 'draft',
       label = function(entry)
-        if entry == nil then
-          return 'draft/ready'
-        end
-        local pr_state = current_pr_state(entry)
-        if pr_state and pr_state.is_draft then
-          return 'ready'
-        end
-        return 'draft'
+        return availability.pr_draft_label(f, entry)
       end,
-      available = pr_draft_entry,
+      available = function(entry)
+        return availability.pr_can_toggle_draft(f, entry)
+      end,
       fn = function(entry)
         if entry and not entry.load_more and f.capabilities.draft then
           pr_toggle_draft_action(f, entry.value, {
