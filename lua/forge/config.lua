@@ -67,7 +67,6 @@ local M = {}
 ---@field refresh string|false
 
 ---@class forge.LogViewerKeys
----@field close string|false
 ---@field next_step string|false
 ---@field prev_step string|false
 ---@field next_error string|false
@@ -169,7 +168,6 @@ local DEFAULTS = {
       refresh = '<c-r>',
     },
     log = {
-      close = 'q',
       next_step = ']]',
       prev_step = '[[',
       next_error = ']e',
@@ -501,7 +499,6 @@ function M.config()
     if keys.log ~= nil then
       vim.validate('forge.keys.log', keys.log, 'table')
       for _, k in ipairs({
-        'close',
         'next_step',
         'prev_step',
         'next_error',

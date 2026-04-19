@@ -709,9 +709,9 @@ local function setup_keymaps(buf, url, cmd, opts)
       vim.keymap.set('n', key, fn, { buffer = buf, desc = desc })
     end
   end
-  map(keys.close, function()
+  vim.keymap.set('n', 'q', function()
     vim.api.nvim_buf_delete(buf, { force = true })
-  end, 'Close log')
+  end, { buffer = buf, desc = 'Close log' })
   map(keys.next_step, function()
     jump(buf, 'header', 1)
   end, 'Next step')
@@ -1258,9 +1258,9 @@ function M.open_summary(cmd, opts, reuse_buf)
               vim.keymap.set('n', key, fn, { buffer = buf, desc = desc })
             end
           end
-          map(keys.close, function()
+          vim.keymap.set('n', 'q', function()
             vim.api.nvim_buf_delete(buf, { force = true })
-          end, 'Close')
+          end, { buffer = buf, desc = 'Close' })
           map(keys.browse, function()
             local url = opts.url
             local d = buf_data[buf]

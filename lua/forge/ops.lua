@@ -103,7 +103,6 @@ local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd
 
   require('forge.term').open(cmd, {
     url = url,
-    startinsert = false,
     browse_fn = function(buf)
       local job = summary_job_at_cursor(buf)
       if job and f.job_web_url then

@@ -256,14 +256,13 @@ Top-level keys: ~
   `edit`, `approve`, `merge`, `create`, `toggle`, `draft`, and `refresh`.
   The primary PR action remains `<cr>` checkout.
 
-  `keys.ci` supports secondary bindings for `log`, `watch`, `browse`,
-  `toggle`, filter cycling, and `refresh`. The primary CI action remains
-  `<cr>` open.
+  `keys.ci` supports secondary bindings for `browse`, `toggle`, filter
+  cycling, and `refresh`. The primary CI action remains `<cr>` open.
 
   Additional picker groups:
-    `keys.log` supports `close` and `browse` across CI terminal/log views,
-    plus step/error navigation and `refresh` for Forge-managed CI log and
-    summary buffers.
+    `keys.log` supports `browse` across CI terminal/log views, plus
+    step/error navigation and `refresh` for Forge-managed CI log and
+    summary buffers. Closing those views with `q` is hardcoded.
 
 `display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
