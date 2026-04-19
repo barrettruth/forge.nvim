@@ -1391,7 +1391,7 @@ describe('pickers', function()
     assert.is_not_nil(captured)
     assert.equals('PR #42 Checks (1)> ', captured.prompt)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_nil(action_by_name('log'))
     assert.is_false(action_by_name('filter').reload)
     assert.is_false(action_by_name('failed').reload)
     assert.is_false(action_by_name('passed').reload)
@@ -1428,11 +1428,11 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
-    assert.is_nil(rawget(action_by_name('watch'), 'close'))
+    assert.is_nil(action_by_name('log'))
+    assert.is_nil(action_by_name('watch'))
   end)
 
-  it('routes CI log and watch actions through forge.ops', function()
+  it('routes CI default and browse actions through forge.ops', function()
     local old_system = vim.system
     vim.system = function(_, _, cb)
       cb({
@@ -1469,9 +1469,10 @@ describe('pickers', function()
     end)
     vim.system = old_system
 
+    assert.is_nil(action_by_name('log'))
+    assert.is_nil(action_by_name('watch'))
+
     action_by_name('default').fn(streamed[1])
-    action_by_name('log').fn(streamed[1])
-    action_by_name('watch').fn(streamed[1])
     action_by_name('browse').fn(streamed[1])
 
     assert.same({
@@ -1486,28 +1487,6 @@ describe('pickers', function()
       },
     }, op_calls[1])
     assert.same({
-      name = 'ci_log',
-      run = {
-        id = '1',
-        name = 'CI',
-        branch = 'main',
-        status = 'success',
-        url = 'https://example.com',
-        scope = nil,
-      },
-    }, op_calls[2])
-    assert.same({
-      name = 'ci_watch',
-      run = {
-        id = '1',
-        name = 'CI',
-        branch = 'main',
-        status = 'success',
-        url = 'https://example.com',
-        scope = nil,
-      },
-    }, op_calls[3])
-    assert.same({
       name = 'ci_browse',
       run = {
         id = '1',
@@ -1517,7 +1496,7 @@ describe('pickers', function()
         url = 'https://example.com',
         scope = nil,
       },
-    }, op_calls[4])
+    }, op_calls[2])
   end)
 
   it('routes the CI toggle action through forge.ops.ci_toggle', function()
@@ -1559,7 +1538,7 @@ describe('pickers', function()
     assert.is_nil(toggle.label({ value = { id = '3', status = 'skipped' } }))
   end)
 
-  it('shows a warning when skipped checks have no logs', function()
+  it('gates the open action as unavailable for skipped checks', function()
     local pickers = require('forge.pickers')
     pickers.checks(fake_ci_forge(), '42', 'all', {
       {
@@ -1572,12 +1551,12 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    action_by_name('log').fn(captured.entries[1])
-
-    assert.same({ 'no log available - job was not started' }, logger_messages.warn)
+    local default = action_by_name('default')
+    assert.is_function(default.available)
+    assert.is_false(default.available(captured.entries[1]))
   end)
 
-  it('shows a warning when checks logs are unavailable', function()
+  it('gates the open action as unavailable for checks without an extractable run id', function()
     local pickers = require('forge.pickers')
     pickers.checks(fake_ci_forge(), '42', 'all', {
       {
@@ -1588,9 +1567,21 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
-    action_by_name('log').fn(captured.entries[1])
+    local default = action_by_name('default')
+    assert.is_function(default.available)
+    assert.is_false(default.available(captured.entries[1]))
+  end)
 
-    assert.same({ 'logs not available, use browse to view' }, logger_messages.warn)
+  it('keeps the open action available for checks with a run id', function()
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all', {
+      { name = 'lint', bucket = 'pass', link = 'https://example.com/check', run_id = '789' },
+    })
+
+    assert.is_not_nil(captured)
+    local default = action_by_name('default')
+    assert.is_function(default.available)
+    assert.is_true(default.available(captured.entries[1]))
   end)
 
   it('builds checks entries with live display renderers', function()
@@ -1678,7 +1669,7 @@ describe('pickers', function()
     assert.same('function', type(captured.stream))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_nil(rawget(action_by_name('default'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
+    assert.is_nil(action_by_name('log'))
 
     local streamed = {}
     captured.stream(function(entry)
@@ -1791,8 +1782,8 @@ describe('pickers', function()
     assert.same('function', type(captured.stream))
 
     assert.is_false(rawget(action_by_name('browse'), 'close'))
-    assert.is_nil(rawget(action_by_name('log'), 'close'))
-    assert.is_nil(rawget(action_by_name('watch'), 'close'))
+    assert.is_nil(action_by_name('log'))
+    assert.is_nil(action_by_name('watch'))
 
     local streamed = {}
     captured.stream(function(entry)

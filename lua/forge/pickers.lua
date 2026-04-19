@@ -205,6 +205,21 @@ local function issue_toggle_entry(entry)
   return actionable_entry(entry) and picker.issue_toggle_verb(entry) ~= nil
 end
 
+local function check_openable(entry)
+  if not actionable_entry(entry) or entry.placeholder then
+    return false
+  end
+  local c = entry.value
+  if type(c) ~= 'table' then
+    return false
+  end
+  if (c.bucket or ''):lower() == 'skipping' then
+    return false
+  end
+  local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
+  return run_id ~= nil
+end
+
 ---@param f forge.Forge
 ---@param pr forge.PRRef
 local function pr_toggle_draft_action(f, pr, opts)
@@ -282,16 +297,8 @@ function M.checks(f, num, filter, cached_checks, opts)
     end
     local c = entry.value
     local run_id = c.run_id or (c.link or ''):match('/actions/runs/(%d+)')
-    if not run_id then
-      log.warn('logs not available, use browse to view')
-      return
-    end
     local job_id = c.job_id or (c.link or ''):match('/job/(%d+)')
     local bucket = (c.bucket or ''):lower()
-    if bucket == 'skipping' then
-      log.warn('no log available - job was not started')
-      return
-    end
     local in_progress = bucket == 'pending'
     local check_ref = c.scope or ref
     if in_progress and f.live_tail_cmd then
@@ -318,11 +325,7 @@ function M.checks(f, num, filter, cached_checks, opts)
     {
       name = 'default',
       label = 'open',
-      fn = open_check,
-    },
-    {
-      name = 'log',
-      label = 'log',
+      available = check_openable,
       fn = open_check,
     },
     {
@@ -589,26 +592,6 @@ function M.ci(f, branch, filter, opts)
           return
         end
         ops.ci_open(f, entry.value)
-      end,
-    },
-    {
-      name = 'log',
-      label = 'log',
-      fn = function(entry)
-        if not entry or entry.load_more then
-          return
-        end
-        ops.ci_log(f, entry.value)
-      end,
-    },
-    {
-      name = 'watch',
-      label = 'watch',
-      fn = function(entry)
-        if not entry or entry.load_more then
-          return
-        end
-        ops.ci_watch(f, entry.value)
       end,
     },
     {

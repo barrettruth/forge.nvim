@@ -766,10 +766,8 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
   end)
 
-  it('dispatches CI open, log, and watch subcommands through forge.ops', function()
+  it('dispatches CI open through forge.ops', function()
     vim.cmd('Forge ci open 123 repo=upstream')
-    vim.cmd('Forge ci log 456')
-    vim.cmd('Forge ci watch 789')
 
     assert.same({
       name = 'ci_open',
@@ -786,14 +784,6 @@ describe(':Forge command', function()
         },
       },
     }, captured.ops_calls[1])
-    assert.same({
-      name = 'ci_log',
-      run = { id = '456', scope = nil },
-    }, captured.ops_calls[2])
-    assert.same({
-      name = 'ci_watch',
-      run = { id = '789', scope = nil },
-    }, captured.ops_calls[3])
   end)
 
   it('dispatches refresh verbs to forge.clear_list_kind per family', function()
@@ -830,9 +820,10 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'refresh'))
     assert.is_false(vim.tbl_contains(pr, 'ci'))
     assert.is_true(vim.tbl_contains(ci, 'open'))
-    assert.is_true(vim.tbl_contains(ci, 'log'))
-    assert.is_true(vim.tbl_contains(ci, 'watch'))
+    assert.is_true(vim.tbl_contains(ci, 'browse'))
     assert.is_true(vim.tbl_contains(ci, 'refresh'))
+    assert.is_false(vim.tbl_contains(ci, 'log'))
+    assert.is_false(vim.tbl_contains(ci, 'watch'))
     assert.is_false(vim.tbl_contains(pr, 'state='))
     assert.is_false(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(issue, 'edit'))

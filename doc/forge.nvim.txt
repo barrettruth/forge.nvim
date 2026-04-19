@@ -446,17 +446,9 @@ CI COMMANDS                                            *forge-ci-commands*
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
     Open the primary local run view for CI run `{run-id}`. Active runs
     use the forge's watch/follow surface when available; otherwise Forge
-    falls back to the standard log/summary view.
-
-`:Forge ci log` {run-id} [repo=...]                            *:Forge-ci-log*
-    Open the primary run view for CI run `{run-id}`. On GitHub this uses a
-    normal-mode terminal with contextual `gx` and `<cr>` on job/step lines.
-
-`:Forge ci watch` {run-id} [repo=...]                        *:Forge-ci-watch*
-    Open the forge's live watch view for CI run `{run-id}` when
-    supported. On GitHub, `<cr>` on a job or step during an active watch
-    opens a refreshing per-job log because `gh` only supports live watch at
-    the run level.
+    falls back to the standard log/summary view. On GitHub, `<cr>` on a
+    job or step during an active watch opens a refreshing per-job log
+    because `gh` only supports live watch at the run level.
 
 `:Forge ci browse` [{run-id}] [repo=...]                    *:Forge-ci-browse*
     Open CI run `{run-id}` in the browser, or the CI list landing page
@@ -736,7 +728,7 @@ nested pickers and help docs carry the workflow detail.
 CLI parity: ~
 - Explicit forge actions exposed in pickers are also available through
   `:Forge` when they can be addressed directly: create, edit, browse, close,
-  reopen, checkout, worktree, approve, merge, draft/ready, CI log/watch, and
+  reopen, checkout, worktree, approve, merge, draft/ready, CI open, and
   release browse/delete.
 - Picker-only actions are the list workflow itself and row-scoped helpers such
   as filter/refresh/load more, nested per-PR checks, and copy-to-clipboard
@@ -1330,7 +1322,6 @@ do not need a picker, call `require('forge.ops')` directly. This is the layer
     ops.pr_checkout(f, { num = '42' })
     ops.pr_worktree(f, { num = '42' })
     ops.ci_open(f, { id = '987654321' })
-    ops.ci_log(f, { id = '987654321' })
     ops.browse_commit({ commit = 'abc1234' })
     ops.browse_branch('main')
 <
@@ -1713,17 +1704,11 @@ a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
 
                                                          *forge.ops.ci_open()*
 `ci_open(f, run)`
-    Opens the primary local CI view for `run`. Active runs use watch when
-    available; completed or unsupported runs fall back to `ci_log()`.
-
-                                                          *forge.ops.ci_log()*
-`ci_log(f, run)`
-    Opens the log view for run `run` (terminal on GitHub, log buffer on
-    GitLab/Codeberg).
-
-                                                        *forge.ops.ci_watch()*
-`ci_watch(f, run)`
-    Opens a watch terminal for an in-progress run.
+    Opens the primary local CI view for `run`. Active runs use the live
+    watch surface when the backend supports it; completed or unsupported
+    runs fall back to the log/summary view. Backend-specific log and
+    watch dispatch is handled internally and is not part of the public
+    API.
 
                                                        *forge.ops.ci_browse()*
 `ci_browse(f, run)`

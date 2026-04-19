@@ -429,7 +429,7 @@ describe('shared operations', function()
 
   it('opens GitHub CI run views in a terminal buffer', function()
     local ops = require('forge.ops')
-    ops.ci_log({
+    ops.ci_open({
       name = 'github',
       view_cmd = function(_, run_id, opts)
         return { 'view', run_id, opts and opts.scope or 'none' }
@@ -470,7 +470,7 @@ describe('shared operations', function()
 
   it('gives GitHub CI watch the same contextual terminal actions', function()
     local ops = require('forge.ops')
-    ops.ci_watch({
+    ops.ci_open({
       name = 'github',
       watch_cmd = function(_, run_id, scope)
         return { 'watch', run_id, scope or 'none' }
@@ -575,7 +575,7 @@ describe('shared operations', function()
 
   it('falls back to JSON CI summaries when no run view is available', function()
     local ops = require('forge.ops')
-    ops.ci_log({
+    ops.ci_open({
       name = 'custom',
       summary_json_cmd = function(_, run_id, scope)
         return { 'summary', run_id, scope or 'none' }
@@ -610,7 +610,7 @@ describe('shared operations', function()
 
   it('opens CI logs and watches through the shared operations', function()
     local ops = require('forge.ops')
-    ops.ci_log({
+    ops.ci_open({
       name = 'gitlab',
       run_log_cmd = function(_, run_id, failed, scope)
         return { 'run-log', run_id, tostring(failed), scope or 'none' }
@@ -633,7 +633,7 @@ describe('shared operations', function()
       status = 'failed',
       scope = 'repo/ref',
     })
-    local watched = ops.ci_watch({
+    ops.ci_open({
       run_web_url = function(_, run_id, scope)
         return ('https://example.com/runs/%s/%s'):format(run_id, scope or 'none')
       end,
@@ -642,6 +642,7 @@ describe('shared operations', function()
       end,
     }, {
       id = '88',
+      status = 'running',
       scope = 'repo/ref',
     })
 
@@ -655,7 +656,6 @@ describe('shared operations', function()
       in_progress = false,
       status_cmd = { 'status', '88', 'repo/ref' },
     }, captured.logs[1].opts)
-    assert.is_true(watched)
     assert.same({ 'watch', '88', 'repo/ref' }, captured.terms[1].cmd)
     assert.same({ url = 'https://example.com/runs/88/repo/ref' }, captured.terms[1].opts)
   end)

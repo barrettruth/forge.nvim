@@ -380,7 +380,7 @@ end
 
 ---@param f forge.Forge
 ---@param run forge.RunRefLike
-function M.ci_log(f, run)
+local function ci_log(f, run)
   run = normalize_run_ref(run)
   local run_ref = run.scope
   local status = trim(run.status):lower()
@@ -490,7 +490,7 @@ end
 ---@param f forge.Forge
 ---@param run forge.RunRefLike
 ---@return boolean
-function M.ci_watch(f, run)
+local function ci_watch(f, run)
   run = normalize_run_ref(run)
   if not f.watch_cmd then
     return false
@@ -520,10 +520,10 @@ end
 ---@param run forge.RunRefLike
 function M.ci_open(f, run)
   run = normalize_run_ref(run)
-  if run_in_progress(run.status) and M.ci_watch(f, run) then
+  if run_in_progress(run.status) and ci_watch(f, run) then
     return
   end
-  M.ci_log(f, run)
+  ci_log(f, run)
 end
 
 ---@param f forge.Forge
