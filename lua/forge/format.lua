@@ -209,7 +209,6 @@ end
 local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
   local display = require('forge.config').config().display
   local icons = display.icons
-  local widths = display.widths
   local numbers = {}
   local titles = {}
   local authors = {}
@@ -220,8 +219,8 @@ local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
     authors[#authors + 1] = M.extract_author(entry, fields.author)
     ages[#ages + 1] = M.relative_time(entry[fields.created_at])
   end
-  local title_pref, title_max = elastic_width(widths.title, titles, 12)
-  local author_pref, author_max = elastic_width(widths.author, authors, 6)
+  local title_pref, title_max = elastic_width(45, titles, 12)
+  local author_pref, author_max = elastic_width(15, authors, 6)
   local plan = layout.plan({
     width = opts and opts.width or layout.picker_width(),
     columns = {
@@ -290,14 +289,13 @@ end
 function M.format_checks(checks, opts)
   local display = require('forge.config').config().display
   local icons = display.icons
-  local widths = display.widths
   local names = {}
   local elapsed = {}
   for _, check in ipairs(checks) do
     names[#names + 1] = check.name or ''
     elapsed[#elapsed + 1] = elapsed_for(check)
   end
-  local name_pref, name_max = elastic_width(widths.name, names, 18, { max_quantile = 1 })
+  local name_pref, name_max = elastic_width(35, names, 18, { max_quantile = 1 })
   local plan = layout.plan({
     width = opts and opts.width or layout.picker_width(),
     columns = {
@@ -338,7 +336,6 @@ end
 function M.format_runs(runs, opts)
   local display = require('forge.config').config().display
   local icons = display.icons
-  local widths = display.widths
   local names = {}
   local branches = {}
   local events = {}
@@ -349,8 +346,8 @@ function M.format_runs(runs, opts)
     events[#events + 1] = M.abbreviate_event(run.event)
     ages[#ages + 1] = M.relative_time(run.created_at)
   end
-  local name_pref, name_max = elastic_width(widths.name, names, 10)
-  local branch_pref, branch_max = elastic_width(widths.branch, branches, 8)
+  local name_pref, name_max = elastic_width(35, names, 10)
+  local branch_pref, branch_max = elastic_width(25, branches, 8)
   local plan = layout.plan({
     width = opts and opts.width or layout.picker_width(),
     columns = {
@@ -415,7 +412,6 @@ end
 function M.format_releases(entries, fields, opts)
   local display = require('forge.config').config().display
   local icons = display.icons
-  local widths = display.widths
   local tags = {}
   local titles = {}
   local ages = {}
@@ -433,7 +429,7 @@ function M.format_releases(entries, fields, opts)
     }
   end
   local tag_pref, tag_max = elastic_width(20, tags, 6)
-  local title_pref, title_max = elastic_width(widths.title, titles, 10)
+  local title_pref, title_max = elastic_width(45, titles, 10)
   local plan = layout.plan({
     width = opts and opts.width or layout.picker_width(),
     columns = {

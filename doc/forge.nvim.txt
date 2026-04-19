@@ -5,7 +5,7 @@ CONTENTS                                                 *forge.nvim-contents*
     INTRODUCTION..............................................|forge.nvim| |forge|
 
     CONFIGURATION...................................................|forge-config|
-    Top-level options.......................................|forge-config-picker|
+    Top-level options......................................|forge-config-context|
     Picker keys...............................................|forge-config-keys|
     Display settings......................................|forge-config-display|
 
@@ -72,17 +72,6 @@ unset keys use defaults. >lua
 <
 
 Top-level keys: ~
-
-`picker`                                                 *forge-config-picker*
-  `string`  (default `"auto"`)
-    Picker backend to use for interactive picker workflows. One of `"auto"`
-    or `"fzf-lua"`. When `"auto"`, forge.nvim tries fzf-lua.
-
-`client`                                                 *forge-config-client*
-  `string`  (default `"picker"`)
-    Root workflow surface client. The default `"picker"` client opens the
-    built-in root picker. Custom clients can replace the root surface via
-    `require('forge').register_client()`.
 
 `context`                                               *forge-config-context*
   `string`  (default `"current"`)
@@ -195,7 +184,6 @@ Top-level keys: ~
 
   Defaults: >lua
       keys = {
-        back = '<c-o>',
         pr = {
           worktree = '<c-w>',
           ci = '<c-t>',
@@ -211,19 +199,14 @@ Top-level keys: ~
         },
         issue = {
           browse = '<c-x>',
-          toggle = '<c-s>',
           edit = '<c-e>',
-          approve = '<c-a>',
-          merge = '<c-g>',
-          create = '<c-n>',
-          draft = '<c-d>',
+          toggle = '<c-s>',
+          create = '<c-a>',
           filter = '<tab>',
           refresh = '<c-r>',
         },
         ci = {
           open = '<cr>',
-          log = '<c-l>',
-          watch = '<c-w>',
           browse = '<c-x>',
           toggle = '<c-s>',
           filter = '<tab>',
@@ -237,20 +220,12 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         log = {
-          close = 'q',
           next_step = ']]',
           prev_step = '[[',
-          next_error = ']e',
-          prev_error = '[e',
-          browse = 'gx',
           refresh = '<c-r>',
         },
       }
 <
-
-  `keys.back`
-    Return to the parent picker when available. This action is active only on
-    nested pickers and is not shown in header hints.
 
   `keys.pr` supports secondary bindings for `worktree`, `ci`, `browse`,
   `edit`, `approve`, `merge`, `create`, `toggle`, `draft`, and `refresh`.
@@ -260,9 +235,11 @@ Top-level keys: ~
   cycling, and `refresh`. The primary CI action remains `<cr>` open.
 
   Additional picker groups:
-    `keys.log` supports `browse` across CI terminal/log views, plus
-    step/error navigation and `refresh` for Forge-managed CI log and
-    summary buffers. Closing those views with `q` is hardcoded.
+    `keys.log` supports step navigation (`]]`/`[[`) and `refresh` for
+    Forge-managed CI log and summary buffers. Closing those views with
+    `q`, jumping between errors with `]d`/`[d`, following a URL with
+    `gx`, and returning to the parent picker with `<c-o>` are all
+    hardcoded.
 
 `display`                                               *forge-config-display*
   Controls icons, column widths, and fetch limits used in picker
@@ -283,17 +260,6 @@ Top-level keys: ~
     `pending`     `"~"`       In-progress checks/runs
     `skip`        `"s"`       Skipped/cancelled runs
     `unknown`     `"?"`       Unknown status
-
-  `display.widths`                               *forge-config-display-widths*
-    `table`  Preferred starting widths (characters) for adaptive picker
-             columns. Forge expands useful columns when space allows and
-             compacts or hides lower-priority metadata in narrower layouts.
-
-    Key         Default ~
-    `title`       `45`
-    `author`      `15`
-    `name`        `35`
-    `branch`      `25`
 
   `display.limits`                               *forge-config-display-limits*
     `table`  Maximum items fetched per list API call. Repo CI runs use the
@@ -1266,8 +1232,7 @@ resolution, scope detection, and forge dispatch behind a single string. Verbs
 are the layer `:Forge` and the built-in pickers both call into, so binding a
 verb to your own keymap or picker row gets exactly the behavior a `:Forge`
 invocation would. The picker primitive is the same call the built-in pickers
-use; it is backend-agnostic and forwards to the adapter configured under
-|forge-config-picker|.
+use; it is wired to `fzf-lua`.
 
 CALLING FORGE FROM YOUR OWN PICKER             *forge-extending-custom-picker*
 
@@ -1407,10 +1372,6 @@ SHARED OPERATIONS: `require('forge.ops')` ~
                                                      *forge.register_source()*
 `register_source(name, source)`
     Alias for `register(name, source)`.
-
-                                                     *forge.register_client()*
-`register_client(name, client)`
-    Registers a custom root workflow surface client under `name`.
 
                                            *forge.register_context_provider()*
 `register_context_provider(name, provider)`
@@ -1777,8 +1738,7 @@ a bare id (`num`, `id`, or `tag`) or a normalized table with `scope` and
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 
-The picker primitive. Forwards to the adapter configured under
-|forge-config-picker| (currently only `fzf-lua`).
+The picker primitive. Wired to `fzf-lua`.
 
                                                          *forge.picker.pick()*
 `pick(opts)`
@@ -1790,8 +1750,8 @@ The picker primitive. Forwards to the adapter configured under
       `entries`      `forge.PickerEntry[]`    See below.
       `actions`      `forge.PickerActionDef[]` See below.
       `back`         `fun()?`                 Optional callback invoked when
-                                              the back key (`keys.back`) is
-                                              pressed on a nested picker.
+                                              the hardcoded back key (`<c-o>`)
+                                              is pressed on a nested picker.
       `entry_source` `fun(): entries?`        Optional entry refresh
                                               callback. Enables live width
                                               and re-entry.

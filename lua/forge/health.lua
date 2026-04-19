@@ -22,17 +22,10 @@ function M.check()
     end
   end
 
-  local picker_mod = require('forge.picker')
-  local backend = picker_mod.backend()
-  local found_any = false
-  for _, name in ipairs(picker_mod.detect_order) do
-    if pcall(require, name) then
-      local suffix = backend == name and ' (active)' or ''
-      vim.health.ok(name .. ' found' .. suffix .. ' (interactive picker UI enabled)')
-      found_any = true
-    end
-  end
-  if not found_any then
+  local ok = pcall(require, 'fzf-lua')
+  if ok then
+    vim.health.ok('fzf-lua found (interactive picker UI enabled)')
+  else
     vim.health.warn(
       'fzf-lua not found (interactive picker UI disabled; direct :Forge commands still available)'
     )

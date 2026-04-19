@@ -35,9 +35,6 @@ describe('picker session', function()
 
     package.preload['forge.picker'] = function()
       return {
-        backend = function()
-          return captured.backend or 'plain'
-        end,
         pick = function(opts)
           captured.picker = opts
         end,
@@ -193,7 +190,6 @@ describe('picker session', function()
     local emitted = {}
     local opened = 0
     local fetched = 0
-    captured.backend = 'fzf-lua'
 
     session.pick_json({
       key = 'prs.open',
@@ -246,12 +242,10 @@ describe('picker session', function()
     })
   end)
 
-  it('emits an error entry for streamed failures and opens directly for non-fzf success', function()
+  it('emits an error entry for streamed failures', function()
     local session = require('forge.picker.session')
     local emitted = {}
-    local opened
 
-    captured.backend = 'fzf-lua'
     session.pick_json({
       key = 'prs.open',
       cmd = { 'prs', 'open' },
@@ -263,9 +257,7 @@ describe('picker session', function()
       error_entry = function(result)
         return { display = { { result.stderr } }, value = false }
       end,
-      open = function(data)
-        opened = data
-      end,
+      open = function() end,
     })
 
     captured.picker.stream(function(entry)
@@ -284,29 +276,11 @@ describe('picker session', function()
       emitted[1],
       emitted[2] == nil and vim.NIL or emitted[2],
     })
-
-    captured.backend = 'plain'
-    session.pick_json({
-      key = 'issues.open',
-      cmd = { 'issues', 'open' },
-      open = function(data)
-        opened = data
-      end,
-    })
-
-    captured.callbacks[2]({
-      code = 0,
-      stdout = '[{"number":7}]',
-      stderr = '',
-    })
-
-    assert.same({ { number = 7 } }, opened)
   end)
 
   it('emits only a terminator for stale streamed requests', function()
     local session = require('forge.picker.session')
     local emitted = {}
-    captured.backend = 'fzf-lua'
 
     session.pick_json({
       key = 'prs.open',

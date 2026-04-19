@@ -152,21 +152,16 @@ function M.pick_json(opts)
     return
   end
 
-  if picker.backend() == 'fzf-lua' then
-    picker.pick({
-      prompt = resolve(opts.loading_prompt) or '',
-      entries = {},
-      actions = opts.actions,
-      picker_name = opts.picker_name,
-      back = opts.back,
-      stream = opts.stream or function(emit)
-        request(emit)
-      end,
-    })
-    return
-  end
-
-  request(nil)
+  picker.pick({
+    prompt = resolve(opts.loading_prompt) or '',
+    entries = {},
+    actions = opts.actions,
+    picker_name = opts.picker_name,
+    back = opts.back,
+    stream = opts.stream or function(emit)
+      request(emit)
+    end,
+  })
 end
 
 return M

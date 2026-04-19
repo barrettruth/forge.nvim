@@ -265,7 +265,7 @@ function M.pick(opts)
     end
   end
 
-  if opts.back and keys.back then
+  if opts.back then
     actions[#actions + 1] = {
       name = 'back',
       reload = false,
@@ -343,7 +343,7 @@ function M.pick(opts)
   local fzf_actions = {}
   for _, def in ipairs(actions) do
     local key = def.name == 'default' and '<cr>'
-      or def.name == 'back' and keys.back
+      or def.name == 'back' and '<c-o>'
       or bindings[def.name]
     if key then
       local reloads = action_reloads(def)

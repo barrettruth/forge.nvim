@@ -23,7 +23,6 @@ describe('route config', function()
   it('returns route foundation defaults', function()
     vim.g.forge = nil
     local cfg = forge.config()
-    assert.equals('picker', cfg.client)
     assert.equals('current', cfg.context)
     assert.is_true(cfg.sections.prs)
     assert.is_true(cfg.sections.issues)
@@ -40,7 +39,6 @@ describe('route config', function()
 
   it('deep-merges route defaults and section toggles', function()
     vim.g.forge = {
-      client = 'custom',
       context = 'workspace',
       sections = {
         issues = false,
@@ -55,7 +53,6 @@ describe('route config', function()
       },
     }
     local cfg = forge.config()
-    assert.equals('custom', cfg.client)
     assert.equals('workspace', cfg.context)
     assert.equals('prs.closed', cfg.routes.prs)
     assert.equals('browse.branch', cfg.routes.browse)

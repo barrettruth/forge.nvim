@@ -29,12 +29,6 @@ local M = {}
 ---@field back fun()?
 ---@field stream? fun(emit: fun(entry: forge.PickerEntry?))
 
-M.backends = {
-  ['fzf-lua'] = 'forge.picker.fzf',
-}
-
-M.detect_order = { 'fzf-lua' }
-
 local root_search_terms = {
   ['prs.all'] = { 'prs', 'pull', 'requests', 'reviews' },
   ['prs.open'] = { 'prs', 'pull', 'requests', 'reviews' },
@@ -121,21 +115,6 @@ M.search_keys = {
   end,
 }
 
----@return string
-local function detect()
-  local cfg = require('forge').config()
-  local name = cfg.picker or 'auto'
-  if name ~= 'auto' then
-    return name
-  end
-  for _, backend in ipairs(M.detect_order) do
-    if pcall(require, backend) then
-      return backend
-    end
-  end
-  return M.detect_order[1]
-end
-
 ---@param entry forge.PickerEntry
 ---@return string
 function M.ordinal(entry)
@@ -154,11 +133,6 @@ function M.search_key(picker_name, entry)
     return builder(entry)
   end
   return M.ordinal(entry)
-end
-
----@return string
-function M.backend()
-  return detect()
 end
 
 ---@param entry forge.PickerEntry?
@@ -311,18 +285,7 @@ end
 
 ---@param opts forge.PickerOpts
 function M.pick(opts)
-  local name = detect()
-  local mod_path = M.backends[name]
-  if not mod_path then
-    require('forge.logger').error('unknown picker backend: ' .. name)
-    return
-  end
-  local ok, backend = pcall(require, mod_path)
-  if not ok then
-    require('forge.logger').error('picker backend ' .. name .. ' not available')
-    return
-  end
-  backend.pick(opts)
+  require('forge.picker.fzf').pick(opts)
 end
 
 return M
