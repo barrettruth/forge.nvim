@@ -58,6 +58,7 @@
 ---@class forge.PRDetails
 ---@field title string
 ---@field body string
+---@field url string?
 ---@field draft boolean?
 ---@field head_branch string
 ---@field base_branch string
@@ -112,6 +113,17 @@
 ---@field template string?
 ---@field back fun()?
 ---@field scope forge.Scope?
+
+---@class forge.ReviewContext
+---@field forge forge.Forge
+---@field pr forge.PRRef
+---@field adapter string
+---@field opts table
+---@field details fun(): forge.PRDetails?, string?
+
+---@class forge.ReviewAdapter
+---@field label string|fun(ctx: forge.ReviewContext): string?
+---@field open fun(ctx: forge.ReviewContext)
 
 ---@class forge.PRState
 ---@field state string

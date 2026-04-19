@@ -69,6 +69,7 @@ describe('command schema', function()
   it('lists canonical and local command families in order', function()
     assert.same({
       'pr',
+      'review',
       'issue',
       'ci',
       'release',
@@ -82,6 +83,7 @@ describe('command schema', function()
     local issue = cmd.resolve('issue')
     local ci = cmd.resolve('ci')
     local release = cmd.resolve('release')
+    local review = cmd.resolve('review')
     local browse = cmd.resolve('browse')
     local clear = cmd.resolve('clear')
 
@@ -89,6 +91,8 @@ describe('command schema', function()
     assert.is_nil(issue)
     assert.is_nil(ci)
     assert.is_nil(release)
+    assert.equals('open', review.name)
+    assert.is_true(review.implicit)
     assert.equals('open', browse.name)
     assert.is_true(browse.implicit)
     assert.equals('run', clear.name)
@@ -98,8 +102,13 @@ describe('command schema', function()
   it('rejects implicit picker forms and parses explicit direct actions', function()
     local create = assert(cmd.parse({ 'pr', 'create', 'draft' }))
     local open = assert(cmd.parse({ 'ci', 'open', '123' }))
+    local review = assert(cmd.parse({ 'review', '42' }))
     local _, pr_missing = cmd.parse({ 'pr' })
     local _, ci_missing = cmd.parse({ 'ci' })
+    local _, review_missing = cmd.parse({ 'review' })
+    local _, pr_checkout = cmd.parse({ 'pr', 'checkout', '42' })
+    local _, pr_worktree = cmd.parse({ 'pr', 'worktree', '42' })
+    local _, pr_browse = cmd.parse({ 'pr', 'browse' })
     local _, pr_list = cmd.parse({ 'pr', 'list' })
     local _, pr_ci = cmd.parse({ 'pr', 'ci', '42' })
     local _, ci_log = cmd.parse({ 'ci', 'log', '123' })
@@ -113,8 +122,16 @@ describe('command schema', function()
     assert.equals('open', open.name)
     assert.same({ '123' }, open.subjects)
 
+    assert.equals('review', review.family)
+    assert.equals('open', review.name)
+    assert.same({ '42' }, review.subjects)
+
     assert.equals('missing action', pr_missing.message)
     assert.equals('missing action', ci_missing.message)
+    assert.equals('missing PR number', review_missing.message)
+    assert.equals('unknown pr action: checkout', pr_checkout.message)
+    assert.equals('unknown pr action: worktree', pr_worktree.message)
+    assert.equals('unknown pr action: browse', pr_browse.message)
     assert.equals('unknown pr action: list', pr_list.message)
     assert.equals('unknown pr action: ci', pr_ci.message)
     assert.equals('unknown action: log', ci_log.message)
@@ -122,13 +139,10 @@ describe('command schema', function()
   end)
 
   it('accepts argless browse for kind families that have a list landing page', function()
-    local pr = assert(cmd.parse({ 'pr', 'browse' }))
     local issue = assert(cmd.parse({ 'issue', 'browse' }))
     local ci = assert(cmd.parse({ 'ci', 'browse' }))
     local release = assert(cmd.parse({ 'release', 'browse' }))
 
-    assert.equals('browse', pr.name)
-    assert.same({}, pr.subjects)
     assert.equals('browse', issue.name)
     assert.same({}, issue.subjects)
     assert.equals('browse', ci.name)
@@ -136,10 +150,8 @@ describe('command schema', function()
     assert.equals('browse', release.name)
     assert.same({}, release.subjects)
 
-    local pr_with = assert(cmd.parse({ 'pr', 'browse', '42' }))
     local ci_with = assert(cmd.parse({ 'ci', 'browse', '123' }))
     local release_with = assert(cmd.parse({ 'release', 'browse', 'v1.2.3' }))
-    assert.same({ '42' }, pr_with.subjects)
     assert.same({ '123' }, ci_with.subjects)
     assert.same({ 'v1.2.3' }, release_with.subjects)
   end)
@@ -184,13 +196,11 @@ describe('command schema', function()
     assert.same({ 'repo' }, cmd.modifier_names('ci', 'browse'))
     assert.same({ 'repo', 'web', 'blank', 'template' }, cmd.modifier_names('issue', 'create'))
     assert.same({ 'repo', 'method' }, cmd.modifier_names('pr', 'merge'))
+    assert.same({ 'repo', 'adapter' }, cmd.modifier_names('review'))
   end)
 
-  it('keeps direct forge verbs aligned with non-list picker actions', function()
+  it('keeps direct forge verbs aligned with canonical non-list operations', function()
     assert.same({
-      'checkout',
-      'worktree',
-      'browse',
       'close',
       'reopen',
       'create',
@@ -202,6 +212,7 @@ describe('command schema', function()
       'refresh',
     }, cmd.verb_names('pr'))
 
+    assert.same({ 'open' }, cmd.verb_names('review'))
     assert.same(
       { 'browse', 'close', 'reopen', 'create', 'edit', 'refresh' },
       cmd.verb_names('issue')
@@ -250,7 +261,7 @@ describe('command schema', function()
   end)
 
   it('rejects invalid modifiers and duplicate modifiers', function()
-    local _, unknown = cmd.parse({ 'pr', 'checkout', '42', '--wat=1' })
+    local _, unknown = cmd.parse({ 'review', '42', '--wat=1' })
     local _, duplicate = cmd.parse({ 'pr', 'create', 'repo=origin', 'repo=upstream' })
 
     assert.equals('unknown modifier: wat', unknown.message)

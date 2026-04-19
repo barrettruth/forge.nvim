@@ -163,14 +163,8 @@ end
 ---@return table<string, function>
 local function pr_action_fns(f, pr)
   return {
-    checkout = function()
-      ops.pr_checkout(f, pr)
-    end,
-    browse = function()
-      ops.pr_browse(f, pr)
-    end,
-    worktree = function()
-      ops.pr_worktree(f, pr)
+    review = function()
+      ops.pr_review(f, pr)
     end,
     ci = function(opts)
       ops.pr_ci(f, pr, opts)
@@ -878,7 +872,7 @@ function M.pr(state, f, opts)
         if load_more_row(entry) then
           return 'load more'
         end
-        return 'checkout'
+        return require('forge.review').label()
       end,
       available = pr_load_more_or_entity,
       fn = function(entry)
@@ -886,18 +880,7 @@ function M.pr(state, f, opts)
           current_limit = entry.next_limit
           prs_stale = true
         elseif entry then
-          pr_action_fns(f, entry.value).checkout()
-        end
-      end,
-    },
-    {
-      name = 'worktree',
-      label = 'worktree',
-      close = false,
-      available = pr_entity_only,
-      fn = function(entry)
-        if entry and not entry.load_more then
-          pr_action_fns(f, entry.value).worktree()
+          pr_action_fns(f, entry.value).review()
         end
       end,
     },
@@ -909,17 +892,6 @@ function M.pr(state, f, opts)
       fn = function(entry)
         if entry and not entry.load_more then
           pr_action_fns(f, entry.value).ci({ back = back_to_list })
-        end
-      end,
-    },
-    {
-      name = 'browse',
-      label = 'web',
-      close = false,
-      available = pr_entity_only,
-      fn = function(entry)
-        if entry and not entry.load_more then
-          ops.pr_browse(f, entry.value)
         end
       end,
     },

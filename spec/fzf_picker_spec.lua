@@ -122,7 +122,7 @@ describe('fzf picker', function()
         },
       },
       actions = {},
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -143,7 +143,7 @@ describe('fzf picker', function()
         },
       },
       actions = {},
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -169,7 +169,7 @@ describe('fzf picker', function()
         { name = 'browse', label = 'browse', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -201,7 +201,7 @@ describe('fzf picker', function()
         { name = 'browse', label = 'browse', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -231,7 +231,7 @@ describe('fzf picker', function()
         { name = 'browse', label = 'browse', fn = function() end },
         { name = 'filter', label = 'filter', fn = function() end },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -309,7 +309,7 @@ describe('fzf picker', function()
           fn = function() end,
         },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -381,7 +381,7 @@ describe('fzf picker', function()
           end,
         },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -721,7 +721,7 @@ describe('fzf picker', function()
           end,
         },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -749,7 +749,7 @@ describe('fzf picker', function()
           end,
         },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)
@@ -874,7 +874,7 @@ describe('fzf picker', function()
           fn = function() end,
         },
       },
-      picker_name = 'pr',
+      picker_name = 'issue',
     })
 
     assert.is_not_nil(captured)

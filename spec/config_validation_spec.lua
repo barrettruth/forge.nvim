@@ -60,11 +60,11 @@ describe('config validation', function()
 
   it('rejects malformed key notation strings', function()
     assert.matches(
-      'forge%.keys%.pr%.browse',
+      'forge%.keys%.pr%.edit',
       config_error({
         keys = {
           pr = {
-            browse = '<not-a-real-key>',
+            edit = '<not-a-real-key>',
           },
         },
       })
@@ -86,7 +86,7 @@ describe('config validation', function()
     vim.g.forge = {
       keys = {
         pr = {
-          browse = '<c-x>',
+          edit = '<c-e>',
         },
         log = {
           refresh = '<leader>r',
@@ -96,8 +96,20 @@ describe('config validation', function()
 
     local cfg = config.config()
 
-    assert.equals('<c-x>', cfg.keys.pr.browse)
+    assert.equals('<c-e>', cfg.keys.pr.edit)
     assert.equals('<leader>r', cfg.keys.log.refresh)
+  end)
+
+  it('accepts a non-empty review adapter name', function()
+    vim.g.forge = {
+      review = {
+        adapter = 'worktree',
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.equals('worktree', cfg.review.adapter)
   end)
 
   it('rejects blank source hosts and non-list host tables', function()

@@ -10,6 +10,7 @@ local modifiers = {
   target = { kind = 'value', target = 'location' },
   head = { kind = 'value', target = 'rev' },
   base = { kind = 'value', target = 'rev' },
+  adapter = { kind = 'value' },
   method = { kind = 'value', values = { 'merge', 'squash', 'rebase' } },
   all = { kind = 'flag' },
   draft = { kind = 'flag' },
@@ -33,9 +34,6 @@ local families = {
     name = 'pr',
     surface = 'forge',
     verb_order = {
-      'checkout',
-      'worktree',
-      'browse',
       'close',
       'reopen',
       'create',
@@ -47,18 +45,6 @@ local families = {
       'refresh',
     },
     verbs = {
-      checkout = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
-      },
-      worktree = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
-      },
-      browse = {
-        subject = { kind = 'pr', min = 0, max = 1 },
-        modifiers = { 'repo' },
-      },
       close = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -94,6 +80,18 @@ local families = {
       refresh = {
         subject = { min = 0, max = 0 },
         modifiers = { 'repo' },
+      },
+    },
+  },
+  {
+    name = 'review',
+    surface = 'forge',
+    default_verb = 'open',
+    verb_order = { 'open' },
+    verbs = {
+      open = {
+        subject = { kind = 'pr', min = 1, max = 1 },
+        modifiers = { 'repo', 'adapter' },
       },
     },
   },
@@ -233,6 +231,9 @@ local function subject_error(family, verb, missing)
   if family == 'issue' then
     return missing and 'missing issue number' or 'too many arguments'
   end
+  if family == 'review' then
+    return missing and 'missing PR number' or 'too many arguments'
+  end
   if family == 'release' then
     return missing and 'missing release tag' or 'too many arguments'
   end
@@ -252,6 +253,9 @@ local function unknown_verb_error(family, verb)
   end
   if family == 'issue' then
     return 'unknown issue action: ' .. verb
+  end
+  if family == 'review' then
+    return 'unknown review action: ' .. verb
   end
   if family == 'release' then
     return 'unknown release action: ' .. verb
@@ -412,22 +416,6 @@ local function dispatch_pr(command)
     ops.pr_edit({ num = num, scope = scope })
     return
   end
-  if command.name == 'checkout' then
-    ops.pr_checkout(f, { num = num, scope = scope })
-    return
-  end
-  if command.name == 'worktree' then
-    ops.pr_worktree(f, { num = num, scope = scope })
-    return
-  end
-  if command.name == 'browse' then
-    if num then
-      ops.pr_browse(f, { num = num, scope = scope })
-    else
-      ops.list_browse(f, 'pr', { scope = scope })
-    end
-    return
-  end
   if command.name == 'approve' then
     ops.pr_approve(f, { num = num, scope = scope })
     return
@@ -458,6 +446,21 @@ local function dispatch_pr(command)
     return
   end
   warn(('unsupported pr action: %s'):format(command.name))
+end
+
+local function dispatch_review(command)
+  if not require_git_or_warn() then
+    return
+  end
+  local f = require_forge_or_warn()
+  if not f then
+    return
+  end
+  local num = command.subjects[1]
+  local scope = resolve_scope_modifier(command, f.name)
+  ops.pr_review(f, { num = num, scope = scope }, {
+    adapter = command.modifiers.adapter ~= true and command.modifiers.adapter or nil,
+  })
 end
 
 local function dispatch_issue(command)
@@ -600,6 +603,7 @@ end
 
 local dispatchers = {
   pr = dispatch_pr,
+  review = dispatch_review,
   issue = dispatch_issue,
   ci = dispatch_ci,
   release = dispatch_release,
@@ -1358,6 +1362,9 @@ local function completion_values(family_name, verb_name, flag_name, prefix)
   end
   if flag_name == 'template' then
     return filter(require('forge').template_slugs(), prefix or '')
+  end
+  if flag_name == 'adapter' then
+    return filter(require('forge').review_adapter_names(), prefix or '')
   end
   if command.modifier_values and command.modifier_values[flag_name] then
     return filter(command.modifier_values[flag_name], prefix or '')

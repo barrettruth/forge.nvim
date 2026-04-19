@@ -7,8 +7,9 @@ without leaving your editor.
 
 ## Features
 
-- Pull request workflows: list, create, checkout, edit, worktree, merge,
-  approve, draft/ready
+- Pull request workflows: list, create, review via configurable adapters
+  (`checkout`, `worktree`, or custom integrations), edit, merge, approve,
+  draft/ready
 - Issue workflows: list, create, edit, browse, close/reopen
 - CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
 - Forge web browsing and file/line permalinks

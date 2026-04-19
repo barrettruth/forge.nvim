@@ -43,10 +43,12 @@ describe('config', function()
     vim.g.forge = {
       ci = { lines = 500 },
       display = { icons = { open = '>' } },
+      review = { adapter = 'worktree' },
     }
     local cfg = forge.config()
     assert.equals(500, cfg.ci.lines)
     assert.equals('>', cfg.display.icons.open)
+    assert.equals('worktree', cfg.review.adapter)
     assert.equals('m', cfg.display.icons.merged)
     assert.equals(100, cfg.display.limits.pulls)
   end)
