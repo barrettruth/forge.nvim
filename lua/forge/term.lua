@@ -17,7 +17,7 @@ function M.open(cmd, opts)
   vim.cmd(prefix .. ' new')
   local buf = vim.api.nvim_get_current_buf()
   vim.fn.termopen(cmd)
-  if opts.startinsert ~= false then
+  if opts.startinsert == true then
     vim.cmd('startinsert')
   end
 
@@ -38,11 +38,9 @@ function M.open(cmd, opts)
       opts.enter_fn(buf)
     end, { buffer = buf, desc = 'Open' })
   end
-  if keys.close ~= false then
-    vim.keymap.set('n', keys.close or 'q', function()
-      vim.api.nvim_buf_delete(buf, { force = true })
-    end, { buffer = buf, desc = 'Close' })
-  end
+  vim.keymap.set('n', 'q', function()
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end, { buffer = buf, desc = 'Close' })
 end
 
 return M

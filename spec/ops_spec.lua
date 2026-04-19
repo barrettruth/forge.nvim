@@ -464,7 +464,6 @@ describe('shared operations', function()
     term_opts.browse_fn, term_opts.enter_fn = nil, nil
     assert.same({
       url = 'https://example.com/runs/77/repo/ref',
-      startinsert = false,
     }, term_opts)
   end)
 
@@ -512,7 +511,6 @@ describe('shared operations', function()
     term_opts.browse_fn, term_opts.enter_fn = nil, nil
     assert.same({
       url = 'https://example.com/runs/88/repo/ref',
-      startinsert = false,
     }, term_opts)
     assert.equals('https://example.com/runs/88/jobs/22/repo/ref', browse_url)
     assert.same({ 'check-log', '88', 'true', '22', 'repo/ref' }, captured.logs[1].cmd)
