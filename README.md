@@ -12,7 +12,6 @@ without leaving your editor.
   integrations), edit, merge, approve, draft/ready
 - Issue workflows: list, create, edit, browse, close/reopen
 - CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
-- Forge web browsing and file/line permalinks
 - Automatic forge detection from git remote via `gh`, `glab`, or `tea`
 
 ## Requirements
