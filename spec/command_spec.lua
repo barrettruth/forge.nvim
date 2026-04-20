@@ -355,7 +355,7 @@ describe(':Forge command', function()
           return {}
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'diffview', 'worktree' }
+          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
         end,
       }
     end
@@ -1038,6 +1038,7 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(heads, 'head=@deadbee'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=browse'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=checkout'))
+    assert.is_true(vim.tbl_contains(adapters, 'adapter=codediff'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=diffview'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=worktree'))
   end)

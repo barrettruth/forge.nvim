@@ -30,6 +30,7 @@ describe('health', function()
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.picker'] = package.preload['forge.picker'],
+      ['codediff.core.installer'] = package.preload['codediff.core.installer'],
       ['fzf-lua'] = package.preload['fzf-lua'],
     }
 
@@ -40,7 +41,7 @@ describe('health', function()
       return 0
     end
     vim.fn.exists = function(name)
-      if name == ':DiffviewOpen' then
+      if name == ':DiffviewOpen' or name == ':CodeDiff' then
         return 0
       end
       return old_exists(name)
@@ -76,10 +77,18 @@ describe('health', function()
           }
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'diffview', 'worktree' }
+          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
         end,
         registered_sources = function()
           return {}
+        end,
+      }
+    end
+
+    package.preload['codediff.core.installer'] = function()
+      return {
+        needs_update = function()
+          return false
         end,
       }
     end
@@ -115,10 +124,12 @@ describe('health', function()
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.picker'] = old_preload['forge.picker']
+    package.preload['codediff.core.installer'] = old_preload['codediff.core.installer']
     package.preload['fzf-lua'] = old_preload['fzf-lua']
 
     package.loaded['forge'] = nil
     package.loaded['forge.picker'] = nil
+    package.loaded['codediff.core.installer'] = nil
     package.loaded['forge.health'] = nil
     package.loaded['fzf-lua'] = nil
   end)
@@ -133,6 +144,9 @@ describe('health', function()
     assert.is_true(vim.tbl_contains(captured.oks, 'fzf-lua found (interactive picker UI enabled)'))
     assert.is_true(
       vim.tbl_contains(captured.infos, 'diffview.nvim not found (adapter=diffview unavailable)')
+    )
+    assert.is_true(
+      vim.tbl_contains(captured.infos, 'codediff.nvim not found (adapter=codediff unavailable)')
     )
     assert.is_true(
       vim.tbl_contains(
@@ -184,6 +198,104 @@ describe('health', function()
       vim.tbl_contains(
         captured.warns,
         'review.adapter=diffview but diffview.nvim is not available (:DiffviewOpen missing)'
+      )
+    )
+  end)
+
+  it('reports codediff as available when the command and library are ready', function()
+    vim.fn.exists = function(name)
+      if name == ':CodeDiff' then
+        return 2
+      end
+      if name == ':DiffviewOpen' then
+        return 0
+      end
+      return old_exists(name)
+    end
+    package.loaded['forge.health'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(
+      vim.tbl_contains(captured.oks, 'codediff.nvim found (adapter=codediff available)')
+    )
+  end)
+
+  it('warns when codediff is configured but unavailable', function()
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return {
+            review = {
+              adapter = 'codediff',
+            },
+          }
+        end,
+        review_adapter_names = function()
+          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
+        end,
+        registered_sources = function()
+          return {}
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+    package.loaded['forge.health'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(
+      vim.tbl_contains(
+        captured.warns,
+        'codediff.nvim not found (review.adapter=codediff unavailable)'
+      )
+    )
+  end)
+
+  it('warns when codediff is configured but its library needs install or update', function()
+    vim.fn.exists = function(name)
+      if name == ':CodeDiff' then
+        return 2
+      end
+      if name == ':DiffviewOpen' then
+        return 0
+      end
+      return old_exists(name)
+    end
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return {
+            review = {
+              adapter = 'codediff',
+            },
+          }
+        end,
+        review_adapter_names = function()
+          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
+        end,
+        registered_sources = function()
+          return {}
+        end,
+      }
+    end
+    package.preload['codediff.core.installer'] = function()
+      return {
+        needs_update = function()
+          return true
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+    package.loaded['codediff.core.installer'] = nil
+    package.loaded['forge.health'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(
+      vim.tbl_contains(
+        captured.warns,
+        'codediff.nvim found but libvscode-diff needs install/update (:CodeDiff install or first use)'
       )
     )
   end)

@@ -1,5 +1,17 @@
 local M = {}
 
+local function codediff_status()
+  if vim.fn.exists(':CodeDiff') ~= 2 then
+    return false, false
+  end
+  local ok, installer = pcall(require, 'codediff.core.installer')
+  if not ok then
+    return true, true
+  end
+  local needs_update = type(installer.needs_update) == 'function' and installer.needs_update()
+  return true, not needs_update
+end
+
 local review_integrations = {
   diffview = {
     available = function()
@@ -74,7 +86,29 @@ function M.check()
       vim.health.info(integration.info)
     end
   end
-  if configured_adapter ~= '' and not review_integrations[configured_adapter] then
+
+  local has_codediff, codediff_ready = codediff_status()
+  if has_codediff then
+    if codediff_ready then
+      vim.health.ok('codediff.nvim found (adapter=codediff available)')
+    elseif configured_adapter == 'codediff' then
+      vim.health.warn(
+        'codediff.nvim found but libvscode-diff needs install/update (:CodeDiff install or first use)'
+      )
+    else
+      vim.health.info('codediff.nvim found but libvscode-diff needs install/update')
+    end
+  elseif configured_adapter == 'codediff' then
+    vim.health.warn('codediff.nvim not found (review.adapter=codediff unavailable)')
+  else
+    vim.health.info('codediff.nvim not found (adapter=codediff unavailable)')
+  end
+
+  if
+    configured_adapter ~= ''
+    and configured_adapter ~= 'codediff'
+    and not review_integrations[configured_adapter]
+  then
     if review_names[configured_adapter] then
       vim.health.ok('configured review adapter "' .. configured_adapter .. '" available')
     else
