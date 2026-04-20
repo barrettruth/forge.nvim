@@ -26,6 +26,7 @@
         let
           yamlParser = pkgs.vimPlugins.nvim-treesitter-parsers.yaml;
           commonPackages = [
+            pkgs.just
             pkgs.prettier
             pkgs.stylua
             pkgs.selene
