@@ -1234,14 +1234,8 @@ local function complete_issue_subjects(command, state, prefix, policy)
   if not f or not forge_mod then
     return {}
   end
-  local issues = completion_list(
-    forge_mod,
-    f,
-    'issue',
-    policy.states_to_consult,
-    policy.fetch_state,
-    scope
-  )
+  local issues =
+    completion_list(forge_mod, f, 'issue', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.issue_fields or {}
   local items = {}
   local seen = {}
@@ -1279,14 +1273,8 @@ local function complete_release_subjects(state, prefix, policy)
   if not f or not forge_mod then
     return {}
   end
-  local releases = completion_list(
-    forge_mod,
-    f,
-    'release',
-    policy.states_to_consult,
-    policy.fetch_state,
-    scope
-  )
+  local releases =
+    completion_list(forge_mod, f, 'release', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.release_fields or {}
   local items = {}
   local seen = {}
