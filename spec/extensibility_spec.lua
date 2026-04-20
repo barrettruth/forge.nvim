@@ -46,6 +46,7 @@ describe('extensibility', function()
     })
 
     assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'codediff'))
+    assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'diffs'))
     assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'diffview'))
     assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'custom-test-review'))
   end)

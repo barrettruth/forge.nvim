@@ -41,7 +41,7 @@ describe('health', function()
       return 0
     end
     vim.fn.exists = function(name)
-      if name == ':DiffviewOpen' or name == ':CodeDiff' then
+      if name == ':DiffviewOpen' or name == ':CodeDiff' or name == ':Greview' then
         return 0
       end
       return old_exists(name)
@@ -77,7 +77,7 @@ describe('health', function()
           }
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
+          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
         end,
         registered_sources = function()
           return {}
@@ -146,6 +146,9 @@ describe('health', function()
       vim.tbl_contains(captured.infos, 'diffview.nvim not found (adapter=diffview unavailable)')
     )
     assert.is_true(
+      vim.tbl_contains(captured.infos, 'diffs.nvim not found (adapter=diffs unavailable)')
+    )
+    assert.is_true(
       vim.tbl_contains(captured.infos, 'codediff.nvim not found (adapter=codediff unavailable)')
     )
     assert.is_true(
@@ -182,7 +185,7 @@ describe('health', function()
           }
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'diffview', 'worktree' }
+          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
         end,
         registered_sources = function()
           return {}
@@ -202,12 +205,60 @@ describe('health', function()
     )
   end)
 
+  it('warns when the configured diffs adapter is unavailable', function()
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return {
+            review = {
+              adapter = 'diffs',
+            },
+          }
+        end,
+        review_adapter_names = function()
+          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
+        end,
+        registered_sources = function()
+          return {}
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+    package.loaded['forge.health'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(
+      vim.tbl_contains(
+        captured.warns,
+        'review.adapter=diffs but diffs.nvim is not available (:Greview missing)'
+      )
+    )
+  end)
+
+  it('reports diffs as available when the command is ready', function()
+    vim.fn.exists = function(name)
+      if name == ':Greview' then
+        return 2
+      end
+      if name == ':CodeDiff' or name == ':DiffviewOpen' then
+        return 0
+      end
+      return old_exists(name)
+    end
+    package.loaded['forge.health'] = nil
+
+    require('forge.health').check()
+
+    assert.is_true(vim.tbl_contains(captured.oks, 'diffs.nvim found (adapter=diffs available)'))
+  end)
+
   it('reports codediff as available when the command and library are ready', function()
     vim.fn.exists = function(name)
       if name == ':CodeDiff' then
         return 2
       end
-      if name == ':DiffviewOpen' then
+      if name == ':DiffviewOpen' or name == ':Greview' then
         return 0
       end
       return old_exists(name)
@@ -232,7 +283,7 @@ describe('health', function()
           }
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
+          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
         end,
         registered_sources = function()
           return {}
@@ -257,7 +308,7 @@ describe('health', function()
       if name == ':CodeDiff' then
         return 2
       end
-      if name == ':DiffviewOpen' then
+      if name == ':DiffviewOpen' or name == ':Greview' then
         return 0
       end
       return old_exists(name)
@@ -272,7 +323,7 @@ describe('health', function()
           }
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffview', 'worktree' }
+          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
         end,
         registered_sources = function()
           return {}
