@@ -1116,66 +1116,69 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(issue_create, 'head='))
   end)
 
-  it('completes local-only and static modifier values without consulting forge entity lists', function()
-    local repos = completion('Forge pr create repo=')
-    local branches = completion('Forge browse branch=')
-    local commits = completion('Forge browse commit=')
-    local targets = completion('Forge browse target=')
-    local heads = completion('Forge pr create head=')
-    local bases = completion('Forge pr create base=')
-    local templates = completion('Forge issue create template=')
-    local adapters = completion('Forge review 42 adapter=')
-    local methods = completion('Forge pr merge method=')
+  it(
+    'completes local-only and static modifier values without consulting forge entity lists',
+    function()
+      local repos = completion('Forge pr create repo=')
+      local branches = completion('Forge browse branch=')
+      local commits = completion('Forge browse commit=')
+      local targets = completion('Forge browse target=')
+      local heads = completion('Forge pr create head=')
+      local bases = completion('Forge pr create base=')
+      local templates = completion('Forge issue create template=')
+      local adapters = completion('Forge review 42 adapter=')
+      local methods = completion('Forge pr merge method=')
 
-    assert.is_true(vim.tbl_contains(repos, 'repo=work'))
-    assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
-    assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
-    assert.is_true(vim.tbl_contains(repos, 'repo=upstream'))
+      assert.is_true(vim.tbl_contains(repos, 'repo=work'))
+      assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
+      assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
+      assert.is_true(vim.tbl_contains(repos, 'repo=upstream'))
 
-    assert.is_true(vim.tbl_contains(branches, 'branch=main'))
-    assert.is_true(vim.tbl_contains(branches, 'branch=feature'))
-    assert.is_true(vim.tbl_contains(branches, 'branch=v1.0.0'))
-    assert.is_true(vim.tbl_contains(branches, 'branch=deadbee'))
+      assert.is_true(vim.tbl_contains(branches, 'branch=main'))
+      assert.is_true(vim.tbl_contains(branches, 'branch=feature'))
+      assert.is_true(vim.tbl_contains(branches, 'branch=v1.0.0'))
+      assert.is_true(vim.tbl_contains(branches, 'branch=deadbee'))
 
-    assert.is_true(vim.tbl_contains(commits, 'commit=main'))
-    assert.is_true(vim.tbl_contains(commits, 'commit=feature'))
-    assert.is_true(vim.tbl_contains(commits, 'commit=v1.0.0'))
-    assert.is_true(vim.tbl_contains(commits, 'commit=deadbee'))
+      assert.is_true(vim.tbl_contains(commits, 'commit=main'))
+      assert.is_true(vim.tbl_contains(commits, 'commit=feature'))
+      assert.is_true(vim.tbl_contains(commits, 'commit=v1.0.0'))
+      assert.is_true(vim.tbl_contains(commits, 'commit=deadbee'))
 
-    assert.is_true(vim.tbl_contains(targets, 'target=work@'))
-    assert.is_true(vim.tbl_contains(targets, 'target=origin@'))
-    assert.is_true(vim.tbl_contains(targets, 'target=@main:'))
-    assert.is_true(vim.tbl_contains(targets, 'target=@deadbee:'))
+      assert.is_true(vim.tbl_contains(targets, 'target=work@'))
+      assert.is_true(vim.tbl_contains(targets, 'target=origin@'))
+      assert.is_true(vim.tbl_contains(targets, 'target=@main:'))
+      assert.is_true(vim.tbl_contains(targets, 'target=@deadbee:'))
 
-    for _, values in ipairs({ heads, bases }) do
-      local prefix = values == heads and 'head=' or 'base='
-      assert.is_true(vim.tbl_contains(values, prefix .. 'work@'))
-      assert.is_true(vim.tbl_contains(values, prefix .. 'origin@'))
-      assert.is_true(vim.tbl_contains(values, prefix .. '@main'))
-      assert.is_true(vim.tbl_contains(values, prefix .. '@deadbee'))
+      for _, values in ipairs({ heads, bases }) do
+        local prefix = values == heads and 'head=' or 'base='
+        assert.is_true(vim.tbl_contains(values, prefix .. 'work@'))
+        assert.is_true(vim.tbl_contains(values, prefix .. 'origin@'))
+        assert.is_true(vim.tbl_contains(values, prefix .. '@main'))
+        assert.is_true(vim.tbl_contains(values, prefix .. '@deadbee'))
+      end
+
+      assert.is_true(vim.tbl_contains(templates, 'template=bug'))
+      assert.is_true(vim.tbl_contains(templates, 'template=feature'))
+
+      assert.is_true(vim.tbl_contains(adapters, 'adapter=browse'))
+      assert.is_true(vim.tbl_contains(adapters, 'adapter=checkout'))
+      assert.is_true(vim.tbl_contains(adapters, 'adapter=codediff'))
+      assert.is_true(vim.tbl_contains(adapters, 'adapter=diffs'))
+      assert.is_true(vim.tbl_contains(adapters, 'adapter=diffview'))
+      assert.is_true(vim.tbl_contains(adapters, 'adapter=worktree'))
+
+      assert.same({ 'method=merge', 'method=squash', 'method=rebase' }, methods)
+
+      assert.same({}, completion('Forge browse rev='))
+      assert.same({}, captured.get_list_calls)
+      assert.equals(
+        0,
+        vim.iter(captured.system_calls):fold(0, function(acc, item)
+          return acc + (item:match('^gh ') and 1 or 0)
+        end)
+      )
     end
-
-    assert.is_true(vim.tbl_contains(templates, 'template=bug'))
-    assert.is_true(vim.tbl_contains(templates, 'template=feature'))
-
-    assert.is_true(vim.tbl_contains(adapters, 'adapter=browse'))
-    assert.is_true(vim.tbl_contains(adapters, 'adapter=checkout'))
-    assert.is_true(vim.tbl_contains(adapters, 'adapter=codediff'))
-    assert.is_true(vim.tbl_contains(adapters, 'adapter=diffs'))
-    assert.is_true(vim.tbl_contains(adapters, 'adapter=diffview'))
-    assert.is_true(vim.tbl_contains(adapters, 'adapter=worktree'))
-
-    assert.same({ 'method=merge', 'method=squash', 'method=rebase' }, methods)
-
-    assert.same({}, completion('Forge browse rev='))
-    assert.same({}, captured.get_list_calls)
-    assert.equals(
-      0,
-      vim.iter(captured.system_calls):fold(0, function(acc, item)
-        return acc + (item:match('^gh ') and 1 or 0)
-      end)
-    )
-  end)
+  )
 
   it('completes registered review adapters for adapter=', function()
     extra_review_adapters = { 'custom-test-review' }

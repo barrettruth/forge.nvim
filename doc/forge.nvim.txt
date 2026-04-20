@@ -251,6 +251,9 @@ Top-level keys: ~
     `all`         `none`           Jump to all filter
     `refresh`     `<c-r>`          Refresh runs/checks
 
+    `toggle` is stateful: active runs cancel, completed runs rerun, and
+    skipped runs do not expose the action.
+
   `keys.release`: ~
     Action        Default Key      Meaning ~
     `browse`      `<cr>`           Open release in browser
@@ -346,8 +349,8 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
 
     Commands that need interactive selection are intentionally not exposed
     through `:Forge`; use the interactive picker surface instead.
-    This includes list navigation, list-scoped filters/refresh, nested per-PR
-    checks, and copy helpers.
+    This includes list navigation, list-scoped filters/refresh, CI
+    cancel/rerun toggles, nested per-PR checks, and copy helpers.
 
 PR COMMANDS                                                *forge-pr-commands*
 
@@ -454,6 +457,9 @@ CI COMMANDS                                                *forge-ci-commands*
     list-consuming command fetches fresh data from the forge. Mirrors
     the CI picker's refresh action.
 
+    Cancel/rerun remains a picker action via `keys.ci.toggle`; there are
+    no direct `:Forge ci cancel`, `rerun`, or `toggle` verbs.
+
 RELEASE COMMANDS                                      *forge-release-commands*
 
 `:Forge release browse` [{tag}] [repo=...]             *:Forge-release-browse*
@@ -543,7 +549,8 @@ ISSUE PICKER ~ Lists issues.
 
                                                              *forge-picker-ci*
 CI PICKER ~ Used for repo/current-branch runs and nested PR checks. Both use
-the `ci` key group, but only repo-wide runs expose `toggle`.
+the `ci` key group, but only the run picker exposes `toggle`; nested PR
+checks do not.
 
 `<cr>` opens the primary inspect action. GitHub uses normal-mode terminals for
 run view/watch and opens per-job logs from job lines. GitLab and Codeberg
@@ -556,6 +563,9 @@ Forge-managed log and summary buffers auto-refresh at `ci.refresh`.
   `toggle`      `<c-s>`          Cancel/rerun highlighted run
   `filter`      `<tab>`          Cycle filter
   `refresh`     `<c-r>`          Re-fetch runs
+
+  `toggle` is stateful: active runs cancel, completed runs rerun, and
+  skipped runs hide the action.
 
   Optional configurable direct filter jumps:
   `failed`, `passed`, `running`, and `all` have no default bindings, but
