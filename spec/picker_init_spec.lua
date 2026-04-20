@@ -94,6 +94,10 @@ describe('forge.picker.ci_toggle_verb', function()
     end
   end)
 
+  it('returns rerun when a run status is missing', function()
+    assert.equals('rerun', picker.ci_toggle_verb({ value = { id = '1' } }))
+  end)
+
   it('returns nil for skipped runs', function()
     assert.is_nil(picker.ci_toggle_verb({ value = { id = '1', status = 'skipped' } }))
   end)

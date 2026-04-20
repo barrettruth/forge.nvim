@@ -410,6 +410,31 @@ describe('shared operations', function()
     assert.equals(1, done)
   end)
 
+  it('dispatches CI toggle to rerun when the run status is missing', function()
+    local done = 0
+    local ops = require('forge.ops')
+    ops.ci_toggle({
+      name = 'github',
+      cancel_run_cmd = function(_, id)
+        return { 'cancel', id }
+      end,
+      rerun_run_cmd = function(_, id)
+        return { 'rerun', id }
+      end,
+    }, { id = '77' }, {
+      on_success = function()
+        done = done + 1
+      end,
+    })
+
+    vim.wait(100, function()
+      return done == 1
+    end)
+
+    assert.same({ 'rerun 77' }, captured.commands)
+    assert.equals(1, done)
+  end)
+
   it('no-ops CI toggle for skipped runs', function()
     local failed = 0
     local ops = require('forge.ops')

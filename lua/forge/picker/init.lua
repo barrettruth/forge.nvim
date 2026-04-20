@@ -1,5 +1,7 @@
 local M = {}
 
+local ci = require('forge.ci')
+
 ---@alias forge.Segment {[1]: string, [2]: string?}
 
 ---@class forge.PickerEntry
@@ -284,19 +286,7 @@ function M.ci_toggle_verb(entry)
   if not value then
     return nil
   end
-  local status = (value.status or ''):lower()
-  if
-    status == 'in_progress'
-    or status == 'queued'
-    or status == 'pending'
-    or status == 'running'
-  then
-    return 'cancel'
-  end
-  if status == 'skipped' then
-    return nil
-  end
-  return 'rerun'
+  return ci.toggle_verb(value)
 end
 
 ---@param opts forge.PickerOpts

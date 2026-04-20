@@ -1,5 +1,6 @@
 local M = {}
 
+local ci = require('forge.ci')
 local log = require('forge.logger')
 
 local function trim(text)
@@ -67,11 +68,6 @@ local function normalize_run_ref(run, scope)
     return run
   end
   return { id = run, scope = scope }
-end
-
-local function run_in_progress(status)
-  status = trim(status):lower()
-  return status == 'in_progress' or status == 'queued' or status == 'pending' or status == 'running'
 end
 
 local function summary_job_at_cursor(buf)
@@ -341,7 +337,7 @@ local function ci_log(f, run)
   run = normalize_run_ref(run)
   local run_ref = run.scope
   local status = trim(run.status):lower()
-  local in_progress = run_in_progress(status)
+  local in_progress = ci.in_progress(status)
   local url = trim(run.url)
   if url == '' and f.run_web_url then
     url = trim(f:run_web_url(run.id, run_ref) or '')
@@ -454,7 +450,7 @@ local function ci_watch(f, run)
   end
   local run_ref = run.scope
   local status = trim(run.status):lower()
-  local in_progress = run_in_progress(status)
+  local in_progress = ci.in_progress(status)
   local url = trim(run.url)
   if url == '' and f.run_web_url then
     url = trim(f:run_web_url(run.id, run_ref) or '')
@@ -477,7 +473,7 @@ end
 ---@param run forge.RunRefLike
 function M.ci_open(f, run)
   run = normalize_run_ref(run)
-  if run_in_progress(run.status) and ci_watch(f, run) then
+  if ci.in_progress(run.status) and ci_watch(f, run) then
     return
   end
   ci_log(f, run)
@@ -555,15 +551,15 @@ end
 function M.ci_toggle(f, run, opts)
   run = normalize_run_ref(run)
   opts = opts or {}
-  local status = trim(run.status):lower()
-  if status == 'skipped' then
+  local verb = ci.toggle_verb(run)
+  if verb == nil then
     log.info('nothing to toggle for skipped run')
     if opts.on_failure then
       opts.on_failure()
     end
     return
   end
-  if run_in_progress(status) then
+  if verb == 'cancel' then
     M.ci_cancel(f, run, opts)
   else
     M.ci_rerun(f, run, opts)
