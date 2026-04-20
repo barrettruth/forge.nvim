@@ -872,7 +872,7 @@ function M.pr(state, f, opts)
         if load_more_row(entry) then
           return 'load more'
         end
-        return require('forge.review').label()
+        return require('forge.review').label(f, entry and entry.value or nil)
       end,
       available = pr_load_more_or_entity,
       fn = function(entry)

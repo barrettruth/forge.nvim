@@ -26,6 +26,7 @@ local loaded_modules = {
   'forge.picker',
   'forge.picker.session',
   'forge.pickers',
+  'forge.review',
 }
 
 local function fake_forge(opts)
@@ -539,6 +540,45 @@ describe('pickers', function()
     assert.equals('draft', labels.draft)
     assert.equals('filter', labels.filter)
     assert.equals('refresh', labels.refresh)
+  end)
+
+  it('uses configured integration labels for the highlighted open PR', function()
+    vim.g.forge = {
+      review = {
+        adapter = 'diffview',
+      },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    captured.stream(function() end)
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.equals('diffview', labels.default)
+  end)
+
+  it('uses functional registered review adapter labels for the highlighted open PR', function()
+    vim.g.forge = {
+      review = {
+        adapter = 'custom-test-review',
+      },
+    }
+
+    require('forge.review').register('custom-test-review', {
+      label = function(ctx)
+        return 'review #' .. ctx.pr.num
+      end,
+      open = function() end,
+    })
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+
+    assert.is_not_nil(captured)
+    captured.stream(function() end)
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.equals('review #42', labels.default)
   end)
 
   it('hides open-only PR actions on closed and merged rows', function()
