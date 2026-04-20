@@ -7,33 +7,24 @@ without leaving your editor.
 
 ## Features
 
-- Pull request workflows: list, create, review via configurable adapters
-  (`checkout`, `worktree`, `browse`, `diffview`, `codediff`, `diffs`, or custom
-  integrations), edit, merge, approve, draft/ready
+- Work with PRs: list, create, review, open/close, draft, merge and more
 - Issue workflows: list, create, edit, browse, close/reopen
-- CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
-- Automatic forge detection from git remote via `gh`, `glab`, or `tea`
+- CI/CD: list runs, filter by status, inspect summaries, stream logs, etc.
 
 ## Requirements
 
 - Neovim 0.10.0+
-- tree-sitter `yaml` parser for YAML issue form templates
+- [tree-sitter-yaml](https://github.com/ikatyang/tree-sitter-yaml) for YAML
+  issue form templates
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
-- (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) for interactive
-  picker workflows; requires `fzf >= 0.40.0` for per-row dynamic action hints
-  (`focus:transform-header`). Older `fzf` still works but falls back to the
-  initial picker-level header.
-- (Optionally) `diffview.nvim` for `review.adapter = 'diffview'` reviews without
-  checkout
-- (Optionally) `codediff.nvim` for `review.adapter = 'codediff'` reviews without
-  checkout
-- (Optionally) `diffs.nvim` for `review.adapter = 'diffs'` reviews without
-  checkout
-
-Direct `:Forge` action commands work without `fzf-lua`. Install it only if you
-want the interactive picker UI.
+- (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) >= 0.40 for the
+  picker UI
+- (Optionally) at least one code reviewing plugin:
+  [`diffview.nvim`](https://github.com/sindrets/diffview.nvim),
+  [`codediff.nvim`](https://github.com/esmuellert/codediff.nvim), or
+  [`diffs.nvim`](https://github.com/barrettruth/diffs.nvim)
 
 ## Installation
 
