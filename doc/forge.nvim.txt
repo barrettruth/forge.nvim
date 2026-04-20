@@ -18,15 +18,14 @@ CONTENTS                                                 *forge.nvim-contents*
      Browse Commands ................................. |forge-browse-commands|
      Review Commands ................................. |forge-review-commands|
      Cache Commands ................................... |forge-cache-commands|
-  4. Plug Mappings .............................................. |forge-plug|
-  5. Pickers ................................................. |forge-pickers|
-  6. Workflow Surface ....................................... |forge-workflow|
-  7. Compose Buffer .......................................... |forge-compose|
+  4. Pickers ................................................. |forge-pickers|
+  5. Workflow Surface ....................................... |forge-workflow|
+  6. Compose Buffer .......................................... |forge-compose|
      Compose Integration ......................... |forge-compose-integration|
-  8. Highlights ........................................... |forge-highlights|
-  9. Sources ................................................. |forge-sources|
-  10. Extending ............................................ |forge-extending|
-  11. API ........................................................ |forge-api|
+  7. Highlights ........................................... |forge-highlights|
+  8. Sources ................................................. |forge-sources|
+  9. Extending ............................................ |forge-extending|
+  10. API ........................................................ |forge-api|
 
 ==============================================================================
 INTRODUCTION                                              *forge* *forge.nvim*
@@ -143,7 +142,7 @@ Top-level keys: ~
 `sections`                                             *forge-config-sections*
   `table<string, boolean>`  (default shown below)
     Toggle root picker sections. Enabled sections appear in the interactive
-    root picker opened by `require('forge').open()` or `<Plug>(forge)`.
+    root picker opened by `require('forge').open()`.
 
   Defaults: >lua
       sections = {
@@ -317,8 +316,7 @@ COMMANDS                                                              *:Forge*
 `:Forge`                                                      *:Forge-no-args*
     The `:Forge` command surface is action-oriented. It does not open picker
     UIs. `:Forge` with no arguments warns with `missing command`.
-    Use |forge-plug| mappings such as `<Plug>(forge)` or
-    `require('forge').open()` for the interactive picker surface.
+    Use `require('forge').open()` for the interactive picker surface.
     Direct commands cover explicit forge actions with stable targets such as
     PR/issue/release numbers or tags and CI run ids.
 
@@ -511,70 +509,6 @@ For example, to force fresh forge detection after changing remotes, run
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
-==============================================================================
-PLUG MAPPINGS                                                     *forge-plug*
-
-forge.nvim exposes stateless |<Plug>| mappings for root launchers, exact
-routes, and configurable section aliases. They are intended for user-defined
-mappings and do not add any additional Ex commands. The public `<Plug>`
-surface contains only the root launcher, one plug per configurable section
-alias, and one plug per exact no-argument route.
-
-Example: >lua
-    vim.keymap.set('n', '<leader>gf', '<Plug>(forge)')
-    vim.keymap.set({'n', 'x'}, '<leader>gb', '<Plug>(forge-browse-contextual)')
-<
-
-Alias plugs call `require('forge').open()` with the section name (`"prs"`,
-`"issues"`, etc.), so they respect `vim.g.forge.routes`. Exact route plugs
-call `require('forge').open()` with the full route name and ignore route
-aliases. Exact-route plug names follow the route name with `.` replaced by
-`-`.
-
-`<Plug>(forge-browse)` and `<Plug>(forge-browse-contextual)` are available in
-normal and visual mode. When invoked in visual mode, contextual browse targets
-include the selected line range just like |:Forge-browse|.
-
-Alias plugs: ~
-                                                            *forge-plug-alias*
-  Mapping                          Modes      Action ~
-  `<Plug>(forge)`                    `n`        Open the root workflow surface
-  `<Plug>(forge-prs)`                `n`        Open the configured `prs`
-                                              section route
-  `<Plug>(forge-issues)`             `n`        Open the configured `issues`
-                                              section route
-  `<Plug>(forge-ci)`                 `n`        Open the configured `ci`
-                                              section route
-  `<Plug>(forge-browse)`             `n`, `x`   Open the configured `browse`
-                                              section route
-  `<Plug>(forge-releases)`           `n`        Open the configured `releases`
-                                              section route
-
-Exact route plugs: ~
-                                                           *forge-plug-routes*
-  Mapping                                    Modes      Action ~
-  `<Plug>(forge-prs-open)`                     `n`        Open open PRs
-  `<Plug>(forge-prs-closed)`                   `n`        Open closed PRs
-  `<Plug>(forge-prs-all)`                      `n`        Open all PRs
-  `<Plug>(forge-issues-open)`                  `n`        Open open issues
-  `<Plug>(forge-issues-closed)`                `n`        Open closed issues
-  `<Plug>(forge-issues-all)`                   `n`        Open all issues
-  `<Plug>(forge-ci-current-branch)`            `n`        Open CI for the
-                                                        current branch
-  `<Plug>(forge-ci-all)`                       `n`        Open CI for all
-                                                        branches
-  `<Plug>(forge-browse-contextual)`            `n`, `x`   Open the current
-                                                        file, line, or selected
-                                                        range on the forge
-  `<Plug>(forge-browse-branch)`                `n`        Open the current
-                                                        branch on the forge
-  `<Plug>(forge-browse-commit)`                `n`        Open the current
-                                                        commit on the forge
-  `<Plug>(forge-releases-all)`                 `n`        Open all releases
-  `<Plug>(forge-releases-draft)`               `n`        Open draft releases
-  `<Plug>(forge-releases-prerelease)`          `n`        Open prereleases
-
-==============================================================================
 PICKERS                                                        *forge-pickers*
 
                                                                 *forge-picker*
@@ -641,7 +575,7 @@ RELEASE PICKER ~ Lists releases.
 WORKFLOW SURFACE                                              *forge-workflow*
 
 The interactive workflow surface is separate from the action-oriented `:Forge`
-command interface. Open it with `<Plug>(forge)` or `require('forge').open()`.
+command interface. Open it with `require('forge').open()`.
 
 The root picker shows section routes. By default: ~
 
