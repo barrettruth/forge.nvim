@@ -107,10 +107,10 @@ Top-level keys: ~
   `review.adapter`  `string`  (default `"checkout"`)
     Default review adapter used by `:Forge review {num}` and the PR picker's
     primary action. Built-in adapters are `"checkout"`, `"worktree"`,
-    `"browse"`, `"diffview"`, and `"codediff"`. The `diffview` and
-    `codediff` adapters open their respective review UIs against fetched PR
-    refs without checking the branch out. Custom adapters can be registered via
-    `require('forge').register_review_adapter()`.
+    `"browse"`, `"diffview"`, `"codediff"`, and `"diffs"`. The `diffview`,
+    `codediff`, and `diffs` adapters open their respective review UIs against
+    fetched PR refs without checking the branch out. Custom adapters can be
+    registered via `require('forge').register_review_adapter()`.
 
 `targets`                                               *forge-config-targets*
   `targets.aliases`      `table<string, string>`  (default `{}`)
@@ -366,6 +366,8 @@ PR COMMANDS                                            *forge-pr-commands*
                        base/head refs.
     `codediff`         Open PR `{num}` in `codediff.nvim` using explicit
                        base/head refs.
+    `diffs`            Open PR `{num}` in `diffs.nvim` using explicit
+                       base/head refs.
 
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
@@ -475,6 +477,7 @@ an adapter with config or `adapter=...`:
   `:Forge review 42 adapter=browse`     Open PR `42` in the browser
   `:Forge review 42 adapter=diffview`   Open PR `42` in `diffview.nvim`
   `:Forge review 42 adapter=codediff`   Open PR `42` in `codediff.nvim`
+  `:Forge review 42 adapter=diffs`      Open PR `42` in `diffs.nvim`
 
 CACHE COMMANDS                                      *forge-cache-commands*
 
@@ -1183,7 +1186,7 @@ Reports on: ~
 - Interactive picker UI backend (`fzf-lua`) availability
 - tree-sitter `yaml` parser availability
 - Built-in external review adapter availability (`diffview.nvim`,
-  `codediff.nvim`)
+  `codediff.nvim`, `diffs.nvim`)
 - Configured review adapter availability
 - Custom registered sources and their CLI availability
 

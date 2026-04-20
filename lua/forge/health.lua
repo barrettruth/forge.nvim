@@ -21,6 +21,14 @@ local review_integrations = {
     info = 'diffview.nvim not found (adapter=diffview unavailable)',
     warn = 'review.adapter=diffview but diffview.nvim is not available (:DiffviewOpen missing)',
   },
+  diffs = {
+    available = function()
+      return vim.fn.exists(':Greview') == 2
+    end,
+    ok = 'diffs.nvim found (adapter=diffs available)',
+    info = 'diffs.nvim not found (adapter=diffs unavailable)',
+    warn = 'review.adapter=diffs but diffs.nvim is not available (:Greview missing)',
+  },
 }
 
 function M.check()

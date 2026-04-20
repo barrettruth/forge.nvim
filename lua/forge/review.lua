@@ -24,6 +24,10 @@ local function codediff_available()
   return vim.fn.exists(':CodeDiff') == 2
 end
 
+local function diffs_available()
+  return vim.fn.exists(':Greview') == 2
+end
+
 local function trim(text)
   if type(text) ~= 'string' then
     return ''
@@ -100,6 +104,13 @@ end
 local function open_codediff(range)
   return pcall(vim.api.nvim_cmd, {
     cmd = 'CodeDiff',
+    args = { range },
+  }, {})
+end
+
+local function open_diffs(range)
+  return pcall(vim.api.nvim_cmd, {
+    cmd = 'Greview',
     args = { range },
   }, {})
 end
@@ -248,6 +259,45 @@ local function builtins()
               return
             end
             local ok, open_err = open_codediff(base .. '...' .. head)
+            if not ok then
+              log.error(open_err)
+            end
+          end)
+        end)
+      end,
+    },
+    diffs = {
+      label = 'diffs',
+      open = function(ctx)
+        if not diffs_available() then
+          log.error('diffs.nvim not found')
+          return
+        end
+        local details, err = ctx.details()
+        if not details then
+          log.error(err or 'failed to load review details')
+          return
+        end
+        local base = base_ref(ctx, details)
+        if not base then
+          log.error('review base unavailable')
+          return
+        end
+        local head = review_head_ref(ctx.pr)
+        local fetch_cmd, fetch_err = fetch_head_cmd(ctx.forge, ctx.pr, head)
+        if not fetch_cmd then
+          log.error(fetch_err or 'review fetch unavailable')
+          return
+        end
+        local kind = ctx.forge.labels.pr_one
+        log.info(('opening %s #%s in diffs...'):format(kind, ctx.pr.num))
+        vim.system(fetch_cmd, { text = true }, function(result)
+          vim.schedule(function()
+            if result.code ~= 0 then
+              log.error(cmd_error(result, 'review fetch failed'))
+              return
+            end
+            local ok, open_err = open_diffs(base .. '...' .. head)
             if not ok then
               log.error(open_err)
             end

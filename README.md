@@ -8,7 +8,7 @@ without leaving your editor.
 ## Features
 
 - Pull request workflows: list, create, review via configurable adapters
-  (`checkout`, `worktree`, `browse`, `diffview`, `codediff`, or custom
+  (`checkout`, `worktree`, `browse`, `diffview`, `codediff`, `diffs`, or custom
   integrations), edit, merge, approve, draft/ready
 - Issue workflows: list, create, edit, browse, close/reopen
 - CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
@@ -29,6 +29,8 @@ without leaving your editor.
 - (Optionally) `diffview.nvim` for `review.adapter = 'diffview'` reviews without
   checkout
 - (Optionally) `codediff.nvim` for `review.adapter = 'codediff'` reviews without
+  checkout
+- (Optionally) `diffs.nvim` for `review.adapter = 'diffs'` reviews without
   checkout
 
 Direct `:Forge` action commands work without `fzf-lua`. Install it only if you
