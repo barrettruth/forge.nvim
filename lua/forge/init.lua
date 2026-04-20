@@ -44,6 +44,8 @@ local repo_info_cache = cache_mod.new(30 * 60)
 local pr_state_cache = cache_mod.new(60)
 local list_cache = cache_mod.new(2 * 60)
 
+---@param cmd string
+---@return string?
 local function fn_system_text(cmd)
   local text = vim.trim(vim.fn.system(cmd))
   if vim.v.shell_error ~= 0 and (text == '' or text:match('^fatal:') or text:match('^error:')) then
