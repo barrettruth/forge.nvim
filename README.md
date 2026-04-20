@@ -8,8 +8,8 @@ without leaving your editor.
 ## Features
 
 - Pull request workflows: list, create, review via configurable adapters
-  (`checkout`, `worktree`, or custom integrations), edit, merge, approve,
-  draft/ready
+  (`checkout`, `worktree`, `browse`, `diffview`, or custom integrations), edit,
+  merge, approve, draft/ready
 - Issue workflows: list, create, edit, browse, close/reopen
 - CI/CD workflows: list runs, filter by status, inspect summaries, stream logs
 - Forge web browsing and file/line permalinks
@@ -26,6 +26,8 @@ without leaving your editor.
   picker workflows; requires `fzf >= 0.40.0` for per-row dynamic action hints
   (`focus:transform-header`). Older `fzf` still works but falls back to the
   initial picker-level header.
+- (Optionally) `diffview.nvim` for `review.adapter = 'diffview'` reviews without
+  checkout
 
 Direct `:Forge` action commands work without `fzf-lua`. Install it only if you
 want the interactive picker UI.

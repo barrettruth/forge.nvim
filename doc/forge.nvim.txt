@@ -106,8 +106,10 @@ Top-level keys: ~
 `review`                                                 *forge-config-review*
   `review.adapter`  `string`  (default `"checkout"`)
     Default review adapter used by `:Forge review {num}` and the PR picker's
-    primary action. Built-in adapters are `"checkout"`, `"worktree"`, and
-    `"browse"`. Custom adapters can be registered via
+    primary action. Built-in adapters are `"checkout"`, `"worktree"`,
+    `"browse"`, and `"diffview"`. The `diffview` adapter opens
+    `diffview.nvim` against fetched PR refs without checking the branch out.
+    Custom adapters can be registered via
     `require('forge').register_review_adapter()`.
 
 `targets`                                               *forge-config-targets*
@@ -360,6 +362,8 @@ PR COMMANDS                                            *forge-pr-commands*
     `checkout`         Check out the branch for PR `{num}`.
     `worktree`         Fetch PR `{num}` and create a git worktree.
     `browse`           Open PR `{num}` in the browser.
+    `diffview`         Open PR `{num}` in `diffview.nvim` using explicit
+                       base/head refs.
 
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
@@ -467,6 +471,7 @@ an adapter with config or `adapter=...`:
   `:Forge review 42 adapter=checkout`   Check out PR `42`
   `:Forge review 42 adapter=worktree`   Create a worktree for PR `42`
   `:Forge review 42 adapter=browse`     Open PR `42` in the browser
+  `:Forge review 42 adapter=diffview`   Open PR `42` in `diffview.nvim`
 
 CACHE COMMANDS                                      *forge-cache-commands*
 
@@ -1174,6 +1179,8 @@ Reports on: ~
 - Forge CLI availability (`gh`, `glab`, `tea`)
 - Interactive picker UI backend (`fzf-lua`) availability
 - tree-sitter `yaml` parser availability
+- Built-in external review adapter availability (`diffview.nvim`)
+- Configured review adapter availability
 - Custom registered sources and their CLI availability
 
 ==============================================================================
