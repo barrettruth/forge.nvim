@@ -84,6 +84,7 @@ describe(':Forge command', function()
       system_calls = {},
       system_responses = {},
       lists = {},
+      get_list_calls = {},
       pr_states = {},
       repo_infos = {},
     }
@@ -318,6 +319,7 @@ describe(':Forge command', function()
           return kind .. ':' .. state
         end,
         get_list = function(key)
+          table.insert(captured.get_list_calls, key)
           return captured.lists[key]
         end,
         set_list = function(key, value)
@@ -1046,7 +1048,7 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge work', 'cmdline'), 'worktrees'))
   end)
 
-  it('completes PR subjects from cached lists with state-aware filtering', function()
+  it('suppresses PR subject completion in stock cmdline and keeps useful modifiers', function()
     local scope = repo_scope('current')
     captured.lists[list_key('pr', 'open', scope)] = {
       { number = 101, title = 'Ready', state = 'OPEN', isDraft = false },
@@ -1057,29 +1059,36 @@ describe(':Forge command', function()
     captured.pr_states['owner/current#102'] = { review_decision = '', is_draft = true }
     captured.pr_states['owner/current#103'] = { review_decision = 'APPROVED', is_draft = false }
 
+    local close = vim.fn.getcompletion('Forge pr close ', 'cmdline')
+    local edit = vim.fn.getcompletion('Forge pr edit ', 'cmdline')
     local approve = vim.fn.getcompletion('Forge pr approve ', 'cmdline')
     local merge = vim.fn.getcompletion('Forge pr merge ', 'cmdline')
     local draft = vim.fn.getcompletion('Forge pr draft ', 'cmdline')
     local ready = vim.fn.getcompletion('Forge pr ready ', 'cmdline')
     local review = vim.fn.getcompletion('Forge review ', 'cmdline')
 
-    assert.is_true(vim.tbl_contains(approve, '101'))
-    assert.is_true(vim.tbl_contains(approve, '102'))
-    assert.is_false(vim.tbl_contains(approve, '103'))
-    assert.is_true(vim.tbl_contains(merge, '101'))
-    assert.is_true(vim.tbl_contains(merge, '103'))
-    assert.is_false(vim.tbl_contains(merge, '102'))
-    assert.is_true(vim.tbl_contains(draft, '101'))
-    assert.is_true(vim.tbl_contains(draft, '103'))
-    assert.is_false(vim.tbl_contains(draft, '102'))
-    assert.is_true(vim.tbl_contains(ready, '102'))
-    assert.is_false(vim.tbl_contains(ready, '101'))
-    assert.is_true(vim.tbl_contains(review, '101'))
-    assert.is_true(vim.tbl_contains(review, '102'))
-    assert.is_true(vim.tbl_contains(review, '103'))
+    assert.is_true(vim.tbl_contains(close, 'repo='))
+    assert.is_true(vim.tbl_contains(edit, 'repo='))
+    assert.is_true(vim.tbl_contains(approve, 'repo='))
+    assert.is_true(vim.tbl_contains(merge, 'repo='))
+    assert.is_true(vim.tbl_contains(merge, 'method='))
+    assert.is_true(vim.tbl_contains(draft, 'repo='))
+    assert.is_true(vim.tbl_contains(ready, 'repo='))
+    assert.is_true(vim.tbl_contains(review, 'open'))
+    assert.is_true(vim.tbl_contains(review, 'repo='))
+    assert.is_true(vim.tbl_contains(review, 'adapter='))
+
+    for _, results in ipairs({ close, edit, approve, merge, draft, ready, review }) do
+      assert.is_false(vim.tbl_contains(results, '101'))
+      assert.is_false(vim.tbl_contains(results, '102'))
+      assert.is_false(vim.tbl_contains(results, '103'))
+    end
+
+    assert.same({}, captured.get_list_calls)
+    assert.same({}, captured.system_calls)
   end)
 
-  it('completes PR reopen subjects from cached closed lists and excludes merged PRs', function()
+  it('suppresses PR reopen subject completion even when closed PRs are cached', function()
     local scope = repo_scope('current')
     captured.lists[list_key('pr', 'closed', scope)] = {
       { number = 201, title = 'Closed', state = 'CLOSED' },
@@ -1088,11 +1097,14 @@ describe(':Forge command', function()
 
     local reopen = vim.fn.getcompletion('Forge pr reopen ', 'cmdline')
 
-    assert.is_true(vim.tbl_contains(reopen, '201'))
+    assert.is_true(vim.tbl_contains(reopen, 'repo='))
+    assert.is_false(vim.tbl_contains(reopen, '201'))
     assert.is_false(vim.tbl_contains(reopen, '202'))
+    assert.same({}, captured.get_list_calls)
+    assert.same({}, captured.system_calls)
   end)
 
-  it('uses explicit repo scope for cached subject completion', function()
+  it('does not consult scoped PR caches for suppressed subject completion', function()
     local current = repo_scope('current')
     local upstream = repo_scope('upstream')
     captured.lists[list_key('pr', 'open', current)] = {
@@ -1104,42 +1116,57 @@ describe(':Forge command', function()
 
     local merge = require('forge.cmd').complete('', 'Forge pr merge repo=upstream ', 0)
 
-    assert.is_true(vim.tbl_contains(merge, '302'))
+    assert.is_false(vim.tbl_contains(merge, 'repo='))
+    assert.is_true(vim.tbl_contains(merge, 'method='))
+    assert.is_false(vim.tbl_contains(merge, '302'))
     assert.is_false(vim.tbl_contains(merge, '301'))
+    assert.same({}, captured.get_list_calls)
+    assert.same({}, captured.system_calls)
   end)
 
-  it(
-    'falls back to backend list fetches for dynamic subject completion and caches the result',
-    function()
-      local scope = repo_scope('current')
-      local key = list_key('issue', 'open', scope)
-      captured.system_responses['gh issue list --limit 100 --state open --json number,title,state -R owner/current'] =
-        helpers.command_result('[{"number":7,"title":"Bug","state":"OPEN"}]\n')
+  it('suppresses issue subject completion and does not consult caches or fetch', function()
+    local scope = repo_scope('current')
+    captured.lists[list_key('issue', 'open', scope)] = {
+      { number = 7, title = 'Bug', state = 'OPEN' },
+    }
+    captured.lists[list_key('issue', 'closed', scope)] = {
+      { number = 8, title = 'Closed bug', state = 'CLOSED' },
+    }
+    captured.system_responses['gh issue list --limit 100 --state open --json number,title,state -R owner/current'] =
+      helpers.command_result('[{"number":7,"title":"Bug","state":"OPEN"}]\n')
 
-      local first = vim.fn.getcompletion('Forge issue close ', 'cmdline')
-      local second = vim.fn.getcompletion('Forge issue close ', 'cmdline')
+    local browse = vim.fn.getcompletion('Forge issue browse ', 'cmdline')
+    local close = vim.fn.getcompletion('Forge issue close ', 'cmdline')
+    local reopen = vim.fn.getcompletion('Forge issue reopen ', 'cmdline')
+    local edit = vim.fn.getcompletion('Forge issue edit ', 'cmdline')
 
-      assert.is_true(vim.tbl_contains(first, '7'))
-      assert.is_true(vim.tbl_contains(second, '7'))
-      assert.same({
-        { number = 7, title = 'Bug', state = 'OPEN' },
-      }, captured.lists[key])
-      assert.equals(
-        1,
-        vim.iter(captured.system_calls):fold(0, function(acc, item)
-          return acc
-            + (
-              item
-                  == 'gh issue list --limit 100 --state open --json number,title,state -R owner/current'
-                and 1
-              or 0
-            )
-        end)
-      )
+    assert.is_true(vim.tbl_contains(browse, 'repo='))
+    assert.is_true(vim.tbl_contains(close, 'repo='))
+    assert.is_true(vim.tbl_contains(reopen, 'repo='))
+    assert.is_true(vim.tbl_contains(edit, 'repo='))
+
+    for _, results in ipairs({ browse, close, reopen, edit }) do
+      assert.is_false(vim.tbl_contains(results, '7'))
+      assert.is_false(vim.tbl_contains(results, '8'))
     end
-  )
 
-  it('completes CI run ids and release tags dynamically', function()
+    assert.same({}, captured.get_list_calls)
+    assert.same({}, captured.system_calls)
+  end)
+
+  it('suppresses numeric entity completion even with a numeric prefix', function()
+    local pr = require('forge.cmd').complete('1', 'Forge pr merge 1', 0)
+    local issue = require('forge.cmd').complete('7', 'Forge issue close 7', 0)
+    local ci = require('forge.cmd').complete('4', 'Forge ci open 4', 0)
+
+    assert.same({}, pr)
+    assert.same({}, issue)
+    assert.same({}, ci)
+    assert.same({}, captured.get_list_calls)
+    assert.same({}, captured.system_calls)
+  end)
+
+  it('suppresses CI run ids while keeping release tags dynamic', function()
     local scope = repo_scope('current')
     captured.lists[list_key('ci', 'all', scope)] = {
       { id = '401', name = 'build', branch = 'main', status = 'success' },
@@ -1150,12 +1177,23 @@ describe(':Forge command', function()
       { tagName = 'v1.1.0', name = 'Second' },
     }
 
-    local runs = vim.fn.getcompletion('Forge ci open ', 'cmdline')
+    local open = vim.fn.getcompletion('Forge ci open ', 'cmdline')
+    local browse = vim.fn.getcompletion('Forge ci browse ', 'cmdline')
     local releases = vim.fn.getcompletion('Forge release delete ', 'cmdline')
 
-    assert.is_true(vim.tbl_contains(runs, '401'))
-    assert.is_true(vim.tbl_contains(runs, '402'))
+    assert.is_true(vim.tbl_contains(open, 'repo='))
+    assert.is_true(vim.tbl_contains(browse, 'repo='))
+    assert.is_false(vim.tbl_contains(open, '401'))
+    assert.is_false(vim.tbl_contains(open, '402'))
+    assert.is_false(vim.tbl_contains(browse, '401'))
+    assert.is_false(vim.tbl_contains(browse, '402'))
     assert.is_true(vim.tbl_contains(releases, 'v1.0.0'))
     assert.is_true(vim.tbl_contains(releases, 'v1.1.0'))
+    assert.equals(
+      0,
+      vim.iter(captured.get_list_calls):fold(0, function(acc, key)
+        return acc + (key:match('^ci:') and 1 or 0)
+      end)
+    )
   end)
 end)

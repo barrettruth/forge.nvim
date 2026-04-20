@@ -83,28 +83,26 @@ end
 function M.subject(command)
   local subject = command.subject or { min = 0, max = 0 }
   if subject.kind == 'pr' then
-    local states, fetch_state = pr_completion_states(command.name)
     return {
       slot_class = 'subject',
       subject_kind = 'pr_number',
-      cmdline_usefulness = 'dynamic_allowed',
-      states_to_consult = states,
-      fetch_state = fetch_state,
-      allow_fetch_on_tab = true,
-      allow_empty_prefix = true,
+      cmdline_usefulness = 'suppress',
+      states_to_consult = {},
+      fetch_state = nil,
+      allow_fetch_on_tab = false,
+      allow_empty_prefix = false,
       available = pr_completion_available,
     }
   end
   if subject.kind == 'issue' then
-    local states, fetch_state = issue_completion_states(command.name)
     return {
       slot_class = 'subject',
       subject_kind = 'issue_number',
-      cmdline_usefulness = 'dynamic_allowed',
-      states_to_consult = states,
-      fetch_state = fetch_state,
-      allow_fetch_on_tab = true,
-      allow_empty_prefix = true,
+      cmdline_usefulness = 'suppress',
+      states_to_consult = {},
+      fetch_state = nil,
+      allow_fetch_on_tab = false,
+      allow_empty_prefix = false,
       available = issue_completion_available,
     }
   end
@@ -112,11 +110,11 @@ function M.subject(command)
     return {
       slot_class = 'subject',
       subject_kind = 'ci_run_id',
-      cmdline_usefulness = 'dynamic_allowed',
-      states_to_consult = { 'all' },
-      fetch_state = 'all',
-      allow_fetch_on_tab = true,
-      allow_empty_prefix = true,
+      cmdline_usefulness = 'suppress',
+      states_to_consult = {},
+      fetch_state = nil,
+      allow_fetch_on_tab = false,
+      allow_empty_prefix = false,
     }
   end
   if subject.kind == 'release' then
