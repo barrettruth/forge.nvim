@@ -1200,78 +1200,17 @@ local function completion_list(forge_mod, f, kind, states, fetch_state, scope)
     or fetch_completion_list(forge_mod, f, kind, fetch_state or states[1], scope)
 end
 
-local function pr_completion_states(verb)
-  if
-    verb == 'approve'
-    or verb == 'merge'
-    or verb == 'draft'
-    or verb == 'ready'
-    or verb == 'close'
-  then
-    return { 'open', 'all' }, 'open'
-  end
-  if verb == 'reopen' then
-    return { 'closed', 'all' }, 'closed'
-  end
-  return { 'all', 'open', 'closed' }, 'all'
-end
-
-local function issue_completion_states(verb)
-  if verb == 'close' then
-    return { 'open', 'all' }, 'open'
-  end
-  if verb == 'reopen' then
-    return { 'closed', 'all' }, 'closed'
-  end
-  return { 'all', 'open', 'closed' }, 'all'
-end
-
 local function completion_entry(value)
   return { value = value }
 end
 
-local function pr_completion_available(verb, f, entry)
-  local availability = require('forge.availability')
-  local picker = require('forge.picker')
-  if verb == 'approve' then
-    return availability.pr_can_approve(f, entry)
-  end
-  if verb == 'merge' then
-    return availability.pr_can_merge(f, entry)
-  end
-  if verb == 'draft' then
-    return availability.pr_can_mark_draft(f, entry)
-  end
-  if verb == 'ready' then
-    return availability.pr_can_mark_ready(f, entry)
-  end
-  if verb == 'close' then
-    return picker.pr_toggle_verb(entry) == 'close'
-  end
-  if verb == 'reopen' then
-    return picker.pr_toggle_verb(entry) == 'reopen'
-  end
-  return true
-end
-
-local function issue_completion_available(verb, entry)
-  local picker = require('forge.picker')
-  if verb == 'close' then
-    return picker.issue_toggle_verb(entry) == 'close'
-  end
-  if verb == 'reopen' then
-    return picker.issue_toggle_verb(entry) == 'reopen'
-  end
-  return true
-end
-
-local function complete_pr_subjects(verb, state, prefix)
+local function complete_pr_subjects(command, state, prefix, policy)
   local f, forge_mod, scope = completion_forge(state)
   if not f or not forge_mod then
     return {}
   end
-  local states, fetch_state = pr_completion_states(verb)
-  local prs = completion_list(forge_mod, f, 'pr', states, fetch_state, scope)
+  local prs =
+    completion_list(forge_mod, f, 'pr', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.pr_fields or {}
   local items = {}
   local seen = {}
@@ -1283,20 +1222,26 @@ local function complete_pr_subjects(verb, state, prefix)
       state = pr[fields.state],
       is_draft = fields.is_draft and pr[fields.is_draft] or nil,
     })
-    if pr_completion_available(verb, f, entry) then
+    if not policy.available or policy.available(command.name, f, entry) then
       add_completion_candidate(items, seen, num)
     end
   end
   return filter(items, prefix)
 end
 
-local function complete_issue_subjects(verb, state, prefix)
+local function complete_issue_subjects(command, state, prefix, policy)
   local f, forge_mod, scope = completion_forge(state)
   if not f or not forge_mod then
     return {}
   end
-  local states, fetch_state = issue_completion_states(verb)
-  local issues = completion_list(forge_mod, f, 'issue', states, fetch_state, scope)
+  local issues = completion_list(
+    forge_mod,
+    f,
+    'issue',
+    policy.states_to_consult,
+    policy.fetch_state,
+    scope
+  )
   local fields = f.issue_fields or {}
   local items = {}
   local seen = {}
@@ -1307,19 +1252,20 @@ local function complete_issue_subjects(verb, state, prefix)
       scope = scope,
       state = issue[fields.state],
     })
-    if issue_completion_available(verb, entry) then
+    if not policy.available or policy.available(command.name, f, entry) then
       add_completion_candidate(items, seen, num)
     end
   end
   return filter(items, prefix)
 end
 
-local function complete_run_subjects(state, prefix)
+local function complete_run_subjects(state, prefix, policy)
   local f, forge_mod, scope = completion_forge(state)
   if not f or not forge_mod then
     return {}
   end
-  local runs = completion_list(forge_mod, f, 'ci', { 'all' }, 'all', scope)
+  local runs =
+    completion_list(forge_mod, f, 'ci', policy.states_to_consult, policy.fetch_state, scope)
   local items = {}
   local seen = {}
   for _, run in ipairs(runs or {}) do
@@ -1328,12 +1274,19 @@ local function complete_run_subjects(state, prefix)
   return filter(items, prefix)
 end
 
-local function complete_release_subjects(state, prefix)
+local function complete_release_subjects(state, prefix, policy)
   local f, forge_mod, scope = completion_forge(state)
   if not f or not forge_mod then
     return {}
   end
-  local releases = completion_list(forge_mod, f, 'release', { 'list' }, 'list', scope)
+  local releases = completion_list(
+    forge_mod,
+    f,
+    'release',
+    policy.states_to_consult,
+    policy.fetch_state,
+    scope
+  )
   local fields = f.release_fields or {}
   local items = {}
   local seen = {}
@@ -1348,29 +1301,33 @@ local function completion_values(family_name, verb_name, flag_name, prefix)
   if not command then
     return nil
   end
-  if flag_name == 'repo' then
+  local spec = modifiers[flag_name]
+  local policy = require('forge.completion_policy').modifier_value(command, flag_name, spec)
+  if not policy then
+    return nil
+  end
+  if policy.source == 'repo' then
     return repo_completion_values(prefix or '')
   end
-  if flag_name == 'rev' then
+  if policy.source == 'rev' then
     return ref_completion_values(prefix or '')
   end
-  if flag_name == 'head' or flag_name == 'base' then
+  if policy.source == 'rev_address' then
     return rev_address_completion_values(prefix or '')
   end
-  if flag_name == 'target' then
+  if policy.source == 'target' then
     return target_completion_values(prefix or '')
   end
-  if flag_name == 'template' then
+  if policy.source == 'template' then
     return filter(require('forge').template_slugs(), prefix or '')
   end
-  if flag_name == 'adapter' then
+  if policy.source == 'adapter' then
     return filter(require('forge').review_adapter_names(), prefix or '')
   end
-  if command.modifier_values and command.modifier_values[flag_name] then
+  if policy.source == 'command_values' then
     return filter(command.modifier_values[flag_name], prefix or '')
   end
-  local spec = modifiers[flag_name]
-  if spec and spec.values then
+  if policy.source == 'modifier_values' then
     return filter(spec.values, prefix or '')
   end
   return nil
@@ -1394,17 +1351,21 @@ local function subject_completion_items(command, state, arglead)
       arglead
     )
   end
-  if subject.kind == 'pr' then
-    return complete_pr_subjects(command.name, state, arglead)
+  local policy = require('forge.completion_policy').subject(command)
+  if not policy.allow_empty_prefix and arglead == '' then
+    return {}
   end
-  if subject.kind == 'issue' then
-    return complete_issue_subjects(command.name, state, arglead)
+  if policy.subject_kind == 'pr_number' then
+    return complete_pr_subjects(command, state, arglead, policy)
   end
-  if subject.kind == 'run' then
-    return complete_run_subjects(state, arglead)
+  if policy.subject_kind == 'issue_number' then
+    return complete_issue_subjects(command, state, arglead, policy)
   end
-  if subject.kind == 'release' then
-    return complete_release_subjects(state, arglead)
+  if policy.subject_kind == 'ci_run_id' then
+    return complete_run_subjects(state, arglead, policy)
+  end
+  if policy.subject_kind == 'release_tag' then
+    return complete_release_subjects(state, arglead, policy)
   end
   return {}
 end
@@ -1447,16 +1408,25 @@ function M.complete(arglead, cmdline, _)
   if arg_idx == 2 then
     local command = M.resolve(family_name)
     local state = command and completion_state(command, {}) or { modifiers = {}, subjects = {} }
+    local slot_policy = require('forge.completion_policy').family_slot(command)
     local candidates = {}
-    for _, verb in ipairs(M.verb_names(family_name)) do
-      candidates[#candidates + 1] = verb
+    if slot_policy.include_verbs then
+      for _, verb in ipairs(M.verb_names(family_name)) do
+        candidates[#candidates + 1] = verb
+      end
     end
     if command then
       if arglead:match('^%-%-') then
-        vim.list_extend(candidates, filtered_modifier_completion_items(command, state, true))
+        if slot_policy.include_modifiers then
+          vim.list_extend(candidates, filtered_modifier_completion_items(command, state, true))
+        end
       else
-        vim.list_extend(candidates, filtered_modifier_completion_items(command, state, false))
-        vim.list_extend(candidates, subject_completion_items(command, state, arglead))
+        if slot_policy.include_modifiers then
+          vim.list_extend(candidates, filtered_modifier_completion_items(command, state, false))
+        end
+        if slot_policy.include_subjects then
+          vim.list_extend(candidates, subject_completion_items(command, state, arglead))
+        end
       end
     end
     return filter(candidates, arglead)
@@ -1473,11 +1443,20 @@ function M.complete(arglead, cmdline, _)
     consumed[#consumed + 1] = words[i]
   end
   local state = completion_state(command, consumed)
+  local slot_policy = require('forge.completion_policy').argument_slot(command, state)
   if arglead:match('^%-%-') then
+    if not slot_policy.include_modifiers then
+      return {}
+    end
     return filter(filtered_modifier_completion_items(command, state, true), arglead)
   end
-  local candidates = filtered_modifier_completion_items(command, state, false)
-  vim.list_extend(candidates, subject_completion_items(command, state, arglead))
+  local candidates = {}
+  if slot_policy.include_modifiers then
+    vim.list_extend(candidates, filtered_modifier_completion_items(command, state, false))
+  end
+  if slot_policy.include_subjects then
+    vim.list_extend(candidates, subject_completion_items(command, state, arglead))
+  end
   return filter(candidates, arglead)
 end
 
