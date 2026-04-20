@@ -35,6 +35,23 @@ local function issue_completion_available(verb, _, entry)
   return true
 end
 
+local function list_contains(items, value)
+  for _, item in ipairs(items or {}) do
+    if item == value then
+      return true
+    end
+  end
+  return false
+end
+
+local function declares_modifier(command, flag_name)
+  if type(command) ~= 'table' then
+    return false
+  end
+  return list_contains(command.declared_modifiers or command.modifiers, flag_name)
+    or list_contains(command.declared_legacy_modifiers or command.legacy_modifiers, flag_name)
+end
+
 function M.family_slot(command)
   return {
     slot_class = 'family',
@@ -125,6 +142,9 @@ function M.subject(command)
 end
 
 function M.modifier_value(command, flag_name, spec)
+  if not declares_modifier(command, flag_name) then
+    return nil
+  end
   if flag_name == 'repo' then
     return {
       slot_class = 'modifier_value',
@@ -133,12 +153,12 @@ function M.modifier_value(command, flag_name, spec)
       source = 'repo',
     }
   end
-  if flag_name == 'rev' then
+  if flag_name == 'branch' or flag_name == 'commit' then
     return {
       slot_class = 'modifier_value',
       cmdline_usefulness = 'local_only',
       allow_empty_prefix = true,
-      source = 'rev',
+      source = 'ref',
     }
   end
   if flag_name == 'head' or flag_name == 'base' then
