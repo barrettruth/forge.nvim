@@ -294,8 +294,8 @@ COMMANDS                                                              *:Forge*
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
-    `branch=...`, `commit=...`, `head=...`, and `base=...`. Explicit target
-    modifiers override default policy.
+    `branch=...`, `commit=...`, `target=...`, `head=...`, and `base=...`.
+    Explicit target modifiers override default policy.
 
     Default policy:
     - collaboration repo = `targets.default_repo`, else `upstream`, else
@@ -307,16 +307,51 @@ TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
       buffers
 
 COMMAND COMPLETION                                  *forge-command-completion*
-    `:Forge` completion is contextual:
-    - families are suggested after `:Forge `
-    - verbs are suggested after a family such as `:Forge pr `
-    - only valid modifiers are suggested for the resolved subcommand
+    `:Forge` completion follows a minimal stock-cmdline contract:
+    - picker semantics are reused where they stay useful in the Ex cmdline
+    - the cmdline does not try to reproduce picker-style row context or
+      display richness
+    - no fetch happens on keystroke; explicit completion (`<tab>` /
+      `wildchar`) is the only time a forge list fetch may occur
+    - no setting toggles alternate cmdline-completion modes
+
+    Slot matrix:
+    - `:Forge <tab>` -> family names
+    - `:Forge pr <tab>` -> PR verbs
+    - `:Forge issue <tab>` -> issue verbs
+    - `:Forge ci <tab>` -> CI verbs
+    - `:Forge release <tab>` -> release verbs
+    - `:Forge browse <tab>` -> `branch=`, `commit=`, `target=`
+    - `:Forge clear <tab>` -> nothing useful
+    - `:Forge review <tab>` -> `open`, `repo=`, `adapter=`
+    - `:Forge issue browse <tab>` -> `repo=`
+    - `:Forge ci browse <tab>` -> `repo=`
+    - `:Forge release browse <tab>` -> `repo=` plus release tags
+    - `:Forge release delete <tab>` -> release tags
+
+    Subject completion:
+    - PR numbers, issue numbers, and CI run ids are intentionally
+      suppressed in the stock cmdline, even when a numeric prefix is
+      typed
+    - release tags are the one dynamic subject kind that remain
+      completable
+
+    Modifier-value subtrees stay local and grounded:
+    - `repo=` suggests configured aliases, git remotes, and repo forms
+      derivable from them
+    - `template=` suggests local issue template slugs
+    - `head=` and `base=` suggest revision addresses using `@...`, such
+      as `@main` or `upstream@release`
+    - `branch=` and `commit=` suggest local refs and bounded recent short
+      SHAs
+    - `target=` suggests local/derived location scaffolds
     - `adapter=` suggests built-in and registered review adapters
-    - `repo=` suggests configured aliases, git remotes, and resolved repo
-      addresses
-    - `branch=` suggests local branches and tags
-    - `commit=` suggests recent short SHAs
-    - `head=` and `base=` suggest revision addresses using `@...`
+    - `method=` is static: `merge`, `squash`, `rebase`
+
+    Entering any `name=...` subtree disables forge entity-list completion
+    for that request. `repo=` remains the canonical scope override; there
+    is no `remote=` modifier. When no useful candidate exists, completion
+    returns nothing rather than placeholder noise.
 
 CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     The documented `:Forge` interface is the canonical Ex-style form:
@@ -454,7 +489,7 @@ RELEASE COMMANDS                                  *forge-release-commands*
 
 BROWSE COMMANDS                                    *forge-browse-commands*
 
-`:Forge browse` [branch=...] [commit=...]                      *:Forge-browse*
+`:Forge browse` [branch=...] [commit=...] [target=...]         *:Forge-browse*
     Open a forge web URL.
     (no modifiers)     Open the current file/line permalink on the current
                        branch. In non-file buffers, this falls back to the
@@ -464,6 +499,9 @@ BROWSE COMMANDS                                    *forge-browse-commands*
                        anchored to that branch instead; otherwise the
                        branch landing page is opened.
     `commit=<sha>`     Open the given commit on the forge.
+    `target=<addr>`    Open an explicit location address on the forge, such
+                       as `@main:README.md#L10` or
+                       `upstream@release:doc/forge.nvim.txt#L300-L340`.
 
 REVIEW COMMANDS                                    *forge-review-commands*
 
@@ -490,7 +528,8 @@ also clears forge detection and git-root resolution.
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
-All subcommands support tab completion.
+All direct subcommands participate in the contextual completion contract
+documented in |forge-command-completion|.
 
 ==============================================================================
 PLUG MAPPINGS                                                     *forge-plug*
