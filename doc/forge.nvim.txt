@@ -754,8 +754,8 @@ differences:
   Feature                    GitHub    GitLab    Codeberg ~
   PR list/filter               yes       yes       yes
   PR create                    yes       yes       yes
-  PR create (draft)            yes       yes       no
-  PR draft toggle              yes       yes       no
+  PR create (draft)            yes       yes       no (7)
+  PR draft toggle              yes       yes       no (7)
   PR add/remove reviewer       yes       yes       yes
   PR add/remove label          yes       yes       yes
   PR add assignee              yes       yes       yes
@@ -795,6 +795,10 @@ differences:
   (6) `gh run watch` only supports live watch at the run level. When opening
       a job during an active watch, Forge falls back to a refreshing job log.
       Tracked by `cli/cli#3484`.
+
+  (7) Gitea still treats draft pull requests as WIP title prefixes rather than
+      a toggleable draft/ready state. This leaks into downstream Codeberg
+      tooling. Tracked by `go-gitea/gitea#30600`.
 
 Features marked `no` reflect CLI or API limits. Custom sources declare the
 same support in `capabilities`; see |forge-Forge-interface|.
