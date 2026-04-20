@@ -34,7 +34,7 @@ describe('review adapters', function()
       },
     })
     vim.fn.exists = function(name)
-      if name == ':DiffviewOpen' then
+      if name == ':DiffviewOpen' or name == ':CodeDiff' then
         return 2
       end
       return old_exists(name)
@@ -92,6 +92,12 @@ describe('review adapters', function()
     local review = require('forge.review')
 
     assert.is_true(vim.tbl_contains(review.names(), 'diffview'))
+  end)
+
+  it('lists codediff among built-in review adapters', function()
+    local review = require('forge.review')
+
+    assert.is_true(vim.tbl_contains(review.names(), 'codediff'))
   end)
 
   it('opens diffview review against fetched PR refs', function()
@@ -163,5 +169,76 @@ describe('review adapters', function()
     assert.same({}, captured.calls)
     assert.same({}, captured.cmds)
     assert.same({ 'diffview.nvim not found' }, captured.errors)
+  end)
+
+  it('opens codediff review against fetched PR refs', function()
+    local review = require('forge.review')
+    local scope = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/current',
+    }
+
+    review.open({
+      labels = { pr_one = 'PR' },
+      fetch_pr = function(_, num, ref)
+        assert.equals('42', num)
+        assert.same(scope, ref)
+        return { 'git', 'fetch', 'origin', 'pull/42/head:pr-42' }
+      end,
+      fetch_pr_details_cmd = function(_, num, ref)
+        assert.equals('42', num)
+        assert.same(scope, ref)
+        return { 'details', num }
+      end,
+      parse_pr_details = function()
+        return { base_branch = 'main' }
+      end,
+    }, { num = '42', scope = scope }, { adapter = 'codediff' })
+
+    assert.same({
+      'details 42',
+      'git fetch origin +pull/42/head:refs/forge/review/github/github.com/owner/current/pr/42',
+    }, captured.calls)
+    assert.same({
+      {
+        cmd = {
+          cmd = 'CodeDiff',
+          args = { 'origin/main...refs/forge/review/github/github.com/owner/current/pr/42' },
+        },
+        opts = {},
+      },
+    }, captured.cmds)
+    assert.same({ 'opening PR #42 in codediff...' }, captured.infos)
+    assert.same({}, captured.errors)
+  end)
+
+  it('reports missing codediff.nvim before loading review details', function()
+    vim.fn.exists = function(name)
+      if name == ':CodeDiff' then
+        return 0
+      end
+      return old_exists(name)
+    end
+    package.loaded['forge.review'] = nil
+
+    local review = require('forge.review')
+
+    review.open({
+      labels = { pr_one = 'PR' },
+      fetch_pr = function()
+        error('should not fetch')
+      end,
+      fetch_pr_details_cmd = function()
+        error('should not load details')
+      end,
+      parse_pr_details = function()
+        return {}
+      end,
+    }, { num = '42' }, { adapter = 'codediff' })
+
+    assert.same({}, captured.calls)
+    assert.same({}, captured.cmds)
+    assert.same({ 'codediff.nvim not found' }, captured.errors)
   end)
 end)
