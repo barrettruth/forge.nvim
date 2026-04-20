@@ -1340,6 +1340,9 @@ local function subject_completion_items(command, state, arglead)
     )
   end
   local policy = require('forge.completion_policy').subject(command)
+  if policy.cmdline_usefulness == 'suppress' then
+    return {}
+  end
   if not policy.allow_empty_prefix and arglead == '' then
     return {}
   end
