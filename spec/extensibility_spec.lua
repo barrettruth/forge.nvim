@@ -45,6 +45,7 @@ describe('extensibility', function()
       end,
     })
 
+    assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'diffview'))
     assert.is_true(vim.tbl_contains(forge.review_adapter_names(), 'custom-test-review'))
   end)
 end)
