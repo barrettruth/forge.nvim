@@ -2,33 +2,33 @@
 
 CONTENTS                                                 *forge.nvim-contents*
 
-   1. Introduction................................................|forge.nvim|
-   2. Configuration.............................................|forge-config|
-      2.1 Top-level options.............................|forge-config-context|
-      2.2 Picker keys......................................|forge-config-keys|
-      2.3 Display settings..............................|forge-config-display|
-   3. Commands........................................................|:Forge|
-      3.1 Command model.......................................|:Forge-no-args|
-      3.2 Target defaults and overrides................|forge-target-defaults|
-      3.3 Command completion........................|forge-command-completion|
-      3.4 Canonical syntax and compatibility.....|forge-command-compatibility|
-      3.5 PR commands......................................|forge-pr-commands|
-      3.6 Issue commands................................|forge-issue-commands|
-      3.7 CI commands......................................|forge-ci-commands|
-      3.8 Release commands............................|forge-release-commands|
-      3.9 Browse commands..............................|forge-browse-commands|
-      3.10 Review commands.............................|forge-review-commands|
-      3.11 Cache commands...............................|forge-cache-commands|
-   4. Plug mappings...............................................|forge-plug|
-   5. Pickers..................................................|forge-pickers|
-   6. Workflow surface........................................|forge-workflow|
-   7. Compose buffer...........................................|forge-compose|
-      7.1 Compose integration......................|forge-compose-integration|
-   8. Highlights............................................|forge-highlights|
-   9. Sources..................................................|forge-sources|
-   10. Health...................................................|forge-health|
-   11. Extending.............................................|forge-extending|
-   12. API.........................................................|forge-api|
+  1. Introduction ............................................... |forge.nvim|
+  2. Configuration ............................................ |forge-config|
+     Top-level Options ................................ |forge-config-context|
+     Picker Keys ......................................... |forge-config-keys|
+     Display Settings ................................. |forge-config-display|
+  3. Commands ....................................................... |:Forge|
+     Command Model .......................................... |:Forge-no-args|
+     Target Defaults and Overrides ................... |forge-target-defaults|
+     Command Completion ........................... |forge-command-completion|
+     Canonical Syntax and Compatibility ........ |forge-command-compatibility|
+     PR Commands ......................................... |forge-pr-commands|
+     Issue Commands ................................... |forge-issue-commands|
+     CI Commands ......................................... |forge-ci-commands|
+     Release Commands ............................... |forge-release-commands|
+     Browse Commands ................................. |forge-browse-commands|
+     Review Commands ................................. |forge-review-commands|
+     Cache Commands ................................... |forge-cache-commands|
+  4. Plug Mappings .............................................. |forge-plug|
+  5. Pickers ................................................. |forge-pickers|
+  6. Workflow Surface ....................................... |forge-workflow|
+  7. Compose Buffer .......................................... |forge-compose|
+     Compose Integration ......................... |forge-compose-integration|
+  8. Highlights ........................................... |forge-highlights|
+  9. Sources ................................................. |forge-sources|
+  10. Health .................................................. |forge-health|
+  11. Extending ............................................ |forge-extending|
+  12. API ........................................................ |forge-api|
 
 ==============================================================================
 INTRODUCTION                                              *forge* *forge.nvim*
@@ -358,7 +358,7 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     This includes list navigation, list-scoped filters/refresh, nested per-PR
     checks, and copy helpers.
 
-PR COMMANDS                                            *forge-pr-commands*
+PR COMMANDS                                                *forge-pr-commands*
 
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
                                                             *:Forge-pr-create*
@@ -415,7 +415,7 @@ PR COMMANDS                                            *forge-pr-commands*
     command fetches fresh data from the forge. Mirrors the PR picker's
     refresh action.
 
-ISSUE COMMANDS                                      *forge-issue-commands*
+ISSUE COMMANDS                                          *forge-issue-commands*
 
 `:Forge issue browse` [{num}] [repo=...]                 *:Forge-issue-browse*
     Open issue `{num}` in the browser, or the issue list landing page
@@ -445,7 +445,7 @@ ISSUE COMMANDS                                      *forge-issue-commands*
     list-consuming command fetches fresh data from the forge. Mirrors
     the issue picker's refresh action.
 
-CI COMMANDS                                            *forge-ci-commands*
+CI COMMANDS                                                *forge-ci-commands*
 
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
     Open the primary local run view for CI run `{run-id}`. Active runs
@@ -463,7 +463,7 @@ CI COMMANDS                                            *forge-ci-commands*
     list-consuming command fetches fresh data from the forge. Mirrors
     the CI picker's refresh action.
 
-RELEASE COMMANDS                                  *forge-release-commands*
+RELEASE COMMANDS                                      *forge-release-commands*
 
 `:Forge release browse` [{tag}] [repo=...]             *:Forge-release-browse*
     Open release `{tag}` in the browser, or the releases list landing
@@ -477,7 +477,7 @@ RELEASE COMMANDS                                  *forge-release-commands*
     list-consuming command fetches fresh data from the forge. Mirrors
     the release picker's refresh action.
 
-BROWSE COMMANDS                                    *forge-browse-commands*
+BROWSE COMMANDS                                        *forge-browse-commands*
 
 `:Forge browse` [branch=...] [commit=...] [target=...]         *:Forge-browse*
     Open a forge web URL.
@@ -493,7 +493,7 @@ BROWSE COMMANDS                                    *forge-browse-commands*
                        as `@main:README.md#L10` or
                        `upstream@release:doc/forge.nvim.txt#L300-L340`.
 
-REVIEW COMMANDS                                    *forge-review-commands*
+REVIEW COMMANDS                                        *forge-review-commands*
 
 Forge treats review as adapter dispatch rather than owning a native review UI.
 Use `:Forge review {num}` for the semantic "review this PR" action, then pick
@@ -507,13 +507,13 @@ an adapter with config or `adapter=...`:
   `:Forge review 42 adapter=codediff`   Open PR `42` in `codediff.nvim`
   `:Forge review 42 adapter=diffs`      Open PR `42` in `diffs.nvim`
 
-CACHE COMMANDS                                      *forge-cache-commands*
+CACHE COMMANDS                                          *forge-cache-commands*
 
-Forge keeps short-lived caches for list data (PRs, issues, CI runs,
-releases), PR state, and repository metadata. Entries expire
-automatically; the per-family `refresh` verbs invalidate the cached
-list for that family, and `:Forge clear` is the nuclear option that
-also clears forge detection and git-root resolution.
+Forge keeps short-lived caches for list data (PRs, issues, CI runs, releases),
+PR state, and repository metadata. Entries expire automatically; the
+per-family `refresh` verbs invalidate the cached list for that family, and
+`:Forge clear` is the nuclear option that also clears forge detection and
+git-root resolution.
 
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
@@ -1002,11 +1002,11 @@ CUSTOM SOURCE REGISTRATION ~
 Register a custom source with `require('forge').register()`: >lua
     local my_source = { ... }
     require('forge').register('myforgejo', my_source)
-<
-The name must match the key used in `sources` host config.
+< The name must match the key used in `sources` host config.
 
 Most users do not need a custom source. For self-hosted instances that behave
-like GitHub, GitLab, or Codeberg, prefer |forge-config-sources| host overrides.
+like GitHub, GitLab, or Codeberg, prefer |forge-config-sources| host
+overrides.
 
 THE `forge.Forge` INTERFACE ~
                                                        *forge-Forge-interface*
