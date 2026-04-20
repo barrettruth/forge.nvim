@@ -763,10 +763,10 @@ differences:
   PR set/clear milestone       yes       yes       yes
   Issue add/remove label       yes       yes       yes
   Issue add assignee           yes       yes       yes
-  Issue remove assignee        yes       yes       no (1)
+  Issue remove assignee        yes       yes       no (8)
   Issue set/clear milestone    yes       yes       yes
   Per-PR CI checks             yes       yes       yes (2)
-  Per-check log viewing        yes       yes       no
+  Per-check log viewing        yes       yes       no (9)
   Per-job live watch           no (6)    yes       yes
   CI runs (repo-wide)          yes       yes       yes
   CI cancel / rerun            yes       yes (4)   yes (5)
@@ -778,13 +778,16 @@ differences:
   Release draft/prerelease     yes       no (3)    yes
   Browse                       yes       yes       yes
 
-  (1) `tea` does not expose remove-only assignee flags for `pulls edit` or
-      `issues edit`. Add and full replacement updates still work.
+  (1) `tea pr edit` only exposes `--add-assignees`; removing or clearing PR
+      assignees is tracked by `gitea/tea#965`.
 
   (2) Codeberg per-PR checks show external commit statuses. Browse opens the
       provider page; log viewing requires forge-native CI.
 
-  (3) GitLab releases have no draft or prerelease concept.
+  (3) GitLab releases currently expose `released_at` / `upcoming_release`,
+      but no draft or prerelease release field. Draft release support is
+      tracked by `gitlab-org/gitlab#517424`; prerelease release support is
+      tracked by `gitlab-org/gitlab#32589`.
 
   (4) GitLab rerun retries failed and cancelled jobs only. Cancel uses
       `glab ci cancel pipeline`.
@@ -796,9 +799,16 @@ differences:
       a job during an active watch, Forge falls back to a refreshing job log.
       Tracked by `cli/cli#3484`.
 
-  (7) Gitea still treats draft pull requests as WIP title prefixes rather than
-      a toggleable draft/ready state. This leaks into downstream Codeberg
-      tooling. Tracked by `go-gitea/gitea#30600`.
+  (7) Forgejo still treats draft pull requests as WIP title prefixes rather
+      than a toggleable draft/ready state. This leaks into downstream Codeberg
+      tooling. Tracked by `forgejo/forgejo#12206`, which tracks
+      `go-gitea/gitea#30600`.
+
+  (8) `tea issues edit` only exposes `--add-assignees`; removing or clearing
+      issue assignees is tracked by `gitea/tea#966`.
+
+  (9) Codeberg per-check log viewing depends on Gitea Actions log APIs,
+      tracked by `go-gitea/gitea#35382`.
 
 Features marked `no` reflect CLI or API limits. Custom sources declare the
 same support in `capabilities`; see |forge-Forge-interface|.
