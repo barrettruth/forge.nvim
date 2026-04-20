@@ -767,6 +767,7 @@ differences:
   Issue set/clear milestone    yes       yes       yes
   Per-PR CI checks             yes       yes       yes (2)
   Per-check log viewing        yes       yes       no
+  Per-job live watch           no (6)    yes       yes
   CI runs (repo-wide)          yes       yes       yes
   CI cancel / rerun            yes       yes (4)   yes (5)
   Issue create / edit / list   yes       yes       yes
@@ -790,6 +791,10 @@ differences:
 
   (5) Codeberg cancel and rerun need Gitea >= 1.22 or Forgejo >= 10 on
       self-hosted instances.
+
+  (6) `gh run watch` only supports live watch at the run level. When opening
+      a job during an active watch, Forge falls back to a refreshing job log.
+      Tracked by `cli/cli#3484`.
 
 Features marked `no` reflect CLI or API limits. Custom sources declare the
 same support in `capabilities`; see |forge-Forge-interface|.
