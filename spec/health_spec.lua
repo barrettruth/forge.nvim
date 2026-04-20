@@ -131,7 +131,9 @@ describe('health', function()
     assert.is_true(vim.tbl_contains(captured.oks, 'git found'))
     assert.is_true(vim.tbl_contains(captured.oks, 'configured review adapter "checkout" available'))
     assert.is_true(vim.tbl_contains(captured.oks, 'fzf-lua found (interactive picker UI enabled)'))
-    assert.is_true(vim.tbl_contains(captured.infos, 'diffview.nvim not found (adapter=diffview unavailable)'))
+    assert.is_true(
+      vim.tbl_contains(captured.infos, 'diffview.nvim not found (adapter=diffview unavailable)')
+    )
     assert.is_true(
       vim.tbl_contains(
         captured.errors,
