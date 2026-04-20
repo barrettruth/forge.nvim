@@ -3,32 +3,6 @@ local M = {}
 local availability = require('forge.availability')
 local picker = require('forge.picker')
 
-local function pr_completion_states(verb)
-  if
-    verb == 'approve'
-    or verb == 'merge'
-    or verb == 'draft'
-    or verb == 'ready'
-    or verb == 'close'
-  then
-    return { 'open', 'all' }, 'open'
-  end
-  if verb == 'reopen' then
-    return { 'closed', 'all' }, 'closed'
-  end
-  return { 'all', 'open', 'closed' }, 'all'
-end
-
-local function issue_completion_states(verb)
-  if verb == 'close' then
-    return { 'open', 'all' }, 'open'
-  end
-  if verb == 'reopen' then
-    return { 'closed', 'all' }, 'closed'
-  end
-  return { 'all', 'open', 'closed' }, 'all'
-end
-
 local function pr_completion_available(verb, f, entry)
   if verb == 'approve' then
     return availability.pr_can_approve(f, entry)
@@ -71,7 +45,19 @@ function M.family_slot(command)
   }
 end
 
-function M.argument_slot(command, _state)
+local function release_delete_subject_slot(state)
+  return type(state) == 'table' and #(state.subjects or {}) == 0
+end
+
+function M.argument_slot(command, state)
+  if command and command.family == 'release' and command.name == 'delete' then
+    return {
+      slot_class = 'argument',
+      include_modifiers = not release_delete_subject_slot(state),
+      include_subjects = true,
+      static_before_dynamic = true,
+    }
+  end
   return {
     slot_class = 'argument',
     include_modifiers = command ~= nil,

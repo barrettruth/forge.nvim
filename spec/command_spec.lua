@@ -1179,7 +1179,8 @@ describe(':Forge command', function()
 
     local open = vim.fn.getcompletion('Forge ci open ', 'cmdline')
     local browse = vim.fn.getcompletion('Forge ci browse ', 'cmdline')
-    local releases = vim.fn.getcompletion('Forge release delete ', 'cmdline')
+    local release_browse = vim.fn.getcompletion('Forge release browse ', 'cmdline')
+    local release_delete = vim.fn.getcompletion('Forge release delete ', 'cmdline')
 
     assert.is_true(vim.tbl_contains(open, 'repo='))
     assert.is_true(vim.tbl_contains(browse, 'repo='))
@@ -1187,12 +1188,66 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(open, '402'))
     assert.is_false(vim.tbl_contains(browse, '401'))
     assert.is_false(vim.tbl_contains(browse, '402'))
-    assert.is_true(vim.tbl_contains(releases, 'v1.0.0'))
-    assert.is_true(vim.tbl_contains(releases, 'v1.1.0'))
+    assert.equals('repo=', release_browse[1])
+    assert.is_true(vim.tbl_contains(release_browse, 'v1.0.0'))
+    assert.is_true(vim.tbl_contains(release_browse, 'v1.1.0'))
+    assert.is_false(vim.tbl_contains(release_delete, 'repo='))
+    assert.is_true(vim.tbl_contains(release_delete, 'v1.0.0'))
+    assert.is_true(vim.tbl_contains(release_delete, 'v1.1.0'))
     assert.equals(
       0,
       vim.iter(captured.get_list_calls):fold(0, function(acc, key)
         return acc + (key:match('^ci:') and 1 or 0)
+      end)
+    )
+  end)
+
+  it('fetches release tags on explicit completion when the release cache is cold', function()
+    local scope = repo_scope('current')
+    local key = list_key('release', 'list', scope)
+    captured.system_responses['gh release list --json tagName,name,isDraft,isPrerelease --limit 30 -R owner/current'] =
+      helpers.command_result('[{"tagName":"v2.0.0","name":"Second"}]\n')
+
+    local first = vim.fn.getcompletion('Forge release browse ', 'cmdline')
+    local second = vim.fn.getcompletion('Forge release browse ', 'cmdline')
+    local narrowed = vim.fn.getcompletion('Forge release delete v2', 'cmdline')
+
+    assert.equals('repo=', first[1])
+    assert.is_true(vim.tbl_contains(first, 'v2.0.0'))
+    assert.is_true(vim.tbl_contains(second, 'v2.0.0'))
+    assert.same({ 'v2.0.0' }, narrowed)
+    assert.same({
+      { tagName = 'v2.0.0', name = 'Second' },
+    }, captured.lists[key])
+    assert.equals(
+      1,
+      vim.iter(captured.system_calls):fold(0, function(acc, item)
+        return acc
+          + (
+            item
+                == 'gh release list --json tagName,name,isDraft,isPrerelease --limit 30 -R owner/current'
+              and 1
+            or 0
+          )
+      end)
+    )
+  end)
+
+  it('does not fetch release tags while completing the repo= subtree', function()
+    local repos = vim.fn.getcompletion('Forge release browse repo=', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
+    assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
+    assert.equals(
+      0,
+      vim.iter(captured.system_calls):fold(0, function(acc, item)
+        return acc + (item:match('^gh release list') and 1 or 0)
+      end)
+    )
+    assert.equals(
+      0,
+      vim.iter(captured.get_list_calls):fold(0, function(acc, key)
+        return acc + (key:match('^release:') and 1 or 0)
       end)
     )
   end)

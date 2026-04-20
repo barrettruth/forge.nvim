@@ -76,6 +76,30 @@ describe('forge.completion_policy', function()
       include_subjects = true,
       static_before_dynamic = true,
     }, policy.argument_slot({ family = 'pr', name = 'merge' }, {}))
+
+    assert.same({
+      slot_class = 'argument',
+      include_modifiers = true,
+      include_subjects = true,
+      static_before_dynamic = true,
+    }, policy.argument_slot({ family = 'release', name = 'browse' }, { subjects = {} }))
+
+    assert.same({
+      slot_class = 'argument',
+      include_modifiers = false,
+      include_subjects = true,
+      static_before_dynamic = true,
+    }, policy.argument_slot({ family = 'release', name = 'delete' }, { subjects = {} }))
+
+    assert.same({
+      slot_class = 'argument',
+      include_modifiers = true,
+      include_subjects = true,
+      static_before_dynamic = true,
+    }, policy.argument_slot(
+      { family = 'release', name = 'delete' },
+      { subjects = { 'v1.0.0' } }
+    ))
   end)
 
   it('classifies numeric subject suppression and release cache preferences', function()
