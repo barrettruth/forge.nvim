@@ -53,6 +53,24 @@ local function declares_modifier(command, flag_name)
 end
 
 function M.family_slot(command)
+  if command and command.family == 'browse' and command.name == 'open' then
+    return {
+      slot_class = 'family',
+      include_verbs = false,
+      include_modifiers = true,
+      include_subjects = false,
+      static_before_dynamic = true,
+    }
+  end
+  if command and command.family == 'clear' and command.name == 'run' then
+    return {
+      slot_class = 'family',
+      include_verbs = false,
+      include_modifiers = false,
+      include_subjects = false,
+      static_before_dynamic = true,
+    }
+  end
   return {
     slot_class = 'family',
     include_verbs = true,

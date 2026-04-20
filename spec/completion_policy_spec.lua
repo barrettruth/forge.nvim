@@ -71,6 +71,22 @@ describe('forge.completion_policy', function()
     }, policy.family_slot({ family = 'review', name = 'open' }))
 
     assert.same({
+      slot_class = 'family',
+      include_verbs = false,
+      include_modifiers = true,
+      include_subjects = false,
+      static_before_dynamic = true,
+    }, policy.family_slot({ family = 'browse', name = 'open' }))
+
+    assert.same({
+      slot_class = 'family',
+      include_verbs = false,
+      include_modifiers = false,
+      include_subjects = false,
+      static_before_dynamic = true,
+    }, policy.family_slot({ family = 'clear', name = 'run' }))
+
+    assert.same({
       slot_class = 'argument',
       include_modifiers = true,
       include_subjects = true,
