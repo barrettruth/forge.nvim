@@ -16,7 +16,7 @@ without leaving your editor.
 - Neovim 0.10.0+
 - [tree-sitter-yaml](https://github.com/ikatyang/tree-sitter-yaml) for YAML
   issue form templates
-- A forge CLI: [`gh`](https://cli.github.com/),
+- At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
 - (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) >= 0.40 for the
