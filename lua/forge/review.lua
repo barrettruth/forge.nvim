@@ -129,6 +129,29 @@ local function adapter_name(opts)
   return 'checkout'
 end
 
+local function resolve_label(adapter, name, ctx)
+  if not adapter then
+    return name
+  end
+  local label = adapter.label
+  if type(label) == 'function' then
+    if not ctx then
+      return name
+    end
+    local ok, value = pcall(label, ctx)
+    if not ok then
+      log.debug(value)
+      return name
+    end
+    label = value
+  end
+  label = trim(label)
+  if label ~= '' then
+    return label
+  end
+  return name
+end
+
 local function builtins()
   return {
     checkout = {
@@ -340,17 +363,13 @@ function M.current_name(opts)
   return adapter_name(opts)
 end
 
-function M.label(opts)
-  local name = adapter_name(opts)
-  local adapter = M.get(name)
-  if not adapter then
-    return name
+function M.label(f, pr, opts)
+  if f ~= nil and pr ~= nil then
+    local ctx = M.context(f, pr, opts)
+    return resolve_label(M.get(ctx.adapter), ctx.adapter, ctx)
   end
-  local label = adapter.label
-  if type(label) == 'string' and label ~= '' then
-    return label
-  end
-  return name
+  local name = adapter_name(f)
+  return resolve_label(M.get(name), name, nil)
 end
 
 function M.context(f, pr, opts)

@@ -65,12 +65,14 @@ end
 
 describe(':Forge command', function()
   local captured
+  local extra_review_adapters
   local old_preload
   local old_systemlist
   local old_system
   local old_ui_open
 
   before_each(function()
+    extra_review_adapters = {}
     captured = {
       opens = {},
       ops_calls = {},
@@ -355,7 +357,11 @@ describe(':Forge command', function()
           return {}
         end,
         review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
+          local adapters = { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
+          for _, name in ipairs(extra_review_adapters) do
+            adapters[#adapters + 1] = name
+          end
+          return adapters
         end,
       }
     end
@@ -1042,6 +1048,14 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(adapters, 'adapter=diffs'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=diffview'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=worktree'))
+  end)
+
+  it('completes registered review adapters for adapter=', function()
+    extra_review_adapters = { 'custom-test-review' }
+
+    local adapters = vim.fn.getcompletion('Forge review 42 adapter=', 'cmdline')
+
+    assert.is_true(vim.tbl_contains(adapters, 'adapter=custom-test-review'))
   end)
 
   it('does not complete picker-only command families', function()
