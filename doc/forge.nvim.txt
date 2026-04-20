@@ -2,42 +2,33 @@
 
 CONTENTS                                                 *forge.nvim-contents*
 
-    INTRODUCTION..............................................|forge.nvim| |forge|
-
-    CONFIGURATION...................................................|forge-config|
-    Top-level options......................................|forge-config-context|
-    Picker keys...............................................|forge-config-keys|
-    Display settings......................................|forge-config-display|
-
-    COMMANDS..............................................................|:Forge|
-    Command model..............................................|:Forge-no-args|
-    Target modifiers and defaults......................|forge-target-defaults|
-    Command completion..............................|forge-command-completion|
-    Syntax and compatibility...................|forge-command-compatibility|
-    PR commands..........................................|forge-pr-commands|
-    Issue commands....................................|forge-issue-commands|
-    CI commands..........................................|forge-ci-commands|
-    Release commands..............................|forge-release-commands|
-    Browse commands.................................|forge-browse-commands|
-    Review commands.................................|forge-review-commands|
-    Cache commands...................................|forge-cache-commands|
-
-    PICKERS AND WORKFLOW........................................|forge-pickers|
-    Plug mappings...................................................|forge-plug|
-    Workflow surface...........................................|forge-workflow|
-    Picker workflows...........................................|forge-pickers|
-
-    COMPOSE.........................................................|forge-compose|
-    Compose integration............................|forge-compose-integration|
-
-    REFERENCE...................................................|forge-highlights|
-    Highlights................................................|forge-highlights|
-    Sources......................................................|forge-sources|
-    Health........................................................|forge-health|
-
-    EXTENDING AND API................................................|forge-api|
-    Extending..................................................|forge-extending|
-    API................................................................|forge-api|
+   1. Introduction................................................|forge.nvim|
+   2. Configuration.............................................|forge-config|
+      2.1 Top-level options.............................|forge-config-context|
+      2.2 Picker keys......................................|forge-config-keys|
+      2.3 Display settings..............................|forge-config-display|
+   3. Commands........................................................|:Forge|
+      3.1 Command model.......................................|:Forge-no-args|
+      3.2 Target defaults and overrides................|forge-target-defaults|
+      3.3 Command completion........................|forge-command-completion|
+      3.4 Canonical syntax and compatibility.....|forge-command-compatibility|
+      3.5 PR commands......................................|forge-pr-commands|
+      3.6 Issue commands................................|forge-issue-commands|
+      3.7 CI commands......................................|forge-ci-commands|
+      3.8 Release commands............................|forge-release-commands|
+      3.9 Browse commands..............................|forge-browse-commands|
+      3.10 Review commands.............................|forge-review-commands|
+      3.11 Cache commands...............................|forge-cache-commands|
+   4. Plug mappings...............................................|forge-plug|
+   5. Pickers..................................................|forge-pickers|
+   6. Workflow surface........................................|forge-workflow|
+   7. Compose buffer...........................................|forge-compose|
+      7.1 Compose integration......................|forge-compose-integration|
+   8. Highlights............................................|forge-highlights|
+   9. Sources..................................................|forge-sources|
+   10. Health...................................................|forge-health|
+   11. Extending.............................................|forge-extending|
+   12. API.........................................................|forge-api|
 
 ==============================================================================
 INTRODUCTION                                              *forge* *forge.nvim*
@@ -188,8 +179,7 @@ Top-level keys: ~
   `table|false`  (default shown below)
     Per-picker action bindings. Set to `false` to disable all picker-level
     actions. Use `"<cr>"` to bind to enter. Values use vim keymap notation
-    (e.g. `"<c-d>"`), which is translated to the appropriate format for
-    each picker backend.
+    (e.g. `"<c-d>"`), which forge.nvim translates for its picker UI.
 
   Defaults: >lua
       keys = {
@@ -723,55 +713,24 @@ WORKFLOW SURFACE                                              *forge-workflow*
 
 The interactive workflow surface is separate from the action-oriented `:Forge`
 command interface. Open it with `<Plug>(forge)` or `require('forge').open()`.
-The root picker uses label-only entries so the top level stays compact, while
-nested pickers and help docs carry the workflow detail.
 
-CLI parity: ~
-- Explicit forge actions exposed in pickers are also available through
-  `:Forge` when they can be addressed directly: review, create, edit, browse,
-  close, reopen, approve, merge, draft/ready, CI open, and release
-  browse/delete.
-- Picker-only actions are the list workflow itself and row-scoped helpers such
-  as filter/refresh/load more, nested per-PR checks, and copy-to-clipboard
-  helpers.
+The root picker shows section routes. By default: ~
 
-Architecture: ~
-- Interactive root entries go through `require('forge.client').open_root()`.
-- Nested pickers go through `require('forge.picker').pick()`.
-- `require('forge.client').register()` can replace the root workflow surface.
-- Nested pickers use the built-in `fzf-lua` adapter.
+  Label         Route                Opens ~
+  `PRs`         `prs.open`           Open PR list and PR actions
+  `Issues`      `issues.open`        Open issue list and issue actions
+  `CI`          `ci.current_branch`  Open current-branch CI runs
+  `Browse`      `browse.contextual`  Open the current repo/file/selection
+  `Releases`    `releases.all`       Open release list and release actions
 
-Default root route inventory: ~
-  `PRs` -> `prs.open`
-    Scope/actions: open PRs; worktree, ci
-    Shell-outs: `gh pr list`, `glab mr list`, `tea pulls list`
+Use |forge-config-sections| to hide root entries and |forge-config-routes| to
+remap them.
 
-  `Issues` -> `issues.open`
-    Scope/actions: issue tracker; browse, close, create
-    Shell-outs: `gh issue list`, `glab issue list`, `tea issues list`
+This interactive surface requires `fzf-lua`. Direct `:Forge` commands do not.
 
-  `CI` / `CI/CD` -> `ci.current_branch`
-    Scope/actions: current branch or repo runs; logs, watch, browse
-    Shell-outs: `gh run list`, `glab ci list`, `tea api ".../actions/runs"`
-
-  `Browse` -> `browse.contextual`
-    Scope/actions: current branch or file selection; open browser target
-    Shell-outs: `gh browse` or forge-specific URL openers
-
-  `Releases` -> `releases.all`
-    Scope/actions: repo releases; browse, yank, delete
-    Shell-outs: `gh release list`, `glab release list`, `tea api ".../releases"`
-
-Built-in picker backend capabilities: ~
-
-  Capability                     fzf-lua ~
-  Segmented row rendering          yes
-  Highlighted row segments         yes
-  Root workflow surface            yes
-  Non-closing actions              yes
-  Action header hints              yes
-
-`fzf-lua` shows action hints in the header and powers nested picker workflows.
+The picker surface covers workflows that do not fit cleanly in a single
+command, such as list navigation, row-scoped actions, filters, refresh,
+load-more rows, nested per-PR checks, and copy helpers.
 
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*
@@ -1043,176 +1002,29 @@ CUSTOM SOURCE REGISTRATION ~
 Register a custom source with `require('forge').register()`: >lua
     local my_source = { ... }
     require('forge').register('myforgejo', my_source)
-< The name must match the key used in `sources` host config. The source module
-is also discoverable as `forge.<name>` (e.g. `require('forge.myforgejo')` if
-placed at `lua/forge/myforgejo.lua`).
+<
+The name must match the key used in `sources` host config.
+
+Most users do not need a custom source. For self-hosted instances that behave
+like GitHub, GitLab, or Codeberg, prefer |forge-config-sources| host overrides.
 
 THE `forge.Forge` INTERFACE ~
                                                        *forge-Forge-interface*
-A source must implement all methods in the `forge.Forge` class. Each source is
-a table with these fields and methods:
+The custom source contract is an advanced backend API rather than a normal
+user-facing configuration surface.
 
-Fields: ~
-  `name`           `string`       Source name (e.g. `"github"`).
-  `cli`            `string`       CLI executable name (e.g. `"gh"`).
-  `kinds`          `table`        `{ issue = string, pr = string }` -- CLI
-                                 subcommand names for issues and PRs.
-  `labels`         `table`        `{ issue = string, pr = string,`
-                                 `pr_one = string, pr_full = string,`
-                                 `ci = string }` -- display labels.
-  `capabilities`   `table`        Feature flags (see |forge-compatibility|):
-                                 `draft`           Draft PR support.
-                                 `reviewers`       Reviewer support.
-                                 `per_pr_checks`   CI checks scoped to a PR.
-                                 `ci_json`         Structured CI run data.
-  `submission`     `table?`       Optional per-kind create/update metadata
-                                 support table:
-                                 `{ issue = { create = {...},`
-                                 `update = {...} },`
-                                 `pr = { create = {...},`
-                                 `update = {...} } }`
-                                 with supported keys:
-                                 `labels`, `assignees`, `milestone`, `draft`,
-                                 `reviewers`.
-  `pr_fields`      `table`        PR field name mapping:
-                                 `{ number, title, branch, state,`
-                                 `author, created_at }`.
-  `issue_fields`   `table`        Issue field name mapping:
-                                 `{ number, title, state, author,`
-                                 `created_at }`.
-  `release_fields` `table`        Release field name mapping:
-                                 `{ tag, title, is_draft?,`
-                                 `is_prerelease?, is_latest?,`
-                                 `published_at }`.
+The canonical field and method inventory lives in the LuaCATS definition of
+`forge.Forge` in `lua/forge/types.lua`. The built-in backends in
+`lua/forge/backends/` are the reference implementations.
 
-Required methods: ~
+In practice, a custom source needs to:
+- declare labels and capabilities
+- provide PR, issue, browse, and CI shell-outs for the features it supports
+- normalize forge-specific JSON into Forge's shared PR/issue/run/release
+  shapes
 
-All methods receive `self` as the first argument (use `:` syntax).
-
-  Method                              Returns ~
-  `list_pr_json_cmd(state)`             `string[]` cmd to list PRs as JSON.
-  `list_issue_json_cmd(state)`          `string[]` cmd to list issues as JSON.
-  `view_web(kind, num)`                 Opens PR/issue in browser.
-  `browse(loc, branch)`                 Opens file location on remote.
-  `browse_branch(branch)`               Opens branch in browser.
-  `browse_commit(commit)`               Opens commit in browser.
-  `checkout_cmd(num)`                   `string[]` cmd to checkout a PR.
-  `fetch_pr(num)`                       `string[]` git fetch refspec for PR.
-  `pr_base_cmd(num)`                    `string[]` cmd returning base branch.
-  `pr_for_branch_cmd(branch)`           `string[]` cmd returning PR number
-                                        for a branch (empty = no PR).
-  `checks_cmd(num)`                     `string` shell command for checks.
-  `check_log_cmd(run_id, failed, id?)`  `string[]` cmd to view check log.
-  `list_runs_cmd(branch?)`             `string` shell command for CI runs.
-  `normalize_run(entry)`                `forge.CIRun` normalized run entry.
-  `run_log_cmd(id, failed_only)`       `string[]` cmd to view run log.
-  `cancel_run_cmd(id)`                  `string[]?` cmd to cancel a run.
-                                        Return `nil` (or omit) when the
-                                        backend does not support cancel.
-  `rerun_run_cmd(id)`                   `string[]?` cmd to rerun a completed
-                                        run. Return `nil` (or omit) when the
-                                        backend does not support rerun.
-  `merge_cmd(num, method?)`            `string[]` cmd to merge PR.
-  `approve_cmd(num)`                    `string[]` cmd to approve PR.
-  `repo_info()`                         `forge.RepoInfo` with `permission`
-                                        (`"ADMIN"`, `"WRITE"`, `"READ"`)
-                                        and `merge_methods` (`string[]`).
-  `pr_state(num)`                       `forge.PRState` with `state`,
-                                        `mergeable`, `review_decision`,
-                                        `is_draft`.
-  `close_cmd(num)`                      `string[]` cmd to close PR.
-  `reopen_cmd(num)`                     `string[]` cmd to reopen PR.
-  `close_issue_cmd(num)`               `string[]` cmd to close issue.
-  `reopen_issue_cmd(num)`              `string[]` cmd to reopen issue.
-  `create_pr_cmd(title, body,`          `string[]` cmd to create a PR.
-    `base, draft, scope?, metadata?)`
-  `update_pr_cmd(num, title, body,`     `string[]` cmd to update a PR.
-    `scope?, metadata?, previous?)`
-  `create_issue_cmd(title, body,`       `string[]` cmd to create an issue.
-    `labels?, scope?, metadata?)`
-  `update_issue_cmd(num, title, body,`  `string[]` cmd to update an issue.
-    `scope?, metadata?, previous?)`
-  `issue_template_paths()`              `string[]` repo-relative paths to
-                                        issue templates.
-  `default_branch_cmd()`                `string[]` cmd returning default
-                                        branch name.
-  `template_paths()`                    `string[]` repo-relative paths to
-                                        PR templates.
-  `draft_toggle_cmd(num, is_draft)`    `string[]?` cmd to toggle draft.
-                                        Return `nil` if unsupported.
-  `list_releases_json_cmd()`           `string[]` cmd to list releases as
-                                        JSON.
-  `browse_release(tag)`                Opens release in browser.
-  `delete_release_cmd(tag)`            `string[]` cmd to delete release.
-
-Optional methods: ~
-
-  Method                              Fallback ~
-  `steps_cmd(run_id)`                   `string[]?` cmd to fetch step JSON.
-  `view_cmd(id, opts?)`                `string[]?` cmd to view a run/job.
-                                        `opts`: `{ job_id?, log?, failed? }`.
-  `summary_json_cmd(id)`               `string[]?` JSON summary cmd for
-                                        richer CI/checks views.
-  `watch_cmd(id)`                       `string[]?` cmd to live-watch a run
-                                        in a terminal.
-  `run_status_cmd(id)`                  `string[]?` cmd returning JSON with
-                                        `status` and `conclusion` fields.
-  `live_tail_cmd(run_id, job_id?)`     `string[]?` cmd to live-tail a
-                                        specific job in a terminal.
-  `list_web_url(kind, scope?)`         `string?` Web URL for the list
-                                        landing page of `kind` (`'pr'`,
-                                        `'issue'`, `'ci'`, `'release'`).
-                                        Return `nil` if the source has no
-                                        such page.
-  `browse_run(id, scope?)`             `nil` Open CI run `id` in the
-                                        browser.
-  `list_runs_json_cmd(branch?)`        `string[]` JSON CI list cmd.
-                                        If absent, Forge reports that
-                                        structured CI data is unavailable
-                                        for that source.
-  `checks_json_cmd(num)`               `string[]` JSON checks cmd.
-                                        If absent, Forge reports that
-                                        structured checks are unavailable
-                                        for that source.
-  `create_pr_web_cmd()`                `string[]?` cmd to open web PR
-                                        creation. Return `nil` to no-op.
-  `create_pr_web_url()`                `string?` URL for web PR creation.
-                                        Used when no command is needed.
-  `create_issue_web_cmd()`             `string[]?` cmd to open web issue
-                                        creation. If absent, falls back
-                                        to opening `{remote}/issues/new`.
-  `create_issue_web_url()`             `string?` URL for web issue
-                                        creation. Used when no command is
-                                        needed.
-
-Skeleton: >lua
-    local M = {
-      name = 'myforgejo',
-      cli = 'tea',
-      kinds = { issue = 'issues', pr = 'pulls' },
-      labels = {
-        issue = 'Issues',
-        pr = 'PRs',
-        pr_one = 'PR',
-        pr_full = 'Pull Requests',
-        ci = 'CI/CD',
-      },
-      capabilities = {
-        draft = false,
-        reviewers = false,
-        per_pr_checks = false,
-        ci_json = false,
-      },
-    }
-
-    function M:list_pr_json_cmd(state)
-      return { 'tea', 'pulls', 'list', '--state', state, '--output', 'json' }
-    end
-
-    -- ... implement remaining methods ...
-
-    return M
-<
+If you are writing a new source, start from the closest built-in backend and
+adapt it to your forge instead of implementing the contract from scratch.
 
 ==============================================================================
 HEALTH                                                          *forge-health*
@@ -1779,42 +1591,47 @@ action from the picker. Functions that take a ref accept either a bare id
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 
-The picker primitive. Wired to `fzf-lua`.
+Advanced picker primitive used by Forge's own pickers. It is currently backed
+by `fzf-lua`.
 
                                                          *forge.picker.pick()*
 `pick(opts)`
     Opens a picker with the given `opts`:
-      `prompt`       `string?`                Prompt line.
-      `picker_name`  `string`                 Identifier used to look up
-                                              `vim.g.forge.keys.<picker_name>`
-                                              and contextual search keys.
-      `entries`      `forge.PickerEntry[]`    See below.
-      `actions`      `forge.PickerActionDef[]` See below.
-      `back`         `fun()?`                 Optional callback invoked when
-                                              the hardcoded back key (`<c-o>`)
-                                              is pressed on a nested picker.
-      `entry_source` `fun(): entries?`        Optional entry refresh
-                                              callback. Enables live width
-                                              and re-entry.
+      `prompt`       `string?`                 Prompt line.
+      `picker_name`  `string`                  Identifier used to look up
+                                               `vim.g.forge.keys.<picker_name>`
+                                               and contextual search keys.
+      `entries`      `forge.PickerEntry[]`     Initial rows. See below.
+      `actions`      `forge.PickerActionDef[]` Available actions. See below.
+      `back`         `fun()?`                  Optional callback invoked when
+                                               the hardcoded back key
+                                               (`<c-o>`) is pressed on a
+                                               nested picker.
+      `stream`       `fun(emit)`               Optional async row stream.
+                                               Call `emit(entry)` for each row
+                                               and `emit(nil)` when complete.
 
     `forge.PickerEntry` shape:
-      `display`        `forge.Segment[]`      Rendered row, segmented into
-                                              `{ text, hl? }` pairs.
-      `value`          `any`                  User-defined value passed to
-                                              the action function.
-      `ordinal`        `string?`              Override sort/search key.
-      `render_display` `fun(width): forge.Segment[]?`  Optional width-aware
-                                              renderer.
+      `display`           `forge.Segment[]`    Rendered row, segmented into
+                                               `{ text, hl? }` pairs.
+      `value`             `any`                User-defined value passed to
+                                               the action function.
+      `ordinal`           `string?`            Override sort/search key.
+      `placeholder`       `boolean?`           Mark a non-entity row.
+      `placeholder_kind`  `'empty'|'error'?`   Placeholder subtype.
+      `keep_open`         `boolean?`           Keep the picker open after the
+                                               action.
+      `force_close`       `boolean?`           Close the picker after the
+                                               action.
 
     `forge.PickerActionDef` shape:
-      `name`   `string`               Action name (`"default"` runs on `<cr>`).
-      `label`  `string?`              Header hint label.
-      `close`  `boolean?`             If `false`, the picker stays open.
-      `fn`     `fun(entry: forge.PickerEntry?)`   Action handler.
-
-                                                      *forge.picker.backend()*
-`backend()`
-    Returns the name of the active picker backend (e.g. `"fzf-lua"`).
+      `name`        `string`           Action name (`"default"` runs on `<cr>`).
+      `label`       `string|fun(entry)` Header hint label.
+      `available`   `boolean|fun(entry)` Per-entry availability.
+      `close`       `boolean?`         If `false`, the picker stays open.
+      `reload`      `boolean?`         Reload after the action.
+      `fn`          `fun(entry: forge.PickerEntry?)`
+                                       Action handler.
 
 See |forge-extending| for composition recipes that combine these layers.
 
