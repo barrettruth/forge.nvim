@@ -505,6 +505,9 @@ per-family `refresh` verbs invalidate the cached list for that family, and
 `:Forge clear` is the nuclear option that also clears forge detection and
 git-root resolution.
 
+For example, to force fresh forge detection after changing remotes, run
+`:Forge clear`.
+
 `:Forge clear`                                                  *:Forge-clear*
     Clear all internal caches (forge detection, repo info, list data).
 
