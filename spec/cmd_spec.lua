@@ -165,12 +165,20 @@ describe('command schema', function()
     }))
     local browse_branch = assert(cmd.parse({ 'browse', 'branch=main' }))
     local browse_commit = assert(cmd.parse({ 'browse', 'commit=abc1234' }))
+    local browse_target = assert(cmd.parse({
+      'browse',
+      'target=upstream@main:lua/forge/init.lua#L10-L20',
+    }))
 
     assert.equals('main', create.parsed_modifiers.base.rev)
     assert.equals('topic', create.parsed_modifiers.head.rev)
     assert.equals('barrettruth/forge.nvim', create.parsed_modifiers.head.repo.slug)
     assert.equals('main', browse_branch.parsed_modifiers.branch.branch)
     assert.equals('abc1234', browse_commit.parsed_modifiers.commit.commit)
+    assert.equals('main', browse_target.parsed_modifiers.target.rev.rev)
+    assert.equals('owner/upstream', browse_target.parsed_modifiers.target.rev.repo.slug)
+    assert.equals('lua/forge/init.lua', browse_target.parsed_modifiers.target.path)
+    assert.same({ start_line = 10, end_line = 20 }, browse_target.parsed_modifiers.target.range)
   end)
 
   it('attaches default target policy for omitted direct-action addresses', function()
@@ -250,7 +258,7 @@ describe('command schema', function()
   end)
 
   it('keeps legacy browse modifiers separate from canonical ones', function()
-    assert.same({ 'branch', 'commit' }, cmd.modifier_names('browse'))
+    assert.same({ 'branch', 'commit', 'target' }, cmd.modifier_names('browse'))
     assert.same({}, cmd.legacy_modifier_names('browse'))
   end)
 
@@ -268,14 +276,14 @@ describe('command schema', function()
     assert.equals('duplicate modifier: repo', duplicate.message)
   end)
 
-  it('rejects removed browse modifiers and malformed branch/commit syntax', function()
+  it('rejects obsolete browse modifiers and malformed browse target syntax', function()
     local _, target_err = cmd.parse({ 'browse', 'target=README.md#L10' })
     local _, repo_err = cmd.parse({ 'browse', 'repo=upstream' })
     local _, rev_err = cmd.parse({ 'browse', 'rev=main' })
     local _, branch_err = cmd.parse({ 'browse', 'branch=@main' })
     local _, commit_err = cmd.parse({ 'browse', 'commit=abc:def' })
 
-    assert.equals('unknown modifier: target', target_err.message)
+    assert.equals('invalid location address: README.md#L10', target_err.message)
     assert.equals('unknown modifier: repo', repo_err.message)
     assert.equals('unknown modifier: rev', rev_err.message)
     assert.equals('invalid branch: @main', branch_err.message)

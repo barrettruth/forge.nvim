@@ -172,7 +172,7 @@ local families = {
     verbs = {
       open = {
         subject = { min = 0, max = 0 },
-        modifiers = { 'branch', 'commit' },
+        modifiers = { 'branch', 'commit', 'target' },
       },
     },
   },
@@ -579,6 +579,11 @@ local function dispatch_browse(command)
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
+  local location = command.parsed_modifiers.target
+  if location then
+    ops.browse_location(f, location, scope)
+    return
+  end
   local commit = command.parsed_modifiers.commit
   if commit and commit.commit then
     ops.browse_commit({ commit = commit.commit, scope = scope })
@@ -1297,7 +1302,7 @@ local function completion_values(family_name, verb_name, flag_name, prefix)
   if policy.source == 'repo' then
     return repo_completion_values(prefix or '')
   end
-  if policy.source == 'rev' then
+  if policy.source == 'ref' then
     return ref_completion_values(prefix or '')
   end
   if policy.source == 'rev_address' then

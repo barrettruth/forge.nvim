@@ -162,8 +162,8 @@ describe('forge.completion_policy', function()
 
   it('classifies local and static modifier-value policies', function()
     local command = {
+      modifiers = { 'repo', 'branch', 'commit', 'head', 'target', 'adapter', 'state', 'method' },
       modifier_values = {
-        adapter = { 'browse' },
         state = { 'open', 'closed' },
       },
     }
@@ -179,8 +179,29 @@ describe('forge.completion_policy', function()
       slot_class = 'modifier_value',
       cmdline_usefulness = 'local_only',
       allow_empty_prefix = true,
+      source = 'ref',
+    }, policy.modifier_value(command, 'branch'))
+
+    assert.same({
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'ref',
+    }, policy.modifier_value(command, 'commit'))
+
+    assert.same({
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
       source = 'rev_address',
     }, policy.modifier_value(command, 'head'))
+
+    assert.same({
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'target',
+    }, policy.modifier_value(command, 'target'))
 
     assert.same({
       slot_class = 'modifier_value',
@@ -203,6 +224,7 @@ describe('forge.completion_policy', function()
       source = 'modifier_values',
     }, policy.modifier_value(command, 'method', { values = { 'merge', 'squash', 'rebase' } }))
 
+    assert.is_nil(policy.modifier_value(command, 'rev'))
     assert.is_nil(policy.modifier_value(command, 'missing'))
   end)
 end)

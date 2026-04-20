@@ -352,7 +352,7 @@ describe(':Forge command', function()
           table.insert(captured.opens, { route = route, opts = opts })
         end,
         template_slugs = function()
-          return {}
+          return { 'bug', 'feature' }
         end,
         review_adapter_names = function()
           return { 'browse', 'checkout', 'diffview', 'worktree' }
@@ -676,6 +676,21 @@ describe(':Forge command', function()
     assert.equals('abc1234', captured.opens[1].opts.commit)
   end)
 
+  it('dispatches explicit location browsing through ops.browse_location', function()
+    vim.cmd('Forge browse target=upstream@main:lua/forge/init.lua#L10-L20')
+
+    assert.equals('browse_location', captured.ops_calls[1].name)
+    assert.equals('lua/forge/init.lua', captured.ops_calls[1].location.path)
+    assert.same({ start_line = 10, end_line = 20 }, captured.ops_calls[1].location.range)
+    assert.equals('main', captured.ops_calls[1].location.rev.rev)
+    assert.same(repo_scope('upstream'), captured.ops_calls[1].scope)
+    assert.same({
+      loc = 'lua/forge/init.lua:10-20',
+      branch = 'main',
+      scope = repo_scope('upstream'),
+    }, captured.browse_calls[1])
+  end)
+
   it('dispatches argless kind browse through ops.list_browse', function()
     vim.cmd('Forge issue browse')
     vim.cmd('Forge ci browse')
@@ -967,6 +982,7 @@ describe(':Forge command', function()
     local issue = vim.fn.getcompletion('Forge issue ', 'cmdline')
     local ci = vim.fn.getcompletion('Forge ci ', 'cmdline')
     local release = vim.fn.getcompletion('Forge release ', 'cmdline')
+    local browse = vim.fn.getcompletion('Forge browse ', 'cmdline')
     local pr_create = vim.fn.getcompletion('Forge pr create ', 'cmdline')
     local issue_create = vim.fn.getcompletion('Forge issue create ', 'cmdline')
 
@@ -1002,6 +1018,9 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(release, 'browse'))
     assert.is_true(vim.tbl_contains(release, 'delete'))
     assert.is_true(vim.tbl_contains(release, 'refresh'))
+    assert.is_true(vim.tbl_contains(browse, 'branch='))
+    assert.is_true(vim.tbl_contains(browse, 'commit='))
+    assert.is_true(vim.tbl_contains(browse, 'target='))
 
     assert.is_true(vim.tbl_contains(pr_create, 'head='))
     assert.is_true(vim.tbl_contains(pr_create, 'base='))
@@ -1016,10 +1035,13 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(issue_create, 'head='))
   end)
 
-  it('completes modifier values for repo, revision, and target addresses', function()
+  it('completes local-only modifier values without consulting forge entity lists', function()
     local repos = vim.fn.getcompletion('Forge pr create repo=', 'cmdline')
-    local revs = vim.fn.getcompletion('Forge browse rev=', 'cmdline')
+    local branches = vim.fn.getcompletion('Forge browse branch=', 'cmdline')
+    local commits = vim.fn.getcompletion('Forge browse commit=', 'cmdline')
+    local targets = vim.fn.getcompletion('Forge browse target=', 'cmdline')
     local heads = vim.fn.getcompletion('Forge pr create head=', 'cmdline')
+    local templates = vim.fn.getcompletion('Forge issue create template=', 'cmdline')
     local adapters = vim.fn.getcompletion('Forge review 42 adapter=', 'cmdline')
 
     assert.is_true(vim.tbl_contains(repos, 'repo=work'))
@@ -1027,19 +1049,42 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
     assert.is_true(vim.tbl_contains(repos, 'repo=upstream'))
 
-    assert.is_true(vim.tbl_contains(revs, 'rev=main'))
-    assert.is_true(vim.tbl_contains(revs, 'rev=feature'))
-    assert.is_true(vim.tbl_contains(revs, 'rev=v1.0.0'))
-    assert.is_true(vim.tbl_contains(revs, 'rev=deadbee'))
+    assert.is_true(vim.tbl_contains(branches, 'branch=main'))
+    assert.is_true(vim.tbl_contains(branches, 'branch=feature'))
+    assert.is_true(vim.tbl_contains(branches, 'branch=v1.0.0'))
+    assert.is_true(vim.tbl_contains(branches, 'branch=deadbee'))
+
+    assert.is_true(vim.tbl_contains(commits, 'commit=main'))
+    assert.is_true(vim.tbl_contains(commits, 'commit=feature'))
+    assert.is_true(vim.tbl_contains(commits, 'commit=v1.0.0'))
+    assert.is_true(vim.tbl_contains(commits, 'commit=deadbee'))
+
+    assert.is_true(vim.tbl_contains(targets, 'target=work@'))
+    assert.is_true(vim.tbl_contains(targets, 'target=origin@'))
+    assert.is_true(vim.tbl_contains(targets, 'target=@main:'))
+    assert.is_true(vim.tbl_contains(targets, 'target=@deadbee:'))
 
     assert.is_true(vim.tbl_contains(heads, 'head=work@'))
     assert.is_true(vim.tbl_contains(heads, 'head=origin@'))
     assert.is_true(vim.tbl_contains(heads, 'head=@main'))
     assert.is_true(vim.tbl_contains(heads, 'head=@deadbee'))
+
+    assert.is_true(vim.tbl_contains(templates, 'template=bug'))
+    assert.is_true(vim.tbl_contains(templates, 'template=feature'))
+
     assert.is_true(vim.tbl_contains(adapters, 'adapter=browse'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=checkout'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=diffview'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=worktree'))
+
+    assert.same({}, vim.fn.getcompletion('Forge browse rev=', 'cmdline'))
+    assert.same({}, captured.get_list_calls)
+    assert.equals(
+      0,
+      vim.iter(captured.system_calls):fold(0, function(acc, item)
+        return acc + (item:match('^gh ') and 1 or 0)
+      end)
+    )
   end)
 
   it('does not complete picker-only command families', function()
