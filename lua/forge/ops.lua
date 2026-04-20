@@ -170,7 +170,7 @@ end
 
 ---@param f forge.Forge
 ---@param pr forge.PRRefLike
----@param opts? forge.PickerBackOpts
+---@param opts? forge.PickerLimitOpts
 function M.pr_ci(f, pr, opts)
   pr = normalize_pr_ref(pr)
   opts = vim.tbl_extend('force', opts or {}, { scope = pr.scope })
