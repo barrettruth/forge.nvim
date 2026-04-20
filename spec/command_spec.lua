@@ -63,6 +63,10 @@ local function use_named_current_buf(name)
   return buf
 end
 
+local function completion(cmdline)
+  return vim.fn.getcompletion(cmdline, 'cmdline')
+end
+
 describe(':Forge command', function()
   local captured
   local extra_review_adapters
@@ -981,16 +985,87 @@ describe(':Forge command', function()
     assert.is_nil(captured.cleared)
   end)
 
+  it('covers the stock completion slot matrix explicitly', function()
+    local scope = repo_scope('current')
+    captured.lists[list_key('release', 'list', scope)] = {
+      { tagName = 'v1.0.0', name = 'First' },
+      { tagName = 'v1.1.0', name = 'Second' },
+    }
+
+    for _, case in ipairs({
+      {
+        cmdline = 'Forge ',
+        expected = { 'pr', 'review', 'issue', 'ci', 'release', 'browse', 'clear' },
+      },
+      {
+        cmdline = 'Forge pr ',
+        expected = {
+          'close',
+          'reopen',
+          'create',
+          'edit',
+          'approve',
+          'merge',
+          'draft',
+          'ready',
+          'refresh',
+        },
+      },
+      {
+        cmdline = 'Forge issue ',
+        expected = { 'browse', 'close', 'reopen', 'create', 'edit', 'refresh' },
+      },
+      {
+        cmdline = 'Forge ci ',
+        expected = { 'open', 'browse', 'refresh' },
+      },
+      {
+        cmdline = 'Forge release ',
+        expected = { 'browse', 'delete', 'refresh' },
+      },
+      {
+        cmdline = 'Forge browse ',
+        expected = { 'branch=', 'commit=', 'target=' },
+      },
+      {
+        cmdline = 'Forge clear ',
+        expected = {},
+      },
+      {
+        cmdline = 'Forge review ',
+        expected = { 'open', 'repo=', 'adapter=' },
+      },
+      {
+        cmdline = 'Forge issue browse ',
+        expected = { 'repo=' },
+      },
+      {
+        cmdline = 'Forge ci browse ',
+        expected = { 'repo=' },
+      },
+      {
+        cmdline = 'Forge release browse ',
+        expected = { 'repo=', 'v1.0.0', 'v1.1.0' },
+      },
+      {
+        cmdline = 'Forge release delete ',
+        expected = { 'v1.0.0', 'v1.1.0' },
+      },
+    }) do
+      assert.same(case.expected, completion(case.cmdline))
+    end
+  end)
+
   it('completes families, verbs, and valid canonical modifiers contextually', function()
-    local families = vim.fn.getcompletion('Forge ', 'cmdline')
-    local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
-    local review = vim.fn.getcompletion('Forge review ', 'cmdline')
-    local issue = vim.fn.getcompletion('Forge issue ', 'cmdline')
-    local ci = vim.fn.getcompletion('Forge ci ', 'cmdline')
-    local release = vim.fn.getcompletion('Forge release ', 'cmdline')
-    local browse = vim.fn.getcompletion('Forge browse ', 'cmdline')
-    local pr_create = vim.fn.getcompletion('Forge pr create ', 'cmdline')
-    local issue_create = vim.fn.getcompletion('Forge issue create ', 'cmdline')
+    local families = completion('Forge ')
+    local pr = completion('Forge pr ')
+    local review = completion('Forge review ')
+    local issue = completion('Forge issue ')
+    local ci = completion('Forge ci ')
+    local release = completion('Forge release ')
+    local browse = completion('Forge browse ')
+    local pr_create = completion('Forge pr create ')
+    local issue_create = completion('Forge issue create ')
 
     assert.is_true(vim.tbl_contains(families, 'pr'))
     assert.is_true(vim.tbl_contains(families, 'review'))
@@ -1041,14 +1116,16 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(issue_create, 'head='))
   end)
 
-  it('completes local-only modifier values without consulting forge entity lists', function()
-    local repos = vim.fn.getcompletion('Forge pr create repo=', 'cmdline')
-    local branches = vim.fn.getcompletion('Forge browse branch=', 'cmdline')
-    local commits = vim.fn.getcompletion('Forge browse commit=', 'cmdline')
-    local targets = vim.fn.getcompletion('Forge browse target=', 'cmdline')
-    local heads = vim.fn.getcompletion('Forge pr create head=', 'cmdline')
-    local templates = vim.fn.getcompletion('Forge issue create template=', 'cmdline')
-    local adapters = vim.fn.getcompletion('Forge review 42 adapter=', 'cmdline')
+  it('completes local-only and static modifier values without consulting forge entity lists', function()
+    local repos = completion('Forge pr create repo=')
+    local branches = completion('Forge browse branch=')
+    local commits = completion('Forge browse commit=')
+    local targets = completion('Forge browse target=')
+    local heads = completion('Forge pr create head=')
+    local bases = completion('Forge pr create base=')
+    local templates = completion('Forge issue create template=')
+    local adapters = completion('Forge review 42 adapter=')
+    local methods = completion('Forge pr merge method=')
 
     assert.is_true(vim.tbl_contains(repos, 'repo=work'))
     assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
@@ -1070,10 +1147,13 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(targets, 'target=@main:'))
     assert.is_true(vim.tbl_contains(targets, 'target=@deadbee:'))
 
-    assert.is_true(vim.tbl_contains(heads, 'head=work@'))
-    assert.is_true(vim.tbl_contains(heads, 'head=origin@'))
-    assert.is_true(vim.tbl_contains(heads, 'head=@main'))
-    assert.is_true(vim.tbl_contains(heads, 'head=@deadbee'))
+    for _, values in ipairs({ heads, bases }) do
+      local prefix = values == heads and 'head=' or 'base='
+      assert.is_true(vim.tbl_contains(values, prefix .. 'work@'))
+      assert.is_true(vim.tbl_contains(values, prefix .. 'origin@'))
+      assert.is_true(vim.tbl_contains(values, prefix .. '@main'))
+      assert.is_true(vim.tbl_contains(values, prefix .. '@deadbee'))
+    end
 
     assert.is_true(vim.tbl_contains(templates, 'template=bug'))
     assert.is_true(vim.tbl_contains(templates, 'template=feature'))
@@ -1085,7 +1165,9 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(adapters, 'adapter=diffview'))
     assert.is_true(vim.tbl_contains(adapters, 'adapter=worktree'))
 
-    assert.same({}, vim.fn.getcompletion('Forge browse rev=', 'cmdline'))
+    assert.same({ 'method=merge', 'method=squash', 'method=rebase' }, methods)
+
+    assert.same({}, completion('Forge browse rev='))
     assert.same({}, captured.get_list_calls)
     assert.equals(
       0,
@@ -1098,15 +1180,39 @@ describe(':Forge command', function()
   it('completes registered review adapters for adapter=', function()
     extra_review_adapters = { 'custom-test-review' }
 
-    local adapters = vim.fn.getcompletion('Forge review 42 adapter=', 'cmdline')
+    local adapters = completion('Forge review 42 adapter=')
 
     assert.is_true(vim.tbl_contains(adapters, 'adapter=custom-test-review'))
   end)
 
+  it('keeps parser acceptance broader than repo= suggestions', function()
+    local repos = completion('Forge pr create repo=')
+    local command = assert(require('forge.cmd').parse({
+      'pr',
+      'create',
+      'repo=github.com/example/custom',
+    }))
+
+    assert.is_false(vim.tbl_contains(repos, 'repo=github.com/example/custom'))
+    assert.equals('github.com', command.parsed_modifiers.repo.host)
+    assert.equals('example/custom', command.parsed_modifiers.repo.slug)
+  end)
+
   it('does not complete picker-only command families', function()
-    assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge br', 'cmdline'), 'branches'))
-    assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge comm', 'cmdline'), 'commits'))
-    assert.is_false(vim.tbl_contains(vim.fn.getcompletion('Forge work', 'cmdline'), 'worktrees'))
+    assert.is_false(vim.tbl_contains(completion('Forge br'), 'branches'))
+    assert.is_false(vim.tbl_contains(completion('Forge comm'), 'commits'))
+    assert.is_false(vim.tbl_contains(completion('Forge work'), 'worktrees'))
+  end)
+
+  it('returns empty results instead of helpful-noise fallbacks when nothing matches', function()
+    local scope = repo_scope('current')
+    captured.lists[list_key('release', 'list', scope)] = {
+      { tagName = 'v1.0.0', name = 'First' },
+    }
+
+    assert.same({}, require('forge.cmd').complete('zzz', 'Forge browse zzz', 0))
+    assert.same({}, require('forge.cmd').complete('zzz', 'Forge review zzz', 0))
+    assert.same({}, require('forge.cmd').complete('zzz', 'Forge release delete zzz', 0))
   end)
 
   it('suppresses PR subject completion in stock cmdline and keeps useful modifiers', function()
