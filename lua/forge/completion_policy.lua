@@ -1,0 +1,211 @@
+local M = {}
+
+local availability = require('forge.availability')
+local picker = require('forge.picker')
+
+local function pr_completion_states(verb)
+  if
+    verb == 'approve'
+    or verb == 'merge'
+    or verb == 'draft'
+    or verb == 'ready'
+    or verb == 'close'
+  then
+    return { 'open', 'all' }, 'open'
+  end
+  if verb == 'reopen' then
+    return { 'closed', 'all' }, 'closed'
+  end
+  return { 'all', 'open', 'closed' }, 'all'
+end
+
+local function issue_completion_states(verb)
+  if verb == 'close' then
+    return { 'open', 'all' }, 'open'
+  end
+  if verb == 'reopen' then
+    return { 'closed', 'all' }, 'closed'
+  end
+  return { 'all', 'open', 'closed' }, 'all'
+end
+
+local function pr_completion_available(verb, f, entry)
+  if verb == 'approve' then
+    return availability.pr_can_approve(f, entry)
+  end
+  if verb == 'merge' then
+    return availability.pr_can_merge(f, entry)
+  end
+  if verb == 'draft' then
+    return availability.pr_can_mark_draft(f, entry)
+  end
+  if verb == 'ready' then
+    return availability.pr_can_mark_ready(f, entry)
+  end
+  if verb == 'close' then
+    return picker.pr_toggle_verb(entry) == 'close'
+  end
+  if verb == 'reopen' then
+    return picker.pr_toggle_verb(entry) == 'reopen'
+  end
+  return true
+end
+
+local function issue_completion_available(verb, _, entry)
+  if verb == 'close' then
+    return picker.issue_toggle_verb(entry) == 'close'
+  end
+  if verb == 'reopen' then
+    return picker.issue_toggle_verb(entry) == 'reopen'
+  end
+  return true
+end
+
+function M.family_slot(command)
+  return {
+    slot_class = 'family',
+    include_verbs = true,
+    include_modifiers = command ~= nil,
+    include_subjects = command ~= nil,
+    static_before_dynamic = true,
+  }
+end
+
+function M.argument_slot(command, _state)
+  return {
+    slot_class = 'argument',
+    include_modifiers = command ~= nil,
+    include_subjects = command ~= nil,
+    static_before_dynamic = true,
+  }
+end
+
+function M.subject(command)
+  local subject = command.subject or { min = 0, max = 0 }
+  if subject.kind == 'pr' then
+    local states, fetch_state = pr_completion_states(command.name)
+    return {
+      slot_class = 'subject',
+      subject_kind = 'pr_number',
+      cmdline_usefulness = 'dynamic_allowed',
+      states_to_consult = states,
+      fetch_state = fetch_state,
+      allow_fetch_on_tab = true,
+      allow_empty_prefix = true,
+      available = pr_completion_available,
+    }
+  end
+  if subject.kind == 'issue' then
+    local states, fetch_state = issue_completion_states(command.name)
+    return {
+      slot_class = 'subject',
+      subject_kind = 'issue_number',
+      cmdline_usefulness = 'dynamic_allowed',
+      states_to_consult = states,
+      fetch_state = fetch_state,
+      allow_fetch_on_tab = true,
+      allow_empty_prefix = true,
+      available = issue_completion_available,
+    }
+  end
+  if subject.kind == 'run' then
+    return {
+      slot_class = 'subject',
+      subject_kind = 'ci_run_id',
+      cmdline_usefulness = 'dynamic_allowed',
+      states_to_consult = { 'all' },
+      fetch_state = 'all',
+      allow_fetch_on_tab = true,
+      allow_empty_prefix = true,
+    }
+  end
+  if subject.kind == 'release' then
+    return {
+      slot_class = 'subject',
+      subject_kind = 'release_tag',
+      cmdline_usefulness = 'dynamic_allowed',
+      states_to_consult = { 'list' },
+      fetch_state = 'list',
+      allow_fetch_on_tab = true,
+      allow_empty_prefix = true,
+    }
+  end
+  return {
+    slot_class = 'subject',
+    subject_kind = 'none',
+    cmdline_usefulness = 'static_only',
+    states_to_consult = {},
+    allow_fetch_on_tab = false,
+    allow_empty_prefix = true,
+  }
+end
+
+function M.modifier_value(command, flag_name, spec)
+  if flag_name == 'repo' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'repo',
+    }
+  end
+  if flag_name == 'rev' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'rev',
+    }
+  end
+  if flag_name == 'head' or flag_name == 'base' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'rev_address',
+    }
+  end
+  if flag_name == 'target' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'target',
+    }
+  end
+  if flag_name == 'template' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'template',
+    }
+  end
+  if flag_name == 'adapter' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'local_only',
+      allow_empty_prefix = true,
+      source = 'adapter',
+    }
+  end
+  if command.modifier_values and command.modifier_values[flag_name] then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'static_only',
+      allow_empty_prefix = true,
+      source = 'command_values',
+    }
+  end
+  if spec and spec.values then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'static_only',
+      allow_empty_prefix = true,
+      source = 'modifier_values',
+    }
+  end
+  return nil
+end
+
+return M
