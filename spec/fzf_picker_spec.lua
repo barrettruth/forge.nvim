@@ -174,14 +174,14 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:more][FzfLuaFzfInfo:|][FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse][FzfLuaFzfInfo:|][FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
+      ':: <[FzfLuaHeaderBind:cr]> [FzfLuaHeaderText:more]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:browse]|<[FzfLuaHeaderBind:tab]> [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_nil(captured.opts.fzf_opts['--header']:match(' to '))
     assert.is_function(captured.opts.actions.tab)
   end)
 
-  it('uses resolved fzf-lua header highlight config for binds, labels, and separators', function()
+  it('uses resolved fzf-lua header highlight config for binds and labels', function()
     set_header_hls('ForgeTestHeaderBind', 'ForgeTestHeaderText', 'ForgeTestHeaderSep')
 
     local picker = require('forge.picker.fzf')
@@ -206,7 +206,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[ForgeTestHeaderBind:<cr>] [ForgeTestHeaderText:more][ForgeTestHeaderSep:|][ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse][ForgeTestHeaderSep:|][ForgeTestHeaderBind:<tab>] [ForgeTestHeaderText:filter]',
+      ':: <[ForgeTestHeaderBind:cr]> [ForgeTestHeaderText:more]|[ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse]|<[ForgeTestHeaderBind:tab]> [ForgeTestHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)
@@ -236,7 +236,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[ForgeTestHeaderBind:<cr>] [ForgeTestHeaderText:more][ForgeTestHeaderSep:|][ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse][ForgeTestHeaderSep:|][ForgeTestHeaderBind:<tab>] [ForgeTestHeaderText:filter]',
+      ':: <[ForgeTestHeaderBind:cr]> [ForgeTestHeaderText:more]|[ForgeTestHeaderBind:^X] [ForgeTestHeaderText:browse]|<[ForgeTestHeaderBind:tab]> [ForgeTestHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)
@@ -259,7 +259,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:use]',
+      ':: <[FzfLuaHeaderBind:cr]> [FzfLuaHeaderText:use]',
       captured.opts.fzf_opts['--header']
     )
   end)
@@ -314,7 +314,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:^A] [FzfLuaHeaderText:create][FzfLuaFzfInfo:|][FzfLuaHeaderBind:^R] [FzfLuaHeaderText:refresh]',
+      ':: [FzfLuaHeaderBind:^A] [FzfLuaHeaderText:create]|[FzfLuaHeaderBind:^R] [FzfLuaHeaderText:refresh]',
       captured.opts.fzf_opts['--header']
     )
   end)
@@ -341,7 +341,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:run]',
+      ':: <[FzfLuaHeaderBind:cr]> [FzfLuaHeaderText:run]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_function(captured.opts.actions['ctrl-o'])
@@ -386,7 +386,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open]',
+      ':: <[FzfLuaHeaderBind:cr]> [FzfLuaHeaderText:open]',
       captured.opts.fzf_opts['--header']
     )
     assert.is_function(captured.opts.actions['ctrl-x'])
@@ -421,7 +421,7 @@ describe('fzf picker', function()
 
     assert.is_not_nil(captured)
     assert.equals(
-      '[FzfLuaHeaderBind:<cr>] [FzfLuaHeaderText:open][FzfLuaFzfInfo:|][FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close][FzfLuaFzfInfo:|][FzfLuaHeaderBind:<tab>] [FzfLuaHeaderText:filter]',
+      ':: <[FzfLuaHeaderBind:cr]> [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|<[FzfLuaHeaderBind:tab]> [FzfLuaHeaderText:filter]',
       captured.opts.fzf_opts['--header']
     )
   end)

@@ -17,11 +17,9 @@ local function header_hls()
   local ok, config = pcall(require, 'fzf-lua.config')
   local globals = ok and type(config.globals) == 'table' and config.globals or nil
   local hls = type(globals) == 'table' and (globals.hls or globals.__HLS) or nil
-  local fzf_hls = type(hls) == 'table' and hls.fzf or nil
   return {
     bind = type(hls) == 'table' and hls.header_bind or 'FzfLuaHeaderBind',
     text = type(hls) == 'table' and hls.header_text or 'FzfLuaHeaderText',
-    separator = type(fzf_hls) == 'table' and fzf_hls.info or 'FzfLuaFzfInfo',
   }
 end
 
@@ -166,20 +164,25 @@ local function render_header_for(actions, bindings, entry)
     local label = header_key and picker_mod.resolve_label(def, entry) or nil
     if header_key and label and not seen_keys[header_key] then
       seen_keys[header_key] = true
+      local bracketed_key = header_key:match('^<(.*)>$')
       table.insert(
         parts,
-        ('%s %s'):format(
-          utils.ansi_from_hl(hls.bind, header_key),
-          utils.ansi_from_hl(hls.text, label)
-        )
+        bracketed_key
+            and ('<%s> %s'):format(
+              utils.ansi_from_hl(hls.bind, bracketed_key),
+              utils.ansi_from_hl(hls.text, label)
+            )
+          or ('%s %s'):format(
+            utils.ansi_from_hl(hls.bind, header_key),
+            utils.ansi_from_hl(hls.text, label)
+          )
       )
     end
   end
   if #parts == 0 then
     return nil
   end
-  local separator = utils.ansi_from_hl(hls.separator, '|')
-  return table.concat(parts, separator)
+  return ':: ' .. table.concat(parts, '|')
 end
 
 ---@param actions forge.PickerActionDef[]
