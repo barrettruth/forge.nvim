@@ -522,7 +522,7 @@ FORGE PICKER ~ Root workflow picker for the detected forge and current
 context.
 
                                                              *forge-picker-pr*
-PR PICKER ~ Lists PRs/MRs.
+PR PICKER ~ Lists PRs on GitHub/Codeberg and Merge Requests on GitLab.
 
   Action      Default Key    Description ~
   `review`      `<cr>`           Review through the configured adapter
@@ -548,9 +548,9 @@ ISSUE PICKER ~ Lists issues.
   `refresh`     `<c-r>`          Re-fetch list
 
                                                              *forge-picker-ci*
-CI PICKER ~ Used for repo/current-branch runs and nested PR checks. Both use
-the `ci` key group, but only the run picker exposes `toggle`; nested PR
-checks do not.
+CI PICKER ~ Used for repo/current-branch CI/CD runs or pipelines and nested
+PR/MR checks. Both use the `ci` key group, but only the run-history picker
+exposes `toggle`; nested PR/MR checks do not.
 
 `<cr>` opens the primary inspect action. GitHub uses normal-mode terminals for
 run view/watch and opens per-job logs from job lines. GitLab and Codeberg
@@ -587,14 +587,16 @@ WORKFLOW SURFACE                                              *forge-workflow*
 The interactive workflow surface is separate from the action-oriented `:Forge`
 command interface. Open it with `require('forge').open()`.
 
-The root picker shows section routes. By default: ~
+The root picker shows section routes. Labels are forge-native: GitHub and
+Codeberg show `PRs` and `CI/CD`, while GitLab shows `Merge Requests` and
+`Pipelines`. By default: ~
 
-  Label         Route                Opens ~
-  `PRs`         `prs.open`           Open PR list and PR actions
-  `Issues`      `issues.open`        Open issue list and issue actions
-  `CI`          `ci.current_branch`  Open current-branch CI runs
-  `Browse`      `browse.contextual`  Open the current repo/file/selection
-  `Releases`    `releases.all`       Open release list and release actions
+  Label                        Route                Opens ~
+  `PRs` / `Merge Requests`     `prs.open`           Open PR/MR list and actions
+  `Issues`                     `issues.open`        Open issue list and issue actions
+  `CI/CD` / `Pipelines`        `ci.current_branch`  Open current-branch run history
+  `Browse`                     `browse.contextual`  Open the current repo/file/selection
+  `Releases`                   `releases.all`       Open release list and release actions
 
 Use |forge-config-sections| to hide root entries and |forge-config-routes| to
 remap them.
@@ -603,7 +605,7 @@ This interactive surface requires `fzf-lua`. Direct `:Forge` commands do not.
 
 The picker surface covers workflows that do not fit cleanly in a single
 command, such as list navigation, row-scoped actions, filters, refresh,
-load-more rows, nested per-PR checks, and copy helpers.
+load-more rows, nested per-PR/MR checks, and copy helpers.
 
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*
