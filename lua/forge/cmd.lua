@@ -903,6 +903,19 @@ function M.dispatch(command)
   return true
 end
 
+---@return string?
+local function detected_forge_name()
+  local ok, forge = pcall(require, 'forge')
+  if not ok or type(forge) ~= 'table' or type(forge.detect) ~= 'function' then
+    return nil
+  end
+  local detected = forge.detect()
+  if type(detected) ~= 'table' or type(detected.name) ~= 'string' or detected.name == '' then
+    return nil
+  end
+  return detected.name
+end
+
 function M.run(opts)
   opts = opts or {}
   if vim.trim(opts.args or '') == '' then
@@ -910,7 +923,9 @@ function M.run(opts)
     return false
   end
 
-  local command, err = M.parse(split_words(opts.args))
+  local command, err = M.parse(split_words(opts.args), {
+    forge_name = detected_forge_name(),
+  })
   if not command then
     if err and err.message then
       warn(err.message)
@@ -1341,8 +1356,9 @@ local function complete_release_subjects(state, prefix, policy)
   return filter(items, prefix)
 end
 
-local function completion_values(family_name, verb_name, flag_name, prefix)
-  local command = M.resolve(family_name, verb_name)
+---@param opts? forge.SurfaceOpts
+local function completion_values(family_name, verb_name, flag_name, prefix, opts)
+  local command = M.resolve(family_name, verb_name, opts)
   if not command then
     return nil
   end
@@ -1422,7 +1438,10 @@ function M.complete(arglead, cmdline, _)
   local words = split_words(cmdline)
   local arg_idx = arglead == '' and #words or #words - 1
   local family_name = words[2]
-  local family = family_index[family_name]
+  local surface_opts = {
+    forge_name = detected_forge_name(),
+  }
+  local family = M.family(family_name, surface_opts)
   local explicit_verb = family
       and words[3] ~= nil
       and (family.verbs[words[3]] ~= nil or (family.aliases and family.aliases[words[3]] ~= nil))
@@ -1431,7 +1450,8 @@ function M.complete(arglead, cmdline, _)
 
   local legacy_flag, legacy_prefix = arglead:match('^(%-%-[^=]+)=(.*)$')
   if legacy_flag then
-    local values = completion_values(family_name, explicit_verb, legacy_flag:sub(3), legacy_prefix)
+    local values =
+      completion_values(family_name, explicit_verb, legacy_flag:sub(3), legacy_prefix, surface_opts)
     if values then
       return vim.tbl_map(function(v)
         return legacy_flag .. '=' .. v
@@ -1440,7 +1460,7 @@ function M.complete(arglead, cmdline, _)
   end
   local flag, value_prefix = arglead:match('^([%w%-_]+)=(.*)$')
   if flag then
-    local values = completion_values(family_name, explicit_verb, flag, value_prefix)
+    local values = completion_values(family_name, explicit_verb, flag, value_prefix, surface_opts)
     if values then
       return vim.tbl_map(function(v)
         return flag .. '=' .. v
@@ -1448,18 +1468,24 @@ function M.complete(arglead, cmdline, _)
     end
   end
   if arg_idx == 1 then
-    return filter(M.family_names(), arglead)
+    return filter(
+      M.family_names({
+        include_aliases = true,
+        forge_name = surface_opts.forge_name,
+      }),
+      arglead
+    )
   end
   if not family then
     return {}
   end
   if arg_idx == 2 then
-    local command = M.resolve(family_name)
+    local command = M.resolve(family_name, nil, surface_opts)
     local state = command and completion_state(command, {}) or { modifiers = {}, subjects = {} }
     local slot_policy = require('forge.completion_policy').family_slot(command)
     local candidates = {}
     if slot_policy.include_verbs then
-      for _, verb in ipairs(M.verb_names(family_name)) do
+      for _, verb in ipairs(M.verb_names(family_name, surface_opts)) do
         candidates[#candidates + 1] = verb
       end
     end
@@ -1479,7 +1505,7 @@ function M.complete(arglead, cmdline, _)
     end
     return filter(candidates, arglead)
   end
-  local command = M.resolve(family_name, explicit_verb)
+  local command = M.resolve(family_name, explicit_verb, surface_opts)
   if not command then
     return {}
   end

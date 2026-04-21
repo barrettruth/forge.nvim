@@ -347,6 +347,13 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     interface:
     - legacy `--name` / `--name=value` forms for modifiers
 
+    When the detected forge is GitLab, the Ex command surface also accepts
+    provider-native family aliases:
+    - `:Forge mr ...` as an alias for `:Forge pr ...`
+    - `:Forge pipeline ...` as an alias for `:Forge ci ...`
+    Completion only offers those aliases on GitLab. Canonical config keys
+    and internal names remain `pr` and `ci`.
+
     Commands that need interactive selection are intentionally not exposed
     through `:Forge`; use the interactive picker surface instead.
     This includes list navigation, list-scoped filters/refresh, CI
