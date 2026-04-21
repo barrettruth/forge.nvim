@@ -3,6 +3,23 @@
 ---@alias forge.ScopeKind 'github'|'gitlab'|'codeberg'
 
 ---@alias forge.WebKind 'pr'|'issue'|'ci'|'release'
+---@alias forge.CommandFamily 'pr'|'review'|'issue'|'ci'|'release'|'browse'|'clear'
+---@alias forge.SectionName 'prs'|'issues'|'ci'|'browse'|'releases'
+---@alias forge.RouteName
+---| 'prs.all'
+---| 'prs.open'
+---| 'prs.closed'
+---| 'issues.all'
+---| 'issues.open'
+---| 'issues.closed'
+---| 'ci.all'
+---| 'ci.current_branch'
+---| 'browse.contextual'
+---| 'browse.branch'
+---| 'browse.commit'
+---| 'releases.all'
+---| 'releases.draft'
+---| 'releases.prerelease'
 
 ---@class forge.Scope
 ---@field kind forge.ScopeKind
@@ -40,12 +57,89 @@
 ---@class forge.ScopedOpts
 ---@field scope forge.Scope?
 
+---@class forge.SurfaceOpts
+---@field forge_name string?
+
+---@class forge.SurfaceNamesOpts: forge.SurfaceOpts
+---@field include_aliases boolean?
+
+---@class forge.SurfaceResolvedName
+---@field canonical string
+---@field invoked string
+---@field alias string?
+
+---@class forge.CmdError
+---@field code string?
+---@field message string
+
+---@class forge.CommandSubjectSpec
+---@field kind string?
+---@field min integer?
+---@field max integer?
+
+---@class forge.ModifierSpec
+---@field kind 'value'|'flag'
+---@field target string?
+---@field values string[]?
+
+---@class forge.CommandVerbDef
+---@field subject forge.CommandSubjectSpec?
+---@field modifiers string[]?
+---@field legacy_modifiers string[]?
+---@field required_modifiers string[]?
+---@field modifier_values table<string, string[]>?
+
+---@class forge.CommandFamilyDef
+---@field name forge.CommandFamily
+---@field surface string
+---@field default_verb string?
+---@field verb_order string[]
+---@field verbs table<string, forge.CommandVerbDef>
+---@field aliases table<string, string>?
+
+---@class forge.Command
+---@field family forge.CommandFamily
+---@field invoked_family string
+---@field family_alias string?
+---@field name string
+---@field surface string
+---@field implicit boolean
+---@field alias string?
+---@field subject forge.CommandSubjectSpec?
+---@field subjects string[]
+---@field raw string[]
+---@field modifiers table<string, any>
+---@field declared_modifiers string[]
+---@field declared_legacy_modifiers string[]
+---@field legacy_modifiers string[]?
+---@field parsed_modifiers table<string, any>
+---@field modifier_values table<string, string[]>?
+---@field required_modifiers string[]?
+---@field default_policy table
+---@field default_targets table
+---@field range { start_line: integer, end_line: integer }?
+
+---@class forge.Context
+---@field id string
+---@field root string
+---@field branch string
+---@field head string
+---@field forge forge.Forge?
+---@field has_file boolean
+---@field loc string?
+
 ---@class forge.OpCallbacks
 ---@field on_success fun()?
 ---@field on_failure fun()?
 
----@class forge.PickerBackOpts: forge.ScopedOpts
+---@class forge.RouteOpts: forge.ScopedOpts
 ---@field back fun()?
+---@field forge_name string?
+---@field context string?
+---@field branch string?
+---@field commit string?
+
+---@class forge.PickerBackOpts: forge.RouteOpts
 
 ---@class forge.PickerLimitOpts: forge.PickerBackOpts
 ---@field limit integer?

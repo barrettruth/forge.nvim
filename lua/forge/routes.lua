@@ -3,15 +3,13 @@ local M = {}
 local action = require('forge.action')
 local context = require('forge.context')
 local log = require('forge.logger')
+local surface = require('forge.surface')
 
-local section_order = {
-  'prs',
-  'issues',
-  'ci',
-  'browse',
-  'releases',
-}
+---@type string[]
+local section_order = surface.section_names()
 
+---@param ctx forge.Context
+---@return string
 local function prompt(ctx)
   if ctx.branch ~= '' then
     return ('Forge (%s)> '):format(ctx.branch)
@@ -19,6 +17,9 @@ local function prompt(ctx)
   return 'Forge> '
 end
 
+---@param ctx forge.Context
+---@param opts forge.RouteOpts
+---@return string?, string?
 local function branch_for(ctx, opts)
   local branch = opts.branch
   if branch == nil or branch == '' then
@@ -30,6 +31,7 @@ local function branch_for(ctx, opts)
   return branch
 end
 
+---@return table<string, fun(ctx: forge.Context, opts: forge.RouteOpts): boolean?, string?>
 local function route_handlers()
   local pickers = require('forge.pickers')
 
@@ -148,6 +150,9 @@ local function route_handlers()
   }
 end
 
+---@param section forge.SectionName
+---@param ctx forge.Context
+---@return string
 local function section_label(section, ctx)
   if section == 'prs' then
     return ctx.forge and ctx.forge.labels.pr_full or 'PRs'
@@ -167,6 +172,9 @@ local function section_label(section, ctx)
   return section
 end
 
+---@param section forge.SectionName
+---@param ctx forge.Context
+---@return boolean
 local function section_available(section, ctx)
   if section == 'browse' then
     return ctx.forge ~= nil and ctx.branch ~= ''
@@ -177,19 +185,31 @@ local function section_available(section, ctx)
   return true
 end
 
+---@param name string?
+---@return forge.Context?, string?
 function M.current_context(name)
   return context.resolve(name)
 end
 
-function M.resolve(name)
+---@param name string?
+---@param opts? forge.SurfaceOpts
+---@return string?
+function M.resolve(name, opts)
   if not name or name == '' then
     return nil
   end
+  opts = opts or {}
   local cfg = require('forge').config()
   local routes = rawget(cfg, 'routes') or {}
-  return routes[name] or name
+  local resolved_section = surface.resolve_section(name, opts.forge_name)
+  local lookup = resolved_section and resolved_section.canonical or name
+  local route = routes[lookup] or lookup
+  local resolved_route = surface.resolve_route(route, opts.forge_name)
+  return resolved_route and resolved_route.canonical or route
 end
 
+---@param ctx forge.Context
+---@param opts? forge.RouteOpts
 local function open_root(ctx, opts)
   opts = opts or {}
   local cfg = require('forge').config()
@@ -201,7 +221,8 @@ local function open_root(ctx, opts)
   for _, section in ipairs(section_order) do
     if sections[section] ~= false then
       local route = routes[section]
-      if route and handlers[route] and section_available(section, ctx) then
+      local resolved_route = route and M.resolve(route) or nil
+      if resolved_route and handlers[resolved_route] and section_available(section, ctx) then
         local label = section_label(section, ctx)
         entries[#entries + 1] = {
           display = { { label } },
@@ -241,6 +262,8 @@ local function open_root(ctx, opts)
   })
 end
 
+---@param name string?
+---@param opts? forge.RouteOpts
 function M.open(name, opts)
   opts = opts or {}
 

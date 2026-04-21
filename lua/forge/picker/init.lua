@@ -1,6 +1,7 @@
 local M = {}
 
 local ci = require('forge.ci')
+local surface = require('forge.surface')
 
 ---@alias forge.Segment {[1]: string, [2]: string?}
 
@@ -32,6 +33,7 @@ local ci = require('forge.ci')
 ---@field back fun()?
 ---@field stream? fun(emit: fun(entry: forge.PickerEntry?))
 
+---@type table<string, string[]>
 local root_search_terms = {
   ['prs.all'] = { 'prs', 'pull', 'requests', 'reviews' },
   ['prs.open'] = { 'prs', 'pull', 'requests', 'reviews' },
@@ -49,6 +51,8 @@ local root_search_terms = {
   ['releases.prerelease'] = { 'releases', 'tags' },
 }
 
+---@param entry forge.PickerEntry
+---@return string
 local function flatten_display(entry)
   local parts = {}
   for _, seg in ipairs(entry.display or {}) do
@@ -57,6 +61,8 @@ local function flatten_display(entry)
   return table.concat(parts)
 end
 
+---@param parts string[]
+---@return string
 local function join_search_terms(parts)
   local items = {}
   for _, part in ipairs(parts) do
@@ -70,6 +76,8 @@ local function join_search_terms(parts)
   return table.concat(items, ' ')
 end
 
+---@param entry forge.PickerEntry
+---@return string
 local function menu_search_key(entry)
   local value = entry.value
   if type(value) == 'table' then
@@ -81,7 +89,9 @@ local function menu_search_key(entry)
       return join_search_terms({ value.display, slug })
     end
   elseif type(value) == 'string' then
-    local root_terms = root_search_terms[value]
+    local resolved = surface.resolve_section(value) or surface.resolve_route(value)
+    local lookup = resolved and resolved.canonical or value
+    local root_terms = root_search_terms[lookup]
     if root_terms then
       local display = flatten_display(entry)
       return join_search_terms(vim.list_extend({ display }, vim.deepcopy(root_terms)))
