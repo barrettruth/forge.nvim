@@ -62,6 +62,7 @@
 
 ---@class forge.SurfaceNamesOpts: forge.SurfaceOpts
 ---@field include_aliases boolean?
+---@field include_all_aliases boolean?
 
 ---@class forge.SurfaceResolvedName
 ---@field canonical string

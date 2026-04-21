@@ -70,7 +70,10 @@ end
 ---@return string[]
 local function aliases_for(registry, name, forge_name)
   local entry = registry[name]
-  if type(entry) ~= 'table' or forge_name == nil or forge_name == '' then
+  if type(entry) ~= 'table' then
+    return {}
+  end
+  if forge_name == nil or forge_name == '' then
     return {}
   end
   local aliases = entry[forge_name]
@@ -78,6 +81,29 @@ local function aliases_for(registry, name, forge_name)
     return {}
   end
   return vim.deepcopy(aliases)
+end
+
+local function all_aliases_for(registry, name)
+  local entry = registry[name]
+  if type(entry) ~= 'table' then
+    return {}
+  end
+  local aliases = {}
+  local seen = {}
+  local forge_names = vim.tbl_keys(entry)
+  table.sort(forge_names)
+  for _, forge_name in ipairs(forge_names) do
+    local items = entry[forge_name]
+    if type(items) == 'table' then
+      for _, alias in ipairs(items) do
+        if seen[alias] ~= true then
+          seen[alias] = true
+          aliases[#aliases + 1] = alias
+        end
+      end
+    end
+  end
+  return aliases
 end
 
 ---@param registry forge.SurfaceAliasRegistry
@@ -119,7 +145,9 @@ local function ordered_names(order, registry, opts)
   for _, name in ipairs(order) do
     names[#names + 1] = name
     if opts.include_aliases then
-      for _, alias in ipairs(aliases_for(registry, name, opts.forge_name)) do
+      local aliases = opts.include_all_aliases and all_aliases_for(registry, name)
+        or aliases_for(registry, name, opts.forge_name)
+      for _, alias in ipairs(aliases) do
         names[#names + 1] = alias
       end
     end
@@ -137,13 +165,15 @@ end
 ---@param name forge.RouteName
 ---@param forge_name string?
 ---@return string[]
-local function derived_route_aliases(name, forge_name)
+local function derived_route_aliases(name, forge_name, include_all_aliases)
   local section, suffix = route_parts(name)
   if section == nil or suffix == nil then
     return {}
   end
   local aliases = {}
-  for _, alias in ipairs(aliases_for(section_aliases, section, forge_name)) do
+  local section_names = include_all_aliases and all_aliases_for(section_aliases, section)
+    or aliases_for(section_aliases, section, forge_name)
+  for _, alias in ipairs(section_names) do
     aliases[#aliases + 1] = alias .. '.' .. suffix
   end
   return aliases
@@ -198,7 +228,7 @@ function M.route_names(opts)
   for _, name in ipairs(route_order) do
     names[#names + 1] = name
     if opts.include_aliases then
-      for _, alias in ipairs(derived_route_aliases(name, opts.forge_name)) do
+      for _, alias in ipairs(derived_route_aliases(name, opts.forge_name, opts.include_all_aliases)) do
         names[#names + 1] = alias
       end
     end
