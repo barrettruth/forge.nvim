@@ -598,7 +598,7 @@ end
 
 ---@param f forge.Forge
 ---@param kind forge.WebKind
----@param opts? forge.ScopedOpts
+---@param opts? forge.RouteOpts
 function M.list_browse(f, kind, opts)
   opts = opts or {}
   local url = f.list_web_url and f:list_web_url(kind, opts.scope) or nil
@@ -630,12 +630,12 @@ function M.browse_repo(opts)
 end
 
 ---@param branch string?
----@param opts? forge.ScopedOpts
+---@param opts? forge.RouteOpts
 function M.browse_branch(branch, opts)
   require('forge').open('browse.branch', vim.tbl_extend('force', opts or {}, { branch = branch }))
 end
 
----@param opts? forge.ScopedOpts
+---@param opts? forge.RouteOpts
 function M.browse_contextual(opts)
   require('forge').open('browse.contextual', opts)
 end

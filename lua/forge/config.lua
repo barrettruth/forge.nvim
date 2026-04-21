@@ -1,4 +1,5 @@
 local M = {}
+local surface = require('forge.surface')
 
 ---@alias forge.Split 'horizontal'|'vertical'
 
@@ -217,22 +218,12 @@ local hl_defaults = {
   ForgeLogDim = 'Comment',
 }
 
-local valid_routes = {
-  ['prs.all'] = true,
-  ['prs.open'] = true,
-  ['prs.closed'] = true,
-  ['issues.all'] = true,
-  ['issues.open'] = true,
-  ['issues.closed'] = true,
-  ['ci.all'] = true,
-  ['ci.current_branch'] = true,
-  ['browse.contextual'] = true,
-  ['browse.branch'] = true,
-  ['browse.commit'] = true,
-  ['releases.all'] = true,
-  ['releases.draft'] = true,
-  ['releases.prerelease'] = true,
-}
+---@type table<string, boolean>
+local valid_routes = {}
+
+for _, name in ipairs(surface.route_names()) do
+  valid_routes[name] = true
+end
 
 local function nonempty_string(v)
   return type(v) == 'string' and vim.trim(v) ~= ''

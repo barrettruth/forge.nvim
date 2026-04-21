@@ -1,7 +1,9 @@
 local M = {}
 
 local ops = require('forge.ops')
+local surface = require('forge.surface')
 
+---@type table<string, forge.ModifierSpec>
 local modifiers = {
   state = { kind = 'value' },
   repo = { kind = 'value', target = 'repo' },
@@ -29,6 +31,7 @@ local target_modifier_parsers = {
   base = 'parse_rev',
 }
 
+---@type forge.CommandFamilyDef[]
 local families = {
   {
     name = 'pr',
@@ -190,6 +193,7 @@ local families = {
   },
 }
 
+---@type table<forge.CommandFamily, forge.CommandFamilyDef>
 local family_index = {}
 
 for _, family in ipairs(families) do
@@ -619,22 +623,46 @@ local dispatchers = {
   end,
 }
 
-function M.family_names()
+---@param opts? forge.SurfaceNamesOpts
+---@return string[]
+function M.family_names(opts)
+  opts = opts or {}
   local names = {}
   for _, family in ipairs(families) do
     names[#names + 1] = family.name
+    if opts.include_aliases then
+      for _, alias in ipairs(surface.family_aliases(family.name, opts.forge_name)) do
+        names[#names + 1] = alias
+      end
+    end
   end
   return names
 end
 
-function M.verb_names(family_name)
-  local family = family_index[family_name]
+---@param name string
+---@param opts? forge.SurfaceOpts
+---@return string
+local function resolved_family_name(name, opts)
+  local resolved = surface.resolve_family(name, opts and opts.forge_name)
+  if resolved then
+    return resolved.canonical
+  end
+  return name
+end
+
+---@param family_name string
+---@param opts? forge.SurfaceOpts
+---@return string[]
+function M.verb_names(family_name, opts)
+  local family = family_index[resolved_family_name(family_name, opts)]
   if not family then
     return {}
   end
   return copy(family.verb_order or {})
 end
 
+---@param name string
+---@return forge.ModifierSpec?
 function M.modifier(name)
   local spec = modifiers[name]
   if not spec then
@@ -643,16 +671,27 @@ function M.modifier(name)
   return copy(spec)
 end
 
-function M.family(name)
-  local family = family_index[name]
+---@param name string
+---@param opts? forge.SurfaceOpts
+---@return forge.CommandFamilyDef?
+function M.family(name, opts)
+  local family = family_index[resolved_family_name(name, opts)]
   if not family then
     return nil
   end
   return copy(family)
 end
 
-function M.resolve(family_name, verb_name)
-  local family = family_index[family_name]
+---@param family_name string
+---@param verb_name string?
+---@param opts? forge.SurfaceOpts
+---@return forge.Command?
+function M.resolve(family_name, verb_name, opts)
+  local resolved_family = surface.resolve_family(family_name, opts and opts.forge_name)
+  if not resolved_family then
+    return nil
+  end
+  local family = family_index[resolved_family.canonical]
   if not family then
     return nil
   end
@@ -682,6 +721,8 @@ function M.resolve(family_name, verb_name)
 
   local command = copy(verb)
   command.family = family.name
+  command.invoked_family = resolved_family.invoked
+  command.family_alias = resolved_family.alias
   command.name = resolved
   command.surface = family.surface
   command.implicit = implicit
@@ -689,22 +730,33 @@ function M.resolve(family_name, verb_name)
   return command
 end
 
-function M.modifier_names(family_name, verb_name)
-  local command = M.resolve(family_name, verb_name)
+---@param family_name string
+---@param verb_name string?
+---@param opts? forge.SurfaceOpts
+---@return string[]
+function M.modifier_names(family_name, verb_name, opts)
+  local command = M.resolve(family_name, verb_name, opts)
   if not command then
     return {}
   end
   return copy(command.modifiers or {})
 end
 
-function M.legacy_modifier_names(family_name, verb_name)
-  local command = M.resolve(family_name, verb_name)
+---@param family_name string
+---@param verb_name string?
+---@param opts? forge.SurfaceOpts
+---@return string[]
+function M.legacy_modifier_names(family_name, verb_name, opts)
+  local command = M.resolve(family_name, verb_name, opts)
   if not command then
     return {}
   end
   return copy(command.legacy_modifiers or {})
 end
 
+---@param args string[]
+---@param opts? forge.SurfaceOpts
+---@return forge.Command?, forge.CmdError?
 function M.parse(args, opts)
   opts = opts or {}
   if type(args) ~= 'table' or #args == 0 or args[1] == '' then
@@ -712,7 +764,7 @@ function M.parse(args, opts)
   end
 
   local family_name = args[1]
-  local family = family_index[family_name]
+  local family = M.family(family_name, opts)
   if not family then
     return error_result('unknown command: ' .. family_name)
   end
@@ -724,15 +776,15 @@ function M.parse(args, opts)
 
   if not has_explicit_verb and not family.default_verb then
     if verb_token ~= nil then
-      return error_result(unknown_verb_error(family_name, verb_token))
+      return error_result(unknown_verb_error(family.name, verb_token))
     end
     return error_result(missing_verb_error(family_name))
   end
 
-  local command = M.resolve(family_name, has_explicit_verb and verb_token or nil)
+  local command = M.resolve(family_name, has_explicit_verb and verb_token or nil, opts)
   if not command then
     if verb_token ~= nil then
-      return error_result(unknown_verb_error(family_name, verb_token))
+      return error_result(unknown_verb_error(family.name, verb_token))
     end
     return error_result(missing_verb_error(family_name))
   end
