@@ -69,6 +69,7 @@ end
 
 describe(':Forge command', function()
   local captured
+  local detected_forge_name
   local extra_review_adapters
   local old_preload
   local old_systemlist
@@ -77,6 +78,7 @@ describe(':Forge command', function()
 
   before_each(function()
     extra_review_adapters = {}
+    detected_forge_name = 'github'
     captured = {
       opens = {},
       ops_calls = {},
@@ -137,7 +139,7 @@ describe(':Forge command', function()
       return {
         detect = function()
           return {
-            name = 'github',
+            name = detected_forge_name,
             capabilities = {
               per_pr_checks = true,
               draft = true,
@@ -975,6 +977,42 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
   end)
 
+  it('keeps GitLab family aliases unavailable outside GitLab surfaces', function()
+    vim.cmd('Forge mr edit 42')
+    vim.cmd('Forge pipeline browse 123')
+
+    assert.same({
+      'unknown command: mr',
+      'unknown command: pipeline',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('dispatches GitLab family aliases through the canonical command families', function()
+    detected_forge_name = 'gitlab'
+
+    vim.cmd('Forge mr edit 42')
+    vim.cmd('Forge pipeline browse 123')
+
+    assert.same({
+      {
+        name = 'pr_edit',
+        pr = {
+          num = '42',
+          scope = nil,
+        },
+      },
+      {
+        name = 'ci_browse',
+        run = {
+          id = '123',
+          scope = nil,
+        },
+      },
+    }, captured.ops_calls)
+    assert.same({}, captured.warnings)
+  end)
+
   it('dispatches refresh verbs to forge.clear_list_kind per family', function()
     vim.cmd('Forge pr refresh')
     vim.cmd('Forge issue refresh')
@@ -1071,6 +1109,8 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(families, 'review'))
     assert.is_true(vim.tbl_contains(families, 'ci'))
     assert.is_true(vim.tbl_contains(families, 'browse'))
+    assert.is_false(vim.tbl_contains(families, 'mr'))
+    assert.is_false(vim.tbl_contains(families, 'pipeline'))
     assert.is_false(vim.tbl_contains(families, 'branches'))
     assert.is_false(vim.tbl_contains(families, 'commits'))
     assert.is_false(vim.tbl_contains(families, 'worktrees'))
@@ -1114,6 +1154,31 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(issue_create, 'blank'))
     assert.is_true(vim.tbl_contains(issue_create, 'web'))
     assert.is_false(vim.tbl_contains(issue_create, 'head='))
+  end)
+
+  it('completes GitLab family aliases contextually', function()
+    detected_forge_name = 'gitlab'
+
+    local families = completion('Forge ')
+    local mr = completion('Forge mr ')
+    local pipeline = completion('Forge pipeline ')
+
+    assert.is_true(vim.tbl_contains(families, 'pr'))
+    assert.is_true(vim.tbl_contains(families, 'ci'))
+    assert.is_true(vim.tbl_contains(families, 'mr'))
+    assert.is_true(vim.tbl_contains(families, 'pipeline'))
+    assert.same({
+      'close',
+      'reopen',
+      'create',
+      'edit',
+      'approve',
+      'merge',
+      'draft',
+      'ready',
+      'refresh',
+    }, mr)
+    assert.same({ 'open', 'browse', 'refresh' }, pipeline)
   end)
 
   it(
