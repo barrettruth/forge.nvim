@@ -58,6 +58,20 @@ describe('config validation', function()
     )
   end)
 
+  it('accepts GitLab route aliases as route values', function()
+    vim.g.forge = {
+      routes = {
+        prs = 'mrs.closed',
+        ci = 'pipelines.current_branch',
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.equals('mrs.closed', cfg.routes.prs)
+    assert.equals('pipelines.current_branch', cfg.routes.ci)
+  end)
+
   it('rejects malformed key notation strings', function()
     assert.matches(
       'forge%.keys%.pr%.edit',

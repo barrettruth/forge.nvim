@@ -224,6 +224,14 @@ local valid_routes = {}
 for _, name in ipairs(surface.route_names()) do
   valid_routes[name] = true
 end
+for _, name in
+  ipairs(surface.route_names({
+    include_aliases = true,
+    forge_name = 'gitlab',
+  }))
+do
+  valid_routes[name] = true
+end
 
 local function nonempty_string(v)
   return type(v) == 'string' and vim.trim(v) ~= ''
