@@ -167,13 +167,15 @@ local function render_header_for(actions, bindings, entry)
       local bracketed_key = header_key:match('^<(.*)>$')
       table.insert(
         parts,
-        bracketed_key and ('<%s> %s'):format(
-          utils.ansi_from_hl(hls.bind, bracketed_key),
-          utils.ansi_from_hl(hls.text, label)
-        ) or ('%s %s'):format(
-          utils.ansi_from_hl(hls.bind, header_key),
-          utils.ansi_from_hl(hls.text, label)
-        )
+        bracketed_key
+            and ('<%s> %s'):format(
+              utils.ansi_from_hl(hls.bind, bracketed_key),
+              utils.ansi_from_hl(hls.text, label)
+            )
+          or ('%s %s'):format(
+            utils.ansi_from_hl(hls.bind, header_key),
+            utils.ansi_from_hl(hls.text, label)
+          )
       )
     end
   end
