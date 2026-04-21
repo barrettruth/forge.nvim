@@ -34,7 +34,28 @@ describe('surface', function()
         forge_name = 'gitlab',
       })
     )
+    assert.same(
+      { 'prs', 'mrs', 'issues', 'ci', 'pipelines', 'browse', 'releases' },
+      surface.section_names({
+        include_aliases = true,
+        include_all_aliases = true,
+      })
+    )
     assert.same({ 'mrs.open' }, surface.route_aliases('prs.open', 'gitlab'))
+    assert.is_true(vim.tbl_contains(
+      surface.route_names({
+        include_aliases = true,
+        include_all_aliases = true,
+      }),
+      'mrs.open'
+    ))
+    assert.is_true(vim.tbl_contains(
+      surface.route_names({
+        include_aliases = true,
+        include_all_aliases = true,
+      }),
+      'pipelines.current_branch'
+    ))
     assert.same(
       { canonical = 'prs', invoked = 'mrs', alias = 'mrs' },
       surface.resolve_section('mrs', 'gitlab')

@@ -38,6 +38,16 @@ local function fake_forge(opts)
   }
 end
 
+local function fake_gitlab_forge()
+  return fake_forge({
+    name = 'gitlab',
+    labels = {
+      pr_full = 'Merge Requests',
+      ci = 'Pipelines',
+    },
+  })
+end
+
 local function use_named_current_buf(name)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) == name then
@@ -212,13 +222,7 @@ describe('routes', function()
   end)
 
   it('resolves GitLab section and route aliases through canonical handlers', function()
-    detected_forge = fake_forge({
-      name = 'gitlab',
-      labels = {
-        pr_full = 'Merge Requests',
-        ci = 'Pipelines',
-      },
-    })
+    detected_forge = fake_gitlab_forge()
     current_config.routes.prs = 'mrs.closed'
     current_config.routes.ci = 'pipelines.current_branch'
 
@@ -279,13 +283,7 @@ describe('routes', function()
   end)
 
   it('uses GitLab merge request and pipeline labels in the root picker', function()
-    detected_forge = fake_forge({
-      name = 'gitlab',
-      labels = {
-        pr_full = 'Merge Requests',
-        ci = 'Pipelines',
-      },
-    })
+    detected_forge = fake_gitlab_forge()
 
     require('forge.routes').open()
 
@@ -299,13 +297,7 @@ describe('routes', function()
   end)
 
   it('accepts GitLab route aliases in root route defaults while keeping canonical keys', function()
-    detected_forge = fake_forge({
-      name = 'gitlab',
-      labels = {
-        pr_full = 'Merge Requests',
-        ci = 'Pipelines',
-      },
-    })
+    detected_forge = fake_gitlab_forge()
     current_config.routes.prs = 'mrs.closed'
     current_config.routes.ci = 'pipelines.current_branch'
 

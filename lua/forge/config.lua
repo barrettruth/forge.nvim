@@ -221,13 +221,10 @@ local hl_defaults = {
 ---@type table<string, boolean>
 local valid_routes = {}
 
-for _, name in ipairs(surface.route_names()) do
-  valid_routes[name] = true
-end
 for _, name in
   ipairs(surface.route_names({
     include_aliases = true,
-    forge_name = 'gitlab',
+    include_all_aliases = true,
   }))
 do
   valid_routes[name] = true

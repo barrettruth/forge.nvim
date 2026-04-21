@@ -159,7 +159,9 @@ Top-level keys: ~
     Map root picker sections to route aliases. Section names are also valid
     arguments to `require('forge').open()`.
     GitLab also accepts provider-native route values such as `mrs.open` and
-    `pipelines.current_branch`, while keeping config table keys canonical
+    `pipelines.current_branch`. Interactive route calls like
+    `require('forge').open('mrs')` and `require('forge').open('pipelines')`
+    are equivalent shortcuts there, while config table keys stay canonical
     (`routes.prs`, `routes.ci`).
 
   Defaults: >lua
@@ -610,6 +612,9 @@ Codeberg show `PRs` and `CI/CD`, while GitLab shows `Merge Requests` and
 
 Use |forge-config-sections| to hide root entries and |forge-config-routes| to
 remap them.
+On GitLab, both canonical and provider-native route arguments work here, such
+as `require('forge').open('prs')` or `require('forge').open('mrs')`; route
+config keys still remain `routes.prs` and `routes.ci`.
 
 This interactive surface requires `fzf-lua`. Direct `:Forge` commands do not.
 

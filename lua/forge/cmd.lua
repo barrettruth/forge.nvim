@@ -1,5 +1,6 @@
 local M = {}
 
+local detect = require('forge.detect')
 local ops = require('forge.ops')
 local surface = require('forge.surface')
 
@@ -903,19 +904,6 @@ function M.dispatch(command)
   return true
 end
 
----@return string?
-local function detected_forge_name()
-  local ok, forge = pcall(require, 'forge')
-  if not ok or type(forge) ~= 'table' or type(forge.detect) ~= 'function' then
-    return nil
-  end
-  local detected = forge.detect()
-  if type(detected) ~= 'table' or type(detected.name) ~= 'string' or detected.name == '' then
-    return nil
-  end
-  return detected.name
-end
-
 function M.run(opts)
   opts = opts or {}
   if vim.trim(opts.args or '') == '' then
@@ -924,7 +912,7 @@ function M.run(opts)
   end
 
   local command, err = M.parse(split_words(opts.args), {
-    forge_name = detected_forge_name(),
+    forge_name = detect.forge_name(),
   })
   if not command then
     if err and err.message then
@@ -1439,7 +1427,7 @@ function M.complete(arglead, cmdline, _)
   local arg_idx = arglead == '' and #words or #words - 1
   local family_name = words[2]
   local surface_opts = {
-    forge_name = detected_forge_name(),
+    forge_name = detect.forge_name(),
   }
   local family = M.family(family_name, surface_opts)
   local explicit_verb = family
