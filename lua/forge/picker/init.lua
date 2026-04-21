@@ -76,6 +76,19 @@ local function join_search_terms(parts)
   return table.concat(items, ' ')
 end
 
+---@return string?
+local function detected_forge_name()
+  local ok, forge = pcall(require, 'forge')
+  if not ok or type(forge) ~= 'table' or type(forge.detect) ~= 'function' then
+    return nil
+  end
+  local detected = forge.detect()
+  if type(detected) ~= 'table' or type(detected.name) ~= 'string' or detected.name == '' then
+    return nil
+  end
+  return detected.name
+end
+
 ---@param entry forge.PickerEntry
 ---@return string
 local function menu_search_key(entry)
@@ -89,7 +102,9 @@ local function menu_search_key(entry)
       return join_search_terms({ value.display, slug })
     end
   elseif type(value) == 'string' then
-    local resolved = surface.resolve_section(value) or surface.resolve_route(value)
+    local forge_name = detected_forge_name()
+    local resolved = surface.resolve_section(value, forge_name)
+      or surface.resolve_route(value, forge_name)
     local lookup = resolved and resolved.canonical or value
     local root_terms = root_search_terms[lookup]
     if root_terms then

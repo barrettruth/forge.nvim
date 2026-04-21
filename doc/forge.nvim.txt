@@ -158,6 +158,9 @@ Top-level keys: ~
   `table<string, string>`  (default shown below)
     Map root picker sections to route aliases. Section names are also valid
     arguments to `require('forge').open()`.
+    GitLab also accepts provider-native route values such as `mrs.open` and
+    `pipelines.current_branch`, while keeping config table keys canonical
+    (`routes.prs`, `routes.ci`).
 
   Defaults: >lua
       routes = {
@@ -872,6 +875,8 @@ MENTAL MODEL                                           *forge-extending-model*
 Routes are the highest-level and most stable surface. Verbs power `:Forge`
 and the built-in picker actions. `forge.picker.pick()` is the low-level UI
 primitive wired to `fzf-lua`.
+On GitLab, route arguments also accept provider-native aliases such as `mrs`,
+`mrs.open`, `pipelines`, and `pipelines.current_branch`.
 
 CALLING FORGE FROM YOUR OWN PICKER             *forge-extending-custom-picker*
 

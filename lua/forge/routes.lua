@@ -17,6 +17,26 @@ local function prompt(ctx)
   return 'Forge> '
 end
 
+---@param ctx forge.Context?
+---@param opts? forge.RouteOpts
+---@return string?
+local function route_forge_name(ctx, opts)
+  if type(opts) == 'table' then
+    if type(opts.forge_name) == 'string' and opts.forge_name ~= '' then
+      return opts.forge_name
+    end
+    local scope = opts.scope
+    if type(scope) == 'table' and type(scope.kind) == 'string' and scope.kind ~= '' then
+      return scope.kind
+    end
+  end
+  local forge = type(ctx) == 'table' and ctx.forge or nil
+  if type(forge) == 'table' and type(forge.name) == 'string' and forge.name ~= '' then
+    return forge.name
+  end
+  return nil
+end
+
 ---@param ctx forge.Context
 ---@param opts forge.RouteOpts
 ---@return string?, string?
@@ -217,11 +237,12 @@ local function open_root(ctx, opts)
   local routes = rawget(cfg, 'routes') or {}
   local handlers = route_handlers()
   local entries = {}
+  local forge_name = route_forge_name(ctx, opts)
 
   for _, section in ipairs(section_order) do
     if sections[section] ~= false then
       local route = routes[section]
-      local resolved_route = route and M.resolve(route) or nil
+      local resolved_route = route and M.resolve(route, { forge_name = forge_name }) or nil
       if resolved_route and handlers[resolved_route] and section_available(section, ctx) then
         local label = section_label(section, ctx)
         entries[#entries + 1] = {
@@ -245,7 +266,7 @@ local function open_root(ctx, opts)
     name = 'default',
     context = ctx.id,
     back = function()
-      open_root(ctx)
+      open_root(ctx, opts)
     end,
   })
   if not default_action then
@@ -272,13 +293,14 @@ function M.open(name, opts)
     log.warn(err)
     return
   end
+  local forge_name = route_forge_name(ctx, opts)
 
   if not name or name == '' then
-    open_root(ctx, opts)
+    open_root(ctx, vim.tbl_extend('force', opts, { forge_name = forge_name }))
     return
   end
 
-  local route = M.resolve(name)
+  local route = M.resolve(name, { forge_name = forge_name })
   local handler = route_handlers()[route]
   if not handler then
     log.warn('unknown route: ' .. name)

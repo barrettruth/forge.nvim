@@ -211,6 +211,27 @@ describe('routes', function()
     assert.equals('closed', captured.pr)
   end)
 
+  it('resolves GitLab section and route aliases through canonical handlers', function()
+    detected_forge = fake_forge({
+      name = 'gitlab',
+      labels = {
+        pr_full = 'Merge Requests',
+        ci = 'Pipelines',
+      },
+    })
+    current_config.routes.prs = 'mrs.closed'
+    current_config.routes.ci = 'pipelines.current_branch'
+
+    require('forge.routes').open('mrs')
+    assert.equals('closed', captured.pr)
+
+    require('forge.routes').open('pipelines')
+    assert.equals('main', captured.ci)
+
+    require('forge.routes').open('pipelines.current_branch')
+    assert.equals('main', captured.ci)
+  end)
+
   it('passes scoped route options through picker handlers', function()
     local scope = {
       kind = 'github',
@@ -275,6 +296,38 @@ describe('routes', function()
         return entry.display[1][1]
       end, captured.root.entries)
     )
+  end)
+
+  it('accepts GitLab route aliases in root route defaults while keeping canonical keys', function()
+    detected_forge = fake_forge({
+      name = 'gitlab',
+      labels = {
+        pr_full = 'Merge Requests',
+        ci = 'Pipelines',
+      },
+    })
+    current_config.routes.prs = 'mrs.closed'
+    current_config.routes.ci = 'pipelines.current_branch'
+
+    require('forge.routes').open()
+
+    assert.is_not_nil(captured.root)
+    assert.equals('mrs.closed', captured.root.entries[1].value)
+    assert.equals('pipelines.current_branch', captured.root.entries[3].value)
+    assert.equals(
+      'Merge Requests prs pull requests reviews',
+      require('forge.picker').search_key('_menu', captured.root.entries[1])
+    )
+    assert.equals(
+      'Pipelines ci checks runs actions',
+      require('forge.picker').search_key('_menu', captured.root.entries[3])
+    )
+
+    captured.root.actions[1].fn(captured.root.entries[1])
+    assert.equals('closed', captured.pr)
+
+    captured.root.actions[1].fn(captured.root.entries[3])
+    assert.equals('main', captured.ci)
   end)
 
   it('uses repo browsing for contextual browse without a file buffer', function()
