@@ -127,6 +127,30 @@ local function limit_settings(base_limit, requested_limit)
   }
 end
 
+---@param f forge.Forge
+---@return string
+local function ci_label(f)
+  return (f.labels and f.labels.ci) or 'CI'
+end
+
+---@param f forge.Forge
+---@return string
+local function ci_run_history_label(f)
+  if f.name == 'gitlab' then
+    return ci_label(f):lower()
+  end
+  return ci_label(f) .. ' runs'
+end
+
+---@param f forge.Forge
+---@return string
+local function ci_fetch_label(f)
+  if f.name == 'gitlab' then
+    return ci_label(f):lower()
+  end
+  return 'CI runs'
+end
+
 local function expanded_limit(limit, step)
   return limit + step
 end
@@ -545,15 +569,16 @@ function M.ci(f, branch, filter, opts)
       entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
     end
     local filter_label = labels[filter] or filter
+    local run_label = ci_run_history_label(f)
     local empty_text
     if branch and filter ~= 'all' then
-      empty_text = ('No %s %s runs for %s'):format(filter_label, f.labels.ci, branch)
+      empty_text = ('No %s %s for %s'):format(filter_label, run_label, branch)
     elseif branch then
-      empty_text = ('No %s runs for %s'):format(f.labels.ci, branch)
+      empty_text = ('No %s for %s'):format(run_label, branch)
     elseif filter ~= 'all' then
-      empty_text = ('No %s %s runs'):format(filter_label, f.labels.ci)
+      empty_text = ('No %s %s'):format(filter_label, run_label)
     else
-      empty_text = ('No %s runs'):format(f.labels.ci)
+      empty_text = ('No %s'):format(run_label)
     end
     return with_placeholder(entries, empty_text), count
   end
@@ -573,7 +598,7 @@ function M.ci(f, branch, filter, opts)
       emit_cached(emit)
       return
     end
-    log.info('fetching CI runs...')
+    log.info('fetching ' .. ci_fetch_label(f) .. '...')
     picker_session.request_json(
       request_key,
       f:list_runs_json_cmd(branch, ref, current_limit + 1),
@@ -583,8 +608,8 @@ function M.ci(f, branch, filter, opts)
           return
         end
         if not ok then
-          log.error('failed to fetch CI runs')
-          emit(placeholder_entry('Failed to fetch CI runs'))
+          log.error('failed to fetch ' .. ci_fetch_label(f))
+          emit(placeholder_entry('Failed to fetch ' .. ci_fetch_label(f)))
           emit(nil)
           return
         end
@@ -690,7 +715,7 @@ function M.ci(f, branch, filter, opts)
       label = 'refresh',
       reload = false,
       fn = function()
-        log.info('refreshing CI runs...')
+        log.info('refreshing ' .. ci_fetch_label(f) .. '...')
         M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },

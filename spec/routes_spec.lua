@@ -2,18 +2,20 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 local captured
 local current_config
+local detected_forge
 local old_preload
 local old_system
 local old_ui_open
 
-local function fake_forge()
+local function fake_forge(opts)
+  opts = opts or {}
   return {
-    name = 'github',
-    labels = {
+    name = opts.name or 'github',
+    labels = vim.tbl_extend('force', {
       pr_full = 'PRs',
       issue = 'Issues',
       ci = 'CI',
-    },
+    }, opts.labels or {}),
     browse = function(_, loc, branch, scope)
       captured.browse = {
         loc = loc,
@@ -51,6 +53,7 @@ end
 describe('routes', function()
   before_each(function()
     captured = {}
+    detected_forge = fake_forge()
     current_config = {
       client = 'picker',
       context = 'current',
@@ -112,7 +115,7 @@ describe('routes', function()
           return current_config
         end,
         detect = function()
-          return fake_forge()
+          return detected_forge
         end,
         file_loc = function()
           local name = vim.api.nvim_buf_get_name(0)
@@ -252,6 +255,26 @@ describe('routes', function()
 
     assert.equals('open', captured.issue)
     assert.is_function(captured.issue_back)
+  end)
+
+  it('uses GitLab merge request and pipeline labels in the root picker', function()
+    detected_forge = fake_forge({
+      name = 'gitlab',
+      labels = {
+        pr_full = 'Merge Requests',
+        ci = 'Pipelines',
+      },
+    })
+
+    require('forge.routes').open()
+
+    assert.is_not_nil(captured.root)
+    assert.same(
+      { 'Merge Requests', 'Issues', 'Pipelines', 'Browse', 'Releases' },
+      vim.tbl_map(function(entry)
+        return entry.display[1][1]
+      end, captured.root.entries)
+    )
   end)
 
   it('uses repo browsing for contextual browse without a file buffer', function()

@@ -32,7 +32,8 @@ local loaded_modules = {
 local function fake_forge(opts)
   opts = opts or {}
   return {
-    labels = { pr = 'PRs', pr_one = 'PR' },
+    name = opts.name or 'github',
+    labels = vim.tbl_extend('force', { pr = 'PRs', pr_one = 'PR' }, opts.labels or {}),
     kinds = { pr = 'pull_request' },
     capabilities = opts.capabilities or { draft = true },
     pr_fields = {
@@ -111,9 +112,11 @@ local function fake_issue_forge()
   }
 end
 
-local function fake_ci_forge()
+local function fake_ci_forge(opts)
+  opts = opts or {}
   return {
-    labels = { ci = 'CI', pr_one = 'PR' },
+    name = opts.name or 'github',
+    labels = vim.tbl_extend('force', { ci = 'CI', pr_one = 'PR' }, opts.labels or {}),
     check_log_cmd = function(_, run_id)
       return { 'log', run_id }
     end,
@@ -1744,12 +1747,71 @@ describe('pickers', function()
     assert.equals('PR #42 Failed Checks (1)> ', captured.prompt)
   end)
 
+  it('uses GitLab merge request labels in PR and checks prompts', function()
+    local pickers = require('forge.pickers')
+    pickers.pr(
+      'open',
+      fake_forge({
+        name = 'gitlab',
+        labels = { pr = 'Merge Requests', pr_one = 'MR' },
+      })
+    )
+
+    assert.is_not_nil(captured)
+    assert.equals('Open Merge Requests (1)> ', captured.prompt)
+
+    pickers.checks(
+      fake_ci_forge({
+        name = 'gitlab',
+        labels = { ci = 'Pipelines', pr_one = 'MR' },
+      }),
+      '42',
+      'all',
+      {
+        { name = 'lint', link = 'https://example.com/check', bucket = 'pass' },
+      }
+    )
+
+    assert.is_not_nil(captured)
+    assert.equals('MR #42 Checks (1)> ', captured.prompt)
+  end)
+
   it('uses scope-first prompts for filtered CI runs while loading', function()
     local pickers = require('forge.pickers')
     pickers.ci(fake_ci_forge(), 'main', 'fail')
 
     assert.is_not_nil(captured)
     assert.equals('Failed CI for main> ', captured.prompt)
+  end)
+
+  it('uses GitLab pipeline terms for CI prompts and empty states', function()
+    local pickers = require('forge.pickers')
+    pickers.ci(
+      fake_ci_forge({
+        name = 'gitlab',
+        labels = { ci = 'Pipelines', pr_one = 'MR' },
+      }),
+      'main',
+      'fail'
+    )
+
+    assert.is_not_nil(captured)
+    assert.equals('Failed Pipelines for main> ', captured.prompt)
+
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+
+    assert.equals('No failed pipelines for main', streamed[1].display[1][1])
   end)
 
   it('warns when structured checks are unavailable for a forge', function()
