@@ -444,6 +444,27 @@ describe('fzf picker', function()
     assert.same({ 'CI\t1' }, captured.lines)
   end)
 
+  it('suppresses headers when a picker opts out', function()
+    local picker = require('forge.picker.fzf')
+    picker.pick({
+      prompt = 'Forge> ',
+      entries = {
+        {
+          display = { { 'Releases' } },
+          value = 'releases.all',
+        },
+      },
+      actions = {
+        { name = 'default', label = 'open', fn = function() end },
+      },
+      picker_name = '_menu',
+      show_header = false,
+    })
+
+    assert.is_not_nil(captured)
+    assert.is_nil(captured.opts.fzf_opts['--header'])
+  end)
+
   it('wires a focus bind and appends per-row headers when a label is dynamic', function()
     vim.g.forge = { keys = { ci = { toggle = '<c-s>', filter = '<tab>' } } }
     local picker = require('forge.picker.fzf')

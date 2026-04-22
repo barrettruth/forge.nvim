@@ -279,6 +279,7 @@ local function open_root(ctx, opts)
     entries = entries,
     actions = { default_action },
     picker_name = '_menu',
+    show_header = false,
     back = opts.back,
   })
 end

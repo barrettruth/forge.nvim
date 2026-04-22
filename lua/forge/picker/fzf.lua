@@ -234,6 +234,7 @@ function M.pick(opts)
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
+  local show_header = rawget(opts, 'show_header') ~= false
   local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
   local live_width = stream ~= nil
@@ -278,7 +279,7 @@ function M.pick(opts)
     }
   end
 
-  local dynamic_header = has_dynamic_label(actions)
+  local dynamic_header = show_header and has_dynamic_label(actions)
   local header_field = dynamic_header and (tracked and 4 or 3) or nil
 
   local function entry_header(entry)
@@ -302,7 +303,7 @@ function M.pick(opts)
     if not initial_header then
       initial_header = render_header_for(actions, bindings, nil)
     end
-  else
+  elseif show_header then
     initial_header = render_header(actions, bindings)
   end
 

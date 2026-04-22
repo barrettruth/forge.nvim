@@ -259,6 +259,7 @@ describe('routes', function()
 
     assert.is_not_nil(captured.root)
     assert.equals('Forge (main)> ', captured.root.prompt)
+    assert.is_false(captured.root.show_header)
 
     local labels = {}
     for _, entry in ipairs(captured.root.entries) do
