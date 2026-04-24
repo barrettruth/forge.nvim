@@ -530,6 +530,12 @@ function M.create_pr(opts)
     local num = vim.trim(result.stdout or '')
     vim.schedule(function()
       if num ~= '' and num ~= 'null' then
+        log.info(
+          ('%s already exists for this branch; opening edit buffer for #%s'):format(
+            f.labels.pr_one,
+            num
+          )
+        )
         M.edit_pr(num, base_scope)
         return
       end
