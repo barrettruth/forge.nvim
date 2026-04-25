@@ -206,7 +206,7 @@ function M:pr_for_branch_cmd(branch, ref)
   return {
     'sh',
     '-c',
-    ("glab mr list --source-branch '%s' -F json -R '%s' | jq -r '.[0].iid // empty'"):format(
+    ("glab mr list --source-branch '%s' -F json -R '%s' | jq -r '.[].iid // empty'"):format(
       branch,
       repo_arg(ref)
     ),

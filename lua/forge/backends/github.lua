@@ -255,7 +255,7 @@ function M:pr_for_branch_cmd(branch, scope)
     '--json',
     'number',
     '--jq',
-    '.[0].number',
+    '.[].number',
   }
   local repo = nwo(scope)
   if repo ~= '' then
@@ -536,7 +536,7 @@ function M:fetch_pr_details_cmd(num, scope)
     '-R',
     nwo(scope),
     '--json',
-    'title,body,isDraft,headRefName,baseRefName,labels,assignees,reviewRequests,milestone,url',
+    'title,body,isDraft,headRefName,headRepository,headRepositoryOwner,baseRefName,labels,assignees,reviewRequests,milestone,url',
   }
 end
 

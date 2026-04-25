@@ -186,7 +186,7 @@ function M:pr_for_branch_cmd(branch, ref)
   return {
     'sh',
     '-c',
-    ('tea pr list --state open --output json --fields index,head --repo %s | jq -r \'[.[] | select(.head=="%s" or .head.name=="%s")][0].index // empty\''):format(
+    ('tea pr list --state open --output json --fields index,head --repo %s | jq -r \'.[] | select(.head=="%s" or .head.name=="%s") | .index // empty\''):format(
       repo_arg(ref),
       branch,
       branch

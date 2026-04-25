@@ -99,6 +99,13 @@ describe('create_pr', function()
           body = 'Body',
           isDraft = false,
           headRefName = 'feature',
+          headRepository = {
+            name = 'repo',
+            nameWithOwner = 'owner/repo',
+          },
+          headRepositoryOwner = {
+            login = 'owner',
+          },
           baseRefName = 'main',
         })
       elseif key == 'git rev-parse --abbrev-ref feature@{upstream}' then
@@ -311,12 +318,26 @@ describe('create_pr', function()
 
   it('logs an explicit notice and opens edit when the branch already has a PR', function()
     use_system_responses({
+      ['git config branch.feature.pushRemote'] = helpers.command_result('', 1),
+      ['git config remote.pushDefault'] = helpers.command_result('', 1),
+      ['git rev-parse --abbrev-ref feature@{upstream}'] = helpers.command_result(
+        'origin/feature\n'
+      ),
+      ['git remote'] = helpers.command_result('origin\n'),
+      ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/repo.git\n'),
       ['pr-for-branch feature'] = helpers.command_result('23\n'),
       ['fetch-pr 23'] = helpers.command_result(vim.json.encode({
         title = 'Existing PR',
         body = 'Body',
         isDraft = false,
         headRefName = 'feature',
+        headRepository = {
+          name = 'repo',
+          nameWithOwner = 'owner/repo',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
         baseRefName = 'main',
       })),
     })
@@ -488,6 +509,7 @@ describe('create_pr', function()
   it('reports browser open failures for URL-based web PR flows', function()
     package.preload['forge.backends.github'] = function()
       return {
+        name = 'github',
         cli = 'gh',
         labels = { pr_one = 'PR' },
         pr_for_branch_cmd = function(_, branch)

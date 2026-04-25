@@ -35,6 +35,11 @@
 ---@field num string
 ---@field scope forge.Scope?
 
+---@class forge.HeadRef
+---@field branch string
+---@field scope forge.Scope?
+---@field project_id string?
+
 ---@class forge.IssueRef
 ---@field num string
 ---@field scope forge.Scope?
@@ -201,6 +206,17 @@
 ---@field head_scope forge.Scope?
 ---@field base_branch string?
 ---@field base_scope forge.Scope?
+
+---@class forge.CurrentPROpts: forge.ScopedOpts
+---@field forge forge.Forge?
+---@field forge_name string?
+---@field repo any
+---@field head any
+---@field head_branch string?
+---@field head_scope forge.Scope?
+---@field base_scope forge.Scope?
+---@field project_id string?
+---@field target_opts table?
 
 ---@class forge.CreateIssueOpts
 ---@field web boolean?
