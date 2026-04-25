@@ -289,6 +289,61 @@ describe('high-level implicit-ref API', function()
     assert.same({}, captured.warnings)
   end)
 
+  it(
+    'routes explicit PR targets through review() and pr_ci() without current_pr fallback',
+    function()
+      captured.repo_result = repo_scope('upstream')
+
+      local forge = require('forge')
+      forge.review({ num = '57', repo = 'upstream', adapter = 'worktree' })
+      forge.pr_ci({ num = '57', repo = 'upstream' })
+
+      assert.same({}, captured.current_pr_calls)
+      assert.equals(2, #captured.repo_calls)
+      for _, call in ipairs(captured.repo_calls) do
+        assert.is_nil(call.repo)
+        assert.equals('upstream', call.opts.repo)
+      end
+      assert.equals('pr_review', captured.ops_calls[1].name)
+      assert.equals('github', captured.ops_calls[1].f.name)
+      assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[1].pr)
+      assert.same({ adapter = 'worktree' }, captured.ops_calls[1].opts)
+      assert.equals('pr_ci', captured.ops_calls[2].name)
+      assert.equals('github', captured.ops_calls[2].f.name)
+      assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[2].pr)
+      assert.is_nil(captured.ops_calls[2].opts)
+      assert.same({}, captured.warnings)
+    end
+  )
+
+  it(
+    'does not fall back to ambient resolution when explicit PR targeting omits a usable number',
+    function()
+      require('forge').pr({ num = '   ', repo = 'upstream' })
+
+      assert.same({}, captured.current_pr_calls)
+      assert.same({}, captured.repo_calls)
+      assert.same({}, captured.ops_calls)
+      assert.same({ 'missing PR number' }, captured.warnings)
+    end
+  )
+
+  it(
+    'does not fall back to current PR resolution when explicit PR targeting has an invalid repo',
+    function()
+      captured.repo_error = {
+        code = 'invalid_repo',
+        message = 'invalid repo address',
+      }
+
+      require('forge').pr({ num = '42', repo = 'upstream' })
+
+      assert.same({}, captured.current_pr_calls)
+      assert.same({}, captured.ops_calls)
+      assert.same({ 'invalid repo address' }, captured.warnings)
+    end
+  )
+
   it('routes review() and pr_ci() through current_pr() with explicit address opts', function()
     captured.current_pr_result = {
       num = '57',
@@ -305,32 +360,14 @@ describe('high-level implicit-ref API', function()
       assert.equals('upstream', call.repo)
       assert.equals('origin@topic', call.head)
     end
-    assert.same({
-      name = 'pr_review',
-      f = {
-        name = 'github',
-        cli = 'gh',
-        labels = {
-          ci = 'CI',
-          pr_one = 'PR',
-        },
-      },
-      pr = { num = '57', scope = repo_scope('upstream') },
-      opts = { adapter = 'worktree' },
-    }, captured.ops_calls[1])
-    assert.same({
-      name = 'pr_ci',
-      f = {
-        name = 'github',
-        cli = 'gh',
-        labels = {
-          ci = 'CI',
-          pr_one = 'PR',
-        },
-      },
-      pr = { num = '57', scope = repo_scope('upstream') },
-      opts = nil,
-    }, captured.ops_calls[2])
+    assert.equals('pr_review', captured.ops_calls[1].name)
+    assert.equals('github', captured.ops_calls[1].f.name)
+    assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[1].pr)
+    assert.same({ adapter = 'worktree' }, captured.ops_calls[1].opts)
+    assert.equals('pr_ci', captured.ops_calls[2].name)
+    assert.equals('github', captured.ops_calls[2].f.name)
+    assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[2].pr)
+    assert.is_nil(captured.ops_calls[2].opts)
   end)
 
   it('opens current-branch CI through ci() and supports explicit head targeting', function()

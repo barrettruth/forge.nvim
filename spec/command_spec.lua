@@ -317,12 +317,6 @@ describe(':Forge command', function()
           table.insert(captured.current_pr_calls, opts)
           return captured.current_pr_result, captured.current_pr_error
         end,
-        edit_pr = function(num)
-          captured.edit_pr = num
-        end,
-        edit_issue = function(num, scope)
-          captured.edit_issue = { num = num, scope = scope }
-        end,
         create_issue = function(opts)
           captured.create_issue = opts
         end,
@@ -395,7 +389,6 @@ describe(':Forge command', function()
         end,
         pr_edit = function(pr)
           table.insert(captured.ops_calls, { name = 'pr_edit', pr = pr })
-          require('forge').edit_pr(pr.num, pr.scope)
         end,
         pr_review = function(_, pr, opts)
           table.insert(captured.ops_calls, { name = 'pr_review', pr = pr, opts = opts or {} })
@@ -431,7 +424,6 @@ describe(':Forge command', function()
         end,
         issue_edit = function(issue)
           table.insert(captured.ops_calls, { name = 'issue_edit', issue = issue })
-          require('forge').edit_issue(issue.num, issue.scope)
         end,
         issue_browse = function(f, issue)
           table.insert(captured.ops_calls, { name = 'issue_browse', issue = issue })
@@ -1002,18 +994,6 @@ describe(':Forge command', function()
         },
       },
     }, captured.ops_calls[1])
-    assert.same({
-      num = '174',
-      scope = {
-        kind = 'github',
-        host = 'github.com',
-        owner = 'owner',
-        repo = 'upstream',
-        slug = 'owner/upstream',
-        repo_arg = 'owner/upstream',
-        web_url = 'https://github.com/owner/upstream',
-      },
-    }, captured.edit_issue)
   end)
 
   it('rejects explicit list verbs with no picker dispatch side effects', function()

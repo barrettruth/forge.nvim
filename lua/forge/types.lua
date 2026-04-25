@@ -279,7 +279,10 @@
 ---@field project_id string?
 ---@field target_opts forge.TargetParseOpts?
 
----@class forge.ReviewOpts: forge.CurrentPROpts
+---@class forge.PRActionOpts: forge.CurrentPROpts
+---@field num string|integer?
+
+---@class forge.ReviewOpts: forge.PRActionOpts
 ---@field adapter string?
 
 ---@class forge.BranchCIOpts: forge.CurrentPROpts

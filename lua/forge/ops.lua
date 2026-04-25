@@ -70,6 +70,42 @@ local function normalize_run_ref(run, scope)
   return { id = run, scope = scope }
 end
 
+local function load_details(cmd, fetch_err, parse_err, parse, open)
+  vim.system(cmd, { text = true }, function(result)
+    if result.code ~= 0 then
+      vim.schedule(function()
+        log.error(cmd_error(result, fetch_err))
+      end)
+      return
+    end
+    local ok, json = pcall(vim.json.decode, result.stdout or '{}')
+    if not ok or type(json) ~= 'table' then
+      vim.schedule(function()
+        log.error(parse_err)
+      end)
+      return
+    end
+    local details = parse(json)
+    vim.schedule(function()
+      open(details)
+    end)
+  end)
+end
+
+---@param f forge.Forge?
+---@return forge.Forge?
+local function detect_or_warn(f)
+  if f then
+    return f
+  end
+  f = require('forge').detect()
+  if not f then
+    log.warn('no forge detected')
+    return nil
+  end
+  return f
+end
+
 local function summary_job_at_cursor(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   return require('forge.log')._summary_job_at_line(lines, vim.api.nvim_win_get_cursor(0)[1])
@@ -155,9 +191,29 @@ function M.pr_create(opts)
 end
 
 ---@param pr forge.PRRefLike
-function M.pr_edit(pr)
+---@param f forge.Forge?
+function M.pr_edit(pr, f)
   pr = normalize_pr_ref(pr)
-  require('forge').edit_pr(pr.num, pr.scope)
+  f = detect_or_warn(f)
+  if not f then
+    return
+  end
+  local forge = require('forge')
+  local ref = pr.scope or forge.current_scope(f.name)
+  local current_branch = trim(vim.fn.system('git branch --show-current'))
+
+  log.info(('fetching %s #%s...'):format(f.labels.pr_one, pr.num))
+  load_details(
+    f:fetch_pr_details_cmd(pr.num, ref),
+    'failed to fetch ' .. f.labels.pr_one .. ' #' .. pr.num,
+    'failed to parse ' .. f.labels.pr_one .. ' details',
+    function(json)
+      return f:parse_pr_details(json)
+    end,
+    function(details)
+      require('forge.compose').open_pr_edit(f, pr.num, details, current_branch, ref)
+    end
+  )
 end
 
 ---@param f forge.Forge
@@ -280,9 +336,28 @@ function M.issue_create(opts)
 end
 
 ---@param issue forge.IssueRefLike
-function M.issue_edit(issue)
+---@param f forge.Forge?
+function M.issue_edit(issue, f)
   issue = normalize_issue_ref(issue)
-  require('forge').edit_issue(issue.num, issue.scope)
+  f = detect_or_warn(f)
+  if not f then
+    return
+  end
+  local forge = require('forge')
+  local ref = issue.scope or forge.current_scope(f.name)
+
+  log.info(('fetching issue #%s...'):format(issue.num))
+  load_details(
+    f:fetch_issue_details_cmd(issue.num, ref),
+    'failed to fetch issue #' .. issue.num,
+    'failed to parse issue details',
+    function(json)
+      return f:parse_issue_details(json)
+    end,
+    function(details)
+      require('forge.compose').open_issue_edit(f, issue.num, details, ref)
+    end
+  )
 end
 
 ---@param f forge.Forge

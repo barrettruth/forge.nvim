@@ -436,6 +436,17 @@ M.format_releases = format_mod.format_releases
 M.filter_checks = format_mod.filter_checks
 M.filter_runs = format_mod.filter_runs
 
+---@return forge.Forge?
+local function detect_or_warn()
+  local log = require('forge.logger')
+  local forge = M.detect()
+  if not forge then
+    log.warn('no forge detected')
+    return nil
+  end
+  return forge
+end
+
 ---@param opts forge.CurrentPROpts?
 ---@param forge forge.Forge
 ---@return forge.CurrentPROpts
@@ -443,13 +454,103 @@ local function implicit_ref_opts(opts, forge)
   return vim.tbl_extend('force', { forge = forge }, opts or {})
 end
 
+---@param opts forge.PRActionOpts?
+---@return string?, boolean
+local function explicit_pr_num(opts)
+  if type(opts) ~= 'table' then
+    return nil, false
+  end
+  local num = opts.num
+  if num == nil then
+    return nil, false
+  end
+  ---@type string?
+  local text = nil
+  if type(num) == 'number' then
+    text = tostring(num)
+  elseif type(num) == 'string' then
+    text = num
+  end
+  if text == nil then
+    return nil, true
+  end
+  text = vim.trim(text)
+  if text == '' then
+    return nil, true
+  end
+  return text, true
+end
+
+---@param opts forge.PRActionOpts?
+---@param forge forge.Forge?
+---@return forge.PRRef?
+local function resolve_explicit_pr(opts, forge)
+  local log = require('forge.logger')
+  local num = explicit_pr_num(opts)
+  if not num then
+    return nil
+  end
+  ---@cast opts forge.PRActionOpts
+
+  local scope = opts.scope
+  if scope == nil and opts.repo ~= nil then
+    forge = forge or detect_or_warn()
+    if not forge then
+      return nil
+    end
+    local repo_scope, scope_err = resolve_mod.repo(nil, implicit_ref_opts(opts, forge))
+    if scope_err then
+      log.warn(scope_err.message or 'invalid repo address')
+      return nil
+    end
+    scope = repo_scope
+  end
+
+  return {
+    num = num,
+    scope = scope,
+  }
+end
+
+---@param opts forge.ReviewOpts?
+---@return { adapter: string? }
+local function review_action_opts(opts)
+  return {
+    adapter = type(opts) == 'table' and opts.adapter or nil,
+  }
+end
+
+local resolve_action_pr
+
+---@param opts forge.PRActionOpts?
+---@param require_forge boolean?
+---@return forge.Forge?, forge.PRRef?
+local function resolve_pr_action_target(opts, require_forge)
+  local log = require('forge.logger')
+  local num, explicit = explicit_pr_num(opts)
+  if explicit then
+    local forge = nil
+    if require_forge or (type(opts) == 'table' and opts.repo ~= nil) then
+      forge = detect_or_warn()
+      if not forge then
+        return nil
+      end
+    end
+    if not num then
+      log.warn('missing PR number')
+      return nil
+    end
+    return forge, resolve_explicit_pr(opts, forge)
+  end
+  return resolve_action_pr(opts)
+end
+
 ---@param opts forge.CurrentPROpts?
 ---@return forge.Forge?, forge.PRRef?
-local function resolve_action_pr(opts)
+resolve_action_pr = function(opts)
   local log = require('forge.logger')
-  local forge = M.detect()
+  local forge = detect_or_warn()
   if not forge then
-    log.warn('no forge detected')
     return nil
   end
   local pr, err = M.current_pr(implicit_ref_opts(opts, forge))
@@ -468,9 +569,8 @@ end
 ---@return forge.Forge?, forge.HeadRef?
 local function resolve_ci_head(opts)
   local log = require('forge.logger')
-  local forge = M.detect()
+  local forge = detect_or_warn()
   if not forge then
-    log.warn('no forge detected')
     return nil
   end
 
@@ -503,29 +603,27 @@ local function resolve_ci_head(opts)
   return forge, head
 end
 
----@param opts forge.CurrentPROpts?
+---@param opts forge.PRActionOpts?
 function M.pr(opts)
-  local _, pr = resolve_action_pr(opts)
+  local forge, pr = resolve_pr_action_target(opts)
   if not pr then
     return
   end
-  require('forge.ops').pr_edit(pr)
+  require('forge.ops').pr_edit(pr, forge)
 end
 
 ---@param opts forge.ReviewOpts?
 function M.review(opts)
-  local forge, pr = resolve_action_pr(opts)
+  local forge, pr = resolve_pr_action_target(opts, true)
   if not forge or not pr then
     return
   end
-  require('forge.ops').pr_review(forge, pr, {
-    adapter = type(opts) == 'table' and opts.adapter or nil,
-  })
+  require('forge.ops').pr_review(forge, pr, review_action_opts(opts))
 end
 
----@param opts forge.CurrentPROpts?
+---@param opts forge.PRActionOpts?
 function M.pr_ci(opts)
-  local forge, pr = resolve_action_pr(opts)
+  local forge, pr = resolve_pr_action_target(opts, true)
   if not forge or not pr then
     return
   end
@@ -689,74 +787,11 @@ end
 
 ---@param num string
 ---@param ref? forge.Scope
-function M.edit_pr(num, ref)
-  local log = require('forge.logger')
-
-  local f = M.detect()
-  if not f then
-    log.warn('no forge detected')
-    return
-  end
-  ref = ref or M.current_scope(f.name)
-
-  local current_branch = vim.trim(vim.fn.system('git branch --show-current'))
-
-  log.info(('fetching %s #%s...'):format(f.labels.pr_one, num))
-
-  vim.system(f:fetch_pr_details_cmd(num, ref), { text = true }, function(result)
-    if result.code ~= 0 then
-      vim.schedule(function()
-        log.error('failed to fetch ' .. f.labels.pr_one .. ' #' .. num)
-      end)
-      return
-    end
-    local ok, json = pcall(vim.json.decode, result.stdout or '{}')
-    if not ok or type(json) ~= 'table' then
-      vim.schedule(function()
-        log.error('failed to parse ' .. f.labels.pr_one .. ' details')
-      end)
-      return
-    end
-    local details = f:parse_pr_details(json)
-    vim.schedule(function()
-      compose_mod.open_pr_edit(f, num, details, current_branch, ref)
-    end)
-  end)
-end
-
----@param num string
----@param ref? forge.Scope
 function M.edit_issue(num, ref)
-  local log = require('forge.logger')
-
-  local f = M.detect()
-  if not f then
-    log.warn('no forge detected')
-    return
-  end
-  ref = ref or M.current_scope(f.name)
-
-  log.info(('fetching issue #%s...'):format(num))
-
-  vim.system(f:fetch_issue_details_cmd(num, ref), { text = true }, function(result)
-    if result.code ~= 0 then
-      vim.schedule(function()
-        log.error('failed to fetch issue #' .. num)
-      end)
-      return
-    end
-    local ok, json = pcall(vim.json.decode, result.stdout or '{}')
-    if not ok or type(json) ~= 'table' then
-      vim.schedule(function()
-        log.error('failed to parse issue details')
-      end)
-      return
-    end
-    local details = f:parse_issue_details(json)
-    vim.schedule(function()
-      compose_mod.open_issue_edit(f, num, details, ref)
-    end)
-  end)
+  require('forge.ops').issue_edit({
+    num = num,
+    scope = ref,
+  })
 end
 
 ---@param opts forge.CreateIssueOpts?

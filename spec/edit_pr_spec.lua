@@ -1,6 +1,6 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-describe('edit_pr', function()
+describe('forge.pr explicit PR targeting', function()
   local captured
   local old_fn_system
   local old_vim_system
@@ -19,6 +19,7 @@ describe('edit_pr', function()
     old_executable = vim.fn.executable
     old_preload = {
       ['forge.action'] = package.preload['forge.action'],
+      ['forge.ci'] = package.preload['forge.ci'],
       ['forge.client'] = package.preload['forge.client'],
       ['forge.compose'] = package.preload['forge.compose'],
       ['forge.config'] = package.preload['forge.config'],
@@ -93,6 +94,10 @@ describe('edit_pr', function()
         register = function() end,
         run = function() end,
       }
+    end
+
+    package.preload['forge.ci'] = function()
+      return {}
     end
 
     package.preload['forge.client'] = function()
@@ -181,6 +186,8 @@ describe('edit_pr', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.ci'] = nil
+    package.loaded['forge.ops'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
@@ -198,6 +205,7 @@ describe('edit_pr', function()
     vim.fn.executable = old_executable
 
     package.preload['forge.action'] = old_preload['forge.action']
+    package.preload['forge.ci'] = old_preload['forge.ci']
     package.preload['forge.client'] = old_preload['forge.client']
     package.preload['forge.compose'] = old_preload['forge.compose']
     package.preload['forge.config'] = old_preload['forge.config']
@@ -208,6 +216,8 @@ describe('edit_pr', function()
     package.preload['forge.template'] = old_preload['forge.template']
 
     package.loaded['forge'] = nil
+    package.loaded['forge.ci'] = nil
+    package.loaded['forge.ops'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
@@ -220,7 +230,7 @@ describe('edit_pr', function()
   end)
 
   it('uses fetched PR head/base metadata instead of the current local branch', function()
-    require('forge').edit_pr('23')
+    require('forge').pr({ num = 23 })
 
     vim.wait(100, function()
       return captured.opened ~= nil
@@ -260,7 +270,7 @@ describe('edit_pr', function()
       return ''
     end
 
-    require('forge').edit_pr('23')
+    require('forge').pr({ num = '23' })
 
     vim.wait(100, function()
       return captured.opened ~= nil
