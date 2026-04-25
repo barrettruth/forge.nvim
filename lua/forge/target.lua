@@ -6,6 +6,8 @@ local default_hosts = {
   codeberg = 'codeberg.org',
 }
 
+---@param text any
+---@return string?
 local function trim(text)
   if type(text) ~= 'string' then
     return nil
@@ -17,6 +19,8 @@ local function trim(text)
   return value
 end
 
+---@param url any
+---@return string?
 local function normalize_url(url)
   local value = trim(url)
   if not value then
@@ -32,6 +36,8 @@ local function normalize_url(url)
   return normalized
 end
 
+---@param url any
+---@return string?, string?
 local function split_url(url)
   local normalized = normalize_url(url)
   if not normalized then
@@ -49,15 +55,20 @@ local function split_url(url)
   return host, path
 end
 
+---@param opts table?
+---@return table<string, string>
 local function alias_map(opts)
   return type(opts) == 'table' and type(opts.aliases) == 'table' and opts.aliases or {}
 end
 
+---@param opts table?
+---@return boolean
 local function has_parse_opts(opts)
   return type(opts) == 'table'
     and (opts.resolve_repo ~= nil or opts.aliases ~= nil or opts.default_repo ~= nil)
 end
 
+---@return forge.TargetParseOpts
 local function config_parse_opts()
   local ok, forge = pcall(require, 'forge')
   if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
@@ -73,6 +84,8 @@ local function config_parse_opts()
   }
 end
 
+---@param cmd string[]
+---@return string?
 local function shell_text(cmd)
   local result = vim.system(cmd, { text = true }):wait()
   if result.code ~= 0 then
@@ -81,10 +94,13 @@ local function shell_text(cmd)
   return trim(result.stdout)
 end
 
+---@param name string
+---@return string?
 local function remote_url(name)
   return shell_text({ 'git', 'remote', 'get-url', name })
 end
 
+---@return string?
 local function preferred_remote_name()
   if remote_url('origin') then
     return 'origin'
@@ -96,6 +112,8 @@ local function preferred_remote_name()
   return vim.split(remotes, '\n', { plain = true, trimempty = true })[1]
 end
 
+---@param branch string?
+---@return string?
 local function push_remote_name(branch)
   local value = trim(branch)
   if not value then
@@ -119,6 +137,8 @@ local function push_remote_name(branch)
   return preferred_remote_name()
 end
 
+---@param fragment string?
+---@return forge.LineRange?, string?
 local function parse_range(fragment)
   if fragment == nil then
     return nil
@@ -141,6 +161,8 @@ local function parse_range(fragment)
   return nil, 'invalid range: ' .. fragment
 end
 
+---@param text string
+---@return forge.RepoTarget?, string?
 function M.parse_repo(text)
   local value = trim(text)
   if not value then
@@ -186,6 +208,9 @@ function M.parse_repo(text)
   return nil, 'invalid repo address: ' .. value
 end
 
+---@param text string
+---@param opts forge.TargetParseOpts?
+---@return forge.RepoTarget?, string?
 function M.resolve_repo(text, opts)
   local value = trim(text)
   if not value then
@@ -244,6 +269,8 @@ function M.resolve_repo(text, opts)
   return parsed
 end
 
+---@param opts table?
+---@return forge.TargetParseOpts
 function M.parse_opts(opts)
   local explicit = type(opts) == 'table' and opts.target_opts or nil
   if type(explicit) == 'table' then
@@ -261,6 +288,8 @@ function M.parse_opts(opts)
   return parsed
 end
 
+---@param value forge.TargetValue|forge.HeadInput|forge.Scope|nil
+---@return forge.RepoLike?
 function M.repo_target(value)
   if type(value) ~= 'table' then
     return nil
@@ -277,6 +306,10 @@ function M.repo_target(value)
   return value.repo
 end
 
+---@param value forge.TargetValue|forge.HeadInput|forge.RepoLike|nil
+---@param forge_name forge.ScopeKind
+---@param opts table?
+---@return forge.Scope?, string?
 function M.resolve_scope(value, forge_name, opts)
   local parse_opts = M.parse_opts(opts)
   if
@@ -285,6 +318,7 @@ function M.resolve_scope(value, forge_name, opts)
     and type(value.host) == 'string'
     and type(value.slug) == 'string'
   then
+    ---@cast value forge.Scope
     return value
   end
   if type(value) == 'table' then
@@ -306,10 +340,13 @@ function M.resolve_scope(value, forge_name, opts)
   return nil
 end
 
+---@return string?
 function M.current_branch()
   return shell_text({ 'git', 'branch', '--show-current' })
 end
 
+---@param opts table?
+---@return forge.RepoTarget?
 function M.current_repo(opts)
   local remote = preferred_remote_name()
   if not remote then
@@ -318,6 +355,9 @@ function M.current_repo(opts)
   return M.resolve_repo(remote, M.parse_opts(opts))
 end
 
+---@param branch string?
+---@param opts table?
+---@return forge.RepoTarget?
 function M.push_repo_for_branch(branch, opts)
   local remote = push_remote_name(branch)
   if not remote then
@@ -326,10 +366,14 @@ function M.push_repo_for_branch(branch, opts)
   return M.resolve_repo(remote, M.parse_opts(opts))
 end
 
+---@param opts table?
+---@return forge.RepoTarget?
 function M.push_repo(opts)
   return M.push_repo_for_branch(M.current_branch(), opts)
 end
 
+---@param opts table?
+---@return forge.RepoTarget?
 function M.collaboration_repo(opts)
   local parse_opts = M.parse_opts(opts)
   local configured = type(parse_opts) == 'table' and trim(parse_opts.default_repo) or nil
@@ -348,6 +392,9 @@ function M.collaboration_repo(opts)
   return nil
 end
 
+---@param branch string?
+---@param repo forge.RepoTarget?
+---@return forge.RevTarget?
 function M.branch_rev(branch, repo)
   local value = trim(branch)
   if not value then
@@ -364,6 +411,8 @@ function M.branch_rev(branch, repo)
   return rev
 end
 
+---@param repo forge.RepoTarget?
+---@return forge.RevTarget?
 function M.default_branch_rev(repo)
   if not repo then
     return nil
@@ -376,26 +425,42 @@ function M.default_branch_rev(repo)
   }
 end
 
+---@param opts table?
+---@return forge.RevTarget?
 function M.current_rev(opts)
   return M.branch_rev(M.current_branch(), M.current_repo(opts))
 end
 
+---@param branch string?
+---@param forge_name forge.ScopeKind
+---@param opts table?
+---@return forge.Scope?
 function M.push_scope_for_branch(branch, forge_name, opts)
   return M.repo_scope(M.push_repo_for_branch(branch, opts), forge_name)
 end
 
+---@param branch string?
+---@param opts table?
+---@return forge.RevTarget?
 function M.push_rev_for_branch(branch, opts)
   return M.branch_rev(branch, M.push_repo_for_branch(branch, opts))
 end
 
+---@param opts table?
+---@return forge.RevTarget?
 function M.push_rev(opts)
   return M.push_rev_for_branch(M.current_branch(), opts)
 end
 
+---@param opts table?
+---@return forge.RevTarget?
 function M.collaboration_default_branch(opts)
   return M.default_branch_rev(M.collaboration_repo(opts))
 end
 
+---@param text string
+---@param opts forge.TargetParseOpts?
+---@return forge.RevTarget?, string?
 function M.parse_rev(text, opts)
   local value = trim(text)
   if not value then
@@ -440,6 +505,9 @@ function M.parse_rev(text, opts)
   return parsed
 end
 
+---@param text any
+---@param label string
+---@return string?, string?
 local function parse_bare_ref(text, label)
   local value = trim(text)
   if not value then
@@ -457,6 +525,8 @@ local function parse_bare_ref(text, label)
   return value
 end
 
+---@param text string
+---@return forge.BranchTarget?, string?
 function M.parse_branch(text)
   local value, err = parse_bare_ref(text, 'branch')
   if not value then
@@ -469,6 +539,8 @@ function M.parse_branch(text)
   }
 end
 
+---@param text string
+---@return forge.CommitTarget?, string?
 function M.parse_commit(text)
   local value, err = parse_bare_ref(text, 'commit')
   if not value then
@@ -481,6 +553,9 @@ function M.parse_commit(text)
   }
 end
 
+---@param text string
+---@param opts forge.TargetParseOpts?
+---@return forge.LocationTarget?, string?
 function M.parse_location(text, opts)
   local value = trim(text)
   if not value then
@@ -522,6 +597,9 @@ function M.parse_location(text, opts)
   }
 end
 
+---@param repo forge.RepoTarget?
+---@param forge_name forge.ScopeKind
+---@return forge.Scope?
 function M.repo_scope(repo, forge_name)
   if type(repo) ~= 'table' then
     return nil

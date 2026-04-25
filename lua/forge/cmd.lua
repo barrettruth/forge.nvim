@@ -280,10 +280,13 @@ local function error_result(msg, opts)
   }
 end
 
+---@return forge.TargetParseOpts
 local function target_parse_opts()
   return require('forge.target').parse_opts()
 end
 
+---@param value forge.TargetValue|forge.HeadInput|forge.Scope|nil
+---@return forge.RepoLike?
 local function repo_target(value)
   return require('forge.target').repo_target(value)
 end
@@ -351,6 +354,9 @@ local function require_forge_or_warn()
   return f, forge_mod
 end
 
+---@param command forge.Command
+---@param forge_name forge.ScopeKind
+---@return forge.Scope?
 local function resolve_scope_modifier(command, forge_name)
   local target = require('forge.target')
   local repo = repo_target(command.parsed_modifiers.target)

@@ -3,8 +3,11 @@ local M = {}
 local scope_mod = require('forge.scope')
 local target_mod = require('forge.target')
 
+---@type table<string, string|false>
 local gitlab_project_ids = {}
 
+---@param text any
+---@return string?
 local function trim(text)
   if type(text) ~= 'string' then
     return nil
@@ -16,6 +19,9 @@ local function trim(text)
   return value
 end
 
+---@param message string
+---@param code string?
+---@return nil, forge.CmdError
 local function error_result(message, code)
   return nil, {
     code = code,
@@ -23,6 +29,9 @@ local function error_result(message, code)
   }
 end
 
+---@param result forge.SystemResult
+---@param fallback string
+---@return string
 local function cmd_error(result, fallback)
   local msg = trim(result.stderr)
   if not msg then
@@ -31,6 +40,8 @@ local function cmd_error(result, fallback)
   return msg or fallback
 end
 
+---@param opts forge.CurrentPROpts?
+---@return forge.Forge?
 local function current_forge(opts)
   if type(opts) == 'table' and type(opts.forge) == 'table' then
     return opts.forge
@@ -42,6 +53,8 @@ local function current_forge(opts)
   return forge.detect()
 end
 
+---@param value any
+---@return forge.ScopeKind?
 local function scope_kind(value)
   local scope = value
   if type(scope) == 'table' and type(scope.scope) == 'table' then
@@ -59,6 +72,9 @@ local function scope_kind(value)
   return kind
 end
 
+---@param opts forge.CurrentPROpts?
+---@param forge forge.Forge?
+---@return forge.ScopeKind?
 local function forge_name(opts, forge)
   if type(opts) == 'table' and type(opts.forge_name) == 'string' and opts.forge_name ~= '' then
     return opts.forge_name
@@ -78,6 +94,9 @@ local function forge_name(opts, forge)
   return nil
 end
 
+---@param scopes forge.Scope[]
+---@param seen table<string, boolean>
+---@param value forge.Scope?
 local function add_scope(scopes, seen, value)
   local key = scope_mod.key(value)
   if key == '' or seen[key] then
@@ -87,6 +106,9 @@ local function add_scope(scopes, seen, value)
   scopes[#scopes + 1] = value
 end
 
+---@param json table
+---@param base_scope forge.Scope?
+---@return forge.HeadRef
 local function github_head(json, base_scope)
   local branch = trim(json.headRefName)
   local owner = type(json.headRepositoryOwner) == 'table'
@@ -112,6 +134,8 @@ local function github_head(json, base_scope)
   }
 end
 
+---@param json table
+---@return forge.HeadRef
 local function gitlab_head(json)
   return {
     branch = trim(json.source_branch),
@@ -119,6 +143,9 @@ local function gitlab_head(json)
   }
 end
 
+---@param json table
+---@param base_scope forge.Scope?
+---@return forge.HeadRef
 local function codeberg_head(json, base_scope)
   local head = type(json.head) == 'table' and json.head or nil
   local branch = trim(head and (head.ref or head.name) or json.head)
@@ -135,6 +162,10 @@ local function codeberg_head(json, base_scope)
   }
 end
 
+---@param forge forge.Forge
+---@param json table
+---@param base_scope forge.Scope?
+---@return forge.HeadRef
 local function pr_head(forge, json, base_scope)
   if forge.name == 'github' then
     return github_head(json, base_scope)
@@ -151,7 +182,11 @@ local function pr_head(forge, json, base_scope)
   }
 end
 
+---@param scope forge.Scope?
+---@return string?, string?
 local function gitlab_project_id(scope)
+  local slug = type(scope) == 'table' and scope.slug or 'scope'
+  local host = type(scope) == 'table' and scope.host or 'gitlab.com'
   local key = scope_mod.key(scope)
   if key == '' then
     return nil
@@ -165,24 +200,24 @@ local function gitlab_project_id(scope)
     return nil
   end
   local result = vim
-    .system(
-      { 'glab', 'api', '--hostname', scope.host or 'gitlab.com', ('projects/%s'):format(project) },
-      { text = true }
-    )
+    .system({ 'glab', 'api', '--hostname', host, ('projects/%s'):format(project) }, { text = true })
     :wait()
   if result.code ~= 0 then
-    return nil,
-      cmd_error(result, ('failed to resolve GitLab project for %s'):format(scope.slug or 'scope'))
+    return nil, cmd_error(result, ('failed to resolve GitLab project for %s'):format(slug))
   end
   local ok, json = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(json) ~= 'table' or json.id == nil then
-    return nil, ('failed to parse GitLab project for %s'):format(scope.slug or 'scope')
+    return nil, ('failed to parse GitLab project for %s'):format(slug)
   end
   local id = tostring(json.id)
   gitlab_project_ids[key] = id
   return id
 end
 
+---@param forge forge.Forge
+---@param expected forge.HeadRef
+---@param actual forge.HeadRef
+---@return boolean?, string?
 local function head_matches(forge, expected, actual)
   if trim(actual.branch) ~= expected.branch then
     return false
@@ -202,6 +237,10 @@ local function head_matches(forge, expected, actual)
   return scope_mod.same(expected.scope, actual.scope)
 end
 
+---@param forge forge.Forge
+---@param num string
+---@param scope forge.Scope?
+---@return table?, string?
 local function fetch_pr_json(forge, num, scope)
   local result = vim.system(forge:fetch_pr_details_cmd(num, scope), { text = true }):wait()
   if result.code ~= 0 then
@@ -215,6 +254,10 @@ local function fetch_pr_json(forge, num, scope)
   return json
 end
 
+---@param forge forge.Forge
+---@param branch string
+---@param scope forge.Scope?
+---@return string[]?, string?
 local function list_pr_numbers(forge, branch, scope)
   local result = vim.system(forge:pr_for_branch_cmd(branch, scope), { text = true }):wait()
   if result.code ~= 0 then
@@ -233,6 +276,8 @@ local function list_pr_numbers(forge, branch, scope)
   return nums
 end
 
+---@param head forge.HeadRef
+---@return string
 local function head_label(head)
   local slug = type(head.scope) == 'table' and head.scope.slug or nil
   if slug and slug ~= '' then
@@ -241,6 +286,11 @@ local function head_label(head)
   return head.branch
 end
 
+---@param head forge.HeadLike?
+---@param opts forge.CurrentPROpts
+---@param kind forge.ScopeKind
+---@param parse_opts forge.TargetParseOpts
+---@return forge.HeadRef?, string?
 local function resolve_head(head, opts, kind, parse_opts)
   local value = head
   if value == nil then
@@ -274,6 +324,7 @@ local function resolve_head(head, opts, kind, parse_opts)
         end
       end
     else
+      ---@cast value forge.HeadInput
       branch = branch or trim(value.branch or value.head_branch or value.rev)
       project_id = project_id or trim(value.project_id)
       if not scope then
@@ -304,6 +355,11 @@ local function resolve_head(head, opts, kind, parse_opts)
   }
 end
 
+---@param opts forge.CurrentPROpts
+---@param head forge.HeadRef
+---@param kind forge.ScopeKind
+---@param parse_opts forge.TargetParseOpts
+---@return forge.Scope[]?, string?, string?
 local function candidate_scopes(opts, head, kind, parse_opts)
   local repo = opts.repo or opts.base_scope or opts.scope
   if repo ~= nil then
@@ -320,6 +376,10 @@ local function candidate_scopes(opts, head, kind, parse_opts)
   return scopes
 end
 
+---@param forge forge.Forge
+---@param head forge.HeadRef
+---@param scope forge.Scope
+---@return forge.PRRef[]?, string?
 local function matching_prs(forge, head, scope)
   local nums, list_err = list_pr_numbers(forge, head.branch, scope)
   if not nums then
@@ -345,6 +405,9 @@ local function matching_prs(forge, head, scope)
   return matches
 end
 
+---@param repo forge.RepoLike?
+---@param opts forge.CurrentPROpts?
+---@return forge.Scope?, forge.CmdError?
 function M.repo(repo, opts)
   opts = opts or {}
   local forge = current_forge(opts)
@@ -366,6 +429,9 @@ function M.repo(repo, opts)
   return scope
 end
 
+---@param head forge.HeadLike?
+---@param opts forge.CurrentPROpts?
+---@return forge.HeadRef?, forge.CmdError?
 function M.head(head, opts)
   opts = opts or {}
   local forge = current_forge(opts)
@@ -377,9 +443,14 @@ function M.head(head, opts)
   if resolved then
     return resolved
   end
-  return error_result(err, err == 'detached HEAD' and 'detached_head' or 'invalid_head')
+  return error_result(
+    err or 'invalid head',
+    err == 'detached HEAD' and 'detached_head' or 'invalid_head'
+  )
 end
 
+---@param opts forge.CurrentPROpts?
+---@return forge.PRRef?, forge.CmdError?
 function M.current_pr(opts)
   opts = opts or {}
   local forge = current_forge(opts)
@@ -393,7 +464,10 @@ function M.current_pr(opts)
   local parse_opts = target_mod.parse_opts(opts)
   local head, head_err = resolve_head(opts.head, opts, kind, parse_opts)
   if not head then
-    return error_result(head_err, head_err == 'detached HEAD' and 'detached_head' or 'invalid_head')
+    return error_result(
+      head_err or 'invalid head',
+      head_err == 'detached HEAD' and 'detached_head' or 'invalid_head'
+    )
   end
   local repos, repo_err, repo_code = candidate_scopes(opts, head, kind, parse_opts)
   if not repos then
@@ -402,7 +476,7 @@ function M.current_pr(opts)
   for _, scope in ipairs(repos) do
     local matches, match_err = matching_prs(forge, head, scope)
     if not matches then
-      return error_result(match_err, 'lookup_failed')
+      return error_result(match_err or 'current PR lookup failed', 'lookup_failed')
     end
     if #matches == 1 then
       return matches[1]

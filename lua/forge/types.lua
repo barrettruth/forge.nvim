@@ -31,6 +31,54 @@
 ---@field namespace string?
 ---@field repo string?
 
+---@class forge.LineRange
+---@field start_line integer
+---@field end_line integer
+
+---@class forge.RepoTarget
+---@field kind 'repo'
+---@field form 'hosted'|'path'|'symbolic'
+---@field text string
+---@field host string?
+---@field slug string?
+---@field name string?
+---@field via 'alias'|'remote'|'explicit'?
+---@field alias string?
+---@field remote string?
+
+---@class forge.RevTarget
+---@field kind 'rev'
+---@field text string
+---@field rev string?
+---@field repo forge.RepoTarget?
+---@field default_branch boolean?
+
+---@class forge.BranchTarget
+---@field kind 'branch'
+---@field text string
+---@field branch string
+
+---@class forge.CommitTarget
+---@field kind 'commit'
+---@field text string
+---@field commit string
+
+---@class forge.LocationTarget
+---@field kind 'location'
+---@field text string
+---@field rev forge.RevTarget
+---@field path string
+---@field range forge.LineRange?
+
+---@class forge.HeadInput
+---@field branch string?
+---@field head_branch string?
+---@field rev string?
+---@field scope forge.Scope?
+---@field head_scope forge.Scope?
+---@field repo forge.RepoLike?
+---@field project_id string?
+
 ---@class forge.PRRef
 ---@field num string
 ---@field scope forge.Scope?
@@ -58,9 +106,17 @@
 ---@alias forge.IssueRefLike forge.IssueRef|string
 ---@alias forge.ReleaseRefLike forge.ReleaseRef|string
 ---@alias forge.RunRefLike forge.RunRef|string
+---@alias forge.TargetValue forge.RepoTarget|forge.RevTarget|forge.BranchTarget|forge.CommitTarget|forge.LocationTarget
+---@alias forge.RepoLike forge.Scope|forge.RepoTarget|string
+---@alias forge.HeadLike forge.HeadInput|forge.HeadRef|forge.RevTarget|string
 
 ---@class forge.ScopedOpts
 ---@field scope forge.Scope?
+
+---@class forge.TargetParseOpts
+---@field resolve_repo boolean?
+---@field aliases table<string, string>?
+---@field default_repo string?
 
 ---@class forge.SurfaceOpts
 ---@field forge_name string?
@@ -77,6 +133,11 @@
 ---@class forge.CmdError
 ---@field code string?
 ---@field message string
+
+---@class forge.SystemResult
+---@field code integer
+---@field stdout string?
+---@field stderr string?
 
 ---@class forge.CommandSubjectSpec
 ---@field kind string?
@@ -210,13 +271,13 @@
 ---@class forge.CurrentPROpts: forge.ScopedOpts
 ---@field forge forge.Forge?
 ---@field forge_name string?
----@field repo any
----@field head any
+---@field repo forge.RepoLike?
+---@field head forge.HeadLike?
 ---@field head_branch string?
 ---@field head_scope forge.Scope?
 ---@field base_scope forge.Scope?
 ---@field project_id string?
----@field target_opts table?
+---@field target_opts forge.TargetParseOpts?
 
 ---@class forge.CreateIssueOpts
 ---@field web boolean?
