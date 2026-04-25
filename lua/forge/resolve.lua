@@ -249,7 +249,7 @@ local function fetch_pr_json(forge, num, scope)
   end
   local ok, json = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(json) ~= 'table' then
-    return nil, ('failed to parse %s #%s details'):format(forge.labels.pr_one or 'PR', num)
+    return nil, ('failed to parse %s details'):format(forge.labels.pr_one or 'PR')
   end
   return json
 end
@@ -261,8 +261,7 @@ end
 local function list_pr_numbers(forge, branch, scope)
   local result = vim.system(forge:pr_for_branch_cmd(branch, scope), { text = true }):wait()
   if result.code ~= 0 then
-    return nil,
-      cmd_error(result, ('failed to list %s for %s'):format(forge.labels.pr_full or 'PRs', branch))
+    return nil, cmd_error(result, ('failed to fetch %s'):format(forge.labels.pr or 'PRs'))
   end
   local nums = {}
   local seen = {}
