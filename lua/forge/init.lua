@@ -504,13 +504,12 @@ function M.create_pr(opts)
     return
   end
   if existing then
-    log.info(
-      ('%s already exists for this branch; opening edit buffer for #%s'):format(
+    log.warn(
+      ('%s already exists for this branch (#%s); use :Forge pr or :Forge review'):format(
         f.labels.pr_one,
         existing.num
       )
     )
-    M.edit_pr(existing.num, existing.scope or base_scope)
     return
   end
 

@@ -316,7 +316,45 @@ describe('create_pr', function()
     assert.is_nil(captured.picker)
   end)
 
-  it('logs an explicit notice and opens edit when the branch already has a PR', function()
+  it(
+    'stops create when the branch already has a PR and directs the user to current-PR commands',
+    function()
+      use_system_responses({
+        ['git config branch.feature.pushRemote'] = helpers.command_result('', 1),
+        ['git config remote.pushDefault'] = helpers.command_result('', 1),
+        ['git rev-parse --abbrev-ref feature@{upstream}'] = helpers.command_result(
+          'origin/feature\n'
+        ),
+        ['git remote'] = helpers.command_result('origin\n'),
+        ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/repo.git\n'),
+        ['pr-for-branch feature'] = helpers.command_result('23\n'),
+        ['fetch-pr 23'] = helpers.command_result(vim.json.encode({
+          title = 'Existing PR',
+          body = 'Body',
+          isDraft = false,
+          headRefName = 'feature',
+          headRepository = {
+            name = 'repo',
+            nameWithOwner = 'owner/repo',
+          },
+          headRepositoryOwner = {
+            login = 'owner',
+          },
+          baseRefName = 'main',
+        })),
+      })
+
+      require('forge').create_pr()
+
+      assert.is_nil(captured.edited)
+      assert.same({
+        'PR already exists for this branch (#23); use :Forge pr or :Forge review',
+      }, captured.warnings)
+      assert.is_false(vim.tbl_contains(captured.systems, 'default-branch'))
+    end
+  )
+
+  it('stops web create when the branch already has a PR and does not push', function()
     use_system_responses({
       ['git config branch.feature.pushRemote'] = helpers.command_result('', 1),
       ['git config remote.pushDefault'] = helpers.command_result('', 1),
@@ -342,35 +380,14 @@ describe('create_pr', function()
       })),
     })
 
-    require('forge').create_pr()
-
-    vim.wait(100, function()
-      return captured.edited ~= nil
-    end)
+    require('forge').create_pr({ web = true })
 
     assert.same({
-      num = '23',
-      details = {
-        title = 'Existing PR',
-        body = 'Body',
-        draft = false,
-        head_branch = 'feature',
-        base_branch = 'main',
-        labels = {},
-        assignees = {},
-        reviewers = {},
-        milestone = '',
-      },
-      current_branch = 'feature',
-      scope = repo_scope('repo'),
-    }, captured.edited)
-    assert.is_true(
-      vim.tbl_contains(
-        captured.infos,
-        'PR already exists for this branch; opening edit buffer for #23'
-      )
-    )
+      'PR already exists for this branch (#23); use :Forge pr or :Forge review',
+    }, captured.warnings)
     assert.is_false(vim.tbl_contains(captured.systems, 'default-branch'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'git push -u origin feature'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'create-pr-web'))
   end)
 
   it('blocks web PR creation when the current branch already matches the base', function()
