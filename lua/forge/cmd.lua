@@ -37,7 +37,10 @@ local families = {
   {
     name = 'pr',
     surface = 'forge',
+    default_verb = 'open',
     verb_order = {
+      'open',
+      'ci',
       'close',
       'reopen',
       'create',
@@ -49,6 +52,14 @@ local families = {
       'refresh',
     },
     verbs = {
+      open = {
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
+      },
+      ci = {
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
+      },
       close = {
         subject = { kind = 'pr', min = 1, max = 1 },
         modifiers = { 'repo' },
@@ -94,8 +105,8 @@ local families = {
     verb_order = { 'open' },
     verbs = {
       open = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo', 'adapter' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head', 'adapter' },
       },
     },
   },
@@ -211,6 +222,13 @@ local function split_words(text)
     words[#words + 1] = word
   end
   return words
+end
+
+local function token_is_modifier_like(token)
+  if type(token) ~= 'string' then
+    return false
+  end
+  return token:match('^%-%-') ~= nil or token:find('=', 1, true) ~= nil
 end
 
 local function list_contains(items, value)
@@ -371,6 +389,39 @@ local function resolve_scope_modifier(command, forge_name)
   return target.resolve_scope(repo, forge_name, target_parse_opts())
 end
 
+local function resolve_repo_modifier(command, forge_name)
+  local target = require('forge.target')
+  local repo = repo_target(command.parsed_modifiers.repo)
+    or repo_target(command.default_targets.repo)
+  return target.resolve_scope(repo, forge_name, target_parse_opts())
+end
+
+local function current_pr_resolution_opts(command, f)
+  local opts = {
+    forge = f,
+  }
+  if command.parsed_modifiers.repo ~= nil then
+    opts.repo = command.parsed_modifiers.repo
+  end
+  if command.parsed_modifiers.head ~= nil then
+    opts.head = command.parsed_modifiers.head
+  end
+  return opts
+end
+
+local function resolve_current_pr_or_warn(command, f)
+  local pr, err = require('forge').current_pr(current_pr_resolution_opts(command, f))
+  if err then
+    warn(err.message)
+    return nil
+  end
+  if pr then
+    return pr
+  end
+  warn(('no open %s found for this branch'):format((f.labels and f.labels.pr_one) or 'PR'))
+  return nil
+end
+
 local function dispatch_pr(command)
   if not require_git_or_warn() then
     return
@@ -380,12 +431,12 @@ local function dispatch_pr(command)
     return
   end
   local num = command.subjects[1]
-  local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'create' then
     local target = require('forge.target')
     local parse_opts = target_parse_opts()
     local head = command.parsed_modifiers.head or command.default_targets.head
     local base = command.parsed_modifiers.base or command.default_targets.base
+    local scope = resolve_repo_modifier(command, f.name)
     ops.pr_create({
       draft = command.modifiers.draft == true,
       instant = command.modifiers.fill == true,
@@ -398,6 +449,33 @@ local function dispatch_pr(command)
     })
     return
   end
+  if command.name == 'open' then
+    if num then
+      ops.pr_edit({ num = num, scope = resolve_repo_modifier(command, f.name) })
+      return
+    end
+    local pr = resolve_current_pr_or_warn(command, f)
+    if not pr then
+      return
+    end
+    ops.pr_edit(pr)
+    return
+  end
+  if command.name == 'ci' then
+    local pr = num and { num = num, scope = resolve_repo_modifier(command, f.name) }
+      or resolve_current_pr_or_warn(command, f)
+    if not pr then
+      return
+    end
+    ops.pr_ci(f, pr)
+    return
+  end
+  if command.name == 'refresh' then
+    require('forge').clear_list_kind('pr')
+    require('forge.logger').info('refreshed ' .. ((f.labels and f.labels.pr) or 'pr') .. ' list')
+    return
+  end
+  local scope = resolve_repo_modifier(command, f.name)
   if command.name == 'edit' then
     ops.pr_edit({ num = num, scope = scope })
     return
@@ -426,11 +504,6 @@ local function dispatch_pr(command)
     ops.pr_reopen(f, { num = num, scope = scope })
     return
   end
-  if command.name == 'refresh' then
-    require('forge').clear_list_kind('pr')
-    require('forge.logger').info('refreshed ' .. ((f.labels and f.labels.pr) or 'pr') .. ' list')
-    return
-  end
   warn(('unsupported pr action: %s'):format(command.name))
 end
 
@@ -443,10 +516,18 @@ local function dispatch_review(command)
     return
   end
   local num = command.subjects[1]
-  local scope = resolve_scope_modifier(command, f.name)
-  ops.pr_review(f, { num = num, scope = scope }, {
+  local opts = {
     adapter = command.modifiers.adapter ~= true and command.modifiers.adapter or nil,
-  })
+  }
+  if num then
+    ops.pr_review(f, { num = num, scope = resolve_repo_modifier(command, f.name) }, opts)
+    return
+  end
+  local pr = resolve_current_pr_or_warn(command, f)
+  if not pr then
+    return
+  end
+  ops.pr_review(f, pr, opts)
 end
 
 local function dispatch_issue(command)
@@ -458,7 +539,7 @@ local function dispatch_issue(command)
     return
   end
   local num = command.subjects[1]
-  local scope = resolve_scope_modifier(command, f.name)
+  local scope = resolve_repo_modifier(command, f.name)
   if command.name == 'create' then
     local template = command.modifiers.template
     ops.issue_create({
@@ -505,7 +586,7 @@ local function dispatch_ci(command)
   if not f then
     return
   end
-  local scope = resolve_scope_modifier(command, f.name)
+  local scope = resolve_repo_modifier(command, f.name)
   if command.name == 'open' then
     ops.ci_open(f, { id = command.subjects[1], scope = scope })
     return
@@ -536,7 +617,7 @@ local function dispatch_release(command)
     return
   end
   local tag = command.subjects[1]
-  local scope = resolve_scope_modifier(command, f.name)
+  local scope = resolve_repo_modifier(command, f.name)
   if command.name == 'browse' then
     if tag then
       ops.release_browse(f, { tag = tag, scope = scope })
@@ -755,6 +836,20 @@ function M.parse(args, opts)
   local has_explicit_verb = verb_token ~= nil
     and (family.verbs[verb_token] ~= nil or (family.aliases and family.aliases[verb_token] ~= nil))
   local rest_index = has_explicit_verb and 3 or 2
+  local implicit_command = not has_explicit_verb
+      and family.default_verb
+      and M.resolve(family_name, nil, opts)
+    or nil
+
+  if implicit_command and verb_token ~= nil and not token_is_modifier_like(verb_token) then
+    local subject = implicit_command.subject or {}
+    local kind = subject.kind
+    local looks_like_subject = kind ~= 'pr' and kind ~= 'issue' and kind ~= 'run'
+      or verb_token:match('^%d+$') ~= nil
+    if not looks_like_subject then
+      return error_result(unknown_verb_error(family.name, verb_token))
+    end
+  end
 
   if not has_explicit_verb and not family.default_verb then
     if verb_token ~= nil then
