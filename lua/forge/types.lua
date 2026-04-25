@@ -279,6 +279,12 @@
 ---@field project_id string?
 ---@field target_opts forge.TargetParseOpts?
 
+---@class forge.ReviewOpts: forge.CurrentPROpts
+---@field adapter string?
+
+---@class forge.BranchCIOpts: forge.CurrentPROpts
+---@field branch string?
+
 ---@class forge.CreateIssueOpts
 ---@field web boolean?
 ---@field blank boolean?

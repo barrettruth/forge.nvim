@@ -436,6 +436,113 @@ M.format_releases = format_mod.format_releases
 M.filter_checks = format_mod.filter_checks
 M.filter_runs = format_mod.filter_runs
 
+---@param opts forge.CurrentPROpts?
+---@param forge forge.Forge
+---@return forge.CurrentPROpts
+local function implicit_ref_opts(opts, forge)
+  return vim.tbl_extend('force', { forge = forge }, opts or {})
+end
+
+---@param opts forge.CurrentPROpts?
+---@return forge.Forge?, forge.PRRef?
+local function resolve_action_pr(opts)
+  local log = require('forge.logger')
+  local forge = M.detect()
+  if not forge then
+    log.warn('no forge detected')
+    return nil
+  end
+  local pr, err = M.current_pr(implicit_ref_opts(opts, forge))
+  if err then
+    log.warn(err.message or 'current PR lookup failed')
+    return nil
+  end
+  if pr then
+    return forge, pr
+  end
+  log.warn(('no open %s found for this branch'):format(forge.labels.pr_one or 'PR'))
+  return nil
+end
+
+---@param opts forge.BranchCIOpts?
+---@return forge.Forge?, forge.HeadRef?
+local function resolve_ci_head(opts)
+  local log = require('forge.logger')
+  local forge = M.detect()
+  if not forge then
+    log.warn('no forge detected')
+    return nil
+  end
+
+  opts = opts or {}
+  local head_input = opts.head
+  if
+    head_input == nil and (opts.branch ~= nil or opts.head_branch ~= nil or opts.head_scope ~= nil)
+  then
+    head_input = {
+      branch = opts.branch or opts.head_branch,
+      scope = opts.head_scope,
+    }
+  end
+
+  local head, head_err = resolve_mod.head(head_input, implicit_ref_opts(opts, forge))
+  if not head then
+    log.warn((head_err and head_err.message) or 'invalid head')
+    return nil
+  end
+
+  if opts.repo ~= nil or opts.scope ~= nil then
+    local scope, scope_err = resolve_mod.repo(nil, implicit_ref_opts(opts, forge))
+    if scope_err then
+      log.warn(scope_err.message or 'invalid repo address')
+      return nil
+    end
+    head.scope = scope or head.scope
+  end
+
+  return forge, head
+end
+
+---@param opts forge.CurrentPROpts?
+function M.pr(opts)
+  local _, pr = resolve_action_pr(opts)
+  if not pr then
+    return
+  end
+  require('forge.ops').pr_edit(pr)
+end
+
+---@param opts forge.ReviewOpts?
+function M.review(opts)
+  local forge, pr = resolve_action_pr(opts)
+  if not forge or not pr then
+    return
+  end
+  require('forge.ops').pr_review(forge, pr, {
+    adapter = type(opts) == 'table' and opts.adapter or nil,
+  })
+end
+
+---@param opts forge.CurrentPROpts?
+function M.pr_ci(opts)
+  local forge, pr = resolve_action_pr(opts)
+  if not forge or not pr then
+    return
+  end
+  require('forge.ops').pr_ci(forge, pr)
+end
+
+---@param opts forge.BranchCIOpts?
+function M.ci(opts)
+  local _, head = resolve_ci_head(opts)
+  if not head then
+    return
+  end
+  require('forge.ops').ci_list(head.branch, {
+    scope = head.scope,
+  })
+end
+
 ---@param opts forge.CreatePROpts?
 function M.create_pr(opts)
   opts = opts or {}
