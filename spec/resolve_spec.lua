@@ -184,6 +184,41 @@ describe('current_pr resolver', function()
     )
   end)
 
+  it('uses explicit head-branch push context before collaboration fallback', function()
+    use_system_responses({
+      ['git config branch.topic.pushRemote'] = helpers.command_result('fork\n'),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['pr-for-branch topic owner/fork'] = helpers.command_result('\n'),
+      ['pr-for-branch topic owner/upstream'] = helpers.command_result('57\n'),
+      ['fetch-pr 57 owner/upstream'] = helpers.command_result(vim.json.encode({
+        headRefName = 'topic',
+        headRepository = {
+          name = 'fork',
+          nameWithOwner = 'owner/fork',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = github,
+      head_branch = 'topic',
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '57',
+      scope = repo_scope('upstream'),
+    }, pr)
+    assert.is_true(vim.tbl_contains(captured.systems, 'git config branch.topic.pushRemote'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'git branch --show-current'))
+  end)
+
   it('reports ambiguity when multiple PRs match the same head', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(

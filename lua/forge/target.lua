@@ -53,6 +53,26 @@ local function alias_map(opts)
   return type(opts) == 'table' and type(opts.aliases) == 'table' and opts.aliases or {}
 end
 
+local function has_parse_opts(opts)
+  return type(opts) == 'table'
+    and (opts.resolve_repo ~= nil or opts.aliases ~= nil or opts.default_repo ~= nil)
+end
+
+local function config_parse_opts()
+  local ok, forge = pcall(require, 'forge')
+  if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
+    return {}
+  end
+  local cfg = forge.config()
+  local targets = type(cfg) == 'table' and cfg.targets or nil
+  local aliases = type(targets) == 'table' and targets.aliases or nil
+  local default_repo = type(targets) == 'table' and targets.default_repo or nil
+  return {
+    aliases = type(aliases) == 'table' and aliases or {},
+    default_repo = type(default_repo) == 'string' and default_repo or nil,
+  }
+end
+
 local function shell_text(cmd)
   local result = vim.system(cmd, { text = true }):wait()
   if result.code ~= 0 then
@@ -224,6 +244,68 @@ function M.resolve_repo(text, opts)
   return parsed
 end
 
+function M.parse_opts(opts)
+  local explicit = type(opts) == 'table' and opts.target_opts or nil
+  if type(explicit) == 'table' then
+    local parsed = vim.deepcopy(explicit)
+    parsed.resolve_repo = true
+    return parsed
+  end
+  if has_parse_opts(opts) then
+    local parsed = vim.deepcopy(opts)
+    parsed.resolve_repo = true
+    return parsed
+  end
+  local parsed = config_parse_opts()
+  parsed.resolve_repo = true
+  return parsed
+end
+
+function M.repo_target(value)
+  if type(value) ~= 'table' then
+    return nil
+  end
+  if value.kind == 'repo' then
+    return value
+  end
+  if value.kind == 'rev' then
+    return value.repo
+  end
+  if value.kind == 'location' and type(value.rev) == 'table' then
+    return value.rev.repo
+  end
+  return value.repo
+end
+
+function M.resolve_scope(value, forge_name, opts)
+  local parse_opts = M.parse_opts(opts)
+  if
+    type(value) == 'table'
+    and value.kind ~= 'repo'
+    and type(value.host) == 'string'
+    and type(value.slug) == 'string'
+  then
+    return value
+  end
+  if type(value) == 'table' then
+    if value.kind == 'repo' then
+      return M.repo_scope(value, forge_name)
+    end
+    local repo = M.repo_target(value)
+    if type(repo) == 'table' then
+      return M.resolve_scope(repo, forge_name, parse_opts)
+    end
+  end
+  if type(value) == 'string' then
+    local repo, err = M.resolve_repo(value, parse_opts)
+    if not repo then
+      return nil, err
+    end
+    return M.repo_scope(repo, forge_name)
+  end
+  return nil
+end
+
 function M.current_branch()
   return shell_text({ 'git', 'branch', '--show-current' })
 end
@@ -233,28 +315,32 @@ function M.current_repo(opts)
   if not remote then
     return nil
   end
-  return M.resolve_repo(remote, opts)
+  return M.resolve_repo(remote, M.parse_opts(opts))
 end
 
-function M.push_repo(opts)
-  local branch = M.current_branch()
+function M.push_repo_for_branch(branch, opts)
   local remote = push_remote_name(branch)
   if not remote then
     return nil
   end
-  return M.resolve_repo(remote, opts)
+  return M.resolve_repo(remote, M.parse_opts(opts))
+end
+
+function M.push_repo(opts)
+  return M.push_repo_for_branch(M.current_branch(), opts)
 end
 
 function M.collaboration_repo(opts)
-  local configured = type(opts) == 'table' and trim(opts.default_repo) or nil
+  local parse_opts = M.parse_opts(opts)
+  local configured = type(parse_opts) == 'table' and trim(parse_opts.default_repo) or nil
   if configured then
-    local resolved = M.resolve_repo(configured, opts)
+    local resolved = M.resolve_repo(configured, parse_opts)
     if resolved then
       return resolved
     end
   end
   for _, remote in ipairs({ 'upstream', 'origin' }) do
-    local resolved = M.resolve_repo(remote, opts)
+    local resolved = M.resolve_repo(remote, parse_opts)
     if resolved then
       return resolved
     end
@@ -294,8 +380,16 @@ function M.current_rev(opts)
   return M.branch_rev(M.current_branch(), M.current_repo(opts))
 end
 
+function M.push_scope_for_branch(branch, forge_name, opts)
+  return M.repo_scope(M.push_repo_for_branch(branch, opts), forge_name)
+end
+
+function M.push_rev_for_branch(branch, opts)
+  return M.branch_rev(branch, M.push_repo_for_branch(branch, opts))
+end
+
 function M.push_rev(opts)
-  return M.branch_rev(M.current_branch(), M.push_repo(opts))
+  return M.push_rev_for_branch(M.current_branch(), opts)
 end
 
 function M.collaboration_default_branch(opts)
