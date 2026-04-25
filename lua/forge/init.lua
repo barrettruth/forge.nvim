@@ -6,6 +6,7 @@ local compose_mod = require('forge.compose')
 local config_mod = require('forge.config')
 local context_mod = require('forge.context')
 local format_mod = require('forge.format')
+local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
 local scope_mod = require('forge.scope')
 local template_mod = require('forge.template')
@@ -525,86 +526,90 @@ function M.create_pr(opts)
   end
 
   log.info('checking for existing ' .. f.labels.pr_one .. '...')
+  local existing, err = resolve_mod.current_pr({
+    forge = f,
+    scope = base_scope,
+    head_branch = branch,
+    head_scope = head_scope,
+  })
+  if err then
+    log.error(err.message)
+    return
+  end
+  if existing then
+    log.info(
+      ('%s already exists for this branch; opening edit buffer for #%s'):format(
+        f.labels.pr_one,
+        existing.num
+      )
+    )
+    M.edit_pr(existing.num, existing.scope or base_scope)
+    return
+  end
 
-  vim.system(f:pr_for_branch_cmd(branch, base_scope), { text = true }, function(result)
-    local num = vim.trim(result.stdout or '')
-    vim.schedule(function()
-      if num ~= '' and num ~= 'null' then
-        log.info(
-          ('%s already exists for this branch; opening edit buffer for #%s'):format(
-            f.labels.pr_one,
-            num
-          )
-        )
-        M.edit_pr(num, base_scope)
-        return
-      end
-
-      if opts.web then
-        with_base(function(base)
-          ensure_creatable(base, function()
-            log.info('pushing...')
-            vim.system(
-              { 'git', 'push', '-u', push_to ~= '' and push_to or 'origin', branch },
-              { text = true },
-              function(push_result)
-                vim.schedule(function()
-                  if push_result.code ~= 0 then
-                    log.error('push failed')
-                    return
-                  end
-                  local web_cmd = f.create_pr_web_cmd
-                      and f:create_pr_web_cmd(base_scope, head_scope, branch, base)
-                    or nil
-                  local web_url = f.create_pr_web_url
-                      and f:create_pr_web_url(base_scope, head_scope, branch, base)
-                    or nil
-                  open_web_create(f.labels.pr_one, web_cmd, web_url)
-                end)
+  if opts.web then
+    with_base(function(base)
+      ensure_creatable(base, function()
+        log.info('pushing...')
+        vim.system(
+          { 'git', 'push', '-u', push_to ~= '' and push_to or 'origin', branch },
+          { text = true },
+          function(push_result)
+            vim.schedule(function()
+              if push_result.code ~= 0 then
+                log.error('push failed')
+                return
               end
-            )
-          end)
-        end)
-        return
-      end
-
-      with_base(function(base)
-        ensure_creatable(base, function(_, target_ref)
-          if opts.instant then
-            local title, body = template_mod.fill_from_commits(branch, target_ref, head_ref)
-            compose_mod.push_and_create(
-              f,
-              branch,
-              title,
-              body,
-              base,
-              opts.draft or false,
-              nil,
-              base_scope,
-              push_to
-            )
-          else
-            local root = git_root() or ''
-            local draft = opts.draft or false
-            local tmpl, templates, err = template_mod.discover(f:template_paths(), root)
-            if err then
-              log.error(err)
-              return
-            end
-            compose_mod.open_pr(
-              f,
-              branch,
-              base,
-              draft,
-              templates and nil or tmpl,
-              base_scope,
-              push_to,
-              target_ref,
-              head_ref
-            )
+              local web_cmd = f.create_pr_web_cmd
+                  and f:create_pr_web_cmd(base_scope, head_scope, branch, base)
+                or nil
+              local web_url = f.create_pr_web_url
+                  and f:create_pr_web_url(base_scope, head_scope, branch, base)
+                or nil
+              open_web_create(f.labels.pr_one, web_cmd, web_url)
+            end)
           end
-        end)
+        )
       end)
+    end)
+    return
+  end
+
+  with_base(function(base)
+    ensure_creatable(base, function(_, target_ref)
+      if opts.instant then
+        local title, body = template_mod.fill_from_commits(branch, target_ref, head_ref)
+        compose_mod.push_and_create(
+          f,
+          branch,
+          title,
+          body,
+          base,
+          opts.draft or false,
+          nil,
+          base_scope,
+          push_to
+        )
+      else
+        local root = git_root() or ''
+        local draft = opts.draft or false
+        local tmpl, templates, discover_err = template_mod.discover(f:template_paths(), root)
+        if discover_err then
+          log.error(discover_err)
+          return
+        end
+        compose_mod.open_pr(
+          f,
+          branch,
+          base,
+          draft,
+          templates and nil or tmpl,
+          base_scope,
+          push_to,
+          target_ref,
+          head_ref
+        )
+      end
     end)
   end)
 end
@@ -763,6 +768,7 @@ end
 M._discover_templates = template_mod.discover
 M._load_template = template_mod.load
 M._normalize_body = template_mod.normalize_body
+M.current_pr = resolve_mod.current_pr
 
 local routes_mod = require('forge.routes')
 M.current_context = routes_mod.current_context

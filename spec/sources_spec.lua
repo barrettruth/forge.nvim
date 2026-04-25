@@ -95,7 +95,7 @@ describe('github', function()
     assert.truthy(
       vim.tbl_contains(
         pr_details,
-        'title,body,isDraft,headRefName,baseRefName,labels,assignees,reviewRequests,milestone,url'
+        'title,body,isDraft,headRefName,headRepository,headRepositoryOwner,baseRefName,labels,assignees,reviewRequests,milestone,url'
       )
     )
 
