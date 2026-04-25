@@ -87,7 +87,8 @@ describe('command schema', function()
     local browse = cmd.resolve('browse')
     local clear = cmd.resolve('clear')
 
-    assert.is_nil(pr)
+    assert.equals('open', pr.name)
+    assert.is_true(pr.implicit)
     assert.is_nil(issue)
     assert.is_nil(ci)
     assert.is_nil(release)
@@ -99,20 +100,38 @@ describe('command schema', function()
     assert.is_true(clear.implicit)
   end)
 
-  it('rejects implicit picker forms and parses explicit direct actions', function()
+  it('parses implicit current-PR forms and explicit direct actions', function()
+    local pr = assert(cmd.parse({ 'pr' }))
+    local pr_num = assert(cmd.parse({ 'pr', '42' }))
+    local pr_ci = assert(cmd.parse({ 'pr', 'ci' }))
+    local pr_ci_num = assert(cmd.parse({ 'pr', 'ci', '42' }))
     local create = assert(cmd.parse({ 'pr', 'create', 'draft' }))
     local open = assert(cmd.parse({ 'ci', 'open', '123' }))
-    local review = assert(cmd.parse({ 'review', '42' }))
-    local _, pr_missing = cmd.parse({ 'pr' })
+    local review = assert(cmd.parse({ 'review' }))
+    local review_num = assert(cmd.parse({ 'review', '42' }))
     local _, ci_missing = cmd.parse({ 'ci' })
-    local _, review_missing = cmd.parse({ 'review' })
     local _, pr_checkout = cmd.parse({ 'pr', 'checkout', '42' })
     local _, pr_worktree = cmd.parse({ 'pr', 'worktree', '42' })
     local _, pr_browse = cmd.parse({ 'pr', 'browse' })
     local _, pr_list = cmd.parse({ 'pr', 'list' })
-    local _, pr_ci = cmd.parse({ 'pr', 'ci', '42' })
     local _, ci_log = cmd.parse({ 'ci', 'log', '123' })
     local _, ci_watch = cmd.parse({ 'ci', 'watch', '123' })
+
+    assert.equals('pr', pr.family)
+    assert.equals('open', pr.name)
+    assert.same({}, pr.subjects)
+
+    assert.equals('pr', pr_num.family)
+    assert.equals('open', pr_num.name)
+    assert.same({ '42' }, pr_num.subjects)
+
+    assert.equals('pr', pr_ci.family)
+    assert.equals('ci', pr_ci.name)
+    assert.same({}, pr_ci.subjects)
+
+    assert.equals('pr', pr_ci_num.family)
+    assert.equals('ci', pr_ci_num.name)
+    assert.same({ '42' }, pr_ci_num.subjects)
 
     assert.equals('pr', create.family)
     assert.equals('create', create.name)
@@ -124,16 +143,17 @@ describe('command schema', function()
 
     assert.equals('review', review.family)
     assert.equals('open', review.name)
-    assert.same({ '42' }, review.subjects)
+    assert.same({}, review.subjects)
 
-    assert.equals('missing action', pr_missing.message)
+    assert.equals('review', review_num.family)
+    assert.equals('open', review_num.name)
+    assert.same({ '42' }, review_num.subjects)
+
     assert.equals('missing action', ci_missing.message)
-    assert.equals('missing PR number', review_missing.message)
     assert.equals('unknown pr action: checkout', pr_checkout.message)
     assert.equals('unknown pr action: worktree', pr_worktree.message)
     assert.equals('unknown pr action: browse', pr_browse.message)
     assert.equals('unknown pr action: list', pr_list.message)
-    assert.equals('unknown pr action: ci', pr_ci.message)
     assert.equals('unknown action: log', ci_log.message)
     assert.equals('unknown action: watch', ci_watch.message)
   end)
@@ -181,6 +201,34 @@ describe('command schema', function()
     assert.same({ start_line = 10, end_line = 20 }, browse_target.parsed_modifiers.target.range)
   end)
 
+  it('attaches implicit current-PR disambiguation modifiers to normalized commands', function()
+    local pr = assert(cmd.parse({ 'pr', 'repo=upstream', 'head=origin@topic' }))
+    local review = assert(cmd.parse({
+      'review',
+      'repo=upstream',
+      'head=origin@topic',
+      'adapter=worktree',
+    }))
+    local pr_ci = assert(cmd.parse({ 'pr', 'ci', 'repo=upstream', 'head=origin@topic' }))
+
+    assert.equals('open', pr.name)
+    assert.same({}, pr.subjects)
+    assert.equals('owner/upstream', pr.parsed_modifiers.repo.slug)
+    assert.equals('topic', pr.parsed_modifiers.head.rev)
+    assert.equals('owner/current', pr.parsed_modifiers.head.repo.slug)
+
+    assert.equals('open', review.name)
+    assert.same({}, review.subjects)
+    assert.equals('worktree', review.modifiers.adapter)
+    assert.equals('owner/upstream', review.parsed_modifiers.repo.slug)
+    assert.equals('topic', review.parsed_modifiers.head.rev)
+
+    assert.equals('ci', pr_ci.name)
+    assert.same({}, pr_ci.subjects)
+    assert.equals('owner/upstream', pr_ci.parsed_modifiers.repo.slug)
+    assert.equals('topic', pr_ci.parsed_modifiers.head.rev)
+  end)
+
   it('attaches default target policy for omitted direct-action addresses', function()
     local create = assert(cmd.parse({ 'pr', 'create' }))
 
@@ -196,19 +244,23 @@ describe('command schema', function()
   end)
 
   it('exposes per-verb modifiers for canonical operations', function()
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('pr'))
     assert.same(
       { 'repo', 'head', 'base', 'draft', 'fill', 'web' },
       cmd.modifier_names('pr', 'create')
     )
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'ci'))
     assert.same({ 'repo' }, cmd.modifier_names('ci', 'open'))
     assert.same({ 'repo' }, cmd.modifier_names('ci', 'browse'))
     assert.same({ 'repo', 'web', 'blank', 'template' }, cmd.modifier_names('issue', 'create'))
     assert.same({ 'repo', 'method' }, cmd.modifier_names('pr', 'merge'))
-    assert.same({ 'repo', 'adapter' }, cmd.modifier_names('review'))
+    assert.same({ 'repo', 'head', 'adapter' }, cmd.modifier_names('review'))
   end)
 
   it('keeps direct forge verbs aligned with canonical non-list operations', function()
     assert.same({
+      'open',
+      'ci',
       'close',
       'reopen',
       'create',

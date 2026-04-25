@@ -82,6 +82,9 @@ describe(':Forge command', function()
     captured = {
       opens = {},
       ops_calls = {},
+      current_pr_calls = {},
+      current_pr_result = nil,
+      current_pr_error = nil,
       pr_action_num = nil,
       pr_action_scope = nil,
       warnings = {},
@@ -305,6 +308,10 @@ describe(':Forge command', function()
         end,
         create_pr = function(opts)
           captured.create_pr = opts
+        end,
+        current_pr = function(opts)
+          table.insert(captured.current_pr_calls, opts)
+          return captured.current_pr_result, captured.current_pr_error
         end,
         edit_pr = function(num)
           captured.edit_pr = num
@@ -563,10 +570,8 @@ describe(':Forge command', function()
     end
   end)
 
-  it('warns instead of opening interactive surfaces for missing or UI-only commands', function()
+  it('warns instead of opening interactive surfaces for missing or unsupported commands', function()
     vim.cmd('Forge')
-    vim.cmd('Forge pr')
-    vim.cmd('Forge review')
     vim.cmd('Forge pr checkout 42')
     vim.cmd('Forge pr worktree 42')
     vim.cmd('Forge pr browse 42')
@@ -578,8 +583,6 @@ describe(':Forge command', function()
 
     assert.same({
       'missing command',
-      'missing action',
-      'missing PR number',
       'unknown pr action: checkout',
       'unknown pr action: worktree',
       'unknown pr action: browse',
@@ -591,6 +594,99 @@ describe(':Forge command', function()
     }, captured.warnings)
     assert.is_nil(captured.opens[1])
     assert.is_nil(captured.ops_calls[1])
+  end)
+
+  it('dispatches implicit current-PR commands through forge.current_pr', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr')
+    vim.cmd('Forge review adapter=worktree')
+    vim.cmd('Forge pr ci')
+
+    assert.equals(3, #captured.current_pr_calls)
+    assert.equals('github', captured.current_pr_calls[1].forge.name)
+    assert.is_nil(captured.current_pr_calls[1].repo)
+    assert.is_nil(captured.current_pr_calls[1].head)
+    assert.equals('github', captured.current_pr_calls[2].forge.name)
+    assert.equals('github', captured.current_pr_calls[3].forge.name)
+    assert.same({
+      name = 'pr_edit',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({
+      name = 'pr_review',
+      pr = { num = '42', scope = repo_scope('upstream') },
+      opts = { adapter = 'worktree' },
+    }, captured.ops_calls[2])
+    assert.same({
+      name = 'pr_ci',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[3])
+    assert.same({}, captured.warnings)
+  end)
+
+  it('passes repo= and head= disambiguation through implicit current-PR commands', function()
+    captured.current_pr_result = {
+      num = '57',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr repo=upstream head=origin@topic')
+    vim.cmd('Forge review repo=upstream head=origin@topic adapter=worktree')
+    vim.cmd('Forge pr ci repo=upstream head=origin@topic')
+
+    for _, call in ipairs(captured.current_pr_calls) do
+      assert.equals('github', call.forge.name)
+      assert.equals('repo', call.repo.kind)
+      assert.equals('owner/upstream', call.repo.slug)
+      assert.equals('rev', call.head.kind)
+      assert.equals('topic', call.head.rev)
+      assert.equals('owner/current', call.head.repo.slug)
+    end
+
+    assert.same({
+      name = 'pr_edit',
+      pr = { num = '57', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({
+      name = 'pr_review',
+      pr = { num = '57', scope = repo_scope('upstream') },
+      opts = { adapter = 'worktree' },
+    }, captured.ops_calls[2])
+    assert.same({
+      name = 'pr_ci',
+      pr = { num = '57', scope = repo_scope('upstream') },
+    }, captured.ops_calls[3])
+  end)
+
+  it('warns cleanly when implicit current-PR commands find no matching PR', function()
+    vim.cmd('Forge pr')
+    vim.cmd('Forge review')
+    vim.cmd('Forge pr ci')
+
+    assert.same({
+      'no open PR found for this branch',
+      'no open PR found for this branch',
+      'no open PR found for this branch',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('surfaces resolver errors from implicit current-PR commands', function()
+    captured.current_pr_error = {
+      code = 'ambiguous_pr',
+      message = 'multiple PRs match head owner/current@main; pass repo= or head=',
+    }
+
+    vim.cmd('Forge pr')
+
+    assert.same({
+      'multiple PRs match head owner/current@main; pass repo= or head=',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
   end)
 
   it('allows :Forge to be followed by a bar command', function()
@@ -742,6 +838,20 @@ describe(':Forge command', function()
     }, captured.ops_calls[2])
   end)
 
+  it('dispatches explicit PR open and PR checks through forge.ops', function()
+    vim.cmd('Forge pr open 42')
+    vim.cmd('Forge pr ci 42 repo=upstream')
+
+    assert.same({
+      name = 'pr_edit',
+      pr = { num = '42', scope = nil },
+    }, captured.ops_calls[1])
+    assert.same({
+      name = 'pr_ci',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[2])
+  end)
+
   it('passes ex ranges through browse file resolution', function()
     assert.equals('.', vim.api.nvim_get_commands({ builtin = false }).Forge.range)
     vim.api.nvim_buf_set_name(0, '/repo/lua/forge/init.lua')
@@ -884,14 +994,12 @@ describe(':Forge command', function()
 
   it('rejects explicit list verbs with no picker dispatch side effects', function()
     vim.cmd('Forge pr list')
-    vim.cmd('Forge pr ci 42')
     vim.cmd('Forge issue list')
     vim.cmd('Forge ci list')
     vim.cmd('Forge release list')
 
     assert.same({
       'unknown pr action: list',
-      'unknown pr action: ci',
       'unknown issue action: list',
       'unknown action: list',
       'unknown release action: list',
@@ -1038,6 +1146,8 @@ describe(':Forge command', function()
       {
         cmdline = 'Forge pr ',
         expected = {
+          'open',
+          'ci',
           'close',
           'reopen',
           'create',
@@ -1047,6 +1157,8 @@ describe(':Forge command', function()
           'draft',
           'ready',
           'refresh',
+          'repo=',
+          'head=',
         },
       },
       {
@@ -1071,7 +1183,11 @@ describe(':Forge command', function()
       },
       {
         cmdline = 'Forge review ',
-        expected = { 'open', 'repo=', 'adapter=' },
+        expected = { 'open', 'repo=', 'head=', 'adapter=' },
+      },
+      {
+        cmdline = 'Forge pr ci ',
+        expected = { 'repo=', 'head=' },
       },
       {
         cmdline = 'Forge issue browse ',
@@ -1101,6 +1217,7 @@ describe(':Forge command', function()
     local issue = completion('Forge issue ')
     local ci = completion('Forge ci ')
     local release = completion('Forge release ')
+    local pr_ci = completion('Forge pr ci ')
     local browse = completion('Forge browse ')
     local pr_create = completion('Forge pr create ')
     local issue_create = completion('Forge issue create ')
@@ -1115,25 +1232,29 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(families, 'commits'))
     assert.is_false(vim.tbl_contains(families, 'worktrees'))
 
+    assert.is_true(vim.tbl_contains(pr, 'open'))
+    assert.is_true(vim.tbl_contains(pr, 'ci'))
     assert.is_true(vim.tbl_contains(pr, 'create'))
     assert.is_true(vim.tbl_contains(pr, 'approve'))
     assert.is_true(vim.tbl_contains(pr, 'merge'))
     assert.is_true(vim.tbl_contains(pr, 'draft'))
     assert.is_true(vim.tbl_contains(pr, 'ready'))
     assert.is_true(vim.tbl_contains(pr, 'refresh'))
+    assert.is_true(vim.tbl_contains(pr, 'repo='))
+    assert.is_true(vim.tbl_contains(pr, 'head='))
     assert.is_false(vim.tbl_contains(pr, 'checkout'))
     assert.is_false(vim.tbl_contains(pr, 'worktree'))
     assert.is_false(vim.tbl_contains(pr, 'browse'))
-    assert.is_false(vim.tbl_contains(pr, 'ci'))
+    assert.is_false(vim.tbl_contains(pr, 'state='))
     assert.is_true(vim.tbl_contains(review, 'adapter='))
     assert.is_true(vim.tbl_contains(review, 'repo='))
+    assert.is_true(vim.tbl_contains(review, 'head='))
     assert.is_true(vim.tbl_contains(ci, 'open'))
     assert.is_true(vim.tbl_contains(ci, 'browse'))
     assert.is_true(vim.tbl_contains(ci, 'refresh'))
     assert.is_false(vim.tbl_contains(ci, 'log'))
     assert.is_false(vim.tbl_contains(ci, 'watch'))
-    assert.is_false(vim.tbl_contains(pr, 'state='))
-    assert.is_false(vim.tbl_contains(pr, 'repo='))
+    assert.same({ 'repo=', 'head=' }, pr_ci)
     assert.is_true(vim.tbl_contains(issue, 'edit'))
     assert.is_true(vim.tbl_contains(issue, 'refresh'))
     assert.is_true(vim.tbl_contains(release, 'browse'))
@@ -1168,6 +1289,8 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(families, 'mr'))
     assert.is_true(vim.tbl_contains(families, 'pipeline'))
     assert.same({
+      'open',
+      'ci',
       'close',
       'reopen',
       'create',
@@ -1177,6 +1300,8 @@ describe(':Forge command', function()
       'draft',
       'ready',
       'refresh',
+      'repo=',
+      'head=',
     }, mr)
     assert.same({ 'open', 'browse', 'refresh' }, pipeline)
   end)
@@ -1185,19 +1310,25 @@ describe(':Forge command', function()
     'completes local-only and static modifier values without consulting forge entity lists',
     function()
       local repos = completion('Forge pr create repo=')
+      local current_pr_repos = completion('Forge pr repo=')
       local branches = completion('Forge browse branch=')
       local commits = completion('Forge browse commit=')
       local targets = completion('Forge browse target=')
       local heads = completion('Forge pr create head=')
       local bases = completion('Forge pr create base=')
+      local current_pr_heads = completion('Forge pr head=')
+      local review_heads = completion('Forge review head=')
+      local pr_ci_heads = completion('Forge pr ci head=')
       local templates = completion('Forge issue create template=')
       local adapters = completion('Forge review 42 adapter=')
       local methods = completion('Forge pr merge method=')
 
-      assert.is_true(vim.tbl_contains(repos, 'repo=work'))
-      assert.is_true(vim.tbl_contains(repos, 'repo=mirror'))
-      assert.is_true(vim.tbl_contains(repos, 'repo=origin'))
-      assert.is_true(vim.tbl_contains(repos, 'repo=upstream'))
+      for _, values in ipairs({ repos, current_pr_repos }) do
+        assert.is_true(vim.tbl_contains(values, 'repo=work'))
+        assert.is_true(vim.tbl_contains(values, 'repo=mirror'))
+        assert.is_true(vim.tbl_contains(values, 'repo=origin'))
+        assert.is_true(vim.tbl_contains(values, 'repo=upstream'))
+      end
 
       assert.is_true(vim.tbl_contains(branches, 'branch=main'))
       assert.is_true(vim.tbl_contains(branches, 'branch=feature'))
@@ -1214,8 +1345,15 @@ describe(':Forge command', function()
       assert.is_true(vim.tbl_contains(targets, 'target=@main:'))
       assert.is_true(vim.tbl_contains(targets, 'target=@deadbee:'))
 
-      for _, values in ipairs({ heads, bases }) do
-        local prefix = values == heads and 'head=' or 'base='
+      for _, case in ipairs({
+        { values = heads, prefix = 'head=' },
+        { values = bases, prefix = 'base=' },
+        { values = current_pr_heads, prefix = 'head=' },
+        { values = review_heads, prefix = 'head=' },
+        { values = pr_ci_heads, prefix = 'head=' },
+      }) do
+        local values = case.values
+        local prefix = case.prefix
         assert.is_true(vim.tbl_contains(values, prefix .. 'work@'))
         assert.is_true(vim.tbl_contains(values, prefix .. 'origin@'))
         assert.is_true(vim.tbl_contains(values, prefix .. '@main'))
@@ -1294,26 +1432,34 @@ describe(':Forge command', function()
     captured.pr_states['owner/current#102'] = { review_decision = '', is_draft = true }
     captured.pr_states['owner/current#103'] = { review_decision = 'APPROVED', is_draft = false }
 
+    local pr = vim.fn.getcompletion('Forge pr ', 'cmdline')
     local close = vim.fn.getcompletion('Forge pr close ', 'cmdline')
     local edit = vim.fn.getcompletion('Forge pr edit ', 'cmdline')
     local approve = vim.fn.getcompletion('Forge pr approve ', 'cmdline')
     local merge = vim.fn.getcompletion('Forge pr merge ', 'cmdline')
+    local pr_ci = vim.fn.getcompletion('Forge pr ci ', 'cmdline')
     local draft = vim.fn.getcompletion('Forge pr draft ', 'cmdline')
     local ready = vim.fn.getcompletion('Forge pr ready ', 'cmdline')
     local review = vim.fn.getcompletion('Forge review ', 'cmdline')
 
+    assert.is_true(vim.tbl_contains(pr, 'open'))
+    assert.is_true(vim.tbl_contains(pr, 'repo='))
+    assert.is_true(vim.tbl_contains(pr, 'head='))
     assert.is_true(vim.tbl_contains(close, 'repo='))
     assert.is_true(vim.tbl_contains(edit, 'repo='))
     assert.is_true(vim.tbl_contains(approve, 'repo='))
     assert.is_true(vim.tbl_contains(merge, 'repo='))
     assert.is_true(vim.tbl_contains(merge, 'method='))
+    assert.is_true(vim.tbl_contains(pr_ci, 'repo='))
+    assert.is_true(vim.tbl_contains(pr_ci, 'head='))
     assert.is_true(vim.tbl_contains(draft, 'repo='))
     assert.is_true(vim.tbl_contains(ready, 'repo='))
     assert.is_true(vim.tbl_contains(review, 'open'))
     assert.is_true(vim.tbl_contains(review, 'repo='))
+    assert.is_true(vim.tbl_contains(review, 'head='))
     assert.is_true(vim.tbl_contains(review, 'adapter='))
 
-    for _, results in ipairs({ close, edit, approve, merge, draft, ready, review }) do
+    for _, results in ipairs({ pr, close, edit, approve, merge, pr_ci, draft, ready, review }) do
       assert.is_false(vim.tbl_contains(results, '101'))
       assert.is_false(vim.tbl_contains(results, '102'))
       assert.is_false(vim.tbl_contains(results, '103'))
