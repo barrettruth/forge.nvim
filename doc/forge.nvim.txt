@@ -940,15 +940,12 @@ The canonical order is:
    current-ref actions.
 3. `require('forge').current_pr(opts?)` when you need the resolved PR ref
    without running an action.
-4. `require('forge.ops').<action>()` only when you already have the exact
-   target and need the low-level verb layer.
-5. `require('forge.picker').pick()` for custom picker UIs.
+4. `require('forge.picker').pick()` for custom picker UIs.
 
 Routes are still the highest-level and most stable surface. The top-level
-current-ref helpers mirror the Ex command semantics. `require('forge.ops')`
-remains the low-level target-known layer used by `:Forge` and the built-in
-picker actions. `forge.picker.pick()` is the low-level UI primitive wired to
-`fzf-lua`.
+current-ref helpers mirror the Ex command semantics, including explicit
+`num=` targeting for PR actions. `forge.picker.pick()` is the low-level UI
+primitive wired to `fzf-lua`.
 On GitLab, route arguments also accept provider-native aliases such as `mrs`,
 `mrs.open`, `pipelines`, and `pipelines.current_branch`.
 
@@ -968,23 +965,17 @@ For common current-ref workflows, call `require('forge')` directly. These
 helpers mirror the Ex surface and reuse the shared resolver layer. >lua
     local forge = require('forge')
     forge.pr()
+    forge.pr({ num = '42' })
     forge.review({ adapter = 'browse' })
+    forge.review({ num = '42', adapter = 'browse' })
     forge.pr_ci({ repo = 'upstream', head = 'origin@topic' })
+    forge.pr_ci({ num = '42' })
     forge.ci({ repo = 'upstream' })
 <
 
-CALLING LOW-LEVEL VERBS                         *forge-extending-low-level*
-
-When you already have the exact target in hand, call `require('forge.ops')`.
-This remains the layer used by `:Forge` and the built-in picker actions, but
-it is no longer the first stop for common current-ref workflows. >lua
-    local forge = require('forge')
-    local f = assert(forge.detect(), 'no forge detected')
-    local pr = assert(forge.current_pr({ repo = 'upstream' }))
-    require('forge.ops').pr_review(f, pr, { adapter = 'browse' })
-<
-
-See |forge-ops| for the full verb inventory.
+Internal layers such as `lua/forge/ops.lua` and `lua/forge/pickers.lua` power
+the built-in commands and pickers, but they are no longer documented as the
+public integration surface.
 
 BUILDING A CUSTOM PICKER FROM SCRATCH                 *forge-extending-picker*
 
@@ -1022,11 +1013,7 @@ contracts live in the source:
   `require('forge')`         `lua/forge/init.lua`            routes, high-level
                                                             current-ref helpers,
                                                             and extension hooks
-  `require('forge.ops')`     `lua/forge/ops.lua`             low-level verbs for
-                                                            known targets
   `require('forge.picker')`  `lua/forge/picker/init.lua`     custom picker UI
-  `require('forge.pickers')` `lua/forge/pickers.lua`         built-in picker
-                                                            entrypoints
   `forge.Forge` / shared     `lua/forge/types.lua`           backend and shared
                                                             contracts
 
@@ -1049,6 +1036,8 @@ Prefer these helpers for normal integrations:
 - `open(route?, opts?)` for built-in routes
 - `pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, and `ci(opts?)` for current-ref
   workflows
+- `pr({ num = '42' })`, `review({ num = '42' })`, and `pr_ci({ num = '42' })`
+  for explicit PR targeting
 - `current_pr(opts?)` when you need the resolved PR ref
 - `create_pr(opts?)` and `create_issue(opts?)` for create flows
 
@@ -1062,16 +1051,9 @@ For the implicit-ref rollout:
   current-PR commands when `{num}` is omitted.
 - `:Forge ci` is current-branch CI history; PR checks live under `:Forge pr ci`.
 - `:Forge pr create` and `require('forge').create_pr()` are create-only.
+- `edit_pr()` is removed; use `pr({ num = '42' })` instead.
 - Prefer `require('forge').pr()`, `review()`, `pr_ci()`, `ci()`, and
-  `current_pr()` over `require('forge.ops')` for common workflows.
-
-LOW-LEVEL API: `require('forge.ops')` ~                            *forge-ops*
-
-The full verb inventory and signatures live in `lua/forge/ops.lua`. This is
-the low-level target-known layer used by `:Forge` and the built-in picker
-actions, not the primary entrypoint for current-ref workflows. Ref arguments
-accept either a bare id/tag or a table with `scope` plus `num`, `id`, or
-`tag`. Mutation verbs conventionally take `opts = { on_success?, on_failure? }`.
+  `current_pr()` over internal verb modules for common workflows.
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 
