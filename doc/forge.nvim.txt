@@ -90,12 +90,13 @@ Top-level keys: ~
 
 `review`                                                 *forge-config-review*
   `review.adapter`  `string`  (default `"checkout"`)
-    Default review adapter used by `:Forge review {num}` and the PR picker's
-    primary action. Built-in adapters are `"checkout"`, `"worktree"`,
-    `"browse"`, `"diffview"`, `"codediff"`, and `"diffs"`. The `diffview`,
-    `codediff`, and `diffs` adapters open their respective review UIs against
-    fetched PR refs without checking the branch out. Custom adapters can be
-    registered via `require('forge').register_review_adapter()`.
+    Default review adapter used by `:Forge review`,
+    `require('forge').review()`, and the PR picker's primary action.
+    Built-in adapters are `"checkout"`, `"worktree"`, `"browse"`,
+    `"diffview"`, `"codediff"`, and `"diffs"`. The `diffview`, `codediff`,
+    and `diffs` adapters open their respective review UIs against fetched PR
+    refs without checking the branch out. Custom adapters can be registered
+    via `require('forge').register_review_adapter()`.
 
 `targets`                                               *forge-config-targets*
   `targets.aliases`      `table<string, string>`  (default `{}`)
@@ -326,7 +327,9 @@ COMMANDS                                                              *:Forge*
     UIs. `:Forge` with no arguments warns with `missing command`.
     Use `require('forge').open()` for the interactive picker surface.
     Direct commands cover explicit forge actions with stable targets such as
-    PR/issue/release numbers or tags and CI run ids.
+    PR/issue/release numbers, tags, and CI run ids, plus current-ref actions
+    rooted in the current branch such as bare `:Forge pr`, `:Forge review`,
+    `:Forge pr ci`, and `:Forge ci`.
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
@@ -336,8 +339,11 @@ TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Default policy:
     - collaboration repo = `targets.default_repo`, else `upstream`, else
       `origin`
+    - `:Forge pr`, `:Forge review`, and `:Forge pr ci` default to resolving
+      the current PR from the current branch head
     - `:Forge pr create` defaults `head=` to the current branch push
       context and `base=` to the collaboration repo default branch
+    - `:Forge ci` defaults to current-branch CI history
     - `:Forge browse` defaults to the current file/line selection on the
       current branch, and falls back to the current repo root in non-file
       buffers
@@ -347,6 +353,14 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     - `family verb`
     - `key=value` modifiers such as `state=closed` or `repo=upstream`
     - bare boolean atoms such as `all`, `draft`, `fill`, `web`, `blank`
+
+    Some families also have a canonical default action, so the bare family
+    name is meaningful:
+    - `:Forge pr` opens the current PR
+    - `:Forge review` reviews the current PR
+    - `:Forge pr ci` opens checks for the current PR
+    - `:Forge ci` opens current-branch CI history
+    - `:Forge browse` opens the current file/line context
 
     Compatibility sugar is still accepted, but it is not the primary
     interface:
@@ -366,9 +380,23 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
 
 PR COMMANDS                                                *forge-pr-commands*
 
+`:Forge pr` [repo=...] [head=...]                                   *:Forge-pr*
+`:Forge pr` {num} [repo=...]
+    Open a PR.
+    (no `{num}`)       Resolve the current PR from the current branch and open
+                       it.
+    `{num}`            Open PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
+
 `:Forge pr create` [repo=...] [head=...] [base=...] [draft] [fill] [web]
                                                             *:Forge-pr-create*
     Create a new PR.
+    This command is create-only. If the resolved branch already has an open
+    PR, Forge warns and leaves the existing PR alone; use `:Forge pr` or
+    `:Forge review` to act on that PR.
     PR creation commands are branch-relative. Default targets: `head=` is
     the current branch push context and `base=` is the collaboration repo
     default branch.
@@ -381,24 +409,52 @@ PR COMMANDS                                                *forge-pr-commands*
                        resolved `head=` / `base=` pair.
     `draft fill`       Create draft instantly.
 
-    All other `:Forge pr` actions are PR-relative: command-line use
-    requires `{num}`, and picker/buffer actions operate on the visible PR
-    context. Forge does not remember a hidden "current PR" between
-    commands.
+`:Forge pr ci` [repo=...] [head=...]                           *:Forge-pr-ci*
+`:Forge pr ci` {num} [repo=...]
+    Open PR checks.
+    (no `{num}`)       Resolve the current PR from the current branch and open
+                       its checks.
+    `{num}`            Open checks for PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
 
-:Forge review {num} [repo=...] [adapter=...]                   *:Forge-review*
-    Open PR `{num}` through the configured review adapter. When `adapter=` is
+`:Forge review` [repo=...] [head=...] [adapter=...]              *:Forge-review*
+`:Forge review` {num} [repo=...] [adapter=...]
+    Open a PR through the configured review adapter. When `adapter=` is
     omitted, Forge uses `review.adapter` (default: `checkout`).
+    (no `{num}`)       Resolve the current PR from the current branch and
+                       review it.
+    `{num}`            Review PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
     Built-in adapters:
-    `checkout`         Check out the branch for PR `{num}`.
-    `worktree`         Fetch PR `{num}` and create a git worktree.
-    `browse`           Open PR `{num}` in the browser.
-    `diffview`         Open PR `{num}` in `diffview.nvim` using explicit
-                       base/head refs.
-    `codediff`         Open PR `{num}` in `codediff.nvim` using explicit
-                       base/head refs.
-    `diffs`            Open PR `{num}` in `diffs.nvim` using explicit
-                       base/head refs.
+    `checkout`         Check out the PR branch.
+    `worktree`         Fetch the PR and create a git worktree.
+    `browse`           Open the PR in the browser.
+    `diffview`         Open the PR in `diffview.nvim` using explicit base/head
+                       refs.
+    `codediff`         Open the PR in `codediff.nvim` using explicit base/head
+                       refs.
+    `diffs`            Open the PR in `diffs.nvim` using explicit base/head
+                       refs.
+
+IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
+    `:Forge pr`, `:Forge review`, and `:Forge pr ci` resolve the current PR
+    from the current branch head when `{num}` is omitted.
+
+    Default lookup policy:
+    - head = current branch push context
+    - repo candidates = push repo first, then collaboration repo
+    - explicit `repo=` and `head=` override that search
+
+    Outcomes:
+    - exactly one match: run the action
+    - no matches: warn `no open PR found for this branch`
+    - multiple matches: warn and ask for `repo=` or `head=`
 
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
@@ -453,6 +509,14 @@ ISSUE COMMANDS                                          *forge-issue-commands*
 
 CI COMMANDS                                                *forge-ci-commands*
 
+`:Forge ci` [repo=...]                                              *:Forge-ci*
+    Open current-branch CI history. This is branch CI; use `:Forge pr ci`
+    for checks attached to a PR.
+    (no modifiers)     Show runs/checks for the current branch in its push
+                       scope.
+    `repo=`            Override the repo scope while keeping the current
+                       branch.
+
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
     Open the primary local run view for CI run `{run-id}`. Active runs
     use the forge's watch/follow surface when available; otherwise Forge
@@ -505,10 +569,11 @@ BROWSE COMMANDS                                        *forge-browse-commands*
 REVIEW COMMANDS                                        *forge-review-commands*
 
 Forge treats review as adapter dispatch rather than owning a native review UI.
-Use `:Forge review {num}` and optionally override `review.adapter` with
+Use `:Forge review` to act on the current PR, or `:Forge review {num}` when
+you already know the PR number. Optionally override `review.adapter` with
 `adapter=...`.
 
-Example: `:Forge review 42 adapter=diffview`
+Example: `:Forge review adapter=diffview`
 
 Built-in adapters: `checkout`, `worktree`, `browse`, `diffview`, `codediff`,
 `diffs`.
@@ -865,21 +930,25 @@ EXTENDING                                                    *forge-extending*
 
 forge.nvim is designed to be used as a library as well as a plugin. You can
 call its forge-aware actions from your own picker, keymap, or command. Public
-Lua surfaces exist at three layers:
+Lua surfaces exist at several layers:
 
 MENTAL MODEL                                           *forge-extending-model*
 
-  Layer             Entry point                         When to use ~
-  Route             `require('forge').open(route)`      Open a built-in forge
-                                                      route
-  Verb              `require('forge.ops').<action>()`   Run a semantic action
-                                                      on a known target
-  Picker primitive  `require('forge.picker').pick()`    Render a custom picker
-                                                      with Forge's backend
+The canonical order is:
+1. `require('forge').open(route)` for built-in route and picker flows.
+2. `require('forge').pr()`, `review()`, `pr_ci()`, and `ci()` for common
+   current-ref actions.
+3. `require('forge').current_pr(opts?)` when you need the resolved PR ref
+   without running an action.
+4. `require('forge.ops').<action>()` only when you already have the exact
+   target and need the low-level verb layer.
+5. `require('forge.picker').pick()` for custom picker UIs.
 
-Routes are the highest-level and most stable surface. Verbs power `:Forge`
-and the built-in picker actions. `forge.picker.pick()` is the low-level UI
-primitive wired to `fzf-lua`.
+Routes are still the highest-level and most stable surface. The top-level
+current-ref helpers mirror the Ex command semantics. `require('forge.ops')`
+remains the low-level target-known layer used by `:Forge` and the built-in
+picker actions. `forge.picker.pick()` is the low-level UI primitive wired to
+`fzf-lua`.
 On GitLab, route arguments also accept provider-native aliases such as `mrs`,
 `mrs.open`, `pipelines`, and `pipelines.current_branch`.
 
@@ -893,17 +962,26 @@ built-in forge route and its action set.
     forge.open(row.route)
 <
 
-CALLING VERBS DIRECTLY                                 *forge-extending-verbs*
+CALLING THE TOP-LEVEL API                             *forge-extending-verbs*
 
-When you already have the target in hand, call `require('forge.ops')`
-directly. This is the same layer used by `:Forge` and the built-in picker
-actions. >lua
+For common current-ref workflows, call `require('forge')` directly. These
+helpers mirror the Ex surface and reuse the shared resolver layer. >lua
     local forge = require('forge')
-    local ops = require('forge.ops')
-    local f = assert(forge.detect(), 'no forge detected')
+    forge.pr()
+    forge.review({ adapter = 'browse' })
+    forge.pr_ci({ repo = 'upstream', head = 'origin@topic' })
+    forge.ci({ repo = 'upstream' })
+<
 
-    ops.pr_review(f, { num = '42' }, { adapter = 'browse' })
-    ops.ci_open(f, { id = '987654321' })
+CALLING LOW-LEVEL VERBS                         *forge-extending-low-level*
+
+When you already have the exact target in hand, call `require('forge.ops')`.
+This remains the layer used by `:Forge` and the built-in picker actions, but
+it is no longer the first stop for common current-ref workflows. >lua
+    local forge = require('forge')
+    local f = assert(forge.detect(), 'no forge detected')
+    local pr = assert(forge.current_pr({ repo = 'upstream' }))
+    require('forge.ops').pr_review(f, pr, { adapter = 'browse' })
 <
 
 See |forge-ops| for the full verb inventory.
@@ -941,10 +1019,11 @@ The help file does not mirror every exported helper. Canonical signatures and
 contracts live in the source:
 
   Surface                    Canonical file                  Use case ~
-  `require('forge')`         `lua/forge/init.lua`            top-level entry
-                                                            points
-  `require('forge.ops')`     `lua/forge/ops.lua`             semantic verbs used
-                                                            by `:Forge`
+  `require('forge')`         `lua/forge/init.lua`            routes, high-level
+                                                            current-ref helpers,
+                                                            and extension hooks
+  `require('forge.ops')`     `lua/forge/ops.lua`             low-level verbs for
+                                                            known targets
   `require('forge.picker')`  `lua/forge/picker/init.lua`     custom picker UI
   `require('forge.pickers')` `lua/forge/pickers.lua`         built-in picker
                                                             entrypoints
@@ -953,7 +1032,9 @@ contracts live in the source:
 
 Most integrations only need one of these entrypoints:
 - `require('forge').open(route?, opts?)`
-- `require('forge.ops')`
+- `require('forge').pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, `ci(opts?)`
+- `require('forge').current_pr(opts?)`
+- `require('forge').create_pr(opts?)`, `create_issue(opts?)`
 - `require('forge.picker').pick(opts)`
 - `require('forge').register(name, source)`
 
@@ -961,13 +1042,36 @@ Advanced registration helpers such as `register_context_provider()`,
 `register_action()`, and `register_review_adapter()` live in
 `lua/forge/init.lua`.
 
-PUBLIC API: `require('forge.ops')` ~                               *forge-ops*
+TOP-LEVEL API: `require('forge')` ~                     *forge-top-level-api*
+
+The canonical user-facing Lua surface lives in `lua/forge/init.lua`.
+Prefer these helpers for normal integrations:
+- `open(route?, opts?)` for built-in routes
+- `pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, and `ci(opts?)` for current-ref
+  workflows
+- `current_pr(opts?)` when you need the resolved PR ref
+- `create_pr(opts?)` and `create_issue(opts?)` for create flows
+
+`create_pr()` is create-only: if the current branch already has an open PR, it
+warns instead of redirecting into edit.
+
+MIGRATION NOTES ~                                         *forge-migration*
+
+For the implicit-ref rollout:
+- `:Forge pr`, `:Forge review`, and `:Forge pr ci` are now the canonical
+  current-PR commands when `{num}` is omitted.
+- `:Forge ci` is current-branch CI history; PR checks live under `:Forge pr ci`.
+- `:Forge pr create` and `require('forge').create_pr()` are create-only.
+- Prefer `require('forge').pr()`, `review()`, `pr_ci()`, `ci()`, and
+  `current_pr()` over `require('forge.ops')` for common workflows.
+
+LOW-LEVEL API: `require('forge.ops')` ~                            *forge-ops*
 
 The full verb inventory and signatures live in `lua/forge/ops.lua`. This is
-the same layer used by `:Forge` and the built-in picker actions. Ref
-arguments accept either a bare id/tag or a table with `scope` plus `num`,
-`id`, or `tag`. Mutation verbs conventionally take
-`opts = { on_success?, on_failure? }`.
+the low-level target-known layer used by `:Forge` and the built-in picker
+actions, not the primary entrypoint for current-ref workflows. Ref arguments
+accept either a bare id/tag or a table with `scope` plus `num`, `id`, or
+`tag`. Mutation verbs conventionally take `opts = { on_success?, on_failure? }`.
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 
