@@ -82,6 +82,7 @@ describe(':Forge command', function()
     captured = {
       opens = {},
       ops_calls = {},
+      ci_calls = {},
       current_pr_calls = {},
       current_pr_result = nil,
       current_pr_error = nil,
@@ -308,6 +309,9 @@ describe(':Forge command', function()
         end,
         create_pr = function(opts)
           captured.create_pr = opts
+        end,
+        ci = function(opts)
+          table.insert(captured.ci_calls, opts or {})
         end,
         current_pr = function(opts)
           table.insert(captured.current_pr_calls, opts)
@@ -575,7 +579,6 @@ describe(':Forge command', function()
     vim.cmd('Forge pr checkout 42')
     vim.cmd('Forge pr worktree 42')
     vim.cmd('Forge pr browse 42')
-    vim.cmd('Forge ci')
     vim.cmd('Forge release')
     vim.cmd('Forge branches')
     vim.cmd('Forge commits feature')
@@ -587,13 +590,34 @@ describe(':Forge command', function()
       'unknown pr action: worktree',
       'unknown pr action: browse',
       'missing action',
-      'missing action',
       'unknown command: branches',
       'unknown command: commits',
       'unknown command: worktrees',
     }, captured.warnings)
     assert.is_nil(captured.opens[1])
     assert.is_nil(captured.ops_calls[1])
+  end)
+
+  it('dispatches implicit current-branch CI commands through forge.ci', function()
+    vim.cmd('Forge ci')
+    vim.cmd('Forge ci repo=upstream')
+
+    assert.same({
+      {},
+      {
+        repo = {
+          kind = 'repo',
+          form = 'hosted',
+          text = 'upstream',
+          host = 'github.com',
+          remote = 'upstream',
+          via = 'remote',
+          slug = 'owner/upstream',
+        },
+      },
+    }, captured.ci_calls)
+    assert.same({}, captured.warnings)
+    assert.same({}, captured.ops_calls)
   end)
 
   it('dispatches implicit current-PR commands through forge.current_pr', function()
@@ -1167,7 +1191,7 @@ describe(':Forge command', function()
       },
       {
         cmdline = 'Forge ci ',
-        expected = { 'open', 'browse', 'refresh' },
+        expected = { 'open', 'browse', 'refresh', 'repo=' },
       },
       {
         cmdline = 'Forge release ',
@@ -1252,6 +1276,7 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(ci, 'open'))
     assert.is_true(vim.tbl_contains(ci, 'browse'))
     assert.is_true(vim.tbl_contains(ci, 'refresh'))
+    assert.is_true(vim.tbl_contains(ci, 'repo='))
     assert.is_false(vim.tbl_contains(ci, 'log'))
     assert.is_false(vim.tbl_contains(ci, 'watch'))
     assert.same({ 'repo=', 'head=' }, pr_ci)
@@ -1303,7 +1328,7 @@ describe(':Forge command', function()
       'repo=',
       'head=',
     }, mr)
-    assert.same({ 'open', 'browse', 'refresh' }, pipeline)
+    assert.same({ 'open', 'browse', 'refresh', 'repo=' }, pipeline)
   end)
 
   it(

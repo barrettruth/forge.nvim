@@ -144,10 +144,11 @@ local families = {
   {
     name = 'ci',
     surface = 'forge',
+    default_verb = 'open',
     verb_order = { 'open', 'browse', 'refresh' },
     verbs = {
       open = {
-        subject = { kind = 'run', min = 1, max = 1 },
+        subject = { kind = 'run', min = 0, max = 1 },
         modifiers = { 'repo' },
       },
       browse = {
@@ -580,6 +581,12 @@ end
 
 local function dispatch_ci(command)
   if not require_git_or_warn() then
+    return
+  end
+  if command.name == 'open' and command.subjects[1] == nil then
+    require('forge').ci(command.parsed_modifiers.repo ~= nil and {
+      repo = command.parsed_modifiers.repo,
+    } or nil)
     return
   end
   local f = require_forge_or_warn()
