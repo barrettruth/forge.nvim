@@ -13,16 +13,16 @@ local loaded_modules = {
   'forge.target',
 }
 
-local function repo_scope(repo)
-  return {
-    kind = 'github',
-    host = 'github.com',
-    owner = 'owner',
-    repo = repo,
-    slug = 'owner/' .. repo,
-    repo_arg = 'owner/' .. repo,
-    web_url = 'https://github.com/owner/' .. repo,
-  }
+local function github_scope(repo)
+  return assert(require('forge.scope').from_url('github', 'https://github.com/owner/' .. repo))
+end
+
+local function gitlab_scope(slug)
+  return assert(require('forge.scope').from_url('gitlab', 'https://gitlab.com/' .. slug))
+end
+
+local function codeberg_scope(repo)
+  return assert(require('forge.scope').from_url('codeberg', 'https://codeberg.org/owner/' .. repo))
 end
 
 describe('current_pr resolver', function()
@@ -33,8 +33,39 @@ describe('current_pr resolver', function()
   local github = {
     name = 'github',
     labels = {
+      pr = 'PRs',
       pr_one = 'PR',
       pr_full = 'PRs',
+    },
+    pr_for_branch_cmd = function(_, branch, scope)
+      return { 'pr-for-branch', branch, scope and scope.slug or '' }
+    end,
+    fetch_pr_details_cmd = function(_, num, scope)
+      return { 'fetch-pr', num, scope and scope.slug or '' }
+    end,
+  }
+
+  local gitlab = {
+    name = 'gitlab',
+    labels = {
+      pr = 'Merge Requests',
+      pr_one = 'MR',
+      pr_full = 'Merge Requests',
+    },
+    pr_for_branch_cmd = function(_, branch, scope)
+      return { 'pr-for-branch', branch, scope and scope.slug or '' }
+    end,
+    fetch_pr_details_cmd = function(_, num, scope)
+      return { 'fetch-pr', num, scope and scope.slug or '' }
+    end,
+  }
+
+  local codeberg = {
+    name = 'codeberg',
+    labels = {
+      pr = 'PRs',
+      pr_one = 'PR',
+      pr_full = 'Pull Requests',
     },
     pr_for_branch_cmd = function(_, branch, scope)
       return { 'pr-for-branch', branch, scope and scope.slug or '' }
@@ -106,7 +137,7 @@ describe('current_pr resolver', function()
     assert.is_nil(err)
     assert.same({
       num = '17',
-      scope = repo_scope('upstream'),
+      scope = github_scope('upstream'),
     }, pr)
   end)
 
@@ -174,7 +205,7 @@ describe('current_pr resolver', function()
     assert.is_nil(err)
     assert.same({
       num = '42',
-      scope = repo_scope('upstream'),
+      scope = github_scope('upstream'),
     }, pr)
     assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch feature owner/fork'))
     assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch feature owner/upstream'))
@@ -213,10 +244,91 @@ describe('current_pr resolver', function()
     assert.is_nil(err)
     assert.same({
       num = '57',
-      scope = repo_scope('upstream'),
+      scope = github_scope('upstream'),
     }, pr)
     assert.is_true(vim.tbl_contains(captured.systems, 'git config branch.topic.pushRemote'))
     assert.is_false(vim.tbl_contains(captured.systems, 'git branch --show-current'))
+  end)
+
+  it('matches GitLab merge requests by source project and branch', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@gitlab.com:group/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@gitlab.com:group/fork.git\n'),
+      ['pr-for-branch topic group/upstream'] = helpers.command_result('8\n'),
+      ['fetch-pr 8 group/upstream'] = helpers.command_result(vim.json.encode({
+        source_branch = 'topic',
+        source_project_id = 101,
+      })),
+      ['glab api --hostname gitlab.com projects/group%2Ffork'] = helpers.command_result(
+        vim.json.encode({ id = 101 })
+      ),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = gitlab,
+      repo = 'upstream',
+      head = 'fork@topic',
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '8',
+      scope = gitlab_scope('group/upstream'),
+    }, pr)
+  end)
+
+  it('matches Codeberg pull requests by head repo and branch', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@codeberg.org:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@codeberg.org:owner/fork.git\n'),
+      ['pr-for-branch topic owner/upstream'] = helpers.command_result('13\n'),
+      ['fetch-pr 13 owner/upstream'] = helpers.command_result(vim.json.encode({
+        head = {
+          ref = 'topic',
+          repo = {
+            full_name = 'owner/fork',
+          },
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = codeberg,
+      repo = 'upstream',
+      head = 'fork@topic',
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '13',
+      scope = codeberg_scope('upstream'),
+    }, pr)
+  end)
+
+  it('uses existing fetch-style error phrasing for resolver failures', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['pr-for-branch topic owner/upstream'] = helpers.command_result('', 1),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = github,
+      repo = 'upstream',
+      head = 'fork@topic',
+    })
+
+    assert.is_nil(pr)
+    assert.same({
+      code = 'lookup_failed',
+      message = 'failed to fetch PRs',
+    }, err)
   end)
 
   it('reports ambiguity when multiple PRs match the same head', function()
@@ -257,5 +369,28 @@ describe('current_pr resolver', function()
     assert.is_nil(pr)
     assert.same('ambiguous_pr', err.code)
     assert.matches('pass repo= or head=', err.message)
+  end)
+
+  it('uses existing parse-detail phrasing when PR details are malformed', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['pr-for-branch topic owner/upstream'] = helpers.command_result('17\n'),
+      ['fetch-pr 17 owner/upstream'] = helpers.command_result('{'),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = github,
+      repo = 'upstream',
+      head = 'fork@topic',
+    })
+
+    assert.is_nil(pr)
+    assert.same({
+      code = 'lookup_failed',
+      message = 'failed to parse PR details',
+    }, err)
   end)
 end)
