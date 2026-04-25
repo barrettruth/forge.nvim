@@ -93,6 +93,14 @@ describe('create_pr', function()
         result.stdout = '\n'
       elseif key == 'default-branch' then
         result.stdout = 'main\n'
+      elseif key == 'fetch-pr 23' then
+        result.stdout = vim.json.encode({
+          title = 'Existing PR',
+          body = 'Body',
+          isDraft = false,
+          headRefName = 'feature',
+          baseRefName = 'main',
+        })
       elseif key == 'git rev-parse --abbrev-ref feature@{upstream}' then
         result.stdout = 'origin/feature\n'
       elseif key == 'git remote' then
@@ -128,6 +136,14 @@ describe('create_pr', function()
         open_pr = function(_, _, _, _, result)
           captured.opened_calls = (captured.opened_calls or 0) + 1
           captured.opened = result
+        end,
+        open_pr_edit = function(_, num, details, current_branch, scope)
+          captured.edited = {
+            num = num,
+            details = details,
+            current_branch = current_branch,
+            scope = scope,
+          }
         end,
       }
     end
@@ -166,6 +182,22 @@ describe('create_pr', function()
         end,
         default_branch_cmd = function()
           return { 'default-branch' }
+        end,
+        fetch_pr_details_cmd = function(_, num)
+          return { 'fetch-pr', num }
+        end,
+        parse_pr_details = function(_, json)
+          return {
+            title = json.title or '',
+            body = json.body or '',
+            draft = json.isDraft == true,
+            head_branch = json.headRefName or '',
+            base_branch = json.baseRefName or '',
+            labels = {},
+            assignees = {},
+            reviewers = {},
+            milestone = '',
+          }
         end,
         create_pr_web_cmd = function(_, scope, head_scope, head_branch, base_branch)
           captured.web_create = {
@@ -275,6 +307,49 @@ describe('create_pr', function()
     assert.equals(1, captured.opened_calls)
     assert.is_nil(captured.opened)
     assert.is_nil(captured.picker)
+  end)
+
+  it('logs an explicit notice and opens edit when the branch already has a PR', function()
+    use_system_responses({
+      ['pr-for-branch feature'] = helpers.command_result('23\n'),
+      ['fetch-pr 23'] = helpers.command_result(vim.json.encode({
+        title = 'Existing PR',
+        body = 'Body',
+        isDraft = false,
+        headRefName = 'feature',
+        baseRefName = 'main',
+      })),
+    })
+
+    require('forge').create_pr()
+
+    vim.wait(100, function()
+      return captured.edited ~= nil
+    end)
+
+    assert.same({
+      num = '23',
+      details = {
+        title = 'Existing PR',
+        body = 'Body',
+        draft = false,
+        head_branch = 'feature',
+        base_branch = 'main',
+        labels = {},
+        assignees = {},
+        reviewers = {},
+        milestone = '',
+      },
+      current_branch = 'feature',
+      scope = repo_scope('repo'),
+    }, captured.edited)
+    assert.is_true(
+      vim.tbl_contains(
+        captured.infos,
+        'PR already exists for this branch; opening edit buffer for #23'
+      )
+    )
+    assert.is_false(vim.tbl_contains(captured.systems, 'default-branch'))
   end)
 
   it('blocks web PR creation when the current branch already matches the base', function()
