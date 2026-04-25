@@ -9,6 +9,7 @@ local format_mod = require('forge.format')
 local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
 local scope_mod = require('forge.scope')
+local target_mod = require('forge.target')
 local template_mod = require('forge.template')
 
 ---@type table<string, forge.Forge>
@@ -83,46 +84,12 @@ local function cmd_error(result, fallback)
   return msg
 end
 
-local function system_text(cmd)
-  local result = vim.system(cmd, { text = true }):wait()
-  if result.code ~= 0 then
-    return ''
-  end
-  return vim.trim(result.stdout or '')
-end
-
-local function push_remote_name(branch)
-  local remote = system_text({ 'git', 'config', 'branch.' .. branch .. '.pushRemote' })
-  if remote == '' then
-    remote = system_text({ 'git', 'config', 'remote.pushDefault' })
-  end
-  if remote == '' then
-    local upstream = system_text({ 'git', 'rev-parse', '--abbrev-ref', branch .. '@{upstream}' })
-    remote = upstream:match('^([^/]+)/') or ''
-  end
-  if remote == '' then
-    local remotes = system_text({ 'git', 'remote' })
-    remote = vim.split(remotes, '\n', { plain = true, trimempty = true })[1] or ''
-  end
-  return remote
-end
-
-local function remote_scope(forge_name, remote)
-  if remote == '' then
-    return nil
-  end
-  local url = system_text({ 'git', 'remote', 'get-url', remote })
-  if url == '' then
-    return nil
-  end
-  return scope_mod.from_url(forge_name, url)
-end
-
 local function push_target(branch, scope)
   if scope_mod.key(scope) ~= '' then
     return scope_mod.remote_name(scope) or scope_mod.git_url(scope) or ''
   end
-  return push_remote_name(branch)
+  local repo = target_mod.push_repo_for_branch(branch)
+  return type(repo) == 'table' and repo.remote or ''
 end
 
 local function branch_ref(branch, current_branch)
@@ -488,7 +455,7 @@ function M.create_pr(opts)
     log.warn('detached HEAD')
     return
   end
-  local head_scope = opts.head_scope or remote_scope(f.name, push_remote_name(branch))
+  local head_scope = opts.head_scope or target_mod.push_scope_for_branch(branch, f.name)
   local push_to = push_target(branch, head_scope)
   local head_ref = branch_ref(branch, current_branch)
 

@@ -281,37 +281,11 @@ local function error_result(msg, opts)
 end
 
 local function target_parse_opts()
-  local ok, forge = pcall(require, 'forge')
-  if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
-    return {
-      resolve_repo = true,
-    }
-  end
-  local cfg = forge.config()
-  local targets = type(cfg) == 'table' and cfg.targets or nil
-  local aliases = type(targets) == 'table' and targets.aliases or nil
-  local default_repo = type(targets) == 'table' and targets.default_repo or nil
-  return {
-    resolve_repo = true,
-    aliases = type(aliases) == 'table' and aliases or {},
-    default_repo = type(default_repo) == 'string' and default_repo or nil,
-  }
+  return require('forge.target').parse_opts()
 end
 
 local function repo_target(value)
-  if type(value) ~= 'table' then
-    return nil
-  end
-  if value.kind == 'repo' then
-    return value
-  end
-  if value.kind == 'rev' then
-    return value.repo
-  end
-  if value.kind == 'location' and type(value.rev) == 'table' then
-    return value.rev.repo
-  end
-  return value.repo
+  return require('forge.target').repo_target(value)
 end
 
 local function default_policy(command, _)
@@ -388,7 +362,7 @@ local function resolve_scope_modifier(command, forge_name)
     or repo_target(command.default_targets.base)
     or repo_target(command.default_targets.head)
     or repo_target(command.default_targets.repo)
-  return target.repo_scope(repo, forge_name)
+  return target.resolve_scope(repo, forge_name, target_parse_opts())
 end
 
 local function dispatch_pr(command)
@@ -403,6 +377,7 @@ local function dispatch_pr(command)
   local scope = resolve_scope_modifier(command, f.name)
   if command.name == 'create' then
     local target = require('forge.target')
+    local parse_opts = target_parse_opts()
     local head = command.parsed_modifiers.head or command.default_targets.head
     local base = command.parsed_modifiers.base or command.default_targets.base
     ops.pr_create({
@@ -411,9 +386,9 @@ local function dispatch_pr(command)
       web = command.modifiers.web == true,
       scope = scope,
       head_branch = head and head.rev or nil,
-      head_scope = target.repo_scope(repo_target(head), f.name),
+      head_scope = target.resolve_scope(head, f.name, parse_opts),
       base_branch = base and base.rev or nil,
-      base_scope = target.repo_scope(repo_target(base), f.name) or scope,
+      base_scope = target.resolve_scope(base, f.name, parse_opts) or scope,
     })
     return
   end

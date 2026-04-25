@@ -198,6 +198,37 @@ describe('target parsing', function()
     assert.equals('owner/fork', rev.repo.slug)
   end)
 
+  it('resolves explicit branch push context without consulting the current branch', function()
+    vim.system = function(cmd)
+      local key = table.concat(cmd, ' ')
+      if key == 'git config branch.topic.pushRemote' then
+        return {
+          wait = function()
+            return { code = 0, stdout = 'fork\n' }
+          end,
+        }
+      end
+      if key == 'git remote get-url fork' then
+        return {
+          wait = function()
+            return { code = 0, stdout = 'git@github.com:owner/fork.git\n' }
+          end,
+        }
+      end
+      return {
+        wait = function()
+          return { code = 1, stdout = '' }
+        end,
+      }
+    end
+
+    local target = require('forge.target')
+    local rev = assert(target.push_rev_for_branch('topic', {}))
+
+    assert.equals('topic', rev.rev)
+    assert.equals('owner/fork', rev.repo.slug)
+  end)
+
   it('converts resolved repo targets into forge scopes', function()
     local target = require('forge.target')
     local scope = assert(target.repo_scope({

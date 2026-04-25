@@ -488,6 +488,35 @@ describe('create_pr', function()
     assert.equals('owner/fork', captured.web_create.head_scope.slug)
   end)
 
+  it('uses explicit head-branch push context when head scope is implicit', function()
+    use_branch_context('feature')
+    use_system_responses({
+      ['git config branch.topic.pushRemote'] = helpers.command_result('fork\n'),
+      ['git diff --quiet origin/stable..topic'] = helpers.command_result('', 1),
+      ['pr-for-branch topic'] = helpers.command_result('\n'),
+      ['git remote'] = helpers.command_result('origin\nfork\n'),
+      ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/repo.git\n'),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+    })
+
+    require('forge').create_pr({
+      web = true,
+      head_branch = 'topic',
+      base_branch = 'stable',
+      base_scope = repo_scope('repo'),
+    })
+
+    vim.wait(100, function()
+      return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
+    end)
+
+    assert.is_true(vim.tbl_contains(captured.systems, 'git config branch.topic.pushRemote'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'git diff --quiet origin/stable..topic'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'git push -u fork topic'))
+    assert.equals('topic', captured.web_create.head_branch)
+    assert.equals('owner/fork', captured.web_create.head_scope.slug)
+  end)
+
   it('reports an error when the web PR command fails', function()
     use_system_responses({
       ['pr-for-branch feature'] = helpers.command_result('\n'),

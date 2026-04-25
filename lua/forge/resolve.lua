@@ -31,22 +31,6 @@ local function cmd_error(result, fallback)
   return msg or fallback
 end
 
-local function repo_target(value)
-  if type(value) ~= 'table' then
-    return nil
-  end
-  if value.kind == 'repo' then
-    return value
-  end
-  if value.kind == 'rev' then
-    return value.repo
-  end
-  if value.kind == 'location' and type(value.rev) == 'table' then
-    return value.rev.repo
-  end
-  return value.repo
-end
-
 local function current_forge(opts)
   if type(opts) == 'table' and type(opts.forge) == 'table' then
     return opts.forge
@@ -58,84 +42,38 @@ local function current_forge(opts)
   return forge.detect()
 end
 
-local function forge_name(opts)
-  if type(opts) == 'table' then
-    if type(opts.forge_name) == 'string' and opts.forge_name ~= '' then
-      return opts.forge_name
-    end
-    if
-      type(opts.forge) == 'table'
-      and type(opts.forge.name) == 'string'
-      and opts.forge.name ~= ''
-    then
-      return opts.forge.name
-    end
-    for _, value in ipairs({
-      opts.head_scope,
-      opts.base_scope,
-      opts.scope,
-      type(opts.repo) == 'table' and opts.repo or nil,
-    }) do
-      if
-        type(value) == 'table'
-        and value.kind ~= 'repo'
-        and type(value.kind) == 'string'
-        and value.kind ~= ''
-      then
-        return value.kind
-      end
-    end
-    local head = type(opts.head) == 'table' and (opts.head.scope or opts.head.head_scope) or nil
-    if type(head) == 'table' and type(head.kind) == 'string' and head.kind ~= '' then
-      return head.kind
-    end
+local function scope_kind(value)
+  local scope = value
+  if type(scope) == 'table' and type(scope.scope) == 'table' then
+    scope = scope.scope
+  elseif type(scope) == 'table' and type(scope.head_scope) == 'table' then
+    scope = scope.head_scope
   end
-  local f = current_forge(opts)
-  return f and f.name or nil
+  local kind = type(scope) == 'table' and scope.kind or nil
+  if kind == nil or kind == '' or kind == 'repo' then
+    return nil
+  end
+  if type(scope.host) ~= 'string' or type(scope.slug) ~= 'string' then
+    return nil
+  end
+  return kind
 end
 
-local function target_parse_opts(opts)
-  local explicit = type(opts) == 'table' and opts.target_opts or nil
-  if type(explicit) == 'table' then
-    local parsed = vim.deepcopy(explicit)
-    parsed.resolve_repo = true
-    return parsed
+local function forge_name(opts, forge)
+  if type(opts) == 'table' and type(opts.forge_name) == 'string' and opts.forge_name ~= '' then
+    return opts.forge_name
   end
-  local ok, forge = pcall(require, 'forge')
-  if not ok or type(forge) ~= 'table' or type(forge.config) ~= 'function' then
-    return {
-      resolve_repo = true,
-    }
+  if type(forge) == 'table' and type(forge.name) == 'string' and forge.name ~= '' then
+    return forge.name
   end
-  local cfg = forge.config()
-  local targets = type(cfg) == 'table' and cfg.targets or nil
-  local aliases = type(targets) == 'table' and targets.aliases or nil
-  local default_repo = type(targets) == 'table' and targets.default_repo or nil
-  return {
-    resolve_repo = true,
-    aliases = type(aliases) == 'table' and aliases or {},
-    default_repo = type(default_repo) == 'string' and default_repo or nil,
-  }
-end
-
-local function resolve_scope(value, kind, parse_opts)
-  if
-    type(value) == 'table'
-    and value.kind ~= 'repo'
-    and type(value.host) == 'string'
-    and type(value.slug) == 'string'
-  then
-    return value
+  if type(opts) ~= 'table' then
+    return nil
   end
-  if type(value) == 'table' and value.kind == 'repo' then
-    return target_mod.repo_scope(value, kind)
-  end
-  if type(value) == 'string' then
-    local repo, err = target_mod.resolve_repo(value, parse_opts)
-    if not repo then
-      return nil, err
+  for _, value in ipairs({ opts.head_scope, opts.base_scope, opts.scope, opts.repo, opts.head }) do
+    local kind = scope_kind(value)
+    if kind then
+      return kind
     end
-    return target_mod.repo_scope(repo, kind)
   end
   return nil
 end
@@ -303,9 +241,114 @@ local function head_label(head)
   return head.branch
 end
 
+local function resolve_head(head, opts, kind, parse_opts)
+  local value = head
+  if value == nil then
+    value = opts.head
+  end
+  local branch = trim(opts.head_branch)
+  local scope, err = target_mod.resolve_scope(opts.head_scope, kind, parse_opts)
+  if err then
+    return nil, err
+  end
+  local project_id = trim(opts.project_id)
+  if type(value) == 'string' then
+    local rev, rev_err = target_mod.parse_rev(value, parse_opts)
+    if not rev then
+      return nil, rev_err
+    end
+    branch = branch or trim(rev.rev)
+    if not scope then
+      scope, err = target_mod.resolve_scope(target_mod.repo_target(rev), kind, parse_opts)
+      if err then
+        return nil, err
+      end
+    end
+  elseif type(value) == 'table' then
+    if value.kind == 'rev' then
+      branch = branch or trim(value.rev)
+      if not scope then
+        scope, err = target_mod.resolve_scope(target_mod.repo_target(value), kind, parse_opts)
+        if err then
+          return nil, err
+        end
+      end
+    else
+      branch = branch or trim(value.branch or value.head_branch or value.rev)
+      project_id = project_id or trim(value.project_id)
+      if not scope then
+        scope, err = target_mod.resolve_scope(
+          value.scope or value.head_scope or target_mod.repo_target(value),
+          kind,
+          parse_opts
+        )
+        if err then
+          return nil, err
+        end
+      end
+    end
+  end
+  if not branch then
+    branch = target_mod.current_branch()
+    if not branch then
+      return nil, 'detached HEAD'
+    end
+  end
+  if not scope then
+    scope = target_mod.push_scope_for_branch(branch, kind, parse_opts)
+  end
+  return {
+    branch = branch,
+    scope = scope,
+    project_id = project_id,
+  }
+end
+
+local function candidate_scopes(opts, head, kind, parse_opts)
+  local repo = opts.repo or opts.base_scope or opts.scope
+  if repo ~= nil then
+    local scope, err = target_mod.resolve_scope(repo, kind, parse_opts)
+    if not scope then
+      return nil, err, 'invalid_repo'
+    end
+    return { scope }
+  end
+  local scopes = {}
+  local seen = {}
+  add_scope(scopes, seen, target_mod.push_scope_for_branch(head.branch, kind, parse_opts))
+  add_scope(scopes, seen, target_mod.repo_scope(target_mod.collaboration_repo(parse_opts), kind))
+  return scopes
+end
+
+local function matching_prs(forge, head, scope)
+  local nums, list_err = list_pr_numbers(forge, head.branch, scope)
+  if not nums then
+    return nil, list_err
+  end
+  local matches = {}
+  for _, num in ipairs(nums) do
+    local json, fetch_err = fetch_pr_json(forge, num, scope)
+    if not json then
+      return nil, fetch_err
+    end
+    local exact, match_err = head_matches(forge, head, pr_head(forge, json, scope))
+    if match_err then
+      return nil, match_err
+    end
+    if exact then
+      matches[#matches + 1] = {
+        num = num,
+        scope = scope,
+      }
+    end
+  end
+  return matches
+end
+
 function M.repo(repo, opts)
   opts = opts or {}
-  local kind = forge_name(opts)
+  local forge = current_forge(opts)
+  local kind = forge_name(opts, forge)
   if not kind then
     return error_result('no forge detected', 'no_forge')
   end
@@ -316,7 +359,7 @@ function M.repo(repo, opts)
   if value == nil then
     return nil
   end
-  local scope, err = resolve_scope(value, kind, target_parse_opts(opts))
+  local scope, err = target_mod.resolve_scope(value, kind, target_mod.parse_opts(opts))
   if not scope then
     return error_result(err or 'invalid repo address', 'invalid_repo')
   end
@@ -325,72 +368,16 @@ end
 
 function M.head(head, opts)
   opts = opts or {}
-  local kind = forge_name(opts)
+  local forge = current_forge(opts)
+  local kind = forge_name(opts, forge)
   if not kind then
     return error_result('no forge detected', 'no_forge')
   end
-  local parse_opts = target_parse_opts(opts)
-  local value = head
-  if value == nil then
-    value = opts.head
+  local resolved, err = resolve_head(head, opts, kind, target_mod.parse_opts(opts))
+  if resolved then
+    return resolved
   end
-  local branch = trim(opts.head_branch)
-  local scope, err = resolve_scope(opts.head_scope, kind, parse_opts)
-  if err then
-    return error_result(err, 'invalid_head')
-  end
-  local project_id = trim(opts.project_id)
-  if type(value) == 'string' then
-    local rev
-    rev, err = target_mod.parse_rev(value, parse_opts)
-    if not rev then
-      return error_result(err, 'invalid_head')
-    end
-    branch = branch or trim(rev.rev)
-    if not scope then
-      scope, err = resolve_scope(repo_target(rev), kind, parse_opts)
-      if err then
-        return error_result(err, 'invalid_head')
-      end
-    end
-  elseif type(value) == 'table' then
-    if value.kind == 'rev' then
-      branch = branch or trim(value.rev)
-      if not scope then
-        scope, err = resolve_scope(repo_target(value), kind, parse_opts)
-        if err then
-          return error_result(err, 'invalid_head')
-        end
-      end
-    else
-      branch = branch or trim(value.branch or value.head_branch or value.rev)
-      project_id = project_id or trim(value.project_id)
-      if not scope then
-        scope, err = resolve_scope(value.scope or value.head_scope or value.repo, kind, parse_opts)
-        if err then
-          return error_result(err, 'invalid_head')
-        end
-      end
-    end
-  end
-  if not branch then
-    local current = target_mod.push_rev(parse_opts)
-    branch = current and trim(current.rev) or nil
-    if not branch then
-      return error_result('detached HEAD', 'detached_head')
-    end
-    if not scope then
-      scope = target_mod.repo_scope(repo_target(current), kind)
-    end
-  end
-  if not scope then
-    scope = target_mod.repo_scope(target_mod.push_repo(parse_opts), kind)
-  end
-  return {
-    branch = branch,
-    scope = scope,
-    project_id = project_id,
-  }
+  return error_result(err, err == 'detached HEAD' and 'detached_head' or 'invalid_head')
 end
 
 function M.current_pr(opts)
@@ -399,57 +386,23 @@ function M.current_pr(opts)
   if not forge then
     return error_result('no forge detected', 'no_forge')
   end
-  local kind = forge.name or forge_name(opts)
+  local kind = forge_name(opts, forge)
   if not kind then
     return error_result('no forge detected', 'no_forge')
   end
-  local parse_opts = target_parse_opts(opts)
-  local repo = opts.repo or opts.base_scope or opts.scope
-  local repos = nil
-  if repo ~= nil then
-    local resolved, err = resolve_scope(repo, kind, parse_opts)
-    if not resolved then
-      return error_result(err or 'invalid repo address', 'invalid_repo')
-    end
-    repos = { resolved }
-  else
-    local seen = {}
-    repos = {}
-    add_scope(repos, seen, target_mod.repo_scope(target_mod.push_repo(parse_opts), kind))
-    add_scope(repos, seen, target_mod.repo_scope(target_mod.collaboration_repo(parse_opts), kind))
-  end
-  local head, err = M.head(
-    opts.head,
-    vim.tbl_extend('force', opts, {
-      forge = forge,
-      forge_name = kind,
-      target_opts = parse_opts,
-    })
-  )
+  local parse_opts = target_mod.parse_opts(opts)
+  local head, head_err = resolve_head(opts.head, opts, kind, parse_opts)
   if not head then
-    return nil, err
+    return error_result(head_err, head_err == 'detached HEAD' and 'detached_head' or 'invalid_head')
+  end
+  local repos, repo_err, repo_code = candidate_scopes(opts, head, kind, parse_opts)
+  if not repos then
+    return error_result(repo_err or 'invalid repo address', repo_code or 'invalid_repo')
   end
   for _, scope in ipairs(repos) do
-    local nums, list_err = list_pr_numbers(forge, head.branch, scope)
-    if not nums then
-      return error_result(list_err, 'lookup_failed')
-    end
-    local matches = {}
-    for _, num in ipairs(nums) do
-      local json, fetch_err = fetch_pr_json(forge, num, scope)
-      if not json then
-        return error_result(fetch_err, 'lookup_failed')
-      end
-      local exact, match_err = head_matches(forge, head, pr_head(forge, json, scope))
-      if match_err then
-        return error_result(match_err, 'lookup_failed')
-      end
-      if exact then
-        matches[#matches + 1] = {
-          num = num,
-          scope = scope,
-        }
-      end
+    local matches, match_err = matching_prs(forge, head, scope)
+    if not matches then
+      return error_result(match_err, 'lookup_failed')
     end
     if #matches == 1 then
       return matches[1]
