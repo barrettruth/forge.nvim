@@ -117,6 +117,10 @@ local function clear_list_cache(forge_mod, key)
   picker_session.invalidate(key)
 end
 
+local function refresh_picker(handle)
+  return handle and type(handle.refresh) == 'function' and handle.refresh() == true
+end
+
 local function limit_settings(base_limit, requested_limit)
   local visible_limit = requested_limit or base_limit
   return {
@@ -524,6 +528,7 @@ function M.ci(f, branch, filter, opts)
   local current_limit = visible_limit
   local current_runs
   local runs_stale = true
+  local picker_handle
 
   local function ci_prompt(count)
     local filter_label = prompt_labels[filter]
@@ -704,10 +709,15 @@ function M.ci(f, branch, filter, opts)
         if not entry or entry.load_more then
           return
         end
-        local reopen = function()
-          M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
+        local refresh_current = function()
+          runs_stale = true
+          refresh_picker(picker_handle)
         end
-        ops.ci_toggle(f, entry.value, { on_success = reopen, on_failure = reopen })
+        ops.ci_toggle(
+          f,
+          entry.value,
+          { on_success = refresh_current, on_failure = refresh_current }
+        )
       end,
     },
     {
@@ -716,13 +726,17 @@ function M.ci(f, branch, filter, opts)
       reload = false,
       fn = function()
         log.info('refreshing ' .. ci_fetch_label(f) .. '...')
+        runs_stale = true
+        if refresh_picker(picker_handle) then
+          return
+        end
         M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
   }
 
   if f.list_runs_json_cmd then
-    picker.pick({
+    picker_handle = picker.pick({
       prompt = ci_prompt(),
       entries = {},
       actions = actions,
@@ -757,6 +771,7 @@ function M.pr(state, f, opts)
   local current_limit = visible_limit
   local current_prs
   local prs_stale = true
+  local picker_handle
 
   local function build_pr_entries(prs, limit)
     limit = limit or current_limit
@@ -857,7 +872,8 @@ function M.pr(state, f, opts)
   local function reopen_list()
     clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
     forge_mod.clear_pr_state(nil, ref)
-    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
+    prs_stale = true
+    refresh_picker(picker_handle)
   end
 
   local function back_to_list()
@@ -1024,6 +1040,10 @@ function M.pr(state, f, opts)
       fn = function()
         clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
         forge_mod.clear_pr_state(nil, ref)
+        prs_stale = true
+        if refresh_picker(picker_handle) then
+          return
+        end
         M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
@@ -1043,7 +1063,7 @@ function M.pr(state, f, opts)
     initial_prompt = ('%s %s> '):format(state_label, f.labels.pr)
   end
 
-  picker.pick({
+  picker_handle = picker.pick({
     prompt = initial_prompt,
     entries = {},
     actions = actions,
@@ -1079,6 +1099,7 @@ function M.issue(state, f, opts)
   local current_limit = visible_limit
   local current_issues
   local issues_stale = true
+  local picker_handle
 
   local function build_issue_entries(issues, limit)
     limit = limit or current_limit
@@ -1173,7 +1194,8 @@ function M.issue(state, f, opts)
 
   local function reopen_list()
     clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
-    M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
+    issues_stale = true
+    refresh_picker(picker_handle)
   end
 
   local actions = {
@@ -1252,6 +1274,10 @@ function M.issue(state, f, opts)
       reload = false,
       fn = function()
         clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
+        issues_stale = true
+        if refresh_picker(picker_handle) then
+          return
+        end
         M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
@@ -1271,7 +1297,7 @@ function M.issue(state, f, opts)
     initial_prompt = ('%s %s> '):format(state_label, f.labels.issue)
   end
 
-  picker.pick({
+  picker_handle = picker.pick({
     prompt = initial_prompt,
     entries = {},
     actions = actions,
@@ -1339,6 +1365,7 @@ function M.release(state, f, opts)
   local current_limit = visible_limit
   local current_releases
   local releases_stale = true
+  local picker_handle
 
   local function remember_release_fetch(releases, requested_limit)
     if type(releases) == 'table' then
@@ -1456,7 +1483,8 @@ function M.release(state, f, opts)
 
   local function reopen_list()
     clear_list_cache(forge_mod, cache_key)
-    M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
+    releases_stale = true
+    refresh_picker(picker_handle)
   end
 
   local actions = {
@@ -1514,6 +1542,10 @@ function M.release(state, f, opts)
       reload = false,
       fn = function()
         clear_list_cache(forge_mod, cache_key)
+        releases_stale = true
+        if refresh_picker(picker_handle) then
+          return
+        end
         M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
       end,
     },
@@ -1533,7 +1565,7 @@ function M.release(state, f, opts)
     initial_prompt = release_prompt()
   end
 
-  picker.pick({
+  picker_handle = picker.pick({
     prompt = initial_prompt,
     entries = {},
     actions = actions,

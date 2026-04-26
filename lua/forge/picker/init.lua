@@ -26,6 +26,9 @@ local surface = require('forge.surface')
 ---@field reload boolean?
 ---@field fn fun(entry: forge.PickerEntry?)
 
+---@class forge.PickerHandle
+---@field refresh fun(): boolean?
+
 ---@class forge.PickerOpts
 ---@field prompt string?
 ---@field entries forge.PickerEntry[]
@@ -303,8 +306,9 @@ function M.ci_toggle_verb(entry)
 end
 
 ---@param opts forge.PickerOpts
+---@return forge.PickerHandle?
 function M.pick(opts)
-  require('forge.picker.fzf').pick(opts)
+  return require('forge.picker.fzf').pick(opts)
 end
 
 return M

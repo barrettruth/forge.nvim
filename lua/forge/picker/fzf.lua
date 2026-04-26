@@ -3,6 +3,7 @@ local M = {}
 local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
   :gsub('%-%-bind=[^%s]+', '')
   :gsub('%-%-color=[^%s]+', '')
+local refresh_scope_id = 0
 
 local special_keys = {
   ['<cr>'] = { fzf = 'enter', header = '<cr>' },
@@ -223,7 +224,13 @@ local function transport_header(text)
   return (sanitized:gsub('\\', '\\\\'):gsub('\27', '\\033'))
 end
 
+local function next_refresh_scope()
+  refresh_scope_id = refresh_scope_id + 1
+  return ('forge.reload.%d'):format(refresh_scope_id)
+end
+
 ---@param opts forge.PickerOpts
+---@return forge.PickerHandle?
 function M.pick(opts)
   local cfg = require('forge').config()
   local keys = cfg.keys
@@ -443,7 +450,28 @@ function M.pick(opts)
     }
   end
 
+  local handle
+  if stream then
+    local ok, win = pcall(require, 'fzf-lua.win')
+    if ok and type(win.on_SIGWINCH) == 'function' and type(win.SIGWINCH) == 'function' then
+      local refresh_scope = next_refresh_scope()
+      win.on_SIGWINCH(fzf_exec_opts, refresh_scope, function()
+        local contents = rawget(fzf_exec_opts, '_contents')
+        if type(contents) ~= 'string' or contents == '' then
+          return nil
+        end
+        return 'reload:' .. contents
+      end)
+      handle = {
+        refresh = function()
+          return win.SIGWINCH({ refresh_scope }) == true
+        end,
+      }
+    end
+  end
+
   require('fzf-lua').fzf_exec(lines, fzf_exec_opts)
+  return handle
 end
 
 return M
