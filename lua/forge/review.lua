@@ -186,20 +186,26 @@ local function builtins()
         local root = trim(vim.fn.system('git rev-parse --show-toplevel'))
         local wt_path = vim.fs.normalize(root .. '/../' .. branch)
         log.info(('fetching %s #%s into worktree...'):format(kind, pr.num))
-        vim.system(fetch_cmd, { text = true }, function()
-          vim.system(
-            { 'git', 'worktree', 'add', wt_path, branch },
-            { text = true },
-            function(result)
-              vim.schedule(function()
-                if result.code == 0 then
-                  log.info(('worktree at %s'):format(wt_path))
-                else
-                  log.error(cmd_error(result, 'worktree failed'))
-                end
-              end)
+        vim.system(fetch_cmd, { text = true }, function(result)
+          vim.schedule(function()
+            if result.code ~= 0 then
+              log.error(cmd_error(result, 'review fetch failed'))
+              return
             end
-          )
+            vim.system(
+              { 'git', 'worktree', 'add', wt_path, branch },
+              { text = true },
+              function(worktree_result)
+                vim.schedule(function()
+                  if worktree_result.code == 0 then
+                    log.info(('worktree at %s'):format(wt_path))
+                  else
+                    log.error(cmd_error(worktree_result, 'worktree failed'))
+                  end
+                end)
+              end
+            )
+          end)
         end)
       end,
     },

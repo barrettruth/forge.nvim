@@ -9,6 +9,7 @@ describe('review adapters', function()
   local old_exists
   local old_nvim_cmd
   local old_schedule
+  local old_fn_system
 
   before_each(function()
     captured = {
@@ -22,6 +23,7 @@ describe('review adapters', function()
     old_exists = vim.fn.exists
     old_nvim_cmd = vim.api.nvim_cmd
     old_schedule = vim.schedule
+    old_fn_system = vim.fn.system
 
     vim.system = helpers.system_router({
       default = helpers.command_result('', 1),
@@ -44,6 +46,12 @@ describe('review adapters', function()
     end
     vim.schedule = function(fn)
       fn()
+    end
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      return ''
     end
 
     package.preload['forge'] = function()
@@ -80,6 +88,7 @@ describe('review adapters', function()
     vim.fn.exists = old_exists
     vim.api.nvim_cmd = old_nvim_cmd
     vim.schedule = old_schedule
+    vim.fn.system = old_fn_system
 
     helpers.restore_preload(old_preload)
 
@@ -288,6 +297,73 @@ describe('review adapters', function()
     }, captured.cmds)
     assert.same({ 'opening PR #42 in diffs...' }, captured.infos)
     assert.same({}, captured.errors)
+  end)
+
+  it('opens worktree review only after the PR fetch succeeds', function()
+    local review = require('forge.review')
+    local scope = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/current',
+    }
+
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+      calls = captured.calls,
+      responses = {
+        ['git fetch origin pull/42/head:pr-42'] = helpers.command_result(''),
+        ['git worktree add /pr-42 pr-42'] = helpers.command_result(''),
+      },
+    })
+
+    review.open({
+      labels = { pr_one = 'PR' },
+      fetch_pr = function(_, num, ref)
+        assert.equals('42', num)
+        assert.same(scope, ref)
+        return { 'git', 'fetch', 'origin', 'pull/42/head:pr-42' }
+      end,
+    }, { num = '42', scope = scope }, { adapter = 'worktree' })
+
+    assert.same({
+      'git fetch origin pull/42/head:pr-42',
+      'git worktree add /pr-42 pr-42',
+    }, captured.calls)
+    assert.same({
+      'fetching PR #42 into worktree...',
+      'worktree at /pr-42',
+    }, captured.infos)
+    assert.same({}, captured.errors)
+  end)
+
+  it('reports worktree review fetch failures without starting git worktree add', function()
+    local review = require('forge.review')
+    local scope = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/current',
+    }
+
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+      calls = captured.calls,
+      responses = {
+        ['git fetch origin pull/42/head:pr-42'] = helpers.command_result('', 1, 'fetch failed'),
+      },
+    })
+
+    review.open({
+      labels = { pr_one = 'PR' },
+      fetch_pr = function(_, num, ref)
+        assert.equals('42', num)
+        assert.same(scope, ref)
+        return { 'git', 'fetch', 'origin', 'pull/42/head:pr-42' }
+      end,
+    }, { num = '42', scope = scope }, { adapter = 'worktree' })
+
+    assert.same({ 'git fetch origin pull/42/head:pr-42' }, captured.calls)
+    assert.same({ 'fetching PR #42 into worktree...' }, captured.infos)
+    assert.same({ 'fetch failed' }, captured.errors)
   end)
 
   it('reports missing diffs.nvim before loading review details', function()
