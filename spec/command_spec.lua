@@ -919,8 +919,8 @@ describe(':Forge command', function()
   end)
 
   it('dispatches normalized create and clear commands through the command layer', function()
-    vim.cmd('Forge pr create --draft --fill --web')
-    vim.cmd('Forge issue create --blank --template=bug')
+    vim.cmd('Forge pr create draft fill web')
+    vim.cmd('Forge issue create blank template=bug')
     vim.cmd('Forge clear')
 
     assert.same({

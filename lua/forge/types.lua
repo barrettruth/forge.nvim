@@ -156,7 +156,6 @@
 ---@class forge.CommandVerbDef
 ---@field subject forge.CommandSubjectSpec?
 ---@field modifiers string[]?
----@field legacy_modifiers string[]?
 ---@field required_modifiers string[]?
 ---@field modifier_values table<string, string[]>?
 
@@ -181,8 +180,6 @@
 ---@field raw string[]
 ---@field modifiers table<string, any>
 ---@field declared_modifiers string[]
----@field declared_legacy_modifiers string[]
----@field legacy_modifiers string[]?
 ---@field parsed_modifiers table<string, any>
 ---@field modifier_values table<string, string[]>?
 ---@field required_modifiers string[]?

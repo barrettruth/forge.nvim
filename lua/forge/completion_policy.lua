@@ -49,7 +49,6 @@ local function declares_modifier(command, flag_name)
     return false
   end
   return list_contains(command.declared_modifiers or command.modifiers, flag_name)
-    or list_contains(command.declared_legacy_modifiers or command.legacy_modifiers, flag_name)
 end
 
 function M.family_slot(command)
