@@ -157,10 +157,16 @@ end
 
 local list_states = { 'open', 'closed', 'all' }
 
+local function scoped_list_key(forge_mod, kind, state, suffix)
+  if suffix ~= nil and suffix ~= '' then
+    return forge_mod.list_key(kind, state .. '|' .. suffix)
+  end
+  return forge_mod.list_key(kind, state)
+end
+
 local function clear_state_caches(forge_mod, kind, suffix)
-  local scoped_suffix = suffix ~= '' and suffix or nil
   for _, state in ipairs(list_states) do
-    local key = forge_mod.list_key(kind, scoped_suffix and (state .. '|' .. scoped_suffix) or state)
+    local key = scoped_list_key(forge_mod, kind, state, suffix)
     forge_mod.clear_list(key)
     picker_session.invalidate(key)
   end
@@ -196,8 +202,7 @@ local function expanded_limit(limit, step)
 end
 
 local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
-  local scoped_suffix = suffix ~= '' and suffix or nil
-  local key = forge_mod.list_key(kind, scoped_suffix and (state .. '|' .. scoped_suffix) or state)
+  local key = scoped_list_key(forge_mod, kind, state, suffix)
   local started = picker_session.prefetch_json({
     key = key,
     cmd = cmd,
@@ -211,6 +216,37 @@ local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
   if started then
     log.debug(('prefetching %s list (%s)...'):format(label, state))
   end
+end
+
+local function list_row(rows, field, id)
+  if type(rows) ~= 'table' then
+    return nil, nil
+  end
+  local target = tostring(id or '')
+  for index, row in ipairs(rows) do
+    if tostring(row[field] or '') == target then
+      return index, row
+    end
+  end
+  return nil, nil
+end
+
+local function remove_list_row(rows, field, id)
+  local index, row = list_row(rows, field, id)
+  if not index then
+    return nil
+  end
+  table.remove(rows, index)
+  return row
+end
+
+local function upsert_list_row(rows, field, id, row)
+  local index = list_row(rows, field, id)
+  if index then
+    rows[index] = row
+    return
+  end
+  rows[#rows + 1] = row
 end
 
 ---@param pr forge.PRRefLike
@@ -1132,9 +1168,11 @@ function M.issue(state, f, opts)
   local fetch_limit = limits.fetch
   local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
-  local cache_key = forge_mod.list_key('issue', scoped_id(state, scoped_key(forge_mod, ref)))
+  local scope_suffix = scoped_key(forge_mod, ref)
+  local cache_key = scoped_list_key(forge_mod, 'issue', state, scope_suffix)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
+  local issue_state_field = issue_fields.state
   local issue_show_state = state == 'all'
   local current_limit = visible_limit
   local current_issues
@@ -1196,7 +1234,7 @@ function M.issue(state, f, opts)
       next_state,
       f.labels.issue,
       f:list_issue_json_cmd(next_state, fetch_limit, ref),
-      scoped_key(forge_mod, ref)
+      scope_suffix
     )
   end
 
@@ -1232,10 +1270,143 @@ function M.issue(state, f, opts)
     )
   end
 
-  local function reopen_list()
-    clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
+  local function rerender_issue_list()
+    if refresh_picker(picker_handle) then
+      return
+    end
+    M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
+  local function refresh_issue_list()
     issues_stale = true
-    refresh_picker(picker_handle)
+    rerender_issue_list()
+  end
+
+  local function issue_cache_key(list_state)
+    return scoped_list_key(forge_mod, 'issue', list_state, scope_suffix)
+  end
+
+  local function observed_open_issue_state(rows)
+    if type(rows) ~= 'table' then
+      return nil
+    end
+    for _, issue in ipairs(rows) do
+      local value = issue[issue_state_field]
+      if type(value) == 'string' then
+        local text = vim.trim(value)
+        local lower = text:lower()
+        if lower == 'open' or lower == 'opened' then
+          return text
+        end
+      end
+    end
+    return nil
+  end
+
+  local function next_issue_state(current_issue, verb)
+    local current_state = current_issue[issue_state_field]
+    local current_text = type(current_state) == 'string' and vim.trim(current_state) or ''
+    if verb == 'close' then
+      if current_text ~= '' and current_text == current_text:upper() then
+        return 'CLOSED'
+      end
+      return 'closed'
+    end
+    local open_state = observed_open_issue_state(state == 'open' and current_issues or nil)
+      or observed_open_issue_state(state == 'all' and current_issues or nil)
+      or observed_open_issue_state(forge_mod.get_list(issue_cache_key('open')))
+      or observed_open_issue_state(forge_mod.get_list(issue_cache_key('all')))
+    if open_state then
+      return open_state
+    end
+    if current_text ~= '' and current_text == current_text:upper() then
+      return 'OPEN'
+    end
+    return 'open'
+  end
+
+  local function patch_issue_cache(list_state, mutate)
+    local key = issue_cache_key(list_state)
+    local issues = forge_mod.get_list(key)
+    if type(issues) ~= 'table' then
+      return
+    end
+    mutate(issues)
+    forge_mod.set_list(key, issues)
+  end
+
+  local function revalidate_current_issues()
+    picker_session.request_json(
+      cache_key,
+      f:list_issue_json_cmd(state, current_limit + 1, ref),
+      function(ok, issues, _, stale)
+        if stale then
+          return
+        end
+        if not ok then
+          log.error('failed to fetch issues')
+          return
+        end
+        current_issues = issues
+        issues_stale = false
+        if use_cache then
+          forge_mod.set_list(cache_key, issues)
+        end
+        rerender_issue_list()
+        maybe_prefetch_next()
+      end
+    )
+  end
+
+  local function locally_toggle_issue(entry, verb)
+    local current_index, current_issue = list_row(current_issues, num_field, entry.value.num)
+    if not current_index or type(current_issue) ~= 'table' then
+      refresh_issue_list()
+      return
+    end
+    local updated_issue = vim.deepcopy(current_issue)
+    updated_issue[issue_state_field] = next_issue_state(current_issue, verb)
+
+    if state == 'all' then
+      current_issues[current_index] = updated_issue
+    else
+      table.remove(current_issues, current_index)
+    end
+    if use_cache then
+      forge_mod.set_list(cache_key, current_issues)
+    end
+
+    if verb == 'close' then
+      if state ~= 'closed' then
+        patch_issue_cache('closed', function(issues)
+          upsert_list_row(issues, num_field, entry.value.num, vim.deepcopy(updated_issue))
+        end)
+      end
+      if state ~= 'open' then
+        patch_issue_cache('open', function(issues)
+          remove_list_row(issues, num_field, entry.value.num)
+        end)
+      end
+    else
+      if state ~= 'open' then
+        patch_issue_cache('open', function(issues)
+          upsert_list_row(issues, num_field, entry.value.num, vim.deepcopy(updated_issue))
+        end)
+      end
+      if state ~= 'closed' then
+        patch_issue_cache('closed', function(issues)
+          remove_list_row(issues, num_field, entry.value.num)
+        end)
+      end
+    end
+    if state ~= 'all' then
+      patch_issue_cache('all', function(issues)
+        upsert_list_row(issues, num_field, entry.value.num, vim.deepcopy(updated_issue))
+      end)
+    end
+
+    rerender_issue_list()
+    revalidate_current_issues()
   end
 
   local actions = {
@@ -1285,7 +1456,12 @@ function M.issue(state, f, opts)
           return
         end
         local verb = picker.issue_toggle_verb(entry)
-        local callbacks = { on_success = reopen_list, on_failure = reopen_list }
+        local callbacks = {
+          on_success = function()
+            locally_toggle_issue(entry, verb)
+          end,
+          on_failure = refresh_issue_list,
+        }
         if verb == 'close' then
           ops.issue_close(f, entry.value, callbacks)
         elseif verb == 'reopen' then
@@ -1313,12 +1489,8 @@ function M.issue(state, f, opts)
       label = 'refresh',
       reload = false,
       fn = function()
-        clear_state_caches(forge_mod, 'issue', scoped_key(forge_mod, ref))
-        issues_stale = true
-        if refresh_picker(picker_handle) then
-          return
-        end
-        M.issue(state, f, { limit = current_limit, back = opts.back, scope = ref })
+        clear_state_caches(forge_mod, 'issue', scope_suffix)
+        refresh_issue_list()
       end,
     },
   }
