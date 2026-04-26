@@ -57,31 +57,51 @@ describe('picker session', function()
 
   it('decodes successful json results', function()
     local session = require('forge.picker.session')
-    local ok, data = session.decode_json({
+    local ok, data, failure = session.decode_json({
       code = 0,
       stdout = '[{"id":1}]',
     })
 
     assert.is_true(ok)
     assert.same({ { id = 1 } }, data)
+    assert.is_nil(failure)
   end)
 
-  it('rejects failed or invalid json results', function()
+  it('returns command failure details for failed json results', function()
     local session = require('forge.picker.session')
 
-    local ok_failed, data_failed = session.decode_json({
+    local ok_failed, data_failed, failure_failed = session.decode_json({
       code = 1,
       stdout = '[{"id":1}]',
-    })
-    local ok_invalid, data_invalid = session.decode_json({
-      code = 0,
-      stdout = '{',
+      stderr = 'boom',
     })
 
     assert.is_false(ok_failed)
     assert.is_nil(data_failed)
+    assert.same('command', failure_failed.kind)
+    assert.equals('boom', failure_failed.message)
+    assert.same({
+      code = 1,
+      stdout = '[{"id":1}]',
+      stderr = 'boom',
+    }, failure_failed.result)
+  end)
+
+  it('returns decode failure details for invalid json results', function()
+    local session = require('forge.picker.session')
+
+    local ok_invalid, data_invalid, failure_invalid = session.decode_json({
+      code = 0,
+      stdout = '{',
+    })
+
     assert.is_false(ok_invalid)
     assert.is_nil(data_invalid)
+    assert.same('decode', failure_invalid.kind)
+    assert.equals(failure_invalid.decode_error, failure_invalid.message)
+    assert.is_true(
+      type(failure_invalid.decode_error) == 'string' and failure_invalid.decode_error ~= ''
+    )
   end)
 
   it('prefetches json and forwards successful data once', function()
@@ -112,6 +132,31 @@ describe('picker session', function()
     assert.same({ { number = 42 } }, success)
     assert.equals(0, failures)
     assert.is_false(session.inflight('prs.open'))
+  end)
+
+  it('forwards structured failures through request_json', function()
+    local session = require('forge.picker.session')
+    local captured_failure
+    local stale_state
+
+    session.request_json('prs.open', { 'prs', 'open' }, function(ok, data, failure, stale)
+      assert.is_false(ok)
+      assert.is_nil(data)
+      captured_failure = failure
+      stale_state = stale
+    end)
+
+    captured.callbacks[1]({
+      code = 0,
+      stdout = '{',
+      stderr = '',
+    })
+
+    assert.is_false(stale_state)
+    assert.same('decode', captured_failure.kind)
+    assert.is_true(
+      type(captured_failure.decode_error) == 'string' and captured_failure.decode_error ~= ''
+    )
   end)
 
   it('skips prefetch when skip_if passes or the key is already inflight', function()
@@ -167,6 +212,28 @@ describe('picker session', function()
     assert.equals(0, success)
     assert.equals(0, failure)
     assert.is_false(session.inflight('prs.open'))
+  end)
+
+  it('forwards structured failures to prefetch failure handlers', function()
+    local session = require('forge.picker.session')
+    local failure
+
+    assert.is_true(session.prefetch_json({
+      key = 'prs.open',
+      cmd = { 'prs', 'open' },
+      on_failure = function(err)
+        failure = err
+      end,
+    }))
+
+    captured.callbacks[1]({
+      code = 1,
+      stdout = '',
+      stderr = 'boom',
+    })
+
+    assert.same('command', failure.kind)
+    assert.equals('boom', failure.message)
   end)
 
   it('opens cached data immediately without requesting json', function()
@@ -254,8 +321,8 @@ describe('picker session', function()
       build_entries = function()
         return {}
       end,
-      error_entry = function(result)
-        return { display = { { result.stderr } }, value = false }
+      error_entry = function(failure)
+        return { display = { { session.failure_message(failure, 'fallback') } }, value = false }
       end,
       open = function() end,
     })

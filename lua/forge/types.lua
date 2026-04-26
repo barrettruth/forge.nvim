@@ -143,6 +143,14 @@
 ---@field stdout string?
 ---@field stderr string?
 
+---@alias forge.PickerSessionFailureKind 'command'|'decode'
+
+---@class forge.PickerSessionFailure
+---@field kind forge.PickerSessionFailureKind
+---@field result forge.SystemResult
+---@field message string?
+---@field decode_error string?
+
 ---@class forge.CommandSubjectSpec
 ---@field kind string?
 ---@field min integer?
