@@ -3587,4 +3587,140 @@ describe('pickers', function()
       assert.equals(2, picker_refresh_calls)
     end
   )
+
+  it(
+    'patches filtered draft releases locally and revalidates the live release picker after delete succeeds',
+    function()
+      vim.g.forge = {
+        display = {
+          limits = {
+            releases = 2,
+          },
+        },
+      }
+      cache['release:list'] = {
+        { tag = 'v2.0.0-draft', title = 'Draft newer', is_draft = true, is_prerelease = false },
+        { tag = 'v1.0.0', title = 'Stable', is_draft = false, is_prerelease = false },
+        { tag = 'v0.9.0-draft', title = 'Draft older', is_draft = true, is_prerelease = false },
+      }
+
+      local old_system = vim.system
+      local calls = {}
+      vim.system = function(cmd, _, cb)
+        calls[#calls + 1] = { cmd = cmd, cb = cb }
+        return {
+          wait = function()
+            return { code = 0 }
+          end,
+        }
+      end
+
+      local pickers = require('forge.pickers')
+      pickers.release('draft', fake_release_forge())
+      captured.stream(function() end)
+
+      action_by_name('delete').fn(captured.entries[1])
+
+      assert.same(
+        { 'v1.0.0', 'v0.9.0-draft' },
+        vim.tbl_map(function(rel)
+          return rel.tag
+        end, cache['release:list'])
+      )
+      assert.equals('v0.9.0-draft', captured.entries[1].value.tag)
+      assert.is_nil(captured.entries[2])
+      assert.equals(1, picker_pick_calls)
+      assert.equals(1, picker_refresh_calls)
+      assert.same({ 'releases', '3' }, calls[1].cmd)
+
+      calls[1].cb({
+        code = 0,
+        stdout = vim.json.encode({
+          { tag = 'v1.0.0', title = 'Stable', is_draft = false, is_prerelease = false },
+          {
+            tag = 'v0.9.0-draft',
+            title = 'Authoritative draft older',
+            is_draft = true,
+            is_prerelease = false,
+          },
+        }),
+      })
+
+      vim.wait(100, function()
+        return cache['release:list'][2].title == 'Authoritative draft older'
+      end)
+      vim.system = old_system
+
+      assert.equals('Authoritative draft older', cache['release:list'][2].title)
+      assert.equals(2, picker_refresh_calls)
+    end
+  )
+
+  it(
+    'patches filtered prereleases locally and revalidates the live release picker after delete succeeds',
+    function()
+      vim.g.forge = {
+        display = {
+          limits = {
+            releases = 2,
+          },
+        },
+      }
+      cache['release:list'] = {
+        { tag = 'v2.0.0-rc2', title = 'RC newer', is_draft = false, is_prerelease = true },
+        { tag = 'v1.0.0', title = 'Stable', is_draft = false, is_prerelease = false },
+        { tag = 'v0.9.0-rc1', title = 'RC older', is_draft = false, is_prerelease = true },
+      }
+
+      local old_system = vim.system
+      local calls = {}
+      vim.system = function(cmd, _, cb)
+        calls[#calls + 1] = { cmd = cmd, cb = cb }
+        return {
+          wait = function()
+            return { code = 0 }
+          end,
+        }
+      end
+
+      local pickers = require('forge.pickers')
+      pickers.release('prerelease', fake_release_forge())
+      captured.stream(function() end)
+
+      action_by_name('delete').fn(captured.entries[1])
+
+      assert.same(
+        { 'v1.0.0', 'v0.9.0-rc1' },
+        vim.tbl_map(function(rel)
+          return rel.tag
+        end, cache['release:list'])
+      )
+      assert.equals('v0.9.0-rc1', captured.entries[1].value.tag)
+      assert.is_nil(captured.entries[2])
+      assert.equals(1, picker_pick_calls)
+      assert.equals(1, picker_refresh_calls)
+      assert.same({ 'releases', '3' }, calls[1].cmd)
+
+      calls[1].cb({
+        code = 0,
+        stdout = vim.json.encode({
+          { tag = 'v1.0.0', title = 'Stable', is_draft = false, is_prerelease = false },
+          {
+            tag = 'v0.9.0-rc1',
+            title = 'Authoritative RC older',
+            is_draft = false,
+            is_prerelease = true,
+          },
+        }),
+      })
+
+      vim.wait(100, function()
+        return cache['release:list'][2].title == 'Authoritative RC older'
+      end)
+      vim.system = old_system
+
+      assert.equals('Authoritative RC older', cache['release:list'][2].title)
+      assert.equals(2, picker_refresh_calls)
+    end
+  )
 end)
