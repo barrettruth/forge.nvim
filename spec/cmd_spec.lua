@@ -52,6 +52,9 @@ describe('command schema', function()
             },
           }
         end,
+        detect = function()
+          return nil
+        end,
       }
     end
 
@@ -404,6 +407,54 @@ describe('command schema', function()
     assert.equals('invalid issue number: main', browse_err.message)
     assert.equals('invalid issue number: abc', close_err.message)
     assert.equals('invalid issue number: foo', edit_err.message)
+  end)
+
+  it('uses MR terminology when the active forge labels its PRs as MR (GitLab)', function()
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return { targets = { aliases = {} } }
+        end,
+        detect = function()
+          return { name = 'gitlab', labels = { pr_one = 'MR' } }
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+
+    local _, browse_err = cmd.parse({ 'pr', 'browse', 'main' })
+    local _, ci_err = cmd.parse({ 'pr', 'ci', 'topic' })
+    local _, review_err = cmd.parse({ 'review', 'topic' })
+    local _, browse_subject_err = cmd.parse({ 'browse', 'main' })
+    local _, missing_edit_err = cmd.parse({ 'pr', 'edit' })
+    local _, issue_err = cmd.parse({ 'issue', 'browse', 'main' })
+
+    assert.equals('invalid MR number: main', browse_err.message)
+    assert.equals('invalid MR number: topic', ci_err.message)
+    assert.equals('invalid MR number: topic', review_err.message)
+    assert.equals('invalid MR number: main', browse_subject_err.message)
+    assert.equals('missing MR number', missing_edit_err.message)
+    assert.equals('invalid issue number: main', issue_err.message)
+  end)
+
+  it('falls back to PR when no forge is detected or labels are missing', function()
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return { targets = { aliases = {} } }
+        end,
+        detect = function()
+          return nil
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+
+    local _, browse_err = cmd.parse({ 'pr', 'browse', 'main' })
+    local _, missing_edit_err = cmd.parse({ 'pr', 'edit' })
+
+    assert.equals('invalid PR number: main', browse_err.message)
+    assert.equals('missing PR number', missing_edit_err.message)
   end)
 
   it('accepts purely numeric subjects on PR/issue verbs', function()

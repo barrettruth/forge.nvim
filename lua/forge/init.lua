@@ -537,7 +537,9 @@ local function resolve_pr_action_target(opts, require_forge)
       end
     end
     if not num then
-      log.warn('missing PR number')
+      local f = forge or M.detect()
+      local label = (f and f.labels and f.labels.pr_one) or 'PR'
+      log.warn('missing ' .. label .. ' number')
       return nil
     end
     return forge, resolve_explicit_pr(opts, forge)
