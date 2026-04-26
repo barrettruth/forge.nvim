@@ -1497,7 +1497,80 @@ describe('pickers', function()
     assert.is_false(action_by_name('refresh').reload)
   end)
 
-  it('refreshes the live issue picker in place after toggle succeeds', function()
+  it(
+    'patches issue caches locally and revalidates the live issue picker after close succeeds',
+    function()
+      cache['issue:open'] = {
+        { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+        { number = 5, title = 'Follow-up', state = 'OPEN', author = 'cora', created_at = '' },
+      }
+      cache['issue:closed'] = {
+        { number = 6, title = 'Done', state = 'CLOSED', author = 'bob', created_at = '' },
+      }
+      cache['issue:all'] = {
+        { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+        { number = 6, title = 'Done', state = 'CLOSED', author = 'bob', created_at = '' },
+        { number = 5, title = 'Follow-up', state = 'OPEN', author = 'cora', created_at = '' },
+      }
+
+      local old_system = vim.system
+      local calls = {}
+      vim.system = function(cmd, _, cb)
+        calls[#calls + 1] = { cmd = cmd, cb = cb }
+        return {
+          wait = function()
+            return { code = 0 }
+          end,
+        }
+      end
+
+      local pickers = require('forge.pickers')
+      pickers.issue('open', fake_issue_forge())
+      captured.stream(function() end)
+
+      action_by_name('toggle').fn(captured.entries[1])
+
+      local closed_numbers = vim.tbl_map(function(issue)
+        return issue.number
+      end, cache['issue:closed'])
+      table.sort(closed_numbers)
+
+      assert.same(
+        { 5 },
+        vim.tbl_map(function(issue)
+          return issue.number
+        end, cache['issue:open'])
+      )
+      assert.same({ 6, 7 }, closed_numbers)
+      assert.equals(
+        'CLOSED',
+        vim.tbl_filter(function(issue)
+          return issue.number == 7
+        end, cache['issue:all'])[1].state
+      )
+      assert.equals('5', captured.entries[1].value.num)
+      assert.equals(1, picker_pick_calls)
+      assert.equals(1, picker_refresh_calls)
+      assert.same({ 'issues', 'open' }, calls[1].cmd)
+
+      calls[1].cb({
+        code = 0,
+        stdout = vim.json.encode({
+          { number = 5, title = 'Authoritative', state = 'OPEN', author = 'cora', created_at = '' },
+        }),
+      })
+
+      vim.wait(100, function()
+        return cache['issue:open'][1].title == 'Authoritative'
+      end)
+      vim.system = old_system
+
+      assert.equals('Authoritative', cache['issue:open'][1].title)
+      assert.equals(2, picker_refresh_calls)
+    end
+  )
+
+  it('updates all-issues rows in place after close succeeds', function()
     cache['issue:open'] = {
       { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
     }
@@ -1509,16 +1582,85 @@ describe('pickers', function()
       { number = 6, title = 'Done', state = 'CLOSED', author = 'bob', created_at = '' },
     }
 
+    local old_system = vim.system
+    vim.system = function()
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
     local pickers = require('forge.pickers')
-    pickers.issue('open', fake_issue_forge())
+    pickers.issue('all', fake_issue_forge())
     captured.stream(function() end)
 
     action_by_name('toggle').fn(captured.entries[1])
 
-    assert.is_nil(cache['issue:open'])
-    assert.is_nil(cache['issue:closed'])
-    assert.is_nil(cache['issue:all'])
-    assert.equals(1, picker_pick_calls)
+    vim.system = old_system
+
+    assert.equals(
+      'CLOSED',
+      vim.tbl_filter(function(issue)
+        return issue.number == 7
+      end, cache['issue:all'])[1].state
+    )
+    assert.is_nil(vim.tbl_filter(function(issue)
+      return issue.number == 7
+    end, cache['issue:open'])[1])
+    assert.equals(
+      'CLOSED',
+      vim.tbl_filter(function(issue)
+        return issue.number == 7
+      end, cache['issue:closed'])[1].state
+    )
+    assert.equals('7', captured.entries[1].value.num)
+    assert.equals('reopen', helpers.action_labels(captured.actions, captured.entries[1]).toggle)
+    assert.equals(1, picker_refresh_calls)
+  end)
+
+  it('preserves observed open-state spelling when reopening locally', function()
+    cache['issue:open'] = {
+      { number = 6, title = 'Open bug', state = 'opened', author = 'bob', created_at = '' },
+    }
+    cache['issue:closed'] = {
+      { number = 7, title = 'Closed bug', state = 'closed', author = 'alice', created_at = '' },
+    }
+    cache['issue:all'] = {
+      { number = 7, title = 'Closed bug', state = 'closed', author = 'alice', created_at = '' },
+      { number = 6, title = 'Open bug', state = 'opened', author = 'bob', created_at = '' },
+    }
+
+    local old_system = vim.system
+    vim.system = function()
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.issue('closed', fake_issue_forge())
+    captured.stream(function() end)
+
+    action_by_name('toggle').fn(captured.entries[1])
+
+    vim.system = old_system
+
+    assert.equals(
+      'opened',
+      vim.tbl_filter(function(issue)
+        return issue.number == 7
+      end, cache['issue:open'])[1].state
+    )
+    assert.equals(
+      'opened',
+      vim.tbl_filter(function(issue)
+        return issue.number == 7
+      end, cache['issue:all'])[1].state
+    )
+    assert.is_true(captured.entries[1].placeholder)
     assert.equals(1, picker_refresh_calls)
   end)
 
