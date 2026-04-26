@@ -30,9 +30,16 @@ local surface = require('forge.surface')
 ---@field prompt string?
 ---@field entries forge.PickerEntry[]
 ---@field actions forge.PickerActionDef[]
+---@field header_order? string[]
 ---@field picker_name string
 ---@field back fun()?
 ---@field stream? fun(emit: fun(entry: forge.PickerEntry?))
+
+---@class forge.PickerHint
+---@field name string
+---@field key string
+---@field label string
+---@field index integer?
 
 ---@type table<string, string[]>
 local root_search_terms = {
@@ -228,6 +235,44 @@ end
 ---@return boolean
 function M.has_dynamic_label(def)
   return type(rawget(def, 'label')) == 'function' or type(rawget(def, 'available')) == 'function'
+end
+
+---@param hints forge.PickerHint[]
+---@param order? string[]
+---@return forge.PickerHint[]
+function M.order_hints(hints, order)
+  local ranks = {}
+  for index, name in ipairs(order or {}) do
+    if type(name) == 'string' and ranks[name] == nil then
+      ranks[name] = index
+    end
+  end
+
+  local sorted = {}
+  for index, hint in ipairs(hints or {}) do
+    if type(hint) == 'table' and type(hint.name) == 'string' and type(hint.key) == 'string' then
+      sorted[#sorted + 1] = vim.tbl_extend('keep', { index = index }, hint)
+    end
+  end
+
+  table.sort(sorted, function(a, b)
+    local a_rank = ranks[a.name] or math.huge
+    local b_rank = ranks[b.name] or math.huge
+    if a_rank ~= b_rank then
+      return a_rank < b_rank
+    end
+    return (a.index or 0) < (b.index or 0)
+  end)
+
+  local ordered = {}
+  local seen_keys = {}
+  for _, hint in ipairs(sorted) do
+    if not seen_keys[hint.key] then
+      seen_keys[hint.key] = true
+      ordered[#ordered + 1] = hint
+    end
+  end
+  return ordered
 end
 
 ---@param entry forge.PickerEntry?

@@ -1,5 +1,11 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local function names(items)
+  return vim.tbl_map(function(item)
+    return item.name
+  end, items)
+end
+
 describe('forge.picker.pr_toggle_verb', function()
   local picker
 
@@ -196,5 +202,48 @@ describe('forge.picker.resolve_label', function()
     assert.is_false(picker.has_dynamic_label({ name = 'b', label = 'static' }))
     assert.is_true(picker.has_dynamic_label({ name = 'c', available = function() end }))
     assert.is_false(picker.has_dynamic_label({ name = 'd' }))
+  end)
+end)
+
+describe('forge.picker.order_hints', function()
+  local picker
+
+  before_each(function()
+    package.loaded['forge.picker'] = nil
+    picker = require('forge.picker')
+  end)
+
+  it('orders hints by explicit semantic rank', function()
+    local ordered = picker.order_hints({
+      { name = 'refresh', key = '^R', label = 'refresh' },
+      { name = 'filter', key = '<tab>', label = 'filter' },
+      { name = 'browse', key = '^X', label = 'web' },
+      { name = 'default', key = '<cr>', label = 'open' },
+    }, {
+      'default',
+      'browse',
+      'filter',
+      'refresh',
+    })
+
+    assert.same({ 'default', 'browse', 'filter', 'refresh' }, names(ordered))
+  end)
+
+  it('preserves original order for unranked hints and dedupes by rendered key', function()
+    local ordered = picker.order_hints({
+      { name = 'filter', key = '<tab>', label = 'filter' },
+      { name = 'mystery_a', key = '^M', label = 'alpha' },
+      { name = 'create', key = '^A', label = 'create' },
+      { name = 'mystery_b', key = '^M', label = 'beta' },
+      { name = 'refresh', key = '^R', label = 'refresh' },
+      { name = 'default', key = '<cr>', label = 'open' },
+    }, {
+      'default',
+      'create',
+      'filter',
+      'refresh',
+    })
+
+    assert.same({ 'default', 'create', 'filter', 'refresh', 'mystery_a' }, names(ordered))
   end)
 end)

@@ -151,33 +151,41 @@ end
 ---@param actions forge.PickerActionDef[]
 ---@param bindings table<string, string|false>
 ---@param entry forge.PickerEntry?
+---@param header_order? string[]
 ---@return string?
-local function render_header_for(actions, bindings, entry)
+local function render_header_for(actions, bindings, entry, header_order)
   local picker_mod = require('forge.picker')
   local utils = require('fzf-lua.utils')
   local hls = header_hls()
+  local hints = {}
   local parts = {}
-  local seen_keys = {}
-  for _, def in ipairs(actions) do
+  for index, def in ipairs(actions) do
     local key = def.name == 'default' and '<cr>' or bindings[def.name]
     local header_key = key and to_header_key(key) or nil
     local label = header_key and picker_mod.resolve_label(def, entry) or nil
-    if header_key and label and not seen_keys[header_key] then
-      seen_keys[header_key] = true
-      local bracketed_key = header_key:match('^<(.*)>$')
-      table.insert(
-        parts,
-        bracketed_key
-            and ('<%s> %s'):format(
-              utils.ansi_from_hl(hls.bind, bracketed_key),
-              utils.ansi_from_hl(hls.text, label)
-            )
-          or ('%s %s'):format(
-            utils.ansi_from_hl(hls.bind, header_key),
-            utils.ansi_from_hl(hls.text, label)
-          )
-      )
+    if header_key and label then
+      hints[#hints + 1] = {
+        name = def.name,
+        key = header_key,
+        label = label,
+        index = index,
+      }
     end
+  end
+  for _, hint in ipairs(picker_mod.order_hints(hints, header_order)) do
+    local bracketed_key = hint.key:match('^<(.*)>$')
+    table.insert(
+      parts,
+      bracketed_key
+          and ('<%s> %s'):format(
+            utils.ansi_from_hl(hls.bind, bracketed_key),
+            utils.ansi_from_hl(hls.text, hint.label)
+          )
+        or ('%s %s'):format(
+          utils.ansi_from_hl(hls.bind, hint.key),
+          utils.ansi_from_hl(hls.text, hint.label)
+        )
+    )
   end
   if #parts == 0 then
     return nil
@@ -187,9 +195,10 @@ end
 
 ---@param actions forge.PickerActionDef[]
 ---@param bindings table<string, string|false>
+---@param header_order? string[]
 ---@return string?
-local function render_header(actions, bindings)
-  return render_header_for(actions, bindings, nil)
+local function render_header(actions, bindings, header_order)
+  return render_header_for(actions, bindings, nil, header_order)
 end
 
 ---@param actions forge.PickerActionDef[]
@@ -234,6 +243,7 @@ function M.pick(opts)
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
+  local header_order = rawget(opts, 'header_order')
   local show_header = rawget(opts, 'show_header') ~= false
   local seed_entries = vim.list_extend({}, entries)
   local actions = vim.deepcopy(opts.actions or {})
@@ -286,25 +296,25 @@ function M.pick(opts)
     if not dynamic_header then
       return nil
     end
-    return transport_header(render_header_for(actions, bindings, entry))
+    return transport_header(render_header_for(actions, bindings, entry, header_order))
   end
 
   local initial_header
   if dynamic_header then
     for _, entry in ipairs(entries) do
       if not rawget(entry, 'placeholder') and not rawget(entry, 'load_more') then
-        initial_header = render_header_for(actions, bindings, entry)
+        initial_header = render_header_for(actions, bindings, entry, header_order)
         break
       end
     end
     if not initial_header and entries[1] ~= nil then
-      initial_header = render_header_for(actions, bindings, entries[1])
+      initial_header = render_header_for(actions, bindings, entries[1], header_order)
     end
     if not initial_header then
-      initial_header = render_header_for(actions, bindings, nil)
+      initial_header = render_header_for(actions, bindings, nil, header_order)
     end
   elseif show_header then
-    initial_header = render_header(actions, bindings)
+    initial_header = render_header(actions, bindings, header_order)
   end
 
   local lines
