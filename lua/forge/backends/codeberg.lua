@@ -65,8 +65,8 @@ local M = {
   },
 }
 
-local function repo_arg(ref)
-  local current = ref or forge.current_scope(M.name)
+local function repo_arg(scope)
+  local current = scope or forge.current_scope(M.name)
   return forge.scope_repo_arg(current) or ''
 end
 
@@ -80,7 +80,7 @@ end
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_pr_json_cmd(state, limit, ref)
+function M:list_pr_json_cmd(state, limit, scope)
   return {
     'tea',
     'pulls',
@@ -94,14 +94,14 @@ function M:list_pr_json_cmd(state, limit, ref)
     '--fields',
     'index,title,head,state,poster,created_at',
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
   }
 end
 
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_issue_json_cmd(state, limit, ref)
+function M:list_issue_json_cmd(state, limit, scope)
   return {
     'tea',
     'issues',
@@ -115,26 +115,26 @@ function M:list_issue_json_cmd(state, limit, ref)
     '--fields',
     'index,title,state,poster,created_at',
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
   }
 end
 
 ---@param kind string
 ---@param num string
----@param ref forge.Scope?
-function M:view_web(kind, num, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:view_web(kind, num, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(('%s/%s/%s'):format(base, kind, num))
 end
 
 ---@param num string
----@param ref forge.Scope?
-function M:browse_subject(num, ref)
+---@param scope forge.Scope?
+function M:browse_subject(num, scope)
   local cmd = {
     'tea',
     'api',
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
     ('/repos/{owner}/{repo}/issues/%s'):format(num),
   }
   local parse_err = ('failed to parse #%s details'):format(num)
@@ -169,24 +169,24 @@ end
 
 ---@param loc string
 ---@param branch string
----@param ref forge.Scope?
-function M:browse(loc, branch, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:browse(loc, branch, scope)
+  local base = forge.remote_web_url(scope)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
 ---@param branch string
----@param ref forge.Scope?
-function M:browse_branch(branch, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:browse_branch(branch, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/src/branch/' .. branch)
 end
 
 ---@param commit string
----@param ref forge.Scope?
-function M:browse_commit(commit, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:browse_commit(commit, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/commit/' .. commit)
 end
 
@@ -198,10 +198,10 @@ local LIST_PATHS = {
 }
 
 ---@param kind forge.WebKind
----@param ref forge.Scope?
+---@param scope forge.Scope?
 ---@return string?
-function M:list_web_url(kind, ref)
-  local base = forge.remote_web_url(ref)
+function M:list_web_url(kind, scope)
+  local base = forge.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -212,8 +212,8 @@ function M:list_web_url(kind, ref)
   return base .. path
 end
 
-function M:checkout_cmd(num, ref)
-  return { 'tea', 'pr', 'checkout', num, '--repo', repo_arg(ref) }
+function M:checkout_cmd(num, scope)
+  return { 'tea', 'pr', 'checkout', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
@@ -224,18 +224,18 @@ end
 
 ---@param num string
 ---@return string[]
-function M:pr_base_cmd(num, ref)
-  return { 'tea', 'pr', num, '--fields', 'base', '--output', 'simple', '--repo', repo_arg(ref) }
+function M:pr_base_cmd(num, scope)
+  return { 'tea', 'pr', num, '--fields', 'base', '--output', 'simple', '--repo', repo_arg(scope) }
 end
 
 ---@param branch string
 ---@return string[]
-function M:pr_for_branch_cmd(branch, ref)
+function M:pr_for_branch_cmd(branch, scope)
   return {
     'sh',
     '-c',
     ('tea pr list --state open --output json --fields index,head --repo %s | jq -r \'.[] | select(.head=="%s" or .head.name=="%s") | .index // empty\''):format(
-      repo_arg(ref),
+      repo_arg(scope),
       branch,
       branch
     ),
@@ -244,7 +244,7 @@ end
 
 ---@param num string
 ---@return string[]
-function M:checks_json_cmd(num, ref)
+function M:checks_json_cmd(num, scope)
   local jq = [=[
     [.statuses // [] | .[] | {
       name: .context,
@@ -261,9 +261,9 @@ function M:checks_json_cmd(num, ref)
     'sh',
     '-c',
     ('SHA=$(tea api --repo %s "/repos/{owner}/{repo}/pulls/%s" 2>/dev/null | jq -r ".head.sha // empty") && [ -n "$SHA" ] && tea api --repo %s "/repos/{owner}/{repo}/commits/$SHA/status" 2>/dev/null | jq -r \'%s\''):format(
-      repo_arg(ref),
+      repo_arg(scope),
       num,
-      repo_arg(ref),
+      repo_arg(scope),
       jq:gsub('%s+', ' ')
     ),
   }
@@ -280,7 +280,7 @@ end
 ---@param failed_only boolean
 ---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only, job_id, ref)
+function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local _ = failed_only
   local lines = forge.config().ci.lines
   local job_flag = job_id and (' --job %s'):format(job_id) or ''
@@ -289,7 +289,7 @@ function M:check_log_cmd(run_id, failed_only, job_id, ref)
     '-c',
     ('tea actions runs logs %s --repo %s%s | tail -n %d'):format(
       run_id,
-      repo_arg(ref),
+      repo_arg(scope),
       job_flag,
       lines
     ),
@@ -298,15 +298,15 @@ end
 
 ---@param run_id string
 ---@return string[]
-function M:check_tail_cmd(run_id, ref)
-  return { 'tea', 'actions', 'runs', 'logs', run_id, '--follow', '--repo', repo_arg(ref) }
+function M:check_tail_cmd(run_id, scope)
+  return { 'tea', 'actions', 'runs', 'logs', run_id, '--follow', '--repo', repo_arg(scope) }
 end
 
 ---@param run_id string
 ---@param job_id string?
 ---@return string[]
-function M:live_tail_cmd(run_id, job_id, ref)
-  local cmd = { 'tea', 'actions', 'runs', 'logs', run_id, '--follow', '--repo', repo_arg(ref) }
+function M:live_tail_cmd(run_id, job_id, scope)
+  local cmd = { 'tea', 'actions', 'runs', 'logs', run_id, '--follow', '--repo', repo_arg(scope) }
   if job_id then
     table.insert(cmd, '--job')
     table.insert(cmd, job_id)
@@ -314,10 +314,10 @@ function M:live_tail_cmd(run_id, job_id, ref)
   return cmd
 end
 
-function M:list_runs_json_cmd(branch, ref, limit)
+function M:list_runs_json_cmd(branch, scope, limit)
   local limit_arg = tostring(limit or forge.config().display.limits.runs)
   local cmd = 'tea api --repo '
-    .. repo_arg(ref)
+    .. repo_arg(scope)
     .. ' "/repos/{owner}/{repo}/actions/runs?limit='
     .. limit_arg
   if branch then
@@ -329,12 +329,12 @@ end
 
 ---@param id string
 ---@return string[]
-function M:cancel_run_cmd(id, ref)
+function M:cancel_run_cmd(id, scope)
   return {
     'tea',
     'api',
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
     '-X',
     'POST',
     ('/repos/{owner}/{repo}/actions/runs/%s/cancel'):format(id),
@@ -343,12 +343,12 @@ end
 
 ---@param id string
 ---@return string[]
-function M:rerun_run_cmd(id, ref)
+function M:rerun_run_cmd(id, scope)
   return {
     'tea',
     'api',
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
     '-X',
     'POST',
     ('/repos/{owner}/{repo}/actions/runs/%s/rerun'):format(id),
@@ -357,8 +357,8 @@ end
 
 ---@param id string
 ---@return string?
-function M:run_web_url(id, ref)
-  local base = forge.remote_web_url(ref)
+function M:run_web_url(id, scope)
+  local base = forge.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -366,8 +366,8 @@ function M:run_web_url(id, ref)
 end
 
 ---@param id string
-function M:browse_run(id, ref)
-  local url = self:run_web_url(id, ref)
+function M:browse_run(id, scope)
+  local url = self:run_web_url(id, scope)
   if not url then
     return
   end
@@ -390,79 +390,79 @@ function M:normalize_run(entry)
   }
 end
 
-function M:run_log_cmd(id, failed_only, ref)
+function M:run_log_cmd(id, failed_only, scope)
   local _ = failed_only
   local lines = forge.config().ci.lines
   return {
     'sh',
     '-c',
-    ('tea actions runs logs %s --repo %s | tail -n %d'):format(id, repo_arg(ref), lines),
+    ('tea actions runs logs %s --repo %s | tail -n %d'):format(id, repo_arg(scope), lines),
   }
 end
 
-function M:run_tail_cmd(id, ref)
-  return { 'tea', 'actions', 'runs', 'logs', id, '--follow', '--repo', repo_arg(ref) }
+function M:run_tail_cmd(id, scope)
+  return { 'tea', 'actions', 'runs', 'logs', id, '--follow', '--repo', repo_arg(scope) }
 end
 
 ---@param num string
 ---@param method string
 ---@return string[]
-function M:merge_cmd(num, method, ref)
+function M:merge_cmd(num, method, scope)
   local cmd = { 'tea', 'pr', 'merge', num }
   if method and method ~= '' then
     table.insert(cmd, '--style')
     table.insert(cmd, method)
   end
   table.insert(cmd, '--repo')
-  table.insert(cmd, repo_arg(ref))
+  table.insert(cmd, repo_arg(scope))
   return cmd
 end
 
 ---@param num string
 ---@return string[]
-function M:approve_cmd(num, ref)
-  return { 'tea', 'pr', 'approve', num, '--repo', repo_arg(ref) }
+function M:approve_cmd(num, scope)
+  return { 'tea', 'pr', 'approve', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:close_cmd(num, ref)
-  return { 'tea', 'pulls', 'close', num, '--repo', repo_arg(ref) }
+function M:close_cmd(num, scope)
+  return { 'tea', 'pulls', 'close', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:reopen_cmd(num, ref)
-  return { 'tea', 'pulls', 'reopen', num, '--repo', repo_arg(ref) }
+function M:reopen_cmd(num, scope)
+  return { 'tea', 'pulls', 'reopen', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:close_issue_cmd(num, ref)
-  return { 'tea', 'issues', 'close', num, '--repo', repo_arg(ref) }
+function M:close_issue_cmd(num, scope)
+  return { 'tea', 'issues', 'close', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:reopen_issue_cmd(num, ref)
-  return { 'tea', 'issues', 'reopen', num, '--repo', repo_arg(ref) }
+function M:reopen_issue_cmd(num, scope)
+  return { 'tea', 'issues', 'reopen', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr_details_cmd(num, ref)
+function M:fetch_pr_details_cmd(num, scope)
   return {
     'sh',
     '-c',
-    ('tea api --repo %s "/repos/{owner}/{repo}/pulls/%s"'):format(repo_arg(ref), num),
+    ('tea api --repo %s "/repos/{owner}/{repo}/pulls/%s"'):format(repo_arg(scope), num),
   }
 end
 
-function M:fetch_issue_details_cmd(num, ref)
+function M:fetch_issue_details_cmd(num, scope)
   return {
     'sh',
     '-c',
-    ('tea api --repo %s "/repos/{owner}/{repo}/issues/%s"'):format(repo_arg(ref), num),
+    ('tea api --repo %s "/repos/{owner}/{repo}/issues/%s"'):format(repo_arg(scope), num),
   }
 end
 
@@ -470,7 +470,7 @@ end
 ---@param title string
 ---@param body string
 ---@return string[]
-function M:update_pr_cmd(num, title, body, ref, metadata, previous)
+function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   local cmd = {
     'tea',
     'pr',
@@ -481,7 +481,7 @@ function M:update_pr_cmd(num, title, body, ref, metadata, previous)
     '--description',
     body,
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   local current = submission.filter(self, 'pr', 'update', metadata)
   local before = previous or { labels = {}, reviewers = {}, milestone = '' }
@@ -498,7 +498,7 @@ function M:update_pr_cmd(num, title, body, ref, metadata, previous)
   return cmd
 end
 
-function M:update_issue_cmd(num, title, body, ref, metadata, previous)
+function M:update_issue_cmd(num, title, body, scope, metadata, previous)
   local cmd = {
     'tea',
     'issues',
@@ -509,7 +509,7 @@ function M:update_issue_cmd(num, title, body, ref, metadata, previous)
     '--description',
     body,
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   local current = submission.filter(self, 'issue', 'update', metadata)
   local before = previous or { labels = {}, milestone = '' }
@@ -584,7 +584,7 @@ end
 ---@param base string
 ---@param _draft boolean
 ---@return string[]
-function M:create_pr_cmd(title, body, base, _draft, ref, metadata)
+function M:create_pr_cmd(title, body, base, _draft, scope, metadata)
   local cmd = {
     'tea',
     'pr',
@@ -596,7 +596,7 @@ function M:create_pr_cmd(title, body, base, _draft, ref, metadata)
     '--base',
     base,
     '--repo',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   local current = metadata and submission.filter(self, 'pr', 'create', metadata) or nil
   append_csv(cmd, '--labels', current and current.labels or {})
@@ -609,14 +609,14 @@ function M:create_pr_cmd(title, body, base, _draft, ref, metadata)
 end
 
 ---@return string
-function M:create_pr_web_url(ref, _, head_branch, base_branch)
+function M:create_pr_web_url(scope, _, head_branch, base_branch)
   local branch = head_branch or vim.trim(vim.fn.system('git branch --show-current'))
-  local base_url = forge.remote_web_url(ref)
+  local base_url = forge.remote_web_url(scope)
   local default = base_branch
   if not default or default == '' then
     default = vim.trim(
       vim.fn.system(
-        "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
+        "git symbolic-scope refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
       )
     )
     if default == '' then
@@ -630,9 +630,18 @@ end
 ---@param body string
 ---@param labels string[]?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, ref, metadata)
-  local cmd =
-    { 'tea', 'issues', 'create', '--title', title, '--description', body, '--repo', repo_arg(ref) }
+function M:create_issue_cmd(title, body, labels, scope, metadata)
+  local cmd = {
+    'tea',
+    'issues',
+    'create',
+    '--title',
+    title,
+    '--description',
+    body,
+    '--repo',
+    repo_arg(scope),
+  }
   local current = metadata and submission.filter(self, 'issue', 'create', metadata) or nil
   local effective_labels = current and current.labels or labels or {}
   append_csv(cmd, '--labels', effective_labels)
@@ -655,13 +664,13 @@ function M:issue_template_paths()
 end
 
 ---@return string[]
-function M:default_branch_cmd(ref)
+function M:default_branch_cmd(scope)
   return {
     'sh',
     '-c',
-    "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
+    "git symbolic-scope refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'"
       .. ' || tea api --repo '
-      .. repo_arg(ref)
+      .. repo_arg(scope)
       .. " /repos/{owner}/{repo} 2>/dev/null | jq -r '.default_branch // empty'",
   }
 end
@@ -683,9 +692,9 @@ function M:draft_toggle_cmd(_num, _is_draft)
 end
 
 ---@return forge.RepoInfo
-function M:repo_info(ref)
+function M:repo_info(scope)
   local result = vim
-    .system({ 'tea', 'api', '--repo', repo_arg(ref), '/repos/{owner}/{repo}' }, { text = true })
+    .system({ 'tea', 'api', '--repo', repo_arg(scope), '/repos/{owner}/{repo}' }, { text = true })
     :wait()
   local ok, data = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(data) ~= 'table' then
@@ -719,7 +728,7 @@ end
 
 ---@param num string
 ---@return forge.PRState
-function M:pr_state(num, ref)
+function M:pr_state(num, scope)
   local result = vim
     .system({
       'tea',
@@ -730,7 +739,7 @@ function M:pr_state(num, ref)
       '--output',
       'json',
       '--repo',
-      repo_arg(ref),
+      repo_arg(scope),
     }, { text = true })
     :wait()
   local ok, data = pcall(vim.json.decode, result.stdout or '{}')
@@ -745,28 +754,28 @@ function M:pr_state(num, ref)
   }
 end
 
-function M:list_releases_json_cmd(ref, limit)
+function M:list_releases_json_cmd(scope, limit)
   local limit_arg = tostring(limit or forge.config().display.limits.releases)
   return {
     'sh',
     '-c',
-    'tea releases list --limit ' .. limit_arg .. ' --output json --repo ' .. repo_arg(ref),
+    'tea releases list --limit ' .. limit_arg .. ' --output json --repo ' .. repo_arg(scope),
   }
 end
 
 ---@param tag string
-function M:browse_release(tag, ref)
-  local base = forge.remote_web_url(ref)
+function M:browse_release(tag, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/releases/tag/' .. tag)
 end
 
 ---@param tag string
 ---@return string[]
-function M:delete_release_cmd(tag, ref)
+function M:delete_release_cmd(tag, scope)
   return {
     'sh',
     '-c',
-    'tea releases delete --confirm --repo ' .. repo_arg(ref) .. ' ' .. tag,
+    'tea releases delete --confirm --repo ' .. repo_arg(scope) .. ' ' .. tag,
   }
 end
 

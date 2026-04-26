@@ -339,9 +339,8 @@ describe('command schema', function()
     assert.is_not_nil(pr)
   end)
 
-  it('keeps legacy browse modifiers separate from canonical ones', function()
+  it('exposes browse modifiers in declared order', function()
     assert.same({ 'repo', 'branch', 'commit', 'target' }, cmd.modifier_names('browse'))
-    assert.same({}, cmd.legacy_modifier_names('browse'))
   end)
 
   it('exposes modifier value metadata where the grammar constrains it', function()
@@ -351,7 +350,7 @@ describe('command schema', function()
   end)
 
   it('rejects invalid modifiers and duplicate modifiers', function()
-    local _, unknown = cmd.parse({ 'review', '42', '--wat=1' })
+    local _, unknown = cmd.parse({ 'review', '42', 'wat=1' })
     local _, duplicate = cmd.parse({ 'pr', 'create', 'repo=origin', 'repo=upstream' })
 
     assert.equals('unknown modifier: wat', unknown.message)

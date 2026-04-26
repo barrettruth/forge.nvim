@@ -234,7 +234,7 @@ local function token_is_modifier_like(token)
   if type(token) ~= 'string' then
     return false
   end
-  return token:match('^%-%-') ~= nil or token:find('=', 1, true) ~= nil
+  return token:find('=', 1, true) ~= nil
 end
 
 local function list_contains(items, value)
@@ -831,18 +831,6 @@ function M.modifier_names(family_name, verb_name, opts)
   return copy(command.modifiers or {})
 end
 
----@param family_name string
----@param verb_name string?
----@param opts? forge.SurfaceOpts
----@return string[]
-function M.legacy_modifier_names(family_name, verb_name, opts)
-  local command = M.resolve(family_name, verb_name, opts)
-  if not command then
-    return {}
-  end
-  return copy(command.legacy_modifiers or {})
-end
-
 ---@param args string[]
 ---@param opts? forge.SurfaceOpts
 ---@return forge.Command?, forge.CmdError?
@@ -896,41 +884,24 @@ function M.parse(args, opts)
   command.raw = copy(args)
 
   local declared_modifiers = command.modifiers or {}
-  local legacy_modifiers = command.legacy_modifiers or {}
   local allowed_modifiers = {}
   for _, name in ipairs(declared_modifiers) do
-    allowed_modifiers[name] = true
-  end
-  for _, name in ipairs(legacy_modifiers) do
     allowed_modifiers[name] = true
   end
 
   command.modifiers = {}
   command.declared_modifiers = declared_modifiers
-  command.declared_legacy_modifiers = legacy_modifiers
 
   for i = rest_index, #args do
     local token = args[i]
     local name, value
-    if token:match('^%-%-') then
-      local body = token:sub(3)
-      local eq = body:find('=', 1, true)
-      if eq then
-        name = body:sub(1, eq - 1)
-        value = body:sub(eq + 1)
-      else
-        name = body
-        value = true
-      end
-    else
-      local eq = token:find('=', 1, true)
-      if eq then
-        name = token:sub(1, eq - 1)
-        value = token:sub(eq + 1)
-      elseif allowed_modifiers[token] and modifiers[token] and modifiers[token].kind == 'flag' then
-        name = token
-        value = true
-      end
+    local eq = token:find('=', 1, true)
+    if eq then
+      name = token:sub(1, eq - 1)
+      value = token:sub(eq + 1)
+    elseif allowed_modifiers[token] and modifiers[token] and modifiers[token].kind == 'flag' then
+      name = token
+      value = true
     end
 
     if name then
@@ -1040,30 +1011,12 @@ local function completion_state(command, args)
   }
   for _, token in ipairs(args) do
     local name, value
-    if token:match('^%-%-') then
-      local body = token:sub(3)
-      local eq = body:find('=', 1, true)
-      if eq then
-        name = body:sub(1, eq - 1)
-        value = body:sub(eq + 1)
-      else
-        name = body
-        value = true
-      end
-    else
-      local eq = token:find('=', 1, true)
-      if eq then
-        name = token:sub(1, eq - 1)
-        value = token:sub(eq + 1)
-      end
+    local eq = token:find('=', 1, true)
+    if eq then
+      name = token:sub(1, eq - 1)
+      value = token:sub(eq + 1)
     end
-    if
-      name
-      and (
-        list_contains(command.declared_modifiers or {}, name)
-        or list_contains(command.declared_legacy_modifiers or {}, name)
-      )
-    then
+    if name and list_contains(command.declared_modifiers or {}, name) then
       if state.modifiers[name] == nil then
         state.modifiers[name] = value
       end
@@ -1074,18 +1027,16 @@ local function completion_state(command, args)
   return state
 end
 
-local function filtered_modifier_completion_items(command, state, legacy)
+local function filtered_modifier_completion_items(command, state)
   local items = {}
-  local names = legacy and (command.declared_legacy_modifiers or command.legacy_modifiers)
-    or (command.declared_modifiers or command.modifiers)
+  local names = command.declared_modifiers or command.modifiers
   for _, name in ipairs(names or {}) do
     if state.modifiers[name] == nil then
       local spec = modifiers[name]
-      local prefix = legacy and '--' or ''
       if spec and spec.kind == 'flag' then
-        items[#items + 1] = prefix .. name
+        items[#items + 1] = name
       else
-        items[#items + 1] = prefix .. name .. '='
+        items[#items + 1] = name .. '='
       end
     end
   end
@@ -1538,16 +1489,6 @@ function M.complete(arglead, cmdline, _)
       and words[3]
     or nil
 
-  local legacy_flag, legacy_prefix = arglead:match('^(%-%-[^=]+)=(.*)$')
-  if legacy_flag then
-    local values =
-      completion_values(family_name, explicit_verb, legacy_flag:sub(3), legacy_prefix, surface_opts)
-    if values then
-      return vim.tbl_map(function(v)
-        return legacy_flag .. '=' .. v
-      end, values)
-    end
-  end
   local flag, value_prefix = arglead:match('^([%w%-_]+)=(.*)$')
   if flag then
     local values = completion_values(family_name, explicit_verb, flag, value_prefix, surface_opts)
@@ -1580,17 +1521,11 @@ function M.complete(arglead, cmdline, _)
       end
     end
     if command then
-      if arglead:match('^%-%-') then
-        if slot_policy.include_modifiers then
-          vim.list_extend(candidates, filtered_modifier_completion_items(command, state, true))
-        end
-      else
-        if slot_policy.include_modifiers then
-          vim.list_extend(candidates, filtered_modifier_completion_items(command, state, false))
-        end
-        if slot_policy.include_subjects then
-          vim.list_extend(candidates, subject_completion_items(command, state, arglead))
-        end
+      if slot_policy.include_modifiers then
+        vim.list_extend(candidates, filtered_modifier_completion_items(command, state))
+      end
+      if slot_policy.include_subjects then
+        vim.list_extend(candidates, subject_completion_items(command, state, arglead))
       end
     end
     return filter(candidates, arglead)
@@ -1600,7 +1535,6 @@ function M.complete(arglead, cmdline, _)
     return {}
   end
   command.declared_modifiers = command.modifiers or {}
-  command.declared_legacy_modifiers = command.legacy_modifiers or {}
   local rest_index = explicit_verb and 4 or 3
   local consumed = {}
   for i = rest_index, arglead == '' and #words or (#words - 1) do
@@ -1608,15 +1542,9 @@ function M.complete(arglead, cmdline, _)
   end
   local state = completion_state(command, consumed)
   local slot_policy = require('forge.completion_policy').argument_slot(command, state)
-  if arglead:match('^%-%-') then
-    if not slot_policy.include_modifiers then
-      return {}
-    end
-    return filter(filtered_modifier_completion_items(command, state, true), arglead)
-  end
   local candidates = {}
   if slot_policy.include_modifiers then
-    vim.list_extend(candidates, filtered_modifier_completion_items(command, state, false))
+    vim.list_extend(candidates, filtered_modifier_completion_items(command, state))
   end
   if slot_policy.include_subjects then
     vim.list_extend(candidates, subject_completion_items(command, state, arglead))

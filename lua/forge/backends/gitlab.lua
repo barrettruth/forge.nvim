@@ -1,6 +1,6 @@
 local forge = require('forge')
 local log = require('forge.logger')
-local scope = require('forge.scope')
+local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
 
 ---@class forge.GitLab: forge.Forge
@@ -53,17 +53,17 @@ local M = {
   },
 }
 
-local function repo_arg(ref)
-  return forge.scope_repo_arg(ref) or forge.remote_web_url()
+local function repo_arg(scope)
+  return forge.scope_repo_arg(scope) or forge.remote_web_url()
 end
 
-local function project(ref)
-  local current = ref or forge.current_scope(M.name)
-  return scope.encode_project(current) or ''
+local function project(scope)
+  local current = scope or forge.current_scope(M.name)
+  return scope_mod.encode_project(current) or ''
 end
 
-local function hostname(ref)
-  local current = ref or forge.current_scope(M.name)
+local function hostname(scope)
+  local current = scope or forge.current_scope(M.name)
   return current and current.host or nil
 end
 
@@ -77,7 +77,7 @@ end
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_pr_json_cmd(state, limit, ref)
+function M:list_pr_json_cmd(state, limit, scope)
   local cmd = {
     'glab',
     'mr',
@@ -87,7 +87,7 @@ function M:list_pr_json_cmd(state, limit, ref)
     '--output',
     'json',
   }
-  local repo = repo_arg(ref)
+  local repo = repo_arg(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
     table.insert(cmd, repo)
@@ -103,7 +103,7 @@ end
 ---@param state string
 ---@param limit integer?
 ---@return string[]
-function M:list_issue_json_cmd(state, limit, ref)
+function M:list_issue_json_cmd(state, limit, scope)
   local cmd = {
     'glab',
     'issue',
@@ -113,7 +113,7 @@ function M:list_issue_json_cmd(state, limit, ref)
     '--output',
     'json',
   }
-  local repo = repo_arg(ref)
+  local repo = repo_arg(scope)
   if repo ~= '' then
     table.insert(cmd, '-R')
     table.insert(cmd, repo)
@@ -128,15 +128,15 @@ end
 
 ---@param kind string
 ---@param num string
----@param ref forge.Scope?
-function M:view_web(kind, num, ref)
-  vim.system({ 'glab', kind, 'view', num, '--web', '-R', repo_arg(ref) })
+---@param scope forge.Scope?
+function M:view_web(kind, num, scope)
+  vim.system({ 'glab', kind, 'view', num, '--web', '-R', repo_arg(scope) })
 end
 
 ---@param num string
----@param ref forge.Scope?
-function M:browse_subject(num, ref)
-  local current = ref or forge.current_scope(M.name)
+---@param scope forge.Scope?
+function M:browse_subject(num, scope)
+  local current = scope or forge.current_scope(M.name)
   local pid = project(current)
   local host = hostname(current) or 'gitlab.com'
   if pid == '' then
@@ -206,24 +206,24 @@ end
 
 ---@param loc string
 ---@param branch string
----@param ref forge.Scope?
-function M:browse(loc, branch, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:browse(loc, branch, scope)
+  local base = forge.remote_web_url(scope)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
 ---@param branch string
----@param ref forge.Scope?
-function M:browse_branch(branch, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:browse_branch(branch, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/-/tree/' .. branch)
 end
 
 ---@param commit string
----@param ref forge.Scope?
-function M:browse_commit(commit, ref)
-  local base = forge.remote_web_url(ref)
+---@param scope forge.Scope?
+function M:browse_commit(commit, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/-/commit/' .. commit)
 end
 
@@ -235,10 +235,10 @@ local LIST_PATHS = {
 }
 
 ---@param kind forge.WebKind
----@param ref forge.Scope?
+---@param scope forge.Scope?
 ---@return string?
-function M:list_web_url(kind, ref)
-  local base = forge.remote_web_url(ref)
+function M:list_web_url(kind, scope)
+  local base = forge.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -249,17 +249,21 @@ function M:list_web_url(kind, ref)
   return base .. path
 end
 
-function M:checkout_cmd(num, ref)
-  return { 'glab', 'mr', 'checkout', num, '-R', repo_arg(ref) }
+function M:checkout_cmd(num, scope)
+  return { 'glab', 'mr', 'checkout', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr(num, ref)
+function M:fetch_pr(num, scope)
   local remote = 'origin'
   local current = forge.current_scope(M.name)
-  if ref and forge.scope_key(ref) ~= '' and forge.scope_key(ref) ~= forge.scope_key(current) then
-    remote = forge.remote_web_url(ref) .. '.git'
+  if
+    scope
+    and forge.scope_key(scope) ~= ''
+    and forge.scope_key(scope) ~= forge.scope_key(current)
+  then
+    remote = forge.remote_web_url(scope) .. '.git'
   end
   return {
     'git',
@@ -271,30 +275,30 @@ end
 
 ---@param num string
 ---@return string[]
-function M:pr_base_cmd(num, ref)
+function M:pr_base_cmd(num, scope)
   return {
     'sh',
     '-c',
-    ("glab mr view %s -F json -R '%s' | jq -r .target_branch"):format(num, repo_arg(ref)),
+    ("glab mr view %s -F json -R '%s' | jq -r .target_branch"):format(num, repo_arg(scope)),
   }
 end
 
 ---@param branch string
 ---@return string[]
-function M:pr_for_branch_cmd(branch, ref)
+function M:pr_for_branch_cmd(branch, scope)
   return {
     'sh',
     '-c',
     ("glab mr list --source-branch '%s' -F json -R '%s' | jq -r '.[].iid // empty'"):format(
       branch,
-      repo_arg(ref)
+      repo_arg(scope)
     ),
   }
 end
 
 ---@param num string
 ---@return string[]
-function M:checks_json_cmd(num, ref)
+function M:checks_json_cmd(num, scope)
   local jq = [=[
     [.[] | {
       name: .name,
@@ -313,11 +317,11 @@ function M:checks_json_cmd(num, ref)
     'sh',
     '-c',
     ('PID=$(glab api --hostname %s "projects/%s/merge_requests/%s/pipelines?per_page=1" 2>/dev/null | jq -r ".[0].id // empty") && [ -n "$PID" ] && glab api --hostname %s "projects/%s/pipelines/$PID/jobs?per_page=100" 2>/dev/null | jq -r \'%s\''):format(
-      hostname(ref) or 'gitlab.com',
-      project(ref),
+      hostname(scope) or 'gitlab.com',
+      project(scope),
       num,
-      hostname(ref) or 'gitlab.com',
-      project(ref),
+      hostname(scope) or 'gitlab.com',
+      project(scope),
       jq:gsub('%s+', ' ')
     ),
   }
@@ -334,35 +338,35 @@ end
 ---@param failed_only boolean
 ---@param job_id string?
 ---@return string[]
-function M:check_log_cmd(run_id, failed_only, job_id, ref)
+function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local _ = failed_only
   local lines = forge.config().ci.lines
   local id = job_id or run_id
   return {
     'sh',
     '-c',
-    ("glab ci trace %s -R '%s' | tail -n %d"):format(id, repo_arg(ref), lines),
+    ("glab ci trace %s -R '%s' | tail -n %d"):format(id, repo_arg(scope), lines),
   }
 end
 
 ---@param run_id string
 ---@return string[]
-function M:check_tail_cmd(run_id, ref)
-  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(ref) }
+function M:check_tail_cmd(run_id, scope)
+  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(scope) }
 end
 
 ---@param run_id string
 ---@return string[]
-function M:live_tail_cmd(run_id, _, ref)
-  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(ref) }
+function M:live_tail_cmd(run_id, _, scope)
+  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(scope) }
 end
 
 ---@param id string?
 ---@return string[]
-function M:watch_cmd(id, ref)
+function M:watch_cmd(id, scope)
   local cmd = { 'glab', 'ci', 'view' }
   table.insert(cmd, '-R')
-  table.insert(cmd, repo_arg(ref))
+  table.insert(cmd, repo_arg(scope))
   if id then
     table.insert(cmd, '-p')
     table.insert(cmd, id)
@@ -372,28 +376,28 @@ end
 
 ---@param id string
 ---@return string[]
-function M:cancel_run_cmd(id, ref)
-  return { 'glab', 'ci', 'cancel', 'pipeline', id, '-R', repo_arg(ref) }
+function M:cancel_run_cmd(id, scope)
+  return { 'glab', 'ci', 'cancel', 'pipeline', id, '-R', repo_arg(scope) }
 end
 
 ---@param id string
 ---@return string[]
-function M:rerun_run_cmd(id, ref)
+function M:rerun_run_cmd(id, scope)
   return {
     'glab',
     'api',
     '--hostname',
-    hostname(ref) or 'gitlab.com',
+    hostname(scope) or 'gitlab.com',
     '--method',
     'POST',
-    ('projects/%s/pipelines/%s/retry'):format(project(ref), id),
+    ('projects/%s/pipelines/%s/retry'):format(project(scope), id),
   }
 end
 
 ---@param id string
 ---@return string?
-function M:run_web_url(id, ref)
-  local base = forge.remote_web_url(ref)
+function M:run_web_url(id, scope)
+  local base = forge.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -401,15 +405,15 @@ function M:run_web_url(id, ref)
 end
 
 ---@param id string
-function M:browse_run(id, ref)
-  local url = self:run_web_url(id, ref)
+function M:browse_run(id, scope)
+  local url = self:run_web_url(id, scope)
   if not url then
     return
   end
   vim.ui.open(url)
 end
 
-function M:list_runs_json_cmd(branch, ref, limit)
+function M:list_runs_json_cmd(branch, scope, limit)
   local cmd = {
     'glab',
     'ci',
@@ -419,7 +423,7 @@ function M:list_runs_json_cmd(branch, ref, limit)
     '--per-page',
     tostring(limit or forge.config().display.limits.runs),
     '-R',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   if branch then
     table.insert(cmd, '--ref')
@@ -442,7 +446,7 @@ function M:normalize_run(entry)
   }
 end
 
-function M:run_log_cmd(id, failed_only, ref)
+function M:run_log_cmd(id, failed_only, scope)
   local lines = forge.config().ci.lines
   local jq_filter = failed_only and '[.[] | select(.status=="failed")][0].id // .[0].id'
     or '.[0].id'
@@ -450,27 +454,27 @@ function M:run_log_cmd(id, failed_only, ref)
     'sh',
     '-c',
     ('JOB=$(glab api --hostname %s \'projects/%s/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB" -R \'%s\' | tail -n %d'):format(
-      hostname(ref) or 'gitlab.com',
-      project(ref),
+      hostname(scope) or 'gitlab.com',
+      project(scope),
       id,
       jq_filter,
-      repo_arg(ref),
+      repo_arg(scope),
       lines
     ),
   }
 end
 
-function M:run_tail_cmd(id, ref)
+function M:run_tail_cmd(id, scope)
   local jq_filter = '[.[] | select(.status=="running" or .status=="pending")][0].id // .[0].id'
   return {
     'sh',
     '-c',
     ('JOB=$(glab api --hostname %s \'projects/%s/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB" -R \'%s\''):format(
-      hostname(ref) or 'gitlab.com',
-      project(ref),
+      hostname(scope) or 'gitlab.com',
+      project(scope),
       id,
       jq_filter,
-      repo_arg(ref)
+      repo_arg(scope)
     ),
   }
 end
@@ -478,10 +482,10 @@ end
 ---@param num string
 ---@param method string
 ---@return string[]
-function M:merge_cmd(num, method, ref)
+function M:merge_cmd(num, method, scope)
   local cmd = { 'glab', 'mr', 'merge', num }
   table.insert(cmd, '-R')
-  table.insert(cmd, repo_arg(ref))
+  table.insert(cmd, repo_arg(scope))
   if method == 'squash' then
     table.insert(cmd, '--squash')
   elseif method == 'rebase' then
@@ -492,20 +496,20 @@ end
 
 ---@param num string
 ---@return string[]
-function M:approve_cmd(num, ref)
-  return { 'glab', 'mr', 'approve', num, '-R', repo_arg(ref) }
+function M:approve_cmd(num, scope)
+  return { 'glab', 'mr', 'approve', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:close_cmd(num, ref)
-  return { 'glab', 'mr', 'close', num, '-R', repo_arg(ref) }
+function M:close_cmd(num, scope)
+  return { 'glab', 'mr', 'close', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
 ---@return string[]
-function M:reopen_cmd(num, ref)
-  return { 'glab', 'mr', 'reopen', num, '-R', repo_arg(ref) }
+function M:reopen_cmd(num, scope)
+  return { 'glab', 'mr', 'reopen', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
@@ -522,21 +526,21 @@ end
 
 ---@param num string
 ---@return string[]
-function M:fetch_pr_details_cmd(num, ref)
-  return { 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(ref) }
+function M:fetch_pr_details_cmd(num, scope)
+  return { 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(scope) }
 end
 
-function M:fetch_issue_details_cmd(num, ref)
-  return { 'glab', 'issue', 'view', num, '--output', 'json', '-R', repo_arg(ref) }
+function M:fetch_issue_details_cmd(num, scope)
+  return { 'glab', 'issue', 'view', num, '--output', 'json', '-R', repo_arg(scope) }
 end
 
 ---@param num string
 ---@param title string
 ---@param body string
 ---@return string[]
-function M:update_pr_cmd(num, title, body, ref, metadata, previous)
+function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   local cmd =
-    { 'glab', 'mr', 'update', num, '--title', title, '--description', body, '-R', repo_arg(ref) }
+    { 'glab', 'mr', 'update', num, '--title', title, '--description', body, '-R', repo_arg(scope) }
   local current = submission.filter(self, 'pr', 'update', metadata)
   local before = previous or { labels = {}, assignees = {}, reviewers = {}, milestone = '' }
   local add_labels, remove_labels = submission.diff(before.labels, current.labels)
@@ -573,7 +577,7 @@ function M:update_pr_cmd(num, title, body, ref, metadata, previous)
   return cmd
 end
 
-function M:update_issue_cmd(num, title, body, ref, metadata, previous)
+function M:update_issue_cmd(num, title, body, scope, metadata, previous)
   local cmd = {
     'glab',
     'issue',
@@ -584,7 +588,7 @@ function M:update_issue_cmd(num, title, body, ref, metadata, previous)
     '--description',
     body,
     '-R',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   local current = submission.filter(self, 'issue', 'update', metadata)
   local before = previous or { labels = {}, assignees = {}, milestone = '' }
@@ -667,7 +671,7 @@ end
 ---@param base string
 ---@param draft boolean
 ---@return string[]
-function M:create_pr_cmd(title, body, base, draft, ref, metadata)
+function M:create_pr_cmd(title, body, base, draft, scope, metadata)
   local cmd = {
     'glab',
     'mr',
@@ -680,7 +684,7 @@ function M:create_pr_cmd(title, body, base, draft, ref, metadata)
     base,
     '--yes',
     '-R',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   local current = metadata and submission.filter(self, 'pr', 'create', metadata) or nil
   if (current and current.draft) or (not current and draft) then
@@ -697,12 +701,12 @@ function M:create_pr_cmd(title, body, base, draft, ref, metadata)
 end
 
 ---@return string[]
-function M:create_pr_web_cmd(ref, head_scope, head_branch, base_branch)
-  local cmd = { 'glab', 'mr', 'create', '--web', '-R', repo_arg(ref) }
+function M:create_pr_web_cmd(scope, head_scope, head_branch, base_branch)
+  local cmd = { 'glab', 'mr', 'create', '--web', '-R', repo_arg(scope) }
   if
     head_scope
     and forge.scope_key(head_scope) ~= ''
-    and forge.scope_key(head_scope) ~= forge.scope_key(ref)
+    and forge.scope_key(head_scope) ~= forge.scope_key(scope)
   then
     table.insert(cmd, '--head')
     table.insert(cmd, repo_arg(head_scope))
@@ -722,7 +726,7 @@ end
 ---@param body string
 ---@param labels string[]?
 ---@return string[]
-function M:create_issue_cmd(title, body, labels, ref, metadata)
+function M:create_issue_cmd(title, body, labels, scope, metadata)
   local cmd = {
     'glab',
     'issue',
@@ -733,7 +737,7 @@ function M:create_issue_cmd(title, body, labels, ref, metadata)
     body,
     '--yes',
     '-R',
-    repo_arg(ref),
+    repo_arg(scope),
   }
   local current = metadata and submission.filter(self, 'issue', 'create', metadata) or nil
   local effective_labels = current and current.labels or labels or {}
@@ -747,8 +751,8 @@ function M:create_issue_cmd(title, body, labels, ref, metadata)
 end
 
 ---@return string[]
-function M:create_issue_web_cmd(ref)
-  return { 'glab', 'issue', 'create', '--web', '-R', repo_arg(ref) }
+function M:create_issue_web_cmd(scope)
+  return { 'glab', 'issue', 'create', '--web', '-R', repo_arg(scope) }
 end
 
 ---@return string[]
@@ -757,11 +761,11 @@ function M:issue_template_paths()
 end
 
 ---@return string[]
-function M:default_branch_cmd(ref)
+function M:default_branch_cmd(scope)
   return {
     'sh',
     '-c',
-    "glab repo view -F json -R '" .. repo_arg(ref) .. "' | jq -r '.default_branch'",
+    "glab repo view -F json -R '" .. repo_arg(scope) .. "' | jq -r '.default_branch'",
   }
 end
 
@@ -773,22 +777,22 @@ end
 ---@param num string
 ---@param is_draft boolean
 ---@return string[]?
-function M:draft_toggle_cmd(num, is_draft, ref)
+function M:draft_toggle_cmd(num, is_draft, scope)
   if is_draft then
-    return { 'glab', 'mr', 'update', num, '--ready', '-R', repo_arg(ref) }
+    return { 'glab', 'mr', 'update', num, '--ready', '-R', repo_arg(scope) }
   end
-  return { 'glab', 'mr', 'update', num, '--draft', '-R', repo_arg(ref) }
+  return { 'glab', 'mr', 'update', num, '--draft', '-R', repo_arg(scope) }
 end
 
 ---@return forge.RepoInfo
-function M:repo_info(ref)
+function M:repo_info(scope)
   local result = vim
     .system({
       'glab',
       'api',
       '--hostname',
-      hostname(ref) or 'gitlab.com',
-      'projects/' .. project(ref),
+      hostname(scope) or 'gitlab.com',
+      'projects/' .. project(scope),
     }, { text = true })
     :wait()
   local ok, data = pcall(vim.json.decode, result.stdout or '{}')
@@ -828,9 +832,9 @@ end
 
 ---@param num string
 ---@return forge.PRState
-function M:pr_state(num, ref)
+function M:pr_state(num, scope)
   local result = vim
-    .system({ 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(ref) }, { text = true })
+    .system({ 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(scope) }, { text = true })
     :wait()
   local ok, data = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(data) ~= 'table' then
@@ -844,7 +848,7 @@ function M:pr_state(num, ref)
   }
 end
 
-function M:list_releases_json_cmd(ref, limit)
+function M:list_releases_json_cmd(scope, limit)
   return {
     'glab',
     'release',
@@ -854,20 +858,20 @@ function M:list_releases_json_cmd(ref, limit)
     '--per-page',
     tostring(limit or forge.config().display.limits.releases),
     '-R',
-    repo_arg(ref),
+    repo_arg(scope),
   }
 end
 
 ---@param tag string
-function M:browse_release(tag, ref)
-  local base = forge.remote_web_url(ref)
+function M:browse_release(tag, scope)
+  local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/-/releases/' .. tag)
 end
 
 ---@param tag string
 ---@return string[]
-function M:delete_release_cmd(tag, ref)
-  return { 'glab', 'release', 'delete', tag, '-R', repo_arg(ref) }
+function M:delete_release_cmd(tag, scope)
+  return { 'glab', 'release', 'delete', tag, '-R', repo_arg(scope) }
 end
 
 return M
