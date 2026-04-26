@@ -1056,6 +1056,22 @@ function M.pr(state, f, opts)
     revalidate_current_prs()
   end
 
+  ---@param entry forge.PickerEntry
+  local function locally_toggle_pr_draft(entry)
+    local scope = entry.value.scope or ref
+    ---@type forge.PRState
+    local current_pr_state = vim.tbl_extend('force', {
+      state = entry.value.state or 'OPEN',
+      mergeable = 'UNKNOWN',
+      review_decision = '',
+      is_draft = entry.value.is_draft == true,
+    }, vim.deepcopy(forge_mod.pr_state(f, entry.value.num, scope) or {}))
+    current_pr_state.is_draft = not current_pr_state.is_draft
+    forge_mod.set_pr_state(entry.value.num, current_pr_state, scope)
+    rerender_pr_list()
+    revalidate_current_prs()
+  end
+
   local function locally_toggle_pr(entry, verb)
     local current_index, current_pr = list_row(current_prs, num_field, entry.value.num)
     if not current_index or type(current_pr) ~= 'table' then
@@ -1255,7 +1271,9 @@ function M.pr(state, f, opts)
       fn = function(entry)
         if entry and not entry.load_more and f.capabilities.draft then
           pr_toggle_draft_action(f, entry.value, {
-            on_success = reopen_list,
+            on_success = function()
+              locally_toggle_pr_draft(entry)
+            end,
             on_failure = reopen_list,
           })
         end
