@@ -82,6 +82,20 @@ local function placeholder_entry(text, kind)
   }
 end
 
+---@param failure forge.PickerSessionFailure?
+---@param fallback string
+---@return string
+local function picker_failure_text(failure, fallback)
+  return picker_session.failure_message(failure, fallback)
+end
+
+---@param failure forge.PickerSessionFailure?
+---@param fallback string
+---@return forge.PickerEntry
+local function picker_failure_entry(failure, fallback)
+  return placeholder_entry(picker_failure_text(failure, fallback), 'error')
+end
+
 ---@param next_limit integer
 ---@param keep_open boolean?
 ---@return forge.PickerEntry
@@ -562,11 +576,16 @@ function M.checks(f, num, filter, cached_checks, opts)
         return entries
       end,
       open = open_picker,
-      on_failure = function()
-        log.info('no checks found')
+      on_failure = function(failure)
+        log.error(
+          picker_failure_text(
+            failure,
+            ('failed to fetch checks for %s #%s'):format(f.labels.pr_one, num)
+          )
+        )
       end,
-      error_entry = function()
-        return placeholder_entry(('No checks for #%s'):format(num))
+      error_entry = function(failure)
+        return picker_failure_entry(failure, ('Failed to fetch checks for #%s'):format(num))
       end,
     })
   else
@@ -695,14 +714,14 @@ function M.ci(f, branch, filter, opts)
     picker_session.request_json(
       request_key,
       f:list_runs_json_cmd(branch, ref, current_limit + 1),
-      function(ok, runs, _, stale)
+      function(ok, runs, failure, stale)
         if stale then
           emit(nil)
           return
         end
         if not ok then
-          log.error('failed to fetch ' .. ci_inline_label(f))
-          emit(placeholder_entry('Failed to fetch ' .. ci_inline_label(f)))
+          log.error(picker_failure_text(failure, 'failed to fetch ' .. ci_inline_label(f)))
+          emit(picker_failure_entry(failure, 'Failed to fetch ' .. ci_inline_label(f)))
           emit(nil)
           return
         end
@@ -726,12 +745,12 @@ function M.ci(f, branch, filter, opts)
     picker_session.request_json(
       request_key,
       f:list_runs_json_cmd(branch, ref, current_limit + 1),
-      function(ok, runs, _, stale)
+      function(ok, runs, failure, stale)
         if stale then
           return
         end
         if not ok then
-          log.error('failed to fetch ' .. ci_inline_label(f))
+          log.error(picker_failure_text(failure, 'failed to fetch ' .. ci_inline_label(f)))
           return
         end
         current_runs = normalize_ci_runs(runs)
@@ -1013,14 +1032,14 @@ function M.pr(state, f, opts)
     picker_session.request_json(
       cache_key,
       f:list_pr_json_cmd(state, current_limit + 1, ref),
-      function(ok, prs, _, stale)
+      function(ok, prs, failure, stale)
         if stale then
           emit(nil)
           return
         end
         if not ok then
-          log.error('failed to fetch ' .. f.labels.pr)
-          emit(placeholder_entry('Failed to fetch ' .. f.labels.pr, 'error'))
+          log.error(picker_failure_text(failure, 'failed to fetch ' .. f.labels.pr))
+          emit(picker_failure_entry(failure, 'Failed to fetch ' .. f.labels.pr))
           emit(nil)
           return
         end
@@ -1140,12 +1159,12 @@ function M.pr(state, f, opts)
     picker_session.request_json(
       cache_key,
       f:list_pr_json_cmd(state, current_limit + 1, ref),
-      function(ok, prs, _, stale)
+      function(ok, prs, failure, stale)
         if stale then
           return
         end
         if not ok then
-          log.error('failed to fetch ' .. f.labels.pr)
+          log.error(picker_failure_text(failure, 'failed to fetch ' .. f.labels.pr))
           return
         end
         current_prs = prs
@@ -1586,14 +1605,14 @@ function M.issue(state, f, opts)
     picker_session.request_json(
       cache_key,
       f:list_issue_json_cmd(state, current_limit + 1, ref),
-      function(ok, issues, _, stale)
+      function(ok, issues, failure, stale)
         if stale then
           emit(nil)
           return
         end
         if not ok then
-          log.error('failed to fetch issues')
-          emit(placeholder_entry('Failed to fetch issues'))
+          log.error(picker_failure_text(failure, 'failed to fetch issues'))
+          emit(picker_failure_entry(failure, 'Failed to fetch issues'))
           emit(nil)
           return
         end
@@ -1677,12 +1696,12 @@ function M.issue(state, f, opts)
     picker_session.request_json(
       cache_key,
       f:list_issue_json_cmd(state, current_limit + 1, ref),
-      function(ok, issues, _, stale)
+      function(ok, issues, failure, stale)
         if stale then
           return
         end
         if not ok then
-          log.error('failed to fetch issues')
+          log.error(picker_failure_text(failure, 'failed to fetch issues'))
           return
         end
         current_issues = issues
@@ -2019,14 +2038,14 @@ function M.release(state, f, opts)
     picker_session.request_json(
       cache_key,
       f:list_releases_json_cmd(ref, requested),
-      function(ok, releases, _, stale)
+      function(ok, releases, failure, stale)
         if stale then
           emit(nil)
           return
         end
         if not ok then
-          log.error('failed to fetch releases')
-          emit(placeholder_entry('Failed to fetch releases'))
+          log.error(picker_failure_text(failure, 'failed to fetch releases'))
+          emit(picker_failure_entry(failure, 'Failed to fetch releases'))
           emit(nil)
           return
         end
@@ -2050,12 +2069,12 @@ function M.release(state, f, opts)
     picker_session.request_json(
       cache_key,
       f:list_releases_json_cmd(ref, requested),
-      function(ok, releases, _, stale)
+      function(ok, releases, failure, stale)
         if stale then
           return
         end
         if not ok then
-          log.error('failed to fetch releases')
+          log.error(picker_failure_text(failure, 'failed to fetch releases'))
           return
         end
         current_releases = remember_release_fetch(releases, requested)

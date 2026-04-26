@@ -892,6 +892,8 @@ describe('pickers', function()
     vim.schedule = old_schedule
 
     assert.equals('error', streamed[1].placeholder_kind)
+    assert.equals('boom', streamed[1].display[1][1])
+    assert.same({ 'boom' }, logger_messages.error)
     local labels = helpers.action_labels(captured.actions, streamed[1])
     assert.is_nil(labels.default)
     assert.is_nil(labels.ci)
@@ -903,6 +905,46 @@ describe('pickers', function()
     assert.equals('create', labels.create)
     assert.is_nil(labels.filter)
     assert.equals('refresh', labels.refresh)
+  end)
+
+  it('shows PR decode failures in the picker instead of a generic fetch error', function()
+    cache['pr:open'] = nil
+
+    local old_system = vim.system
+    local old_schedule = vim.schedule
+    vim.schedule = function(fn)
+      fn()
+    end
+    vim.system = function(_, _, cb)
+      if cb then
+        cb({ code = 0, stdout = '{', stderr = '' })
+      end
+      return {
+        wait = function()
+          return { code = 0, stdout = '{', stderr = '' }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+    vim.schedule = old_schedule
+
+    assert.equals('error', streamed[1].placeholder_kind)
+    assert.equals(logger_messages.error[1], streamed[1].display[1][1])
+    assert.not_equals('failed to fetch PRs', logger_messages.error[1])
   end)
 
   it('opens the PR picker immediately on fzf before the fetch completes', function()
@@ -2817,6 +2859,45 @@ describe('pickers', function()
     pickers.checks({ labels = { pr_one = 'PR' } }, '42', 'all')
 
     assert.same({ 'structured checks not available for this forge' }, logger_messages.warn)
+  end)
+
+  it('shows real checks fetch failures instead of no-checks placeholders', function()
+    local old_system = vim.system
+    local old_schedule = vim.schedule
+    vim.schedule = function(fn)
+      fn()
+    end
+    vim.system = function(_, _, cb)
+      if cb then
+        cb({ code = 1, stdout = '', stderr = 'boom' })
+      end
+      return {
+        wait = function()
+          return { code = 1, stdout = '', stderr = 'boom' }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.checks(fake_ci_forge(), '42', 'all')
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+    vim.schedule = old_schedule
+
+    assert.equals('error', streamed[1].placeholder_kind)
+    assert.equals('boom', streamed[1].display[1][1])
+    assert.same({ 'fetching checks for PR #42...' }, logger_messages.info)
+    assert.same({ 'boom' }, logger_messages.error)
   end)
 
   it('warns when structured CI data is unavailable for a forge', function()
