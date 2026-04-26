@@ -1954,13 +1954,19 @@ function M.release(state, f, opts)
     limit = limit or current_limit
     local filtered = releases
     if state == 'draft' and rel_fields.is_draft then
-      filtered = vim.tbl_filter(function(r)
-        return r[rel_fields.is_draft] == true
-      end, releases)
+      filtered = {}
+      for _, release in ipairs(releases) do
+        if release[rel_fields.is_draft] == true then
+          filtered[#filtered + 1] = release
+        end
+      end
     elseif state == 'prerelease' and rel_fields.is_prerelease then
-      filtered = vim.tbl_filter(function(r)
-        return r[rel_fields.is_prerelease] == true
-      end, releases)
+      filtered = {}
+      for _, release in ipairs(releases) do
+        if release[rel_fields.is_prerelease] == true then
+          filtered[#filtered + 1] = release
+        end
+      end
     end
 
     local has_more = #releases > limit
@@ -2118,11 +2124,7 @@ function M.release(state, f, opts)
         end
         ops.release_delete(f, entry.value, {
           on_success = function()
-            if state == 'all' then
-              locally_delete_release(entry)
-              return
-            end
-            reopen_list()
+            locally_delete_release(entry)
           end,
           on_failure = reopen_list,
         })
