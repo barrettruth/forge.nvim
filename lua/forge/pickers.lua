@@ -1,6 +1,7 @@
 local M = {}
 
 local availability = require('forge.availability')
+local ci = require('forge.ci')
 local layout = require('forge.layout')
 local log = require('forge.logger')
 local ops = require('forge.ops')
@@ -600,9 +601,22 @@ function M.ci(f, branch, filter, opts)
   }
   local scope_label = branch or 'all branches'
   local current_limit = visible_limit
+  ---@type forge.CIRun[]?
   local current_runs
   local runs_stale = true
   local picker_handle
+
+  ---@param runs table[]
+  ---@return forge.CIRun[]
+  local function normalize_ci_runs(runs)
+    local normalized = {}
+    for _, entry in ipairs(runs) do
+      local run = f:normalize_run(entry)
+      run.scope = run.scope or ref
+      table.insert(normalized, run)
+    end
+    return normalized
+  end
 
   local function ci_prompt(count)
     local filter_label = prompt_labels[filter]
@@ -618,7 +632,7 @@ function M.ci(f, branch, filter, opts)
     limit = limit or current_limit
     local normalized = {}
     for _, entry in ipairs(runs) do
-      local run = f:normalize_run(entry)
+      local run = vim.deepcopy(entry)
       run.scope = run.scope or ref
       table.insert(normalized, run)
     end
@@ -692,11 +706,85 @@ function M.ci(f, branch, filter, opts)
           emit(nil)
           return
         end
-        current_runs = runs
+        current_runs = normalize_ci_runs(runs)
         runs_stale = false
         emit_cached(emit)
       end
     )
+  end
+
+  ---@return nil
+  local function rerender_ci_list()
+    if refresh_picker(picker_handle) then
+      return
+    end
+    M.ci(f, branch, filter, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
+  ---@return nil
+  local function revalidate_current_runs()
+    picker_session.request_json(
+      request_key,
+      f:list_runs_json_cmd(branch, ref, current_limit + 1),
+      function(ok, runs, _, stale)
+        if stale then
+          return
+        end
+        if not ok then
+          log.error('failed to fetch ' .. ci_inline_label(f))
+          return
+        end
+        current_runs = normalize_ci_runs(runs)
+        runs_stale = false
+        rerender_ci_list()
+      end
+    )
+  end
+
+  ---@param run forge.CIRun
+  ---@return string
+  local function next_ci_status(run)
+    local status = type(run.status) == 'string' and vim.trim(run.status) or ''
+    local next_status = ci.toggle_verb(run) == 'cancel' and 'cancelled' or 'queued'
+    if status ~= '' and status == status:upper() then
+      return next_status:upper()
+    end
+    return next_status
+  end
+
+  ---@param id string
+  ---@return integer?, forge.CIRun?
+  local function ci_run_row(id)
+    if type(current_runs) ~= 'table' then
+      return nil, nil
+    end
+    local target = tostring(id or '')
+    for index, run in ipairs(current_runs) do
+      local current_run = run
+      if type(current_run) == 'table' and current_run.id == nil then
+        current_run = f:normalize_run(current_run)
+        current_run.scope = current_run.scope or ref
+      end
+      if tostring(type(current_run) == 'table' and current_run.id or '') == target then
+        return index, current_run
+      end
+    end
+    return nil, nil
+  end
+
+  ---@param entry forge.PickerEntry
+  local function locally_toggle_ci_run(entry)
+    local index, run = ci_run_row(entry.value.id)
+    if not index or type(run) ~= 'table' then
+      runs_stale = true
+      rerender_ci_list()
+      return
+    end
+    local updated_run = vim.deepcopy(run)
+    updated_run.status = next_ci_status(run)
+    current_runs[index] = updated_run
+    rerender_ci_list()
+    revalidate_current_runs()
   end
 
   local actions = {
@@ -785,13 +873,14 @@ function M.ci(f, branch, filter, opts)
         end
         local refresh_current = function()
           runs_stale = true
-          refresh_picker(picker_handle)
+          rerender_ci_list()
         end
-        ops.ci_toggle(
-          f,
-          entry.value,
-          { on_success = refresh_current, on_failure = refresh_current }
-        )
+        ops.ci_toggle(f, entry.value, {
+          on_success = function()
+            locally_toggle_ci_run(entry)
+          end,
+          on_failure = refresh_current,
+        })
       end,
     },
     {

@@ -2507,25 +2507,160 @@ describe('pickers', function()
     assert.equals('ci_toggle', op_calls[#op_calls].name)
   end)
 
-  it('refreshes the live CI picker in place after toggle succeeds', function()
-    local pickers = require('forge.pickers')
-    pickers.ci(fake_ci_forge(), 'main', 'all')
-
-    local toggle = action_by_name('toggle')
-    assert.is_not_nil(toggle)
-    toggle.fn({
-      value = {
+  it('patches ci.all locally and revalidates the live CI picker after toggle succeeds', function()
+    local old_system = vim.system
+    local calls = {}
+    local initial = vim.json.encode({
+      {
         id = '5',
         name = 'CI',
         branch = 'main',
         status = 'in_progress',
         url = 'https://example.com',
       },
+      {
+        id = '4',
+        name = 'Lint',
+        branch = 'main',
+        status = 'success',
+        url = 'https://example.com/lint',
+      },
     })
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      if #calls == 1 and cb then
+        cb({ code = 0, stdout = initial })
+      end
+      return {
+        wait = function()
+          return { code = 0, stdout = #calls == 1 and initial or nil }
+        end,
+      }
+    end
 
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+    captured.stream(function() end)
+    vim.wait(100, function()
+      return captured.entries[1] ~= nil
+    end)
+
+    local toggle = action_by_name('toggle')
+    assert.is_not_nil(toggle)
+    toggle.fn(captured.entries[1])
+    vim.wait(100, function()
+      return calls[2] ~= nil and captured.entries[1] ~= nil
+    end)
+
+    assert.equals('cancelled', captured.entries[1].value.status)
+    assert.equals('rerun', toggle.label(captured.entries[1]))
     assert.equals(1, picker_pick_calls)
     assert.equals(1, picker_refresh_calls)
+    assert.same({ 'runs', 'main', '31' }, calls[2].cmd)
+
+    calls[2].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          id = '5',
+          name = 'CI authoritative',
+          branch = 'main',
+          status = 'cancelled',
+          url = 'https://example.com',
+        },
+        {
+          id = '4',
+          name = 'Lint',
+          branch = 'main',
+          status = 'success',
+          url = 'https://example.com/lint',
+        },
+      }),
+    })
+
+    vim.wait(100, function()
+      return captured.entries[1].value.name == 'CI authoritative'
+    end)
+    vim.system = old_system
+
+    assert.equals('CI authoritative', captured.entries[1].value.name)
+    assert.equals(2, picker_refresh_calls)
   end)
+
+  it(
+    'patches filtered CI views locally and revalidates them in place after toggle succeeds',
+    function()
+      local old_system = vim.system
+      local calls = {}
+      local initial = vim.json.encode({
+        { id = '5', name = 'CI', branch = 'main', status = 'failure', url = 'https://example.com' },
+        {
+          id = '4',
+          name = 'Lint',
+          branch = 'main',
+          status = 'success',
+          url = 'https://example.com/lint',
+        },
+      })
+      vim.system = function(cmd, _, cb)
+        calls[#calls + 1] = { cmd = cmd, cb = cb }
+        if #calls == 1 and cb then
+          cb({ code = 0, stdout = initial })
+        end
+        return {
+          wait = function()
+            return { code = 0, stdout = #calls == 1 and initial or nil }
+          end,
+        }
+      end
+
+      local forge_mod = require('forge')
+      local old_filter_runs = forge_mod.filter_runs
+      forge_mod.filter_runs = function(runs, current_filter)
+        return require('forge.format').filter_runs(runs, current_filter)
+      end
+
+      local pickers = require('forge.pickers')
+      pickers.ci(fake_ci_forge(), 'main', 'fail')
+      captured.stream(function() end)
+      vim.wait(100, function()
+        return captured.entries[1] ~= nil
+      end)
+
+      local toggle = action_by_name('toggle')
+      assert.is_not_nil(toggle)
+      toggle.fn(captured.entries[1])
+      vim.wait(100, function()
+        return calls[2] ~= nil
+      end)
+
+      assert.equals(1, picker_pick_calls)
+      assert.equals(1, picker_refresh_calls)
+      assert.same({ 'runs', 'main', '31' }, calls[2].cmd)
+
+      calls[2].cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            id = '6',
+            name = 'Retried',
+            branch = 'main',
+            status = 'failure',
+            url = 'https://example.com/retried',
+          },
+        }),
+      })
+
+      vim.wait(100, function()
+        return captured.entries[1].value and captured.entries[1].value.id == '6'
+      end)
+      forge_mod.filter_runs = old_filter_runs
+      vim.system = old_system
+
+      assert.equals('6', captured.entries[1].value.id)
+      assert.equals(2, picker_refresh_calls)
+    end
+  )
 
   it('labels the CI toggle action from the highlighted run status', function()
     local pickers = require('forge.pickers')
