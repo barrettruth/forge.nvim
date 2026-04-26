@@ -1884,7 +1884,7 @@ describe('pickers', function()
     pickers.ci(
       fake_ci_forge({
         name = 'gitlab',
-        labels = { ci = 'Pipelines', pr_one = 'MR' },
+        labels = { ci = 'Pipelines', ci_inline = 'pipelines', pr_one = 'MR' },
       }),
       'main',
       'fail'

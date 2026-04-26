@@ -3,9 +3,6 @@ local M = {}
 local scope_mod = require('forge.scope')
 local target_mod = require('forge.target')
 
----@type table<string, string|false>
-local gitlab_project_ids = {}
-
 ---@param text any
 ---@return string?
 local function trim(text)
@@ -106,75 +103,15 @@ local function add_scope(scopes, seen, value)
   scopes[#scopes + 1] = value
 end
 
----@param json table
----@param base_scope forge.Scope?
----@return forge.HeadRef
-local function github_head(json, base_scope)
-  local branch = trim(json.headRefName)
-  local owner = type(json.headRepositoryOwner) == 'table'
-      and trim(json.headRepositoryOwner.login or json.headRepositoryOwner.name)
-    or nil
-  local repo = type(json.headRepository) == 'table' and trim(json.headRepository.name) or nil
-  local full_name = type(json.headRepository) == 'table' and trim(json.headRepository.nameWithOwner)
-    or nil
-  if not owner and full_name then
-    owner = full_name:match('^([^/]+)/')
-  end
-  if not repo and full_name then
-    repo = full_name:match('/([^/]+)$')
-  end
-  local scope = nil
-  if owner and repo then
-    local host = type(base_scope) == 'table' and base_scope.host or 'github.com'
-    scope = scope_mod.from_url('github', ('https://%s/%s/%s'):format(host, owner, repo))
-  end
-  return {
-    branch = branch,
-    scope = scope,
-  }
-end
-
----@param json table
----@return forge.HeadRef
-local function gitlab_head(json)
-  return {
-    branch = trim(json.source_branch),
-    project_id = json.source_project_id ~= nil and tostring(json.source_project_id) or nil,
-  }
-end
-
----@param json table
----@param base_scope forge.Scope?
----@return forge.HeadRef
-local function codeberg_head(json, base_scope)
-  local head = type(json.head) == 'table' and json.head or nil
-  local branch = trim(head and (head.ref or head.name) or json.head)
-  local repo = head and type(head.repo) == 'table' and head.repo or nil
-  local full_name = trim(repo and (repo.full_name or repo.fullName))
-  local scope = nil
-  if full_name then
-    local host = type(base_scope) == 'table' and base_scope.host or 'codeberg.org'
-    scope = scope_mod.from_url('codeberg', ('https://%s/%s'):format(host, full_name))
-  end
-  return {
-    branch = branch,
-    scope = scope,
-  }
-end
-
+---Dispatch to the active backend's `parse_pr_head`. Falls back to a
+---universal-best-effort head when a custom backend doesn't implement it.
 ---@param forge forge.Forge
 ---@param json table
 ---@param base_scope forge.Scope?
 ---@return forge.HeadRef
 local function pr_head(forge, json, base_scope)
-  if forge.name == 'github' then
-    return github_head(json, base_scope)
-  end
-  if forge.name == 'gitlab' then
-    return gitlab_head(json)
-  end
-  if forge.name == 'codeberg' then
-    return codeberg_head(json, base_scope)
+  if type(forge.parse_pr_head) == 'function' then
+    return forge:parse_pr_head(json, base_scope)
   end
   return {
     branch = trim(json.headRefName or json.source_branch),
@@ -182,57 +119,18 @@ local function pr_head(forge, json, base_scope)
   }
 end
 
----@param scope forge.Scope?
----@return string?, string?
-local function gitlab_project_id(scope)
-  local slug = type(scope) == 'table' and scope.slug or 'scope'
-  local host = type(scope) == 'table' and scope.host or 'gitlab.com'
-  local key = scope_mod.key(scope)
-  if key == '' then
-    return nil
-  end
-  if gitlab_project_ids[key] ~= nil then
-    return gitlab_project_ids[key] or nil
-  end
-  local project = scope_mod.encode_project(scope)
-  if not project then
-    gitlab_project_ids[key] = false
-    return nil
-  end
-  local result = vim
-    .system({ 'glab', 'api', '--hostname', host, ('projects/%s'):format(project) }, { text = true })
-    :wait()
-  if result.code ~= 0 then
-    return nil, cmd_error(result, ('failed to resolve GitLab project for %s'):format(slug))
-  end
-  local ok, json = pcall(vim.json.decode, result.stdout or '{}')
-  if not ok or type(json) ~= 'table' or json.id == nil then
-    return nil, ('failed to parse GitLab project for %s'):format(slug)
-  end
-  local id = tostring(json.id)
-  gitlab_project_ids[key] = id
-  return id
-end
-
+---Dispatch to the active backend's `match_head`. Falls back to scope-only
+---comparison when a custom backend doesn't implement it.
 ---@param forge forge.Forge
 ---@param expected forge.HeadRef
 ---@param actual forge.HeadRef
 ---@return boolean?, string?
 local function head_matches(forge, expected, actual)
+  if type(forge.match_head) == 'function' then
+    return forge:match_head(expected, actual)
+  end
   if trim(actual.branch) ~= expected.branch then
     return false
-  end
-  if forge.name == 'gitlab' then
-    local expected_id = expected.project_id
-    local err
-    if not expected_id and expected.scope then
-      expected_id, err = gitlab_project_id(expected.scope)
-      if err then
-        return nil, err
-      end
-    end
-    local actual_id = trim(actual.project_id)
-    return expected_id ~= nil and actual_id ~= nil and expected_id == actual_id
   end
   return scope_mod.same(expected.scope, actual.scope)
 end

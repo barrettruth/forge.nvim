@@ -11,6 +11,9 @@ local loaded_modules = {
   'forge.resolve',
   'forge.scope',
   'forge.target',
+  'forge.backends.github',
+  'forge.backends.gitlab',
+  'forge.backends.codeberg',
 }
 
 local function github_scope(repo)
@@ -30,50 +33,19 @@ describe('current_pr resolver', function()
   local old_system
   local old_preload
 
-  local github = {
-    name = 'github',
-    labels = {
-      pr = 'PRs',
-      pr_one = 'PR',
-      pr_full = 'PRs',
-    },
-    pr_for_branch_cmd = function(_, branch, scope)
-      return { 'pr-for-branch', branch, scope and scope.slug or '' }
-    end,
-    fetch_pr_details_cmd = function(_, num, scope)
-      return { 'fetch-pr', num, scope and scope.slug or '' }
-    end,
-  }
+  local function fake_backend(name)
+    local backend = require('forge.backends.' .. name)
+    return vim.tbl_extend('force', backend, {
+      pr_for_branch_cmd = function(_, branch, scope)
+        return { 'pr-for-branch', branch, scope and scope.slug or '' }
+      end,
+      fetch_pr_details_cmd = function(_, num, scope)
+        return { 'fetch-pr', num, scope and scope.slug or '' }
+      end,
+    })
+  end
 
-  local gitlab = {
-    name = 'gitlab',
-    labels = {
-      pr = 'Merge Requests',
-      pr_one = 'MR',
-      pr_full = 'Merge Requests',
-    },
-    pr_for_branch_cmd = function(_, branch, scope)
-      return { 'pr-for-branch', branch, scope and scope.slug or '' }
-    end,
-    fetch_pr_details_cmd = function(_, num, scope)
-      return { 'fetch-pr', num, scope and scope.slug or '' }
-    end,
-  }
-
-  local codeberg = {
-    name = 'codeberg',
-    labels = {
-      pr = 'PRs',
-      pr_one = 'PR',
-      pr_full = 'Pull Requests',
-    },
-    pr_for_branch_cmd = function(_, branch, scope)
-      return { 'pr-for-branch', branch, scope and scope.slug or '' }
-    end,
-    fetch_pr_details_cmd = function(_, num, scope)
-      return { 'fetch-pr', num, scope and scope.slug or '' }
-    end,
-  }
+  local github, gitlab, codeberg
 
   before_each(function()
     captured = {
@@ -93,6 +65,10 @@ describe('current_pr resolver', function()
     end
 
     helpers.clear_loaded(loaded_modules)
+
+    github = fake_backend('github')
+    gitlab = fake_backend('gitlab')
+    codeberg = fake_backend('codeberg')
   end)
 
   after_each(function()

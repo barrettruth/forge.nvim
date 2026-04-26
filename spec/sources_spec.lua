@@ -16,6 +16,45 @@ describe('github', function()
     assert.equals('github', gh.name)
     assert.equals('pr', gh.kinds.pr)
     assert.equals('issue', gh.kinds.issue)
+    assert.equals('GitHub', gh.labels.forge_name)
+    assert.equals('CI/CD runs', gh.labels.ci_inline)
+    assert.is_true(gh.capabilities.ci_terminal_view)
+  end)
+
+  it('parses PR head with scope from headRepository fields', function()
+    local head = gh:parse_pr_head({
+      headRefName = 'feature',
+      headRepository = { name = 'fork', nameWithOwner = 'contributor/fork' },
+      headRepositoryOwner = { login = 'contributor' },
+    })
+    assert.equals('feature', head.branch)
+    assert.equals('contributor/fork', head.scope.slug)
+    assert.equals('github.com', head.scope.host)
+  end)
+
+  it('respects base_scope host when constructing the head scope', function()
+    local head = gh:parse_pr_head({
+      headRefName = 'feature',
+      headRepository = { name = 'fork', nameWithOwner = 'contributor/fork' },
+      headRepositoryOwner = { login = 'contributor' },
+    }, { kind = 'github', host = 'ghe.example.com' })
+    assert.equals('ghe.example.com', head.scope.host)
+  end)
+
+  it('match_head compares branch and scope', function()
+    local scope = gh:parse_pr_head({
+      headRefName = 'feature',
+      headRepository = { name = 'fork', nameWithOwner = 'contributor/fork' },
+      headRepositoryOwner = { login = 'contributor' },
+    }).scope
+    assert.is_true(gh:match_head({ branch = 'feature', scope = scope }, {
+      branch = 'feature',
+      scope = scope,
+    }))
+    assert.is_false(gh:match_head({ branch = 'feature', scope = scope }, {
+      branch = 'other',
+      scope = scope,
+    }))
   end)
 
   it('builds list_pr_json_cmd', function()
@@ -495,6 +534,34 @@ describe('gitlab', function()
     assert.equals('Merge Requests', gl.labels.pr)
     assert.equals('Merge Requests', gl.labels.pr_full)
     assert.equals('Pipelines', gl.labels.ci)
+    assert.equals('GitLab', gl.labels.forge_name)
+    assert.equals('pipelines', gl.labels.ci_inline)
+    assert.is_nil(gl.capabilities.ci_terminal_view)
+  end)
+
+  it('parses MR head with project_id from source fields', function()
+    local head = gl:parse_pr_head({
+      source_branch = 'topic',
+      source_project_id = 12345,
+    })
+    assert.equals('topic', head.branch)
+    assert.equals('12345', head.project_id)
+    assert.is_nil(head.scope)
+  end)
+
+  it('match_head compares by project_id when both sides have one', function()
+    assert.is_true(gl:match_head({ branch = 'topic', project_id = '42' }, {
+      branch = 'topic',
+      project_id = '42',
+    }))
+    assert.is_false(gl:match_head({ branch = 'topic', project_id = '42' }, {
+      branch = 'topic',
+      project_id = '99',
+    }))
+    assert.is_false(gl:match_head({ branch = 'topic', project_id = '42' }, {
+      branch = 'other',
+      project_id = '42',
+    }))
   end)
 
   it('builds list_pr_json_cmd with state variants', function()
@@ -890,7 +957,7 @@ describe('gitlab browse_subject', function()
     end)
 
     assert.is_nil(captured.url)
-    assert.matches('no PR or issue found for #999', captured.warn)
+    assert.matches('no MR or issue found for #999', captured.warn)
   end)
 
   it('uses --hostname from scope and encodes the project slug', function()
@@ -929,6 +996,48 @@ describe('codeberg', function()
     assert.equals('codeberg', cb.name)
     assert.equals('pulls', cb.kinds.pr)
     assert.equals('issues', cb.kinds.issue)
+    assert.equals('Codeberg', cb.labels.forge_name)
+    assert.equals('CI/CD runs', cb.labels.ci_inline)
+    assert.is_nil(cb.capabilities.ci_terminal_view)
+  end)
+
+  it('parses PR head with scope from head.repo.full_name', function()
+    local head = cb:parse_pr_head({
+      head = {
+        ref = 'feature',
+        repo = { full_name = 'contributor/fork' },
+      },
+    })
+    assert.equals('feature', head.branch)
+    assert.equals('contributor/fork', head.scope.slug)
+    assert.equals('codeberg.org', head.scope.host)
+  end)
+
+  it('respects base_scope host when constructing the head scope', function()
+    local head = cb:parse_pr_head({
+      head = {
+        ref = 'feature',
+        repo = { full_name = 'contributor/fork' },
+      },
+    }, { kind = 'codeberg', host = 'gitea.example.com' })
+    assert.equals('gitea.example.com', head.scope.host)
+  end)
+
+  it('match_head compares branch and scope', function()
+    local scope = cb:parse_pr_head({
+      head = {
+        ref = 'feature',
+        repo = { full_name = 'contributor/fork' },
+      },
+    }).scope
+    assert.is_true(cb:match_head({ branch = 'feature', scope = scope }, {
+      branch = 'feature',
+      scope = scope,
+    }))
+    assert.is_false(cb:match_head({ branch = 'feature', scope = scope }, {
+      branch = 'other',
+      scope = scope,
+    }))
   end)
 
   it('builds list_pr_json_cmd with --fields', function()

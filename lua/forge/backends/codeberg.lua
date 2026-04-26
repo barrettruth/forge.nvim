@@ -1,6 +1,17 @@
 local forge = require('forge')
 local log = require('forge.logger')
+local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
+
+---@param value any
+---@return string?
+local function nonempty(value)
+  if type(value) ~= 'string' then
+    return nil
+  end
+  local trimmed = vim.trim(value)
+  return trimmed ~= '' and trimmed or nil
+end
 
 ---@class forge.Codeberg: forge.Forge
 local M = {
@@ -8,11 +19,13 @@ local M = {
   cli = 'tea',
   kinds = { issue = 'issues', pr = 'pulls' },
   labels = {
+    forge_name = 'Codeberg',
     issue = 'Issues',
     pr = 'PRs',
     pr_one = 'PR',
     pr_full = 'Pull Requests',
     ci = 'CI/CD',
+    ci_inline = 'CI/CD runs',
   },
   capabilities = {
     draft = false,
@@ -145,9 +158,11 @@ function M:browse_subject(num, scope)
       if result.code ~= 0 then
         local stderr = vim.trim(result.stderr or '')
         if stderr:match('404') or stderr:match('not[%s_-]?found') then
-          log.warn(('no PR or issue found for #%s'):format(num))
+          log.warn(('no %s or issue found for #%s'):format(M.labels.pr_one, num))
         else
-          log.error(stderr ~= '' and stderr or ('no PR or issue found for #%s'):format(num))
+          log.error(
+            stderr ~= '' and stderr or ('no %s or issue found for #%s'):format(M.labels.pr_one, num)
+          )
         end
         return
       end
@@ -555,6 +570,36 @@ function M:update_issue_cmd(num, title, body, scope, metadata, previous)
     table.insert(cmd, current.milestone)
   end
   return cmd
+end
+
+---@param json table
+---@param base_scope forge.Scope?
+---@return forge.HeadRef
+function M:parse_pr_head(json, base_scope)
+  local head = type(json.head) == 'table' and json.head or nil
+  local raw_branch = head and (head.ref or head.name) or json.head
+  local branch = nonempty(raw_branch)
+  local repo = head and type(head.repo) == 'table' and head.repo or nil
+  local full_name = nonempty(repo and (repo.full_name or repo.fullName))
+  local scope = nil
+  if full_name then
+    local host = type(base_scope) == 'table' and base_scope.host or 'codeberg.org'
+    scope = scope_mod.from_url('codeberg', ('https://%s/%s'):format(host, full_name))
+  end
+  return {
+    branch = branch,
+    scope = scope,
+  }
+end
+
+---@param expected forge.HeadRef
+---@param actual forge.HeadRef
+---@return boolean?, string?
+function M:match_head(expected, actual)
+  if nonempty(actual.branch) ~= expected.branch then
+    return false
+  end
+  return scope_mod.same(expected.scope, actual.scope)
 end
 
 ---@param json table

@@ -456,6 +456,8 @@ describe('shared operations', function()
     local ops = require('forge.ops')
     ops.ci_open({
       name = 'github',
+      labels = { forge_name = 'GitHub' },
+      capabilities = { ci_terminal_view = true },
       view_cmd = function(_, run_id, opts)
         return { 'view', run_id, opts and opts.scope or 'none' }
       end,
@@ -496,6 +498,8 @@ describe('shared operations', function()
     local ops = require('forge.ops')
     ops.ci_open({
       name = 'github',
+      labels = { forge_name = 'GitHub' },
+      capabilities = { ci_terminal_view = true },
       watch_cmd = function(_, run_id, scope)
         return { 'watch', run_id, scope or 'none' }
       end,
