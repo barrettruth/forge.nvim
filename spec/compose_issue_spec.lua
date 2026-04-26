@@ -130,6 +130,41 @@ describe('compose issue create', function()
     vim.cmd('enew!')
   end)
 
+  it('places the cursor on the title and enters insert mode for issue create', function()
+    local compose = require('forge.compose')
+    local old_set_cursor = vim.api.nvim_win_set_cursor
+    local old_startinsert = vim.cmd.startinsert
+    local cursor_calls = {}
+    local startinsert_calls = {}
+
+    vim.api.nvim_win_set_cursor = function(win, pos)
+      cursor_calls[#cursor_calls + 1] = { win = win, pos = { pos[1], pos[2] } }
+      return old_set_cursor(win, pos)
+    end
+    vim.cmd.startinsert = function(opts)
+      startinsert_calls[#startinsert_calls + 1] = opts
+    end
+
+    local ok, err = pcall(function()
+      compose.open_issue({
+        name = 'github',
+        create_issue_cmd = function()
+          return { 'create-issue' }
+        end,
+      })
+    end)
+
+    vim.api.nvim_win_set_cursor = old_set_cursor
+    vim.cmd.startinsert = old_startinsert
+
+    if not ok then
+      error(err)
+    end
+
+    assert.same({ { win = 0, pos = { 1, 2 } } }, cursor_calls)
+    assert.same({ { bang = true } }, startinsert_calls)
+  end)
+
   it('submits issues with an empty body', function()
     local compose = require('forge.compose')
     local f = {
@@ -508,6 +543,60 @@ describe('compose issue edit', function()
       end
     end
     vim.cmd('enew!')
+  end)
+
+  it('leaves issue edit buffers at the default cursor and mode state', function()
+    local compose = require('forge.compose')
+    local old_set_cursor = vim.api.nvim_win_set_cursor
+    local old_feedkeys = vim.api.nvim_feedkeys
+    local old_cmd = vim.cmd
+    local cursor_calls = {}
+    local feedkeys_calls = {}
+    local cmd_calls = {}
+
+    vim.api.nvim_win_set_cursor = function(win, pos)
+      cursor_calls[#cursor_calls + 1] = { win = win, pos = { pos[1], pos[2] } }
+      return old_set_cursor(win, pos)
+    end
+    vim.api.nvim_feedkeys = function(keys, mode, escape_ks)
+      feedkeys_calls[#feedkeys_calls + 1] = { keys = keys, mode = mode, escape_ks = escape_ks }
+    end
+    vim.cmd = function(cmd)
+      cmd_calls[#cmd_calls + 1] = cmd
+      return old_cmd(cmd)
+    end
+
+    local ok, err = pcall(function()
+      compose.open_issue_edit(
+        {
+          name = 'github',
+          update_issue_cmd = function()
+            return { 'update-issue' }
+          end,
+        },
+        '42',
+        {
+          title = 'existing issue',
+          body = 'body',
+          labels = {},
+          assignees = {},
+          milestone = '',
+        }
+      )
+    end)
+
+    vim.api.nvim_win_set_cursor = old_set_cursor
+    vim.api.nvim_feedkeys = old_feedkeys
+    vim.cmd = old_cmd
+
+    if not ok then
+      error(err)
+    end
+
+    assert.same({}, cursor_calls)
+    assert.same({}, feedkeys_calls)
+    assert.is_false(vim.tbl_contains(cmd_calls, 'normal! v$h'))
+    assert.same({ 1, 0 }, vim.api.nvim_win_get_cursor(0))
   end)
 
   it('only accents the forge name on the issue edit action line', function()
