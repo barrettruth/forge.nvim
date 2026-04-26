@@ -1525,6 +1525,159 @@ describe('pickers', function()
     end
   )
 
+  it('patches the open PR list locally and revalidates after merge succeeds', function()
+    cache['pr:open'] = {
+      { number = 42, title = 'Merge me', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Keep me', state = 'OPEN', author = 'cora', created_at = '' },
+    }
+    cache['pr:closed'] = {
+      { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+    cache['pr:all'] = {
+      { number = 42, title = 'Merge me', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Keep me', state = 'OPEN', author = 'cora', created_at = '' },
+      { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+    captured.stream(function() end)
+
+    action_by_name('merge').fn(captured.entries[1])
+
+    assert.same(
+      { 41 },
+      vim.tbl_map(function(pr)
+        return pr.number
+      end, cache['pr:open'])
+    )
+    assert.is_nil(cache['pr:closed'])
+    assert.is_nil(cache['pr:all'])
+    assert.equals('41', captured.entries[1].value.num)
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
+    assert.same({
+      {
+        name = 'pr_merge',
+        pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
+        method = nil,
+      },
+    }, op_calls)
+    assert.same({ 'prs', 'open' }, calls[1].cmd)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 41, title = 'Authoritative', state = 'OPEN', author = 'cora', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return cache['pr:open'][1].title == 'Authoritative'
+    end)
+    vim.system = old_system
+
+    assert.equals('Authoritative', cache['pr:open'][1].title)
+    assert.equals(2, picker_refresh_calls)
+  end)
+
+  it('updates all-PR rows in place and revalidates after merge succeeds', function()
+    cache['pr:open'] = {
+      { number = 42, title = 'Merge me', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Keep me', state = 'OPEN', author = 'cora', created_at = '' },
+    }
+    cache['pr:closed'] = {
+      { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+    cache['pr:all'] = {
+      { number = 42, title = 'Merge me', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Already merged', state = 'MERGED', author = 'drew', created_at = '' },
+      { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('all', fake_forge())
+    captured.stream(function() end)
+
+    action_by_name('merge').fn(captured.entries[1])
+
+    assert.equals(
+      'MERGED',
+      vim.tbl_filter(function(pr)
+        return pr.number == 42
+      end, cache['pr:all'])[1].state
+    )
+    assert.is_nil(cache['pr:open'])
+    assert.is_nil(cache['pr:closed'])
+    assert.equals('42', captured.entries[1].value.num)
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.is_nil(labels.approve)
+    assert.is_nil(labels.merge)
+    assert.is_nil(labels.toggle)
+    assert.is_nil(labels.draft)
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
+    assert.same({
+      {
+        name = 'pr_merge',
+        pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil },
+        method = nil,
+      },
+    }, op_calls)
+    assert.same({ 'prs', 'all' }, calls[1].cmd)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        {
+          number = 42,
+          title = 'Authoritative merge',
+          state = 'MERGED',
+          author = 'alice',
+          created_at = '',
+        },
+        {
+          number = 41,
+          title = 'Already merged',
+          state = 'MERGED',
+          author = 'drew',
+          created_at = '',
+        },
+        { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return cache['pr:all'][1].title == 'Authoritative merge'
+    end)
+    vim.system = old_system
+
+    assert.equals('Authoritative merge', cache['pr:all'][1].title)
+    assert.equals(2, picker_refresh_calls)
+  end)
+
   it('patches PR caches locally and revalidates the live PR picker after close succeeds', function()
     cache['pr:open'] = {
       { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },

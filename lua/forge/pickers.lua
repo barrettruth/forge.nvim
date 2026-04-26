@@ -985,6 +985,22 @@ function M.pr(state, f, opts)
     return nil
   end
 
+  local function observed_merged_pr_state(rows)
+    if type(rows) ~= 'table' then
+      return nil
+    end
+    for _, pr in ipairs(rows) do
+      local value = pr[pr_state_field]
+      if type(value) == 'string' then
+        local text = vim.trim(value)
+        if text:lower() == 'merged' then
+          return text
+        end
+      end
+    end
+    return nil
+  end
+
   local function next_pr_state(current_pr, verb)
     local current_state = current_pr[pr_state_field]
     local current_text = type(current_state) == 'string' and vim.trim(current_state) or ''
@@ -1005,6 +1021,20 @@ function M.pr(state, f, opts)
       return 'OPEN'
     end
     return 'open'
+  end
+
+  local function merged_pr_state(current_pr)
+    local merged_state = observed_merged_pr_state(state == 'all' and current_prs or nil)
+      or observed_merged_pr_state(forge_mod.get_list(pr_cache_key('all')))
+    if merged_state then
+      return merged_state
+    end
+    local current_state = current_pr[pr_state_field]
+    local current_text = type(current_state) == 'string' and vim.trim(current_state) or ''
+    if current_text ~= '' and current_text == current_text:upper() then
+      return 'MERGED'
+    end
+    return 'merged'
   end
 
   local function patch_pr_cache(list_state, mutate)
@@ -1052,6 +1082,46 @@ function M.pr(state, f, opts)
     }, vim.deepcopy(forge_mod.pr_state(f, entry.value.num, scope) or {}))
     current_pr_state.review_decision = 'APPROVED'
     forge_mod.set_pr_state(entry.value.num, current_pr_state, scope)
+    rerender_pr_list()
+    revalidate_current_prs()
+  end
+
+  ---@param entry forge.PickerEntry
+  local function locally_merge_pr(entry)
+    local current_index, current_pr = list_row(current_prs, num_field, entry.value.num)
+    if not current_index or type(current_pr) ~= 'table' then
+      refresh_pr_list()
+      return
+    end
+    local scope = entry.value.scope or ref
+    if state == 'all' then
+      local updated_pr = vim.deepcopy(current_pr)
+      updated_pr[pr_state_field] = merged_pr_state(current_pr)
+      current_prs[current_index] = updated_pr
+    else
+      table.remove(current_prs, current_index)
+    end
+    if use_cache then
+      forge_mod.set_list(cache_key, current_prs)
+    end
+
+    ---@type forge.PRState
+    local current_pr_state = vim.tbl_extend('force', {
+      state = entry.value.state or 'OPEN',
+      mergeable = 'UNKNOWN',
+      review_decision = '',
+      is_draft = entry.value.is_draft == true,
+    }, vim.deepcopy(forge_mod.pr_state(f, entry.value.num, scope) or {}))
+    current_pr_state.state = merged_pr_state(current_pr)
+    current_pr_state.is_draft = false
+    forge_mod.set_pr_state(entry.value.num, current_pr_state, scope)
+
+    for _, list_state in ipairs(list_states) do
+      if list_state ~= state then
+        clear_list_cache(forge_mod, pr_cache_key(list_state))
+      end
+    end
+
     rerender_pr_list()
     revalidate_current_prs()
   end
@@ -1219,7 +1289,9 @@ function M.pr(state, f, opts)
       fn = function(entry)
         if entry and not entry.load_more then
           ops.pr_merge(f, entry.value, nil, {
-            on_success = reopen_list,
+            on_success = function()
+              locally_merge_pr(entry)
+            end,
             on_failure = reopen_list,
           })
         end
