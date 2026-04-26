@@ -472,6 +472,10 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
 `:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
     Mark PR `{num}` as ready when supported by the forge.
 
+`:Forge pr browse` [{num}] [repo=...]                       *:Forge-pr-browse*
+    Open PR `{num}` in the browser, or the PR list landing page when
+    `{num}` is omitted. Mirrors `:Forge issue browse` for PRs/MRs.
+
 `:Forge pr refresh` [repo=...]                             *:Forge-pr-refresh*
     Invalidate the cached PR list so the next picker or list-consuming
     command fetches fresh data from the forge. Mirrors the PR picker's
@@ -552,11 +556,21 @@ RELEASE COMMANDS                                      *forge-release-commands*
 
 BROWSE COMMANDS                                        *forge-browse-commands*
 
-`:Forge browse` [branch=...] [commit=...] [target=...]         *:Forge-browse*
+`:Forge browse` [{num}] [repo=...] [branch=...] [commit=...] [target=...]
+                                                               *:Forge-browse*
     Open a forge web URL.
-    (no modifiers)     Open the current file/line permalink on the current
+    (no args)          Open the current file/line permalink on the current
                        branch. In non-file buffers, this falls back to the
                        current repo root.
+    `{num}`            Open issue or PR `{num}` in the browser, dispatched
+                       automatically. On GitHub and Codeberg, issue and PR
+                       numbers share a single space, so the dispatch is
+                       always unambiguous. On GitLab, issue and merge
+                       request iids are independent; if both `#{num}` and
+                       `!{num}` exist, Forge errors and points at the
+                       explicit verbs `:Forge pr browse {num}` and
+                       `:Forge issue browse {num}`.
+    `repo=`            Scope the lookup to a specific repo.
     `branch=<name>`    Open the given branch on the forge. When a file
                        location is available, the file/line permalink is
                        anchored to that branch instead; otherwise the

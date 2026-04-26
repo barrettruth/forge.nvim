@@ -1,4 +1,5 @@
 local forge = require('forge')
+local log = require('forge.logger')
 local submission = require('forge.submission')
 
 ---@class forge.Codeberg: forge.Forge
@@ -120,24 +121,70 @@ end
 
 ---@param kind string
 ---@param num string
+---@param ref forge.Scope?
 function M:view_web(kind, num, ref)
   local base = forge.remote_web_url(ref)
   vim.ui.open(('%s/%s/%s'):format(base, kind, num))
 end
 
+---@param num string
+---@param ref forge.Scope?
+function M:browse_subject(num, ref)
+  local cmd = {
+    'tea',
+    'api',
+    '--repo',
+    repo_arg(ref),
+    ('/repos/{owner}/{repo}/issues/%s'):format(num),
+  }
+  local parse_err = ('failed to parse #%s details'):format(num)
+  vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        local stderr = vim.trim(result.stderr or '')
+        if stderr:match('404') or stderr:match('not[%s_-]?found') then
+          log.warn(('no PR or issue found for #%s'):format(num))
+        else
+          log.error(stderr ~= '' and stderr or ('no PR or issue found for #%s'):format(num))
+        end
+        return
+      end
+      local ok, data = pcall(vim.json.decode, result.stdout or '{}')
+      if not ok or type(data) ~= 'table' then
+        log.error(parse_err)
+        return
+      end
+      local url = type(data.html_url) == 'string' and data.html_url or ''
+      if url == '' then
+        log.error(parse_err)
+        return
+      end
+      local _, open_err = vim.ui.open(url)
+      if open_err then
+        log.error(open_err)
+      end
+    end)
+  end)
+end
+
 ---@param loc string
 ---@param branch string
+---@param ref forge.Scope?
 function M:browse(loc, branch, ref)
   local base = forge.remote_web_url(ref)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
+---@param branch string
+---@param ref forge.Scope?
 function M:browse_branch(branch, ref)
   local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/src/branch/' .. branch)
 end
 
+---@param commit string
+---@param ref forge.Scope?
 function M:browse_commit(commit, ref)
   local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/commit/' .. commit)
@@ -151,6 +198,7 @@ local LIST_PATHS = {
 }
 
 ---@param kind forge.WebKind
+---@param ref forge.Scope?
 ---@return string?
 function M:list_web_url(kind, ref)
   local base = forge.remote_web_url(ref)

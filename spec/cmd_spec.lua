@@ -114,7 +114,6 @@ describe('command schema', function()
     local review_num = assert(cmd.parse({ 'review', '42' }))
     local _, pr_checkout = cmd.parse({ 'pr', 'checkout', '42' })
     local _, pr_worktree = cmd.parse({ 'pr', 'worktree', '42' })
-    local _, pr_browse = cmd.parse({ 'pr', 'browse' })
     local _, pr_list = cmd.parse({ 'pr', 'list' })
     local _, ci_log = cmd.parse({ 'ci', 'log', '123' })
     local _, ci_watch = cmd.parse({ 'ci', 'watch', '123' })
@@ -161,7 +160,6 @@ describe('command schema', function()
 
     assert.equals('unknown pr action: checkout', pr_checkout.message)
     assert.equals('unknown pr action: worktree', pr_worktree.message)
-    assert.equals('unknown pr action: browse', pr_browse.message)
     assert.equals('unknown pr action: list', pr_list.message)
     assert.equals('unknown action: log', ci_log.message)
     assert.equals('unknown action: watch', ci_watch.message)
@@ -169,20 +167,42 @@ describe('command schema', function()
 
   it('accepts argless browse for kind families that have a list landing page', function()
     local issue = assert(cmd.parse({ 'issue', 'browse' }))
+    local pr = assert(cmd.parse({ 'pr', 'browse' }))
     local ci = assert(cmd.parse({ 'ci', 'browse' }))
     local release = assert(cmd.parse({ 'release', 'browse' }))
 
     assert.equals('browse', issue.name)
     assert.same({}, issue.subjects)
+    assert.equals('browse', pr.name)
+    assert.same({}, pr.subjects)
     assert.equals('browse', ci.name)
     assert.same({}, ci.subjects)
     assert.equals('browse', release.name)
     assert.same({}, release.subjects)
 
+    local pr_with = assert(cmd.parse({ 'pr', 'browse', '42' }))
     local ci_with = assert(cmd.parse({ 'ci', 'browse', '123' }))
     local release_with = assert(cmd.parse({ 'release', 'browse', 'v1.2.3' }))
+    assert.same({ '42' }, pr_with.subjects)
     assert.same({ '123' }, ci_with.subjects)
     assert.same({ 'v1.2.3' }, release_with.subjects)
+  end)
+
+  it('accepts an optional numeric subject on :Forge browse', function()
+    local bare = assert(cmd.parse({ 'browse' }))
+    local with_num = assert(cmd.parse({ 'browse', '42' }))
+    local with_num_repo = assert(cmd.parse({ 'browse', '42', 'repo=upstream' }))
+
+    assert.equals('browse', bare.family)
+    assert.equals('open', bare.name)
+    assert.same({}, bare.subjects)
+
+    assert.equals('browse', with_num.family)
+    assert.equals('open', with_num.name)
+    assert.same({ '42' }, with_num.subjects)
+
+    assert.same({ '42' }, with_num_repo.subjects)
+    assert.equals('upstream', with_num_repo.parsed_modifiers.repo.text)
   end)
 
   it('attaches parsed target-bearing modifiers to normalized commands', function()
@@ -269,6 +289,7 @@ describe('command schema', function()
   it('keeps direct forge verbs aligned with canonical non-list operations', function()
     assert.same({
       'open',
+      'browse',
       'ci',
       'close',
       'reopen',
@@ -319,7 +340,7 @@ describe('command schema', function()
   end)
 
   it('keeps legacy browse modifiers separate from canonical ones', function()
-    assert.same({ 'branch', 'commit', 'target' }, cmd.modifier_names('browse'))
+    assert.same({ 'repo', 'branch', 'commit', 'target' }, cmd.modifier_names('browse'))
     assert.same({}, cmd.legacy_modifier_names('browse'))
   end)
 
@@ -339,13 +360,11 @@ describe('command schema', function()
 
   it('rejects obsolete browse modifiers and malformed browse target syntax', function()
     local _, target_err = cmd.parse({ 'browse', 'target=README.md#L10' })
-    local _, repo_err = cmd.parse({ 'browse', 'repo=upstream' })
     local _, rev_err = cmd.parse({ 'browse', 'rev=main' })
     local _, branch_err = cmd.parse({ 'browse', 'branch=@main' })
     local _, commit_err = cmd.parse({ 'browse', 'commit=abc:def' })
 
     assert.equals('invalid location address: README.md#L10', target_err.message)
-    assert.equals('unknown modifier: repo', repo_err.message)
     assert.equals('unknown modifier: rev', rev_err.message)
     assert.equals('invalid branch: @main', branch_err.message)
     assert.equals('invalid commit: abc:def', commit_err.message)

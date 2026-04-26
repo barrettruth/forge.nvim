@@ -1,4 +1,5 @@
 local forge = require('forge')
+local log = require('forge.logger')
 local scope = require('forge.scope')
 local submission = require('forge.submission')
 
@@ -127,23 +128,100 @@ end
 
 ---@param kind string
 ---@param num string
+---@param ref forge.Scope?
 function M:view_web(kind, num, ref)
   vim.system({ 'glab', kind, 'view', num, '--web', '-R', repo_arg(ref) })
 end
 
+---@param num string
+---@param ref forge.Scope?
+function M:browse_subject(num, ref)
+  local current = ref or forge.current_scope(M.name)
+  local pid = project(current)
+  local host = hostname(current) or 'gitlab.com'
+  if pid == '' then
+    log.error('failed to resolve repo for browse')
+    return
+  end
+
+  local pending = 2
+  ---@type string?
+  local mr_url = nil
+  ---@type string?
+  local issue_url = nil
+
+  local function finalize()
+    pending = pending - 1
+    if pending > 0 then
+      return
+    end
+    if mr_url and issue_url then
+      log.warn(
+        ('ambiguous: %s and issue #%s both exist; use :Forge pr browse %s or :Forge issue browse %s'):format(
+          M.labels.pr_one,
+          num,
+          num,
+          num
+        )
+      )
+      return
+    end
+    local url = mr_url or issue_url
+    if not url or url == '' then
+      log.warn(('no PR or issue found for #%s'):format(num))
+      return
+    end
+    local _, open_err = vim.ui.open(url)
+    if open_err then
+      log.error(open_err)
+    end
+  end
+
+  ---@param path string
+  ---@param set_url fun(url: string)
+  local function probe(path, set_url)
+    vim.system({ 'glab', 'api', '--hostname', host, path }, { text = true }, function(result)
+      vim.schedule(function()
+        if result.code == 0 then
+          local ok, data = pcall(vim.json.decode, result.stdout or '{}')
+          if ok and type(data) == 'table' then
+            local web_url = type(data.web_url) == 'string' and data.web_url or ''
+            if web_url ~= '' then
+              set_url(web_url)
+            end
+          end
+        end
+        finalize()
+      end)
+    end)
+  end
+
+  probe(('projects/%s/merge_requests/%s'):format(pid, num), function(u)
+    mr_url = u
+  end)
+  probe(('projects/%s/issues/%s'):format(pid, num), function(u)
+    issue_url = u
+  end)
+end
+
 ---@param loc string
 ---@param branch string
+---@param ref forge.Scope?
 function M:browse(loc, branch, ref)
   local base = forge.remote_web_url(ref)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines))
 end
 
+---@param branch string
+---@param ref forge.Scope?
 function M:browse_branch(branch, ref)
   local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/-/tree/' .. branch)
 end
 
+---@param commit string
+---@param ref forge.Scope?
 function M:browse_commit(commit, ref)
   local base = forge.remote_web_url(ref)
   vim.ui.open(base .. '/-/commit/' .. commit)
@@ -157,6 +235,7 @@ local LIST_PATHS = {
 }
 
 ---@param kind forge.WebKind
+---@param ref forge.Scope?
 ---@return string?
 function M:list_web_url(kind, ref)
   local base = forge.remote_web_url(ref)

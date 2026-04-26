@@ -40,6 +40,7 @@ local families = {
     default_verb = 'open',
     verb_order = {
       'open',
+      'browse',
       'ci',
       'close',
       'reopen',
@@ -55,6 +56,10 @@ local families = {
       open = {
         subject = { kind = 'pr', min = 0, max = 1 },
         modifiers = { 'repo', 'head' },
+      },
+      browse = {
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo' },
       },
       ci = {
         subject = { kind = 'pr', min = 0, max = 1 },
@@ -187,8 +192,8 @@ local families = {
     verb_order = { 'open' },
     verbs = {
       open = {
-        subject = { min = 0, max = 0 },
-        modifiers = { 'branch', 'commit', 'target' },
+        subject = { min = 0, max = 1 },
+        modifiers = { 'repo', 'branch', 'commit', 'target' },
       },
     },
   },
@@ -471,6 +476,15 @@ local function dispatch_pr(command)
     ops.pr_ci(f, pr)
     return
   end
+  if command.name == 'browse' then
+    local scope = resolve_repo_modifier(command, f.name)
+    if num then
+      ops.pr_browse(f, { num = num, scope = scope })
+    else
+      ops.list_browse(f, 'pr', { scope = scope })
+    end
+    return
+  end
   if command.name == 'refresh' then
     require('forge').clear_list_kind('pr')
     require('forge.logger').info('refreshed ' .. ((f.labels and f.labels.pr) or 'pr') .. ' list')
@@ -653,6 +667,11 @@ local function dispatch_browse(command)
     return
   end
   local scope = resolve_scope_modifier(command, f.name)
+  local subject = command.subjects[1]
+  if subject then
+    ops.browse_subject(f, { num = subject, scope = scope })
+    return
+  end
   local location = command.parsed_modifiers.target
   if location then
     ops.browse_location(f, location, scope)

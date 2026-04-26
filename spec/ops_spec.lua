@@ -761,4 +761,30 @@ describe('shared operations', function()
     assert.same({}, captured.urls)
     assert.same({ 'custom does not support ci run pages' }, captured.infos)
   end)
+
+  it('browse_subject delegates to the backend method when available', function()
+    local ops = require('forge.ops')
+    local calls = {}
+    local f = {
+      name = 'github',
+      browse_subject = function(_, num, scope)
+        table.insert(calls, { num = num, scope = scope })
+      end,
+    }
+
+    ops.browse_subject(f, { num = '42', scope = { repo_arg = 'owner/repo' } })
+
+    assert.equals(1, #calls)
+    assert.equals('42', calls[1].num)
+    assert.same({ repo_arg = 'owner/repo' }, calls[1].scope)
+    assert.same({}, captured.infos)
+  end)
+
+  it('browse_subject warns when the source does not implement it', function()
+    local ops = require('forge.ops')
+
+    ops.browse_subject({ name = 'custom' }, { num = '42' })
+
+    assert.same({ 'custom does not support browse by number' }, captured.infos)
+  end)
 end)
