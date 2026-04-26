@@ -1871,6 +1871,49 @@ function M.release(state, f, opts)
     )
   end
 
+  local function rerender_release_list()
+    if refresh_picker(picker_handle) then
+      return
+    end
+    M.release(state, f, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
+  local function revalidate_current_releases()
+    local requested = current_limit + 1
+    picker_session.request_json(
+      cache_key,
+      f:list_releases_json_cmd(ref, requested),
+      function(ok, releases, _, stale)
+        if stale then
+          return
+        end
+        if not ok then
+          log.error('failed to fetch releases')
+          return
+        end
+        current_releases = remember_release_fetch(releases, requested)
+        releases_stale = false
+        forge_mod.set_list(cache_key, current_releases)
+        rerender_release_list()
+      end
+    )
+  end
+
+  ---@param entry forge.PickerEntry
+  local function locally_delete_release(entry)
+    local tag_field = rel_fields.tag
+    local removed = remove_list_row(current_releases, tag_field, entry.value.tag)
+    if removed == nil then
+      clear_list_cache(forge_mod, cache_key)
+      releases_stale = true
+      rerender_release_list()
+      return
+    end
+    forge_mod.set_list(cache_key, current_releases)
+    rerender_release_list()
+    revalidate_current_releases()
+  end
+
   local function reopen_list()
     clear_list_cache(forge_mod, cache_key)
     releases_stale = true
@@ -1913,7 +1956,13 @@ function M.release(state, f, opts)
           return
         end
         ops.release_delete(f, entry.value, {
-          on_success = reopen_list,
+          on_success = function()
+            if state == 'all' then
+              locally_delete_release(entry)
+              return
+            end
+            reopen_list()
+          end,
           on_failure = reopen_list,
         })
       end,
