@@ -698,8 +698,11 @@ function M.create_pr(opts)
     log.info('resolving base branch...')
     vim.system(f:default_branch_cmd(base_scope), { text = true }, function(base_result)
       local base = vim.trim(base_result.stdout or '')
-      if base == '' then
-        base = 'main'
+      if base_result.code ~= 0 or base == '' then
+        vim.schedule(function()
+          log.error(cmd_error(base_result, 'failed to resolve base branch'))
+        end)
+        return
       end
       vim.schedule(function()
         cb(base)

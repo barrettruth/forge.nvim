@@ -498,6 +498,41 @@ describe('create_pr', function()
     assert.is_false(vim.tbl_contains(captured.systems, 'create-pr-web'))
   end)
 
+  it('reports base-branch resolution failures before opening PR compose', function()
+    use_system_responses({
+      ['pr-for-branch feature'] = helpers.command_result('\n'),
+      ['default-branch'] = helpers.command_result('', 1, 'base failed'),
+    })
+
+    require('forge').create_pr()
+
+    vim.wait(100, function()
+      return #captured.errors > 0
+    end)
+
+    assert.same({ 'base failed' }, captured.errors)
+    assert.is_nil(captured.opened_calls)
+    assert.is_false(vim.tbl_contains(captured.systems, 'git diff --quiet origin/main..HEAD'))
+  end)
+
+  it('reports blank base-branch resolution output for web PR creation and does not push', function()
+    use_system_responses({
+      ['pr-for-branch feature'] = helpers.command_result('\n'),
+      ['default-branch'] = helpers.command_result('\n'),
+    })
+
+    require('forge').create_pr({ web = true })
+
+    vim.wait(100, function()
+      return #captured.errors > 0
+    end)
+
+    assert.same({ 'failed to resolve base branch' }, captured.errors)
+    assert.is_false(vim.tbl_contains(captured.systems, 'git diff --quiet origin/main..HEAD'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'git push -u origin feature'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'create-pr-web'))
+  end)
+
   it('pushes and opens the web flow only when the branch is creatable', function()
     require('forge').create_pr({ web = true })
 
