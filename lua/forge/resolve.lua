@@ -1,6 +1,7 @@
 local M = {}
 
 local scope_mod = require('forge.scope')
+local system_mod = require('forge.system')
 local target_mod = require('forge.target')
 
 ---@param text any
@@ -24,17 +25,6 @@ local function error_result(message, code)
     code = code,
     message = message,
   }
-end
-
----@param result forge.SystemResult
----@param fallback string
----@return string
-local function cmd_error(result, fallback)
-  local msg = trim(result.stderr)
-  if not msg then
-    msg = trim(result.stdout)
-  end
-  return msg or fallback
 end
 
 ---@param opts forge.CurrentPROpts?
@@ -143,7 +133,10 @@ local function fetch_pr_json(forge, num, scope)
   local result = vim.system(forge:fetch_pr_details_cmd(num, scope), { text = true }):wait()
   if result.code ~= 0 then
     return nil,
-      cmd_error(result, ('failed to fetch %s #%s'):format(forge.labels.pr_one or 'PR', num))
+      system_mod.cmd_error(
+        result,
+        ('failed to fetch %s #%s'):format(forge.labels.pr_one or 'PR', num)
+      )
   end
   local ok, json = pcall(vim.json.decode, result.stdout or '{}')
   if not ok or type(json) ~= 'table' then
@@ -159,7 +152,8 @@ end
 local function list_pr_numbers(forge, branch, scope)
   local result = vim.system(forge:pr_for_branch_cmd(branch, scope), { text = true }):wait()
   if result.code ~= 0 then
-    return nil, cmd_error(result, ('failed to fetch %s'):format(forge.labels.pr or 'PRs'))
+    return nil,
+      system_mod.cmd_error(result, ('failed to fetch %s'):format(forge.labels.pr or 'PRs'))
   end
   local nums = {}
   local seen = {}
