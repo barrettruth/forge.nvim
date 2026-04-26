@@ -426,6 +426,62 @@ describe('github browse', function()
     assert.equals('exit status 1', captured.error)
     assert.is_nil(captured.url)
   end)
+
+  it('dispatches browse_subject through `gh browse <num>`', function()
+    vim.system = function(cmd, _, cb)
+      captured.cmd = cmd
+      if cb then
+        cb({
+          code = 0,
+          stdout = 'https://github.com/owner/repo/issues/42\n',
+          stderr = '',
+        })
+      end
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    gh:browse_subject('42', { repo_arg = 'owner/repo' })
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.same({ 'gh', 'browse', '42', '-R', 'owner/repo' }, vim.list_slice(captured.cmd, 1, 5))
+    assert.same('--no-browser', captured.cmd[#captured.cmd])
+    assert.equals('https://github.com/owner/repo/issues/42', captured.url)
+    assert.is_nil(captured.error)
+  end)
+
+  it('logs browse_subject resolution failures from gh', function()
+    vim.system = function(cmd, _, cb)
+      captured.cmd = cmd
+      if cb then
+        cb({
+          code = 1,
+          stdout = '',
+          stderr = 'no such issue or pr',
+        })
+      end
+      return {
+        wait = function()
+          return { code = 1 }
+        end,
+      }
+    end
+
+    gh:browse_subject('999', { repo_arg = 'owner/repo' })
+
+    vim.wait(100, function()
+      return captured.error ~= nil
+    end)
+
+    assert.equals('no such issue or pr', captured.error)
+    assert.is_nil(captured.url)
+  end)
 end)
 
 describe('gitlab', function()
@@ -684,6 +740,187 @@ describe('gitlab', function()
   end)
 end)
 
+describe('gitlab browse_subject', function()
+  local captured
+  local old_preload
+  local old_system
+  local old_ui_open
+  local gl
+
+  local function gitlab_scope()
+    return { kind = 'gitlab', host = 'gitlab.com', slug = 'group/repo' }
+  end
+
+  local function mock_glab_api(scenarios)
+    return function(cmd, _, cb)
+      table.insert(captured.cmds, cmd)
+      local path = cmd[5] or ''
+      local result
+      if path:find('/merge_requests/', 1, true) then
+        result = scenarios.mr or { code = 1, stdout = '', stderr = 'not found' }
+      elseif path:find('/issues/', 1, true) then
+        result = scenarios.issue or { code = 1, stdout = '', stderr = 'not found' }
+      else
+        result = { code = 1, stdout = '', stderr = 'unexpected path' }
+      end
+      if cb then
+        cb(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+  end
+
+  before_each(function()
+    captured = { cmds = {} }
+    old_system = vim.system
+    old_ui_open = vim.ui.open
+    old_preload = {
+      ['forge.logger'] = package.preload['forge.logger'],
+    }
+
+    package.preload['forge.logger'] = function()
+      return {
+        error = function(msg)
+          captured.error = msg
+        end,
+        warn = function(msg)
+          captured.warn = msg
+        end,
+        info = function() end,
+        debug = function() end,
+      }
+    end
+
+    vim.ui.open = function(url)
+      captured.url = url
+      return {}, nil
+    end
+
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.backends.gitlab'] = nil
+    gl = require('forge.backends.gitlab')
+  end)
+
+  after_each(function()
+    vim.system = old_system
+    vim.ui.open = old_ui_open
+    package.preload['forge.logger'] = old_preload['forge.logger']
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.backends.gitlab'] = nil
+  end)
+
+  it('opens the MR when only the MR exists', function()
+    vim.system = mock_glab_api({
+      mr = {
+        code = 0,
+        stdout = '{"web_url":"https://gitlab.com/group/repo/-/merge_requests/42"}',
+      },
+    })
+
+    gl:browse_subject('42', gitlab_scope())
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.equals('https://gitlab.com/group/repo/-/merge_requests/42', captured.url)
+    assert.is_nil(captured.warn)
+    assert.is_nil(captured.error)
+    assert.equals(2, #captured.cmds)
+  end)
+
+  it('opens the issue when only the issue exists', function()
+    vim.system = mock_glab_api({
+      issue = {
+        code = 0,
+        stdout = '{"web_url":"https://gitlab.com/group/repo/-/issues/42"}',
+      },
+    })
+
+    gl:browse_subject('42', gitlab_scope())
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.equals('https://gitlab.com/group/repo/-/issues/42', captured.url)
+    assert.is_nil(captured.warn)
+    assert.is_nil(captured.error)
+  end)
+
+  it('warns ambiguous when both an MR and an issue exist', function()
+    vim.system = mock_glab_api({
+      mr = {
+        code = 0,
+        stdout = '{"web_url":"https://gitlab.com/group/repo/-/merge_requests/5"}',
+      },
+      issue = {
+        code = 0,
+        stdout = '{"web_url":"https://gitlab.com/group/repo/-/issues/5"}',
+      },
+    })
+
+    gl:browse_subject('5', gitlab_scope())
+
+    vim.wait(100, function()
+      return captured.warn ~= nil
+    end)
+
+    assert.is_nil(captured.url)
+    assert.matches('ambiguous', captured.warn)
+    assert.matches('MR', captured.warn)
+    assert.matches(':Forge pr browse 5', captured.warn)
+    assert.matches(':Forge issue browse 5', captured.warn)
+  end)
+
+  it('warns not found when neither an MR nor an issue exists', function()
+    vim.system = mock_glab_api({
+      mr = { code = 1, stdout = '', stderr = 'not found' },
+      issue = { code = 1, stdout = '', stderr = 'not found' },
+    })
+
+    gl:browse_subject('999', gitlab_scope())
+
+    vim.wait(100, function()
+      return captured.warn ~= nil
+    end)
+
+    assert.is_nil(captured.url)
+    assert.matches('no PR or issue found for #999', captured.warn)
+  end)
+
+  it('uses --hostname from scope and encodes the project slug', function()
+    vim.system = mock_glab_api({
+      issue = {
+        code = 0,
+        stdout = '{"web_url":"https://gitlab.example.com/group/sub/repo/-/issues/7"}',
+      },
+    })
+
+    gl:browse_subject(
+      '7',
+      { kind = 'gitlab', host = 'gitlab.example.com', slug = 'group/sub/repo' }
+    )
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.is_true(#captured.cmds == 2)
+    for _, cmd in ipairs(captured.cmds) do
+      assert.equals('glab', cmd[1])
+      assert.equals('api', cmd[2])
+      assert.equals('--hostname', cmd[3])
+      assert.equals('gitlab.example.com', cmd[4])
+      assert.matches('group%%2Fsub%%2Frepo/', cmd[5])
+    end
+  end)
+end)
+
 describe('codeberg', function()
   local cb = require('forge.backends.codeberg')
 
@@ -907,5 +1144,183 @@ describe('codeberg', function()
 
     vim.ui.open = old_open
     assert.equals('https://codeberg.org/owner/repo/actions/runs/123', opened)
+  end)
+end)
+
+describe('codeberg browse_subject', function()
+  local captured
+  local old_preload
+  local old_system
+  local old_ui_open
+  local cb
+
+  local function codeberg_scope()
+    return { repo_arg = 'forgejo/forgejo' }
+  end
+
+  before_each(function()
+    captured = {}
+    old_system = vim.system
+    old_ui_open = vim.ui.open
+    old_preload = {
+      ['forge.logger'] = package.preload['forge.logger'],
+    }
+
+    package.preload['forge.logger'] = function()
+      return {
+        error = function(msg)
+          captured.error = msg
+        end,
+        warn = function(msg)
+          captured.warn = msg
+        end,
+        info = function() end,
+        debug = function() end,
+      }
+    end
+
+    vim.ui.open = function(url)
+      captured.url = url
+      return {}, nil
+    end
+
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.backends.codeberg'] = nil
+    cb = require('forge.backends.codeberg')
+  end)
+
+  after_each(function()
+    vim.system = old_system
+    vim.ui.open = old_ui_open
+    package.preload['forge.logger'] = old_preload['forge.logger']
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.backends.codeberg'] = nil
+  end)
+
+  it('opens the html_url returned by tea api for an issue', function()
+    vim.system = function(cmd, _, cb_fn)
+      captured.cmd = cmd
+      cb_fn({
+        code = 0,
+        stdout = '{"html_url":"https://codeberg.org/forgejo/forgejo/issues/42","pull_request":null}',
+        stderr = '',
+      })
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    cb:browse_subject('42', codeberg_scope())
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.same(
+      { 'tea', 'api', '--repo', 'forgejo/forgejo', '/repos/{owner}/{repo}/issues/42' },
+      captured.cmd
+    )
+    assert.equals('https://codeberg.org/forgejo/forgejo/issues/42', captured.url)
+    assert.is_nil(captured.error)
+  end)
+
+  it('opens the html_url returned by tea api for a PR', function()
+    vim.system = function(_, _, cb_fn)
+      cb_fn({
+        code = 0,
+        stdout = '{"html_url":"https://codeberg.org/forgejo/forgejo/pulls/12272","pull_request":{"merged":true}}',
+        stderr = '',
+      })
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    cb:browse_subject('12272', codeberg_scope())
+
+    vim.wait(100, function()
+      return captured.url ~= nil
+    end)
+
+    assert.equals('https://codeberg.org/forgejo/forgejo/pulls/12272', captured.url)
+    assert.is_nil(captured.error)
+  end)
+
+  it('warns not-found when tea api returns a 404', function()
+    vim.system = function(_, _, cb_fn)
+      cb_fn({
+        code = 1,
+        stdout = '',
+        stderr = '404 not found',
+      })
+      return {
+        wait = function()
+          return { code = 1 }
+        end,
+      }
+    end
+
+    cb:browse_subject('999', codeberg_scope())
+
+    vim.wait(100, function()
+      return captured.warn ~= nil
+    end)
+
+    assert.is_nil(captured.url)
+    assert.is_nil(captured.error)
+    assert.equals('no PR or issue found for #999', captured.warn)
+  end)
+
+  it('surfaces tea api stderr on non-404 failures', function()
+    vim.system = function(_, _, cb_fn)
+      cb_fn({
+        code = 1,
+        stdout = '',
+        stderr = 'Error: Authentication required',
+      })
+      return {
+        wait = function()
+          return { code = 1 }
+        end,
+      }
+    end
+
+    cb:browse_subject('42', codeberg_scope())
+
+    vim.wait(100, function()
+      return captured.error ~= nil
+    end)
+
+    assert.is_nil(captured.url)
+    assert.is_nil(captured.warn)
+    assert.equals('Error: Authentication required', captured.error)
+  end)
+
+  it('logs parse failure when tea api stdout is not JSON', function()
+    vim.system = function(_, _, cb_fn)
+      cb_fn({
+        code = 0,
+        stdout = 'not json at all',
+        stderr = '',
+      })
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    cb:browse_subject('42', codeberg_scope())
+
+    vim.wait(100, function()
+      return captured.error ~= nil
+    end)
+
+    assert.is_nil(captured.url)
+    assert.equals('failed to parse #42 details', captured.error)
   end)
 end)

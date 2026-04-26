@@ -92,6 +92,10 @@
 ---@field num string
 ---@field scope forge.Scope?
 
+---@class forge.SubjectRef
+---@field num string
+---@field scope forge.Scope?
+
 ---@class forge.ReleaseRef
 ---@field tag string
 ---@field scope forge.Scope?
@@ -356,6 +360,7 @@
 ---@field pr_fields { number: string, title: string, branch: string, state: string, author: string, created_at: string }
 ---@field issue_fields { number: string, title: string, state: string, author: string, created_at: string }
 ---@field view_web fun(self: forge.Forge, kind: string, num: string, scope?: forge.Scope)
+---@field browse_subject (fun(self: forge.Forge, num: string, scope?: forge.Scope))?
 ---@field browse fun(self: forge.Forge, loc: string, branch: string, scope?: forge.Scope)
 ---@field browse_branch fun(self: forge.Forge, branch: string, scope?: forge.Scope)
 ---@field browse_commit fun(self: forge.Forge, commit: string, scope?: forge.Scope)

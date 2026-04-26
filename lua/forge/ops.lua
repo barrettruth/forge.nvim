@@ -324,6 +324,13 @@ function M.pr_toggle_draft(f, pr, is_draft, opts)
   )
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRefLike
+function M.pr_browse(f, pr)
+  pr = normalize_pr_ref(pr)
+  f:view_web(f.kinds.pr, pr.num, pr.scope)
+end
+
 ---@param state? 'open'|'closed'|'all'
 ---@param opts? forge.PickerBackOpts
 function M.issue_list(state, opts)
@@ -685,6 +692,16 @@ function M.list_browse(f, kind, opts)
   if err then
     log.error(err)
   end
+end
+
+---@param f forge.Forge
+---@param ref forge.SubjectRef
+function M.browse_subject(f, ref)
+  if not f.browse_subject then
+    log.warn(('%s does not support browse by number'):format(f.name))
+    return
+  end
+  f:browse_subject(ref.num, ref.scope)
 end
 
 ---@param opts? { commit?: string, scope?: forge.Scope }

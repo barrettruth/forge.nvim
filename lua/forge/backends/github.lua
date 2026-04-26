@@ -138,6 +138,7 @@ end
 
 ---@param kind string
 ---@param num string
+---@param scope forge.Scope?
 function M:view_web(kind, num, scope)
   local cmd = { 'gh', kind, 'view', num, '--web' }
   local repo = nwo(scope)
@@ -148,8 +149,21 @@ function M:view_web(kind, num, scope)
   vim.system(cmd)
 end
 
+---@param num string
+---@param scope forge.Scope?
+function M:browse_subject(num, scope)
+  local cmd = { 'gh', 'browse', num }
+  local repo = nwo(scope)
+  if repo ~= '' then
+    table.insert(cmd, '-R')
+    table.insert(cmd, repo)
+  end
+  open_browse_url(cmd)
+end
+
 ---@param loc string
 ---@param branch string
+---@param scope forge.Scope?
 function M:browse(loc, branch, scope)
   local cmd = { 'gh', 'browse', loc, '--branch', branch }
   local repo = nwo(scope)
@@ -160,6 +174,8 @@ function M:browse(loc, branch, scope)
   open_browse_url(cmd)
 end
 
+---@param branch string
+---@param scope forge.Scope?
 function M:browse_branch(branch, scope)
   local cmd = { 'gh', 'browse', '--branch', branch }
   local repo = nwo(scope)
@@ -170,6 +186,8 @@ function M:browse_branch(branch, scope)
   open_browse_url(cmd)
 end
 
+---@param commit string
+---@param scope forge.Scope?
 function M:browse_commit(commit, scope)
   local cmd = { 'gh', 'browse', commit }
   local repo = nwo(scope)
@@ -188,6 +206,7 @@ local LIST_PATHS = {
 }
 
 ---@param kind forge.WebKind
+---@param scope forge.Scope?
 ---@return string?
 function M:list_web_url(kind, scope)
   local base = forge.remote_web_url(scope)
