@@ -1,5 +1,4 @@
 local M = {}
-
 local scope = require('forge.scope')
 local submission = require('forge.submission')
 local template = require('forge.template')
@@ -581,10 +580,6 @@ function M.open_issue_edit(f, num, details, ref)
       )
     end,
   })
-
-  vim.api.nvim_win_set_cursor(0, { 1, 2 })
-  vim.cmd('normal! v$h')
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-G>', true, false, true), 'n', false)
 end
 
 ---@param f forge.Forge
@@ -905,10 +900,6 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
       )
     end,
   })
-
-  vim.api.nvim_win_set_cursor(0, { 1, 2 })
-  vim.cmd('normal! v$h')
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-G>', true, false, true), 'n', false)
 end
 
 return M

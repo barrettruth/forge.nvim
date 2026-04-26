@@ -114,6 +114,48 @@ describe('compose pr create', function()
     vim.cmd('enew!')
   end)
 
+  it('pre-selects the PR title on create', function()
+    local compose = require('forge.compose')
+    local old_set_cursor = vim.api.nvim_win_set_cursor
+    local old_feedkeys_local = vim.api.nvim_feedkeys
+    local old_cmd = vim.cmd
+    local cursor_calls = {}
+    local feedkeys_calls = {}
+    local cmd_calls = {}
+
+    vim.api.nvim_win_set_cursor = function(win, pos)
+      cursor_calls[#cursor_calls + 1] = { win = win, pos = { pos[1], pos[2] } }
+      return old_set_cursor(win, pos)
+    end
+    vim.api.nvim_feedkeys = function(keys, mode, escape_ks)
+      feedkeys_calls[#feedkeys_calls + 1] = { keys = keys, mode = mode, escape_ks = escape_ks }
+    end
+    vim.cmd = function(cmd)
+      cmd_calls[#cmd_calls + 1] = cmd
+      return old_cmd(cmd)
+    end
+
+    local ok, err = pcall(function()
+      compose.open_pr({
+        labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+        capabilities = { draft = true, reviewers = false },
+        name = 'github',
+      }, 'new', 'main', false, nil, nil, 'origin', 'origin/main', 'HEAD')
+    end)
+
+    vim.api.nvim_win_set_cursor = old_set_cursor
+    vim.api.nvim_feedkeys = old_feedkeys_local
+    vim.cmd = old_cmd
+
+    if not ok then
+      error(err)
+    end
+
+    assert.same({ { win = 0, pos = { 1, 2 } } }, cursor_calls)
+    assert.is_true(vim.tbl_contains(cmd_calls, 'normal! v$h'))
+    assert.equals(1, #feedkeys_calls)
+  end)
+
   it(
     'orders the create footer from action to branch to metadata to diff stat to instructions',
     function()
