@@ -76,6 +76,7 @@ end
 
 ---@param state string
 ---@param limit integer?
+---@param scope forge.Scope?
 ---@return string[]
 function M:list_pr_json_cmd(state, limit, scope)
   local cmd = {
@@ -102,6 +103,7 @@ end
 
 ---@param state string
 ---@param limit integer?
+---@param scope forge.Scope?
 ---@return string[]
 function M:list_issue_json_cmd(state, limit, scope)
   local cmd = {
@@ -249,11 +251,15 @@ function M:list_web_url(kind, scope)
   return base .. path
 end
 
+---@param num string
+---@param scope forge.Scope?
+---@return string[]
 function M:checkout_cmd(num, scope)
   return { 'glab', 'mr', 'checkout', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:fetch_pr(num, scope)
   local remote = 'origin'
@@ -274,6 +280,7 @@ function M:fetch_pr(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:pr_base_cmd(num, scope)
   return {
@@ -284,6 +291,7 @@ function M:pr_base_cmd(num, scope)
 end
 
 ---@param branch string
+---@param scope forge.Scope?
 ---@return string[]
 function M:pr_for_branch_cmd(branch, scope)
   return {
@@ -297,6 +305,7 @@ function M:pr_for_branch_cmd(branch, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:checks_json_cmd(num, scope)
   local jq = [=[
@@ -337,6 +346,7 @@ end
 ---@param run_id string
 ---@param failed_only boolean
 ---@param job_id string?
+---@param scope forge.Scope?
 ---@return string[]
 function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local _ = failed_only
@@ -350,18 +360,14 @@ function M:check_log_cmd(run_id, failed_only, job_id, scope)
 end
 
 ---@param run_id string
----@return string[]
-function M:check_tail_cmd(run_id, scope)
-  return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(scope) }
-end
-
----@param run_id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:live_tail_cmd(run_id, _, scope)
   return { 'glab', 'ci', 'trace', run_id, '-R', repo_arg(scope) }
 end
 
 ---@param id string?
+---@param scope forge.Scope?
 ---@return string[]
 function M:watch_cmd(id, scope)
   local cmd = { 'glab', 'ci', 'view' }
@@ -375,12 +381,14 @@ function M:watch_cmd(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:cancel_run_cmd(id, scope)
   return { 'glab', 'ci', 'cancel', 'pipeline', id, '-R', repo_arg(scope) }
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:rerun_run_cmd(id, scope)
   return {
@@ -395,6 +403,7 @@ function M:rerun_run_cmd(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string?
 function M:run_web_url(id, scope)
   local base = forge.remote_web_url(scope)
@@ -405,6 +414,7 @@ function M:run_web_url(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 function M:browse_run(id, scope)
   local url = self:run_web_url(id, scope)
   if not url then
@@ -413,6 +423,10 @@ function M:browse_run(id, scope)
   vim.ui.open(url)
 end
 
+---@param branch string?
+---@param scope forge.Scope?
+---@param limit integer?
+---@return string[]
 function M:list_runs_json_cmd(branch, scope, limit)
   local cmd = {
     'glab',
@@ -432,6 +446,8 @@ function M:list_runs_json_cmd(branch, scope, limit)
   return cmd
 end
 
+---@param entry table
+---@return forge.CIRun
 function M:normalize_run(entry)
   local ref = entry.ref or ''
   local mr_num = ref:match('^refs/merge%-requests/(%d+)/head$')
@@ -446,6 +462,10 @@ function M:normalize_run(entry)
   }
 end
 
+---@param id string
+---@param failed_only boolean
+---@param scope forge.Scope?
+---@return string[]
 function M:run_log_cmd(id, failed_only, scope)
   local lines = forge.config().ci.lines
   local jq_filter = failed_only and '[.[] | select(.status=="failed")][0].id // .[0].id'
@@ -464,23 +484,9 @@ function M:run_log_cmd(id, failed_only, scope)
   }
 end
 
-function M:run_tail_cmd(id, scope)
-  local jq_filter = '[.[] | select(.status=="running" or .status=="pending")][0].id // .[0].id'
-  return {
-    'sh',
-    '-c',
-    ('JOB=$(glab api --hostname %s \'projects/%s/pipelines/%s/jobs?per_page=100\' | jq -r \'%s\') && [ "$JOB" != "null" ] && glab ci trace "$JOB" -R \'%s\''):format(
-      hostname(scope) or 'gitlab.com',
-      project(scope),
-      id,
-      jq_filter,
-      repo_arg(scope)
-    ),
-  }
-end
-
 ---@param num string
 ---@param method string
+---@param scope forge.Scope?
 ---@return string[]
 function M:merge_cmd(num, method, scope)
   local cmd = { 'glab', 'mr', 'merge', num }
@@ -495,18 +501,21 @@ function M:merge_cmd(num, method, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:approve_cmd(num, scope)
   return { 'glab', 'mr', 'approve', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:close_cmd(num, scope)
   return { 'glab', 'mr', 'close', num, '-R', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:reopen_cmd(num, scope)
   return { 'glab', 'mr', 'reopen', num, '-R', repo_arg(scope) }
@@ -525,11 +534,15 @@ function M:reopen_issue_cmd(num)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:fetch_pr_details_cmd(num, scope)
   return { 'glab', 'mr', 'view', num, '--output', 'json', '-R', repo_arg(scope) }
 end
 
+---@param num string
+---@param scope forge.Scope?
+---@return string[]
 function M:fetch_issue_details_cmd(num, scope)
   return { 'glab', 'issue', 'view', num, '--output', 'json', '-R', repo_arg(scope) }
 end
@@ -537,6 +550,9 @@ end
 ---@param num string
 ---@param title string
 ---@param body string
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
+---@param previous forge.CommentMetadata?
 ---@return string[]
 function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   local cmd =
@@ -577,6 +593,13 @@ function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   return cmd
 end
 
+---@param num string
+---@param title string
+---@param body string
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
+---@param previous forge.CommentMetadata?
+---@return string[]
 function M:update_issue_cmd(num, title, body, scope, metadata, previous)
   local cmd = {
     'glab',
@@ -644,6 +667,8 @@ function M:parse_pr_details(json)
   }
 end
 
+---@param json table
+---@return forge.IssueDetails
 function M:parse_issue_details(json)
   local labels = {}
   for _, l in ipairs(json.labels or {}) do
@@ -670,6 +695,8 @@ end
 ---@param body string
 ---@param base string
 ---@param draft boolean
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
 ---@return string[]
 function M:create_pr_cmd(title, body, base, draft, scope, metadata)
   local cmd = {
@@ -700,6 +727,10 @@ function M:create_pr_cmd(title, body, base, draft, scope, metadata)
   return cmd
 end
 
+---@param scope forge.Scope?
+---@param head_scope forge.Scope?
+---@param head_branch string?
+---@param base_branch string?
 ---@return string[]
 function M:create_pr_web_cmd(scope, head_scope, head_branch, base_branch)
   local cmd = { 'glab', 'mr', 'create', '--web', '-R', repo_arg(scope) }
@@ -725,6 +756,8 @@ end
 ---@param title string
 ---@param body string
 ---@param labels string[]?
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
 ---@return string[]
 function M:create_issue_cmd(title, body, labels, scope, metadata)
   local cmd = {
@@ -750,6 +783,7 @@ function M:create_issue_cmd(title, body, labels, scope, metadata)
   return cmd
 end
 
+---@param scope forge.Scope?
 ---@return string[]
 function M:create_issue_web_cmd(scope)
   return { 'glab', 'issue', 'create', '--web', '-R', repo_arg(scope) }
@@ -760,6 +794,7 @@ function M:issue_template_paths()
   return { '.gitlab/issue_templates/' }
 end
 
+---@param scope forge.Scope?
 ---@return string[]
 function M:default_branch_cmd(scope)
   return {
@@ -776,6 +811,7 @@ end
 
 ---@param num string
 ---@param is_draft boolean
+---@param scope forge.Scope?
 ---@return string[]?
 function M:draft_toggle_cmd(num, is_draft, scope)
   if is_draft then
@@ -784,6 +820,7 @@ function M:draft_toggle_cmd(num, is_draft, scope)
   return { 'glab', 'mr', 'update', num, '--draft', '-R', repo_arg(scope) }
 end
 
+---@param scope forge.Scope?
 ---@return forge.RepoInfo
 function M:repo_info(scope)
   local result = vim
@@ -831,6 +868,7 @@ function M:repo_info(scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return forge.PRState
 function M:pr_state(num, scope)
   local result = vim
@@ -848,6 +886,9 @@ function M:pr_state(num, scope)
   }
 end
 
+---@param scope forge.Scope?
+---@param limit integer?
+---@return string[]
 function M:list_releases_json_cmd(scope, limit)
   return {
     'glab',
@@ -863,12 +904,14 @@ function M:list_releases_json_cmd(scope, limit)
 end
 
 ---@param tag string
+---@param scope forge.Scope?
 function M:browse_release(tag, scope)
   local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/-/releases/' .. tag)
 end
 
 ---@param tag string
+---@param scope forge.Scope?
 ---@return string[]
 function M:delete_release_cmd(tag, scope)
   return { 'glab', 'release', 'delete', tag, '-R', repo_arg(scope) }

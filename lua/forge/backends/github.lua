@@ -92,6 +92,7 @@ end
 
 ---@param state string
 ---@param limit integer?
+---@param scope forge.Scope?
 ---@return string[]
 function M:list_pr_json_cmd(state, limit, scope)
   local cmd = {
@@ -115,6 +116,7 @@ end
 
 ---@param state string
 ---@param limit integer?
+---@param scope forge.Scope?
 ---@return string[]
 function M:list_issue_json_cmd(state, limit, scope)
   local cmd = {
@@ -220,6 +222,9 @@ function M:list_web_url(kind, scope)
   return base .. path
 end
 
+---@param num string
+---@param scope forge.Scope?
+---@return string[]
 function M:checkout_cmd(num, scope)
   local cmd = { 'gh', 'pr', 'checkout', num }
   local repo = nwo(scope)
@@ -231,6 +236,7 @@ function M:checkout_cmd(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:fetch_pr(num, scope)
   local current = forge.current_scope(M.name)
@@ -246,6 +252,7 @@ function M:fetch_pr(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:pr_base_cmd(num, scope)
   return {
@@ -263,6 +270,7 @@ function M:pr_base_cmd(num, scope)
 end
 
 ---@param branch string
+---@param scope forge.Scope?
 ---@return string[]
 function M:pr_for_branch_cmd(branch, scope)
   local cmd = {
@@ -291,6 +299,7 @@ function M:checks_cmd(num)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:checks_json_cmd(num, scope)
   return {
@@ -308,6 +317,7 @@ end
 ---@param run_id string
 ---@param failed_only boolean
 ---@param job_id string?
+---@param scope forge.Scope?
 ---@return string[]
 function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local lines = forge.config().ci.lines
@@ -321,13 +331,14 @@ function M:check_log_cmd(run_id, failed_only, job_id, scope)
 end
 
 ---@param run_id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:steps_cmd(run_id, scope)
   return { 'gh', 'run', 'view', run_id, '-R', nwo(scope), '--json', 'jobs' }
 end
 
 ---@param id string
----@param opts? forge.RunViewOpts
+---@param opts forge.RunViewOpts?
 ---@return string[]
 function M:view_cmd(id, opts)
   opts = opts or {}
@@ -344,6 +355,7 @@ function M:view_cmd(id, opts)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string?
 function M:run_web_url(id, scope)
   local base = forge.remote_web_url(scope)
@@ -354,6 +366,7 @@ function M:run_web_url(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 function M:browse_run(id, scope)
   local url = self:run_web_url(id, scope)
   if not url then
@@ -364,6 +377,7 @@ end
 
 ---@param run_id string
 ---@param job_id string
+---@param scope forge.Scope?
 ---@return string?
 function M:job_web_url(run_id, job_id, scope)
   local run_url = self:run_web_url(run_id, scope)
@@ -374,6 +388,7 @@ function M:job_web_url(run_id, job_id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:summary_json_cmd(id, scope)
   local jq = table.concat({
@@ -397,29 +412,37 @@ function M:summary_json_cmd(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:watch_cmd(id, scope)
   return { 'gh', 'run', 'watch', id, '-R', nwo(scope) }
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:cancel_run_cmd(id, scope)
   return { 'gh', 'run', 'cancel', id, '-R', nwo(scope) }
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:rerun_run_cmd(id, scope)
   return { 'gh', 'run', 'rerun', id, '-R', nwo(scope) }
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:run_status_cmd(id, scope)
   return { 'gh', 'run', 'view', id, '-R', nwo(scope), '--json', 'status,conclusion' }
 end
 
+---@param id string
+---@param failed_only boolean
+---@param scope forge.Scope?
+---@return string[]
 function M:run_log_cmd(id, failed_only, scope)
   local lines = forge.config().ci.lines
   local flag = failed_only and '--log-failed' or '--log'
@@ -430,6 +453,10 @@ function M:run_log_cmd(id, failed_only, scope)
   }
 end
 
+---@param branch string?
+---@param scope forge.Scope?
+---@param limit integer?
+---@return string[]
 function M:list_runs_json_cmd(branch, scope, limit)
   local cmd = {
     'gh',
@@ -452,6 +479,8 @@ function M:list_runs_json_cmd(branch, scope, limit)
   return cmd
 end
 
+---@param entry table
+---@return forge.CIRun
 function M:normalize_run(entry)
   local status = entry.status or ''
   if status == 'completed' then
@@ -470,6 +499,7 @@ end
 
 ---@param num string
 ---@param method string
+---@param scope forge.Scope?
 ---@return string[]
 function M:merge_cmd(num, method, scope)
   local cmd = { 'gh', 'pr', 'merge', num }
@@ -485,6 +515,7 @@ function M:merge_cmd(num, method, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:approve_cmd(num, scope)
   local cmd = { 'gh', 'pr', 'review', num, '--approve' }
@@ -497,6 +528,7 @@ function M:approve_cmd(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:close_cmd(num, scope)
   local cmd = { 'gh', 'pr', 'close', num }
@@ -509,6 +541,7 @@ function M:close_cmd(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:reopen_cmd(num, scope)
   local cmd = { 'gh', 'pr', 'reopen', num }
@@ -521,6 +554,7 @@ function M:reopen_cmd(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:close_issue_cmd(num, scope)
   local cmd = { 'gh', 'issue', 'close', num }
@@ -533,6 +567,7 @@ function M:close_issue_cmd(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:reopen_issue_cmd(num, scope)
   local cmd = { 'gh', 'issue', 'reopen', num }
@@ -545,6 +580,7 @@ function M:reopen_issue_cmd(num, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:fetch_pr_details_cmd(num, scope)
   return {
@@ -559,6 +595,9 @@ function M:fetch_pr_details_cmd(num, scope)
   }
 end
 
+---@param num string
+---@param scope forge.Scope?
+---@return string[]
 function M:fetch_issue_details_cmd(num, scope)
   return {
     'gh',
@@ -575,6 +614,9 @@ end
 ---@param num string
 ---@param title string
 ---@param body string
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
+---@param previous forge.CommentMetadata?
 ---@return string[]
 function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   local cmd = { 'gh', 'pr', 'edit', num, '--title', title, '--body', body }
@@ -605,6 +647,13 @@ function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   return cmd
 end
 
+---@param num string
+---@param title string
+---@param body string
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
+---@param previous forge.CommentMetadata?
+---@return string[]
 function M:update_issue_cmd(num, title, body, scope, metadata, previous)
   local cmd = { 'gh', 'issue', 'edit', num, '--title', title, '--body', body }
   local current = submission.filter(self, 'issue', 'update', metadata)
@@ -663,6 +712,8 @@ function M:parse_pr_details(json)
   }
 end
 
+---@param json table
+---@return forge.IssueDetails
 function M:parse_issue_details(json)
   local labels = {}
   for _, l in ipairs(json.labels or {}) do
@@ -689,6 +740,8 @@ end
 ---@param body string
 ---@param base string
 ---@param draft boolean
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
 ---@return string[]
 function M:create_pr_cmd(title, body, base, draft, scope, metadata)
   local cmd = { 'gh', 'pr', 'create', '--title', title, '--body', body, '--base', base }
@@ -711,6 +764,10 @@ function M:create_pr_cmd(title, body, base, draft, scope, metadata)
   return cmd
 end
 
+---@param scope forge.Scope?
+---@param head_scope forge.Scope?
+---@param head_branch string?
+---@param base_branch string?
 ---@return string[]
 function M:create_pr_web_cmd(scope, head_scope, head_branch, base_branch)
   local cmd = { 'gh', 'pr', 'create', '--web' }
@@ -746,6 +803,8 @@ end
 ---@param title string
 ---@param body string
 ---@param labels string[]?
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
 ---@return string[]
 function M:create_issue_cmd(title, body, labels, scope, metadata)
   local cmd = { 'gh', 'issue', 'create', '--title', title, '--body', body }
@@ -765,6 +824,7 @@ function M:create_issue_cmd(title, body, labels, scope, metadata)
   return cmd
 end
 
+---@param scope forge.Scope?
 ---@return string?
 function M:create_issue_web_url(scope)
   local url = forge.remote_web_url(scope)
@@ -782,6 +842,7 @@ function M:issue_template_paths()
   }
 end
 
+---@param scope forge.Scope?
 ---@return string[]
 function M:default_branch_cmd(scope)
   return {
@@ -807,6 +868,7 @@ end
 
 ---@param num string
 ---@param is_draft boolean
+---@param scope forge.Scope?
 ---@return string[]?
 function M:draft_toggle_cmd(num, is_draft, scope)
   if is_draft then
@@ -815,6 +877,7 @@ function M:draft_toggle_cmd(num, is_draft, scope)
   return { 'gh', 'pr', 'ready', num, '--undo', '-R', nwo(scope) }
 end
 
+---@param scope forge.Scope?
 ---@return forge.RepoInfo
 function M:repo_info(scope)
   local result = vim
@@ -850,6 +913,7 @@ function M:repo_info(scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return forge.PRState
 function M:pr_state(num, scope)
   local result = vim
@@ -877,6 +941,9 @@ function M:pr_state(num, scope)
   }
 end
 
+---@param scope forge.Scope?
+---@param limit integer?
+---@return string[]
 function M:list_releases_json_cmd(scope, limit)
   local cmd = {
     'gh',
@@ -896,6 +963,7 @@ function M:list_releases_json_cmd(scope, limit)
 end
 
 ---@param tag string
+---@param scope forge.Scope?
 function M:browse_release(tag, scope)
   local cmd = { 'gh', 'release', 'view', tag, '--web' }
   local repo = nwo(scope)
@@ -907,6 +975,7 @@ function M:browse_release(tag, scope)
 end
 
 ---@param tag string
+---@param scope forge.Scope?
 ---@return string[]
 function M:delete_release_cmd(tag, scope)
   return { 'gh', 'release', 'delete', tag, '--yes', '-R', nwo(scope) }
