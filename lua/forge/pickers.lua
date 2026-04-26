@@ -839,9 +839,11 @@ function M.pr(state, f, opts)
   local fetch_limit = limits.fetch
   local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
-  local cache_key = forge_mod.list_key('pr', scoped_id(state, scoped_key(forge_mod, ref)))
+  local scope_suffix = scoped_key(forge_mod, ref)
+  local cache_key = scoped_list_key(forge_mod, 'pr', state, scope_suffix)
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
+  local pr_state_field = pr_fields.state
   local show_state = state ~= 'open'
   local current_limit = visible_limit
   local current_prs
@@ -908,7 +910,7 @@ function M.pr(state, f, opts)
       next_state,
       f.labels.pr,
       f:list_pr_json_cmd(next_state, fetch_limit, ref),
-      scoped_key(forge_mod, ref)
+      scope_suffix
     )
   end
 
@@ -944,11 +946,149 @@ function M.pr(state, f, opts)
     )
   end
 
-  local function reopen_list()
-    clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
-    forge_mod.clear_pr_state(nil, ref)
+  local function rerender_pr_list()
+    if refresh_picker(picker_handle) then
+      return
+    end
+    M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
+  end
+
+  local function refresh_pr_list()
     prs_stale = true
-    refresh_picker(picker_handle)
+    rerender_pr_list()
+  end
+
+  local function reopen_list()
+    clear_state_caches(forge_mod, 'pr', scope_suffix)
+    forge_mod.clear_pr_state(nil, ref)
+    refresh_pr_list()
+  end
+
+  local function pr_cache_key(list_state)
+    return scoped_list_key(forge_mod, 'pr', list_state, scope_suffix)
+  end
+
+  local function observed_open_pr_state(rows)
+    if type(rows) ~= 'table' then
+      return nil
+    end
+    for _, pr in ipairs(rows) do
+      local value = pr[pr_state_field]
+      if type(value) == 'string' then
+        local text = vim.trim(value)
+        local lower = text:lower()
+        if lower == 'open' or lower == 'opened' then
+          return text
+        end
+      end
+    end
+    return nil
+  end
+
+  local function next_pr_state(current_pr, verb)
+    local current_state = current_pr[pr_state_field]
+    local current_text = type(current_state) == 'string' and vim.trim(current_state) or ''
+    if verb == 'close' then
+      if current_text ~= '' and current_text == current_text:upper() then
+        return 'CLOSED'
+      end
+      return 'closed'
+    end
+    local open_state = observed_open_pr_state(state == 'open' and current_prs or nil)
+      or observed_open_pr_state(state == 'all' and current_prs or nil)
+      or observed_open_pr_state(forge_mod.get_list(pr_cache_key('open')))
+      or observed_open_pr_state(forge_mod.get_list(pr_cache_key('all')))
+    if open_state then
+      return open_state
+    end
+    if current_text ~= '' and current_text == current_text:upper() then
+      return 'OPEN'
+    end
+    return 'open'
+  end
+
+  local function patch_pr_cache(list_state, mutate)
+    local key = pr_cache_key(list_state)
+    local prs = forge_mod.get_list(key)
+    if type(prs) ~= 'table' then
+      return
+    end
+    mutate(prs)
+    forge_mod.set_list(key, prs)
+  end
+
+  local function revalidate_current_prs()
+    picker_session.request_json(
+      cache_key,
+      f:list_pr_json_cmd(state, current_limit + 1, ref),
+      function(ok, prs, _, stale)
+        if stale then
+          return
+        end
+        if not ok then
+          log.error('failed to fetch ' .. f.labels.pr)
+          return
+        end
+        current_prs = prs
+        prs_stale = false
+        if use_cache then
+          forge_mod.set_list(cache_key, prs)
+        end
+        rerender_pr_list()
+        maybe_prefetch_next()
+      end
+    )
+  end
+
+  local function locally_toggle_pr(entry, verb)
+    local current_index, current_pr = list_row(current_prs, num_field, entry.value.num)
+    if not current_index or type(current_pr) ~= 'table' then
+      refresh_pr_list()
+      return
+    end
+    local updated_pr = vim.deepcopy(current_pr)
+    updated_pr[pr_state_field] = next_pr_state(current_pr, verb)
+
+    if state == 'all' then
+      current_prs[current_index] = updated_pr
+    else
+      table.remove(current_prs, current_index)
+    end
+    if use_cache then
+      forge_mod.set_list(cache_key, current_prs)
+    end
+
+    if verb == 'close' then
+      if state ~= 'closed' then
+        patch_pr_cache('closed', function(prs)
+          upsert_list_row(prs, num_field, entry.value.num, vim.deepcopy(updated_pr))
+        end)
+      end
+      if state ~= 'open' then
+        patch_pr_cache('open', function(prs)
+          remove_list_row(prs, num_field, entry.value.num)
+        end)
+      end
+    else
+      if state ~= 'open' then
+        patch_pr_cache('open', function(prs)
+          upsert_list_row(prs, num_field, entry.value.num, vim.deepcopy(updated_pr))
+        end)
+      end
+      if state ~= 'closed' then
+        patch_pr_cache('closed', function(prs)
+          remove_list_row(prs, num_field, entry.value.num)
+        end)
+      end
+    end
+    if state ~= 'all' then
+      patch_pr_cache('all', function(prs)
+        upsert_list_row(prs, num_field, entry.value.num, vim.deepcopy(updated_pr))
+      end)
+    end
+
+    rerender_pr_list()
+    revalidate_current_prs()
   end
 
   local function back_to_list()
@@ -1073,7 +1213,12 @@ function M.pr(state, f, opts)
           return
         end
         local verb = picker.pr_toggle_verb(entry)
-        local callbacks = { on_success = reopen_list, on_failure = reopen_list }
+        local callbacks = {
+          on_success = function()
+            locally_toggle_pr(entry, verb)
+          end,
+          on_failure = refresh_pr_list,
+        }
         if verb == 'close' then
           ops.pr_close(f, entry.value, callbacks)
         elseif verb == 'reopen' then
@@ -1113,13 +1258,9 @@ function M.pr(state, f, opts)
       reload = false,
       available = pr_refresh_visible,
       fn = function()
-        clear_state_caches(forge_mod, 'pr', scoped_key(forge_mod, ref))
+        clear_state_caches(forge_mod, 'pr', scope_suffix)
         forge_mod.clear_pr_state(nil, ref)
-        prs_stale = true
-        if refresh_picker(picker_handle) then
-          return
-        end
-        M.pr(state, f, { limit = current_limit, back = opts.back, scope = ref })
+        refresh_pr_list()
       end,
     },
   }
