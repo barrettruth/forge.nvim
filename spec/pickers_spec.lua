@@ -723,6 +723,15 @@ describe('pickers', function()
   end)
 
   it('dispatches flattened PR actions directly from the root picker', function()
+    local old_system = vim.system
+    vim.system = function()
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
     captured.stream(function() end)
@@ -759,6 +768,8 @@ describe('pickers', function()
         is_draft = false,
       },
     }, op_calls)
+
+    vim.system = old_system
   end)
 
   it('shows an explicit empty PR row instead of a blank picker', function()
@@ -799,6 +810,10 @@ describe('pickers', function()
     cache['pr:open'] = nil
 
     local old_system = vim.system
+    local old_schedule = vim.schedule
+    vim.schedule = function(fn)
+      fn()
+    end
     vim.system = function(_, _, cb)
       if cb then
         cb({ code = 1, stdout = '', stderr = 'boom' })
@@ -824,6 +839,7 @@ describe('pickers', function()
       return streamed.done == true
     end)
     vim.system = old_system
+    vim.schedule = old_schedule
 
     assert.equals('error', streamed[1].placeholder_kind)
     local labels = helpers.action_labels(captured.actions, streamed[1])
@@ -843,7 +859,11 @@ describe('pickers', function()
     cache['pr:open'] = nil
 
     local old_system = vim.system
+    local old_schedule = vim.schedule
     local system_cb
+    vim.schedule = function(fn)
+      fn()
+    end
     vim.system = function(_, _, cb)
       system_cb = cb
       return {
@@ -885,6 +905,7 @@ describe('pickers', function()
       return streamed.done == true
     end)
     vim.system = old_system
+    vim.schedule = old_schedule
 
     assert.equals('42', streamed[1].value.num)
     assert.equals('#42', streamed[1].display[1][1])
@@ -1200,14 +1221,30 @@ describe('pickers', function()
     assert.equals(1, picker_refresh_calls)
   end)
 
-  it('refreshes the live PR picker in place after toggle succeeds', function()
+  it('patches PR caches locally and revalidates the live PR picker after close succeeds', function()
+    cache['pr:open'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Follow-up', state = 'OPEN', author = 'cora', created_at = '' },
+    }
     cache['pr:closed'] = {
       { number = 43, title = 'Old closed', state = 'CLOSED', author = 'alice', created_at = '' },
     }
     cache['pr:all'] = {
       { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
       { number = 43, title = 'Old closed', state = 'CLOSED', author = 'alice', created_at = '' },
+      { number = 41, title = 'Follow-up', state = 'OPEN', author = 'cora', created_at = '' },
     }
+
+    local old_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, _, cb)
+      calls[#calls + 1] = { cmd = cmd, cb = cb }
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
 
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
@@ -1215,10 +1252,142 @@ describe('pickers', function()
 
     action_by_name('toggle').fn(captured.entries[1])
 
-    assert.is_nil(cache['pr:open'])
-    assert.is_nil(cache['pr:closed'])
-    assert.is_nil(cache['pr:all'])
+    local closed_numbers = vim.tbl_map(function(pr)
+      return pr.number
+    end, cache['pr:closed'])
+    table.sort(closed_numbers)
+
+    assert.same(
+      { 41 },
+      vim.tbl_map(function(pr)
+        return pr.number
+      end, cache['pr:open'])
+    )
+    assert.same({ 42, 43 }, closed_numbers)
+    assert.equals(
+      'CLOSED',
+      vim.tbl_filter(function(pr)
+        return pr.number == 42
+      end, cache['pr:all'])[1].state
+    )
+    assert.equals('41', captured.entries[1].value.num)
     assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
+    assert.same({ 'prs', 'open' }, calls[1].cmd)
+
+    calls[1].cb({
+      code = 0,
+      stdout = vim.json.encode({
+        { number = 41, title = 'Authoritative', state = 'OPEN', author = 'cora', created_at = '' },
+      }),
+    })
+
+    vim.wait(100, function()
+      return cache['pr:open'][1].title == 'Authoritative'
+    end)
+    vim.system = old_system
+
+    assert.equals('Authoritative', cache['pr:open'][1].title)
+    assert.equals(2, picker_refresh_calls)
+  end)
+
+  it('updates all-PR rows in place after close succeeds', function()
+    cache['pr:open'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Follow-up', state = 'OPEN', author = 'cora', created_at = '' },
+    }
+    cache['pr:closed'] = {
+      { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+    cache['pr:all'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 41, title = 'Follow-up', state = 'OPEN', author = 'cora', created_at = '' },
+      { number = 40, title = 'Old closed', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+
+    local old_system = vim.system
+    vim.system = function()
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('all', fake_forge())
+    captured.stream(function() end)
+
+    action_by_name('toggle').fn(captured.entries[1])
+
+    vim.system = old_system
+
+    assert.equals(
+      'CLOSED',
+      vim.tbl_filter(function(pr)
+        return pr.number == 42
+      end, cache['pr:all'])[1].state
+    )
+    assert.is_nil(vim.tbl_filter(function(pr)
+      return pr.number == 42
+    end, cache['pr:open'])[1])
+    assert.equals(
+      'CLOSED',
+      vim.tbl_filter(function(pr)
+        return pr.number == 42
+      end, cache['pr:closed'])[1].state
+    )
+    assert.equals('42', captured.entries[1].value.num)
+    local labels = helpers.action_labels(captured.actions, captured.entries[1])
+    assert.equals('reopen', labels.toggle)
+    assert.is_nil(labels.approve)
+    assert.is_nil(labels.merge)
+    assert.is_nil(labels.draft)
+    assert.equals(1, picker_refresh_calls)
+  end)
+
+  it('preserves observed open-state spelling when reopening PRs locally', function()
+    cache['pr:open'] = {
+      { number = 41, title = 'Follow-up', state = 'opened', author = 'cora', created_at = '' },
+    }
+    cache['pr:closed'] = {
+      { number = 42, title = 'Fix api drift', state = 'closed', author = 'alice', created_at = '' },
+    }
+    cache['pr:all'] = {
+      { number = 42, title = 'Fix api drift', state = 'closed', author = 'alice', created_at = '' },
+      { number = 41, title = 'Follow-up', state = 'opened', author = 'cora', created_at = '' },
+    }
+
+    local old_system = vim.system
+    vim.system = function()
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.pr('closed', fake_forge())
+    captured.stream(function() end)
+
+    action_by_name('toggle').fn(captured.entries[1])
+
+    vim.system = old_system
+
+    assert.equals(
+      'opened',
+      vim.tbl_filter(function(pr)
+        return pr.number == 42
+      end, cache['pr:open'])[1].state
+    )
+    assert.equals(
+      'opened',
+      vim.tbl_filter(function(pr)
+        return pr.number == 42
+      end, cache['pr:all'])[1].state
+    )
+    assert.is_true(captured.entries[1].placeholder)
     assert.equals(1, picker_refresh_calls)
   end)
 
