@@ -1,6 +1,17 @@
 local forge = require('forge')
 local log = require('forge.logger')
+local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
+
+---@param value any
+---@return string?
+local function nonempty(value)
+  if type(value) ~= 'string' then
+    return nil
+  end
+  local trimmed = vim.trim(value)
+  return trimmed ~= '' and trimmed or nil
+end
 
 ---@class forge.GitHub: forge.Forge
 local M = {
@@ -8,17 +19,20 @@ local M = {
   cli = 'gh',
   kinds = { issue = 'issue', pr = 'pr' },
   labels = {
+    forge_name = 'GitHub',
     issue = 'Issues',
     pr = 'PRs',
     pr_one = 'PR',
     pr_full = 'Pull Requests',
     ci = 'CI/CD',
+    ci_inline = 'CI/CD runs',
   },
   capabilities = {
     draft = true,
     reviewers = true,
     per_pr_checks = true,
     ci_json = true,
+    ci_terminal_view = true,
   },
   submission = {
     issue = {
@@ -678,6 +692,45 @@ function M:update_issue_cmd(num, title, body, scope, metadata, previous)
     table.insert(cmd, repo)
   end
   return cmd
+end
+
+---@param json table
+---@param base_scope forge.Scope?
+---@return forge.HeadRef
+function M:parse_pr_head(json, base_scope)
+  local branch = nonempty(json.headRefName)
+  local owner = type(json.headRepositoryOwner) == 'table'
+      and nonempty(json.headRepositoryOwner.login or json.headRepositoryOwner.name)
+    or nil
+  local repo = type(json.headRepository) == 'table' and nonempty(json.headRepository.name) or nil
+  local full_name = type(json.headRepository) == 'table'
+      and nonempty(json.headRepository.nameWithOwner)
+    or nil
+  if not owner and full_name then
+    owner = full_name:match('^([^/]+)/')
+  end
+  if not repo and full_name then
+    repo = full_name:match('/([^/]+)$')
+  end
+  local scope = nil
+  if owner and repo then
+    local host = type(base_scope) == 'table' and base_scope.host or 'github.com'
+    scope = scope_mod.from_url('github', ('https://%s/%s/%s'):format(host, owner, repo))
+  end
+  return {
+    branch = branch,
+    scope = scope,
+  }
+end
+
+---@param expected forge.HeadRef
+---@param actual forge.HeadRef
+---@return boolean?, string?
+function M:match_head(expected, actual)
+  if nonempty(actual.branch) ~= expected.branch then
+    return false
+  end
+  return scope_mod.same(expected.scope, actual.scope)
 end
 
 ---@param json table

@@ -180,6 +180,7 @@ describe('create_pr', function()
     end
 
     package.preload['forge.backends.github'] = function()
+      local scope_mod = require('forge.scope')
       return {
         name = 'github',
         cli = 'gh',
@@ -205,6 +206,41 @@ describe('create_pr', function()
             reviewers = {},
             milestone = '',
           }
+        end,
+        parse_pr_head = function(_, json, base_scope)
+          local branch = json.headRefName ~= nil and vim.trim(json.headRefName) or ''
+          if branch == '' then
+            branch = nil
+          end
+          local owner = type(json.headRepositoryOwner) == 'table'
+              and (json.headRepositoryOwner.login or json.headRepositoryOwner.name)
+            or nil
+          local repo = type(json.headRepository) == 'table' and json.headRepository.name or nil
+          local full_name = type(json.headRepository) == 'table'
+              and json.headRepository.nameWithOwner
+            or nil
+          if not owner and full_name then
+            owner = full_name:match('^([^/]+)/')
+          end
+          if not repo and full_name then
+            repo = full_name:match('/([^/]+)$')
+          end
+          local scope = nil
+          if owner and repo then
+            local host = type(base_scope) == 'table' and base_scope.host or 'github.com'
+            scope = scope_mod.from_url('github', ('https://%s/%s/%s'):format(host, owner, repo))
+          end
+          return { branch = branch, scope = scope }
+        end,
+        match_head = function(_, expected, actual)
+          local actual_branch = actual.branch ~= nil and vim.trim(actual.branch) or ''
+          if actual_branch == '' then
+            actual_branch = nil
+          end
+          if actual_branch ~= expected.branch then
+            return false
+          end
+          return scope_mod.same(expected.scope, actual.scope)
         end,
         create_pr_web_cmd = function(_, scope, head_scope, head_branch, base_branch)
           captured.web_create = {

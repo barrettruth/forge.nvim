@@ -344,13 +344,16 @@
 ---@field reviewers boolean
 ---@field per_pr_checks boolean
 ---@field ci_json boolean
+---@field ci_terminal_view boolean?
 
 ---@class forge.Forge
 ---@field name string
 ---@field cli string
 ---@field kinds { issue: string, pr: string }
----@field labels { issue: string, pr: string, pr_one: string, pr_full: string, ci: string }
+---@field labels { forge_name: string, issue: string, pr: string, pr_one: string, pr_full: string, ci: string, ci_inline: string }
 ---@field capabilities forge.Capabilities
+---@field parse_pr_head fun(self: forge.Forge, json: table, base_scope?: forge.Scope): forge.HeadRef
+---@field match_head fun(self: forge.Forge, expected: forge.HeadRef, actual: forge.HeadRef): boolean?, string?
 ---@field submission forge.Submission?
 ---@field list_pr_json_cmd fun(self: forge.Forge, state: string, limit?: integer, scope?: forge.Scope): string[]
 ---@field list_issue_json_cmd fun(self: forge.Forge, state: string, limit?: integer, scope?: forge.Scope): string[]

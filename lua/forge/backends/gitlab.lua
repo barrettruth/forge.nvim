@@ -3,17 +3,32 @@ local log = require('forge.logger')
 local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
 
+---@param value any
+---@return string?
+local function nonempty(value)
+  if type(value) ~= 'string' then
+    return nil
+  end
+  local trimmed = vim.trim(value)
+  return trimmed ~= '' and trimmed or nil
+end
+
+---@type table<string, string|false>
+local project_id_cache = {}
+
 ---@class forge.GitLab: forge.Forge
 local M = {
   name = 'gitlab',
   cli = 'glab',
   kinds = { issue = 'issue', pr = 'mr' },
   labels = {
+    forge_name = 'GitLab',
     issue = 'Issues',
     pr = 'Merge Requests',
     pr_one = 'MR',
     pr_full = 'Merge Requests',
     ci = 'Pipelines',
+    ci_inline = 'pipelines',
   },
   capabilities = {
     draft = true,
@@ -170,7 +185,7 @@ function M:browse_subject(num, scope)
     end
     local url = mr_url or issue_url
     if not url or url == '' then
-      log.warn(('no PR or issue found for #%s'):format(num))
+      log.warn(('no %s or issue found for #%s'):format(M.labels.pr_one, num))
       return
     end
     local _, open_err = vim.ui.open(url)
@@ -633,6 +648,75 @@ function M:update_issue_cmd(num, title, body, scope, metadata, previous)
     table.insert(cmd, current.milestone ~= '' and current.milestone or '0')
   end
   return cmd
+end
+
+---@param json table
+---@param _base_scope forge.Scope?
+---@return forge.HeadRef
+function M:parse_pr_head(json, _base_scope)
+  return {
+    branch = nonempty(json.source_branch),
+    project_id = json.source_project_id ~= nil and tostring(json.source_project_id) or nil,
+  }
+end
+
+---Resolve the GitLab numeric project ID for a scope, caching the lookup.
+---@param scope forge.Scope?
+---@return string?, string?
+local function resolve_project_id(scope)
+  local slug = type(scope) == 'table' and scope.slug or 'scope'
+  local host = type(scope) == 'table' and scope.host or 'gitlab.com'
+  local key = scope_mod.key(scope)
+  if key == '' then
+    return nil
+  end
+  if project_id_cache[key] ~= nil then
+    return project_id_cache[key] or nil
+  end
+  local encoded = scope_mod.encode_project(scope)
+  if not encoded then
+    project_id_cache[key] = false
+    return nil
+  end
+  local result = vim
+    .system({ 'glab', 'api', '--hostname', host, ('projects/%s'):format(encoded) }, { text = true })
+    :wait()
+  if result.code ~= 0 then
+    local err = vim.trim(result.stderr or '')
+    if err == '' then
+      err = vim.trim(result.stdout or '')
+    end
+    if err == '' then
+      err = ('failed to resolve GitLab project for %s'):format(slug)
+    end
+    return nil, err
+  end
+  local ok, json = pcall(vim.json.decode, result.stdout or '{}')
+  if not ok or type(json) ~= 'table' or json.id == nil then
+    return nil, ('failed to parse GitLab project for %s'):format(slug)
+  end
+  local id = tostring(json.id)
+  project_id_cache[key] = id
+  return id
+end
+
+---@param expected forge.HeadRef
+---@param actual forge.HeadRef
+---@return boolean?, string?
+function M:match_head(expected, actual)
+  if nonempty(actual.branch) ~= expected.branch then
+    return false
+  end
+  local expected_id = expected.project_id
+  if not expected_id and expected.scope then
+    local id, err = resolve_project_id(expected.scope)
+    if err then
+      return nil, err
+    end
+    expected_id = id
+  end
+  local actual_id = nonempty(actual.project_id)
+  return expected_id ~= nil and actual_id ~= nil and expected_id == actual_id
 end
 
 ---@param json table

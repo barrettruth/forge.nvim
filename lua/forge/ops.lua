@@ -111,7 +111,20 @@ local function summary_job_at_cursor(buf)
   return require('forge.log')._summary_job_at_line(lines, vim.api.nvim_win_get_cursor(0)[1])
 end
 
-local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd, opts)
+---Open a CI run as a TTY summary terminal where each line is a job and
+---<cr>/`gx` open the underlying job log/url. Used by backends that set
+---`capabilities.ci_terminal_view` (currently only GitHub, where `gh run
+---view` and `gh run watch` provide TTY-rendered summaries that can be
+---navigated by cursor line).
+---@param f forge.Forge
+---@param cmd string[]
+---@param run forge.RunRef
+---@param run_ref forge.Scope?
+---@param url string?
+---@param in_progress boolean
+---@param status_cmd string[]?
+---@param opts { watch?: boolean }?
+local function open_ci_terminal_view(f, cmd, run, run_ref, url, in_progress, status_cmd, opts)
   opts = opts or {}
   local warned_job_watch = false
 
@@ -149,7 +162,11 @@ local function github_ci_term(f, cmd, run, run_ref, url, in_progress, status_cmd
       end
       if opts.watch and in_progress and not warned_job_watch then
         warned_job_watch = true
-        log.info('GitHub does not support per-job live watch; opening a refreshing job log instead')
+        log.info(
+          ('%s does not support per-job live watch; opening a refreshing job log instead'):format(
+            (f.labels and f.labels.forge_name) or f.name
+          )
+        )
       end
       local log_cmd, log_opts = job_log(job.id, job.failed)
       log_opts = vim.tbl_extend('force', log_opts, {
@@ -426,8 +443,8 @@ local function ci_log(f, run)
   end
   url = url ~= '' and url or nil
   local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
-  if f.name == 'github' and f.view_cmd then
-    github_ci_term(
+  if f.capabilities and f.capabilities.ci_terminal_view and f.view_cmd then
+    open_ci_terminal_view(
       f,
       f:view_cmd(run.id, { scope = run_ref }),
       run,
@@ -539,10 +556,17 @@ local function ci_watch(f, run)
   end
   url = url ~= '' and url or nil
   local status_cmd = f.run_status_cmd and f:run_status_cmd(run.id, run_ref) or nil
-  if f.name == 'github' then
-    github_ci_term(f, f:watch_cmd(run.id, run_ref), run, run_ref, url, in_progress, status_cmd, {
-      watch = true,
-    })
+  if f.capabilities and f.capabilities.ci_terminal_view then
+    open_ci_terminal_view(
+      f,
+      f:watch_cmd(run.id, run_ref),
+      run,
+      run_ref,
+      url,
+      in_progress,
+      status_cmd,
+      { watch = true }
+    )
     return true
   end
   require('forge.term').open(f:watch_cmd(run.id, run_ref), {
@@ -635,7 +659,7 @@ function M.ci_toggle(f, run, opts)
   opts = opts or {}
   local verb = ci.toggle_verb(run)
   if verb == nil then
-    log.info('nothing to toggle for skipped run')
+    log.warn('nothing to toggle for skipped run')
     if opts.on_failure then
       opts.on_failure()
     end
