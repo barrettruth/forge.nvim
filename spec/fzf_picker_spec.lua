@@ -181,6 +181,47 @@ describe('fzf picker', function()
     assert.is_function(captured.opts.actions.tab)
   end)
 
+  it(
+    'orders rendered header hints by explicit header_order instead of action array order',
+    function()
+      local picker = require('forge.picker.fzf')
+      picker.pick({
+        prompt = 'Open Issues> ',
+        entries = {
+          {
+            display = { { '#7' }, { ' Bug' } },
+            value = '7',
+          },
+        },
+        actions = {
+          { name = 'refresh', label = 'refresh', fn = function() end },
+          { name = 'filter', label = 'filter', fn = function() end },
+          { name = 'create', label = 'create', fn = function() end },
+          { name = 'toggle', label = 'close', fn = function() end },
+          { name = 'edit', label = 'edit', fn = function() end },
+          { name = 'browse', label = 'web', fn = function() end },
+          { name = 'default', label = 'open', fn = function() end },
+        },
+        header_order = {
+          'default',
+          'browse',
+          'edit',
+          'toggle',
+          'create',
+          'filter',
+          'refresh',
+        },
+        picker_name = 'issue',
+      })
+
+      assert.is_not_nil(captured)
+      assert.equals(
+        ':: <[FzfLuaHeaderBind:cr]> [FzfLuaHeaderText:open]|[FzfLuaHeaderBind:^X] [FzfLuaHeaderText:web]|[FzfLuaHeaderBind:^E] [FzfLuaHeaderText:edit]|[FzfLuaHeaderBind:^S] [FzfLuaHeaderText:close]|[FzfLuaHeaderBind:^A] [FzfLuaHeaderText:create]|<[FzfLuaHeaderBind:tab]> [FzfLuaHeaderText:filter]|[FzfLuaHeaderBind:^R] [FzfLuaHeaderText:refresh]',
+        captured.opts.fzf_opts['--header']
+      )
+    end
+  )
+
   it('uses resolved fzf-lua header highlight config for binds and labels', function()
     set_header_hls('ForgeTestHeaderBind', 'ForgeTestHeaderText', 'ForgeTestHeaderSep')
 

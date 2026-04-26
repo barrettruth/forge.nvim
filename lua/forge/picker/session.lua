@@ -156,6 +156,7 @@ function M.pick_json(opts)
     prompt = resolve(opts.loading_prompt) or '',
     entries = {},
     actions = opts.actions,
+    header_order = opts.header_order,
     picker_name = opts.picker_name,
     back = opts.back,
     stream = opts.stream or function(emit)

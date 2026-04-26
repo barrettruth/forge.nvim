@@ -532,6 +532,18 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('Open PRs (1)> ', captured.prompt)
+    assert.same({
+      'default',
+      'ci',
+      'edit',
+      'approve',
+      'merge',
+      'toggle',
+      'draft',
+      'create',
+      'filter',
+      'refresh',
+    }, captured.header_order)
     captured.stream(function() end)
     local labels = helpers.action_labels(captured.actions, captured.entries[1])
     assert.equals('checkout', labels.default)
@@ -886,6 +898,18 @@ describe('pickers', function()
     })
 
     assert.is_not_nil(captured)
+    assert.same({
+      'default',
+      'ci',
+      'edit',
+      'approve',
+      'merge',
+      'toggle',
+      'draft',
+      'create',
+      'filter',
+      'refresh',
+    }, captured.header_order)
     assert.is_function(captured.back)
 
     captured.back()
@@ -1862,6 +1886,16 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('PR #42 Checks> ', captured.prompt)
+    assert.same({
+      'default',
+      'browse',
+      'filter',
+      'failed',
+      'passed',
+      'running',
+      'all',
+      'refresh',
+    }, captured.header_order)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
     assert.is_false(rawget(action_by_name('browse'), 'close'))
@@ -1975,6 +2009,17 @@ describe('pickers', function()
 
     assert.is_not_nil(captured)
     assert.equals('CI for main> ', captured.prompt)
+    assert.same({
+      'default',
+      'browse',
+      'toggle',
+      'filter',
+      'failed',
+      'passed',
+      'running',
+      'all',
+      'refresh',
+    }, captured.header_order)
     assert.same({}, captured.entries)
     assert.same('function', type(captured.stream))
 
@@ -2276,6 +2321,13 @@ describe('pickers', function()
     pickers.release('all', fake_release_forge())
 
     assert.is_not_nil(captured)
+    assert.same({
+      'browse',
+      'yank',
+      'delete',
+      'filter',
+      'refresh',
+    }, captured.header_order)
     assert.is_false(rawget(action_by_name('browse'), 'close'))
     assert.is_false(rawget(action_by_name('yank'), 'close'))
     assert.is_nil(rawget(action_by_name('delete'), 'close'))

@@ -14,6 +14,60 @@ local next_ci_filter = {
   pending = 'all',
 }
 
+local pr_header_order = {
+  'default',
+  'ci',
+  'edit',
+  'approve',
+  'merge',
+  'toggle',
+  'draft',
+  'create',
+  'filter',
+  'refresh',
+}
+
+local issue_header_order = {
+  'default',
+  'browse',
+  'edit',
+  'toggle',
+  'create',
+  'filter',
+  'refresh',
+}
+
+local ci_header_order = {
+  'default',
+  'browse',
+  'toggle',
+  'filter',
+  'failed',
+  'passed',
+  'running',
+  'all',
+  'refresh',
+}
+
+local checks_header_order = {
+  'default',
+  'browse',
+  'filter',
+  'failed',
+  'passed',
+  'running',
+  'all',
+  'refresh',
+}
+
+local release_header_order = {
+  'browse',
+  'yank',
+  'delete',
+  'filter',
+  'refresh',
+}
+
 ---@param text string
 ---@param kind? 'empty'|'error'
 ---@return forge.PickerEntry
@@ -447,6 +501,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       prompt = checks_prompt(count),
       entries = entries,
       actions = actions,
+      header_order = checks_header_order,
       picker_name = 'ci',
       back = opts.back,
     })
@@ -463,6 +518,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       key = request_key,
       loading_prompt = checks_prompt,
       actions = actions,
+      header_order = checks_header_order,
       picker_name = 'ci',
       back = opts.back,
       cmd = function()
@@ -726,6 +782,7 @@ function M.ci(f, branch, filter, opts)
       prompt = ci_prompt(),
       entries = {},
       actions = actions,
+      header_order = ci_header_order,
       picker_name = 'ci',
       back = opts.back,
       stream = stream_runs,
@@ -1047,6 +1104,7 @@ function M.pr(state, f, opts)
     prompt = initial_prompt,
     entries = {},
     actions = actions,
+    header_order = pr_header_order,
     picker_name = 'pr',
     back = opts.back,
     stream = stream_prs,
@@ -1275,6 +1333,7 @@ function M.issue(state, f, opts)
     prompt = initial_prompt,
     entries = {},
     actions = actions,
+    header_order = issue_header_order,
     picker_name = 'issue',
     back = opts.back,
     stream = stream_issues,
@@ -1537,6 +1596,7 @@ function M.release(state, f, opts)
     prompt = initial_prompt,
     entries = {},
     actions = actions,
+    header_order = release_header_order,
     picker_name = 'release',
     back = opts.back,
     stream = stream_releases,
