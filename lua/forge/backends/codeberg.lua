@@ -79,6 +79,7 @@ end
 
 ---@param state string
 ---@param limit integer?
+---@param scope forge.Scope?
 ---@return string[]
 function M:list_pr_json_cmd(state, limit, scope)
   return {
@@ -100,6 +101,7 @@ end
 
 ---@param state string
 ---@param limit integer?
+---@param scope forge.Scope?
 ---@return string[]
 function M:list_issue_json_cmd(state, limit, scope)
   return {
@@ -212,6 +214,9 @@ function M:list_web_url(kind, scope)
   return base .. path
 end
 
+---@param num string
+---@param scope forge.Scope?
+---@return string[]
 function M:checkout_cmd(num, scope)
   return { 'tea', 'pr', 'checkout', num, '--repo', repo_arg(scope) }
 end
@@ -223,12 +228,14 @@ function M:fetch_pr(num)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:pr_base_cmd(num, scope)
   return { 'tea', 'pr', num, '--fields', 'base', '--output', 'simple', '--repo', repo_arg(scope) }
 end
 
 ---@param branch string
+---@param scope forge.Scope?
 ---@return string[]
 function M:pr_for_branch_cmd(branch, scope)
   return {
@@ -243,6 +250,7 @@ function M:pr_for_branch_cmd(branch, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:checks_json_cmd(num, scope)
   local jq = [=[
@@ -279,6 +287,7 @@ end
 ---@param run_id string
 ---@param failed_only boolean
 ---@param job_id string?
+---@param scope forge.Scope?
 ---@return string[]
 function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local _ = failed_only
@@ -297,13 +306,8 @@ function M:check_log_cmd(run_id, failed_only, job_id, scope)
 end
 
 ---@param run_id string
----@return string[]
-function M:check_tail_cmd(run_id, scope)
-  return { 'tea', 'actions', 'runs', 'logs', run_id, '--follow', '--repo', repo_arg(scope) }
-end
-
----@param run_id string
 ---@param job_id string?
+---@param scope forge.Scope?
 ---@return string[]
 function M:live_tail_cmd(run_id, job_id, scope)
   local cmd = { 'tea', 'actions', 'runs', 'logs', run_id, '--follow', '--repo', repo_arg(scope) }
@@ -314,6 +318,10 @@ function M:live_tail_cmd(run_id, job_id, scope)
   return cmd
 end
 
+---@param branch string?
+---@param scope forge.Scope?
+---@param limit integer?
+---@return string[]
 function M:list_runs_json_cmd(branch, scope, limit)
   local limit_arg = tostring(limit or forge.config().display.limits.runs)
   local cmd = 'tea api --repo '
@@ -328,6 +336,7 @@ function M:list_runs_json_cmd(branch, scope, limit)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:cancel_run_cmd(id, scope)
   return {
@@ -342,6 +351,7 @@ function M:cancel_run_cmd(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string[]
 function M:rerun_run_cmd(id, scope)
   return {
@@ -356,6 +366,7 @@ function M:rerun_run_cmd(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 ---@return string?
 function M:run_web_url(id, scope)
   local base = forge.remote_web_url(scope)
@@ -366,6 +377,7 @@ function M:run_web_url(id, scope)
 end
 
 ---@param id string
+---@param scope forge.Scope?
 function M:browse_run(id, scope)
   local url = self:run_web_url(id, scope)
   if not url then
@@ -374,6 +386,8 @@ function M:browse_run(id, scope)
   vim.ui.open(url)
 end
 
+---@param entry table
+---@return forge.CIRun
 function M:normalize_run(entry)
   local status = entry.status or ''
   if status == 'completed' then
@@ -390,6 +404,10 @@ function M:normalize_run(entry)
   }
 end
 
+---@param id string
+---@param failed_only boolean
+---@param scope forge.Scope?
+---@return string[]
 function M:run_log_cmd(id, failed_only, scope)
   local _ = failed_only
   local lines = forge.config().ci.lines
@@ -400,12 +418,9 @@ function M:run_log_cmd(id, failed_only, scope)
   }
 end
 
-function M:run_tail_cmd(id, scope)
-  return { 'tea', 'actions', 'runs', 'logs', id, '--follow', '--repo', repo_arg(scope) }
-end
-
 ---@param num string
 ---@param method string
+---@param scope forge.Scope?
 ---@return string[]
 function M:merge_cmd(num, method, scope)
   local cmd = { 'tea', 'pr', 'merge', num }
@@ -419,36 +434,42 @@ function M:merge_cmd(num, method, scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:approve_cmd(num, scope)
   return { 'tea', 'pr', 'approve', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:close_cmd(num, scope)
   return { 'tea', 'pulls', 'close', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:reopen_cmd(num, scope)
   return { 'tea', 'pulls', 'reopen', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:close_issue_cmd(num, scope)
   return { 'tea', 'issues', 'close', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:reopen_issue_cmd(num, scope)
   return { 'tea', 'issues', 'reopen', num, '--repo', repo_arg(scope) }
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return string[]
 function M:fetch_pr_details_cmd(num, scope)
   return {
@@ -458,6 +479,9 @@ function M:fetch_pr_details_cmd(num, scope)
   }
 end
 
+---@param num string
+---@param scope forge.Scope?
+---@return string[]
 function M:fetch_issue_details_cmd(num, scope)
   return {
     'sh',
@@ -469,6 +493,9 @@ end
 ---@param num string
 ---@param title string
 ---@param body string
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
+---@param previous forge.CommentMetadata?
 ---@return string[]
 function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   local cmd = {
@@ -498,6 +525,13 @@ function M:update_pr_cmd(num, title, body, scope, metadata, previous)
   return cmd
 end
 
+---@param num string
+---@param title string
+---@param body string
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
+---@param previous forge.CommentMetadata?
+---@return string[]
 function M:update_issue_cmd(num, title, body, scope, metadata, previous)
   local cmd = {
     'tea',
@@ -557,6 +591,8 @@ function M:parse_pr_details(json)
   }
 end
 
+---@param json table
+---@return forge.IssueDetails
 function M:parse_issue_details(json)
   local labels = {}
   for _, l in ipairs(json.labels or {}) do
@@ -583,6 +619,8 @@ end
 ---@param body string
 ---@param base string
 ---@param _draft boolean
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
 ---@return string[]
 function M:create_pr_cmd(title, body, base, _draft, scope, metadata)
   local cmd = {
@@ -608,6 +646,9 @@ function M:create_pr_cmd(title, body, base, _draft, scope, metadata)
   return cmd
 end
 
+---@param scope forge.Scope?
+---@param head_branch string?
+---@param base_branch string?
 ---@return string
 function M:create_pr_web_url(scope, _, head_branch, base_branch)
   local branch = head_branch or vim.trim(vim.fn.system('git branch --show-current'))
@@ -629,6 +670,8 @@ end
 ---@param title string
 ---@param body string
 ---@param labels string[]?
+---@param scope forge.Scope?
+---@param metadata forge.CommentMetadata?
 ---@return string[]
 function M:create_issue_cmd(title, body, labels, scope, metadata)
   local cmd = {
@@ -663,6 +706,7 @@ function M:issue_template_paths()
   }
 end
 
+---@param scope forge.Scope?
 ---@return string[]
 function M:default_branch_cmd(scope)
   return {
@@ -691,6 +735,7 @@ function M:draft_toggle_cmd(_num, _is_draft)
   return nil
 end
 
+---@param scope forge.Scope?
 ---@return forge.RepoInfo
 function M:repo_info(scope)
   local result = vim
@@ -727,6 +772,7 @@ function M:repo_info(scope)
 end
 
 ---@param num string
+---@param scope forge.Scope?
 ---@return forge.PRState
 function M:pr_state(num, scope)
   local result = vim
@@ -754,6 +800,9 @@ function M:pr_state(num, scope)
   }
 end
 
+---@param scope forge.Scope?
+---@param limit integer?
+---@return string[]
 function M:list_releases_json_cmd(scope, limit)
   local limit_arg = tostring(limit or forge.config().display.limits.releases)
   return {
@@ -764,12 +813,14 @@ function M:list_releases_json_cmd(scope, limit)
 end
 
 ---@param tag string
+---@param scope forge.Scope?
 function M:browse_release(tag, scope)
   local base = forge.remote_web_url(scope)
   vim.ui.open(base .. '/releases/tag/' .. tag)
 end
 
 ---@param tag string
+---@param scope forge.Scope?
 ---@return string[]
 function M:delete_release_cmd(tag, scope)
   return {
