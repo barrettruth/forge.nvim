@@ -192,7 +192,7 @@ local families = {
     verb_order = { 'open' },
     verbs = {
       open = {
-        subject = { min = 0, max = 1 },
+        subject = { kind = 'pr', min = 0, max = 1 },
         modifiers = { 'repo', 'branch', 'commit', 'target' },
       },
     },
@@ -217,6 +217,18 @@ local family_index = {}
 for _, family in ipairs(families) do
   family_index[family.name] = family
 end
+
+---@type table<string, string>
+local subject_kind_patterns = {
+  pr = '^%d+$',
+  issue = '^%d+$',
+}
+
+---@type table<string, string>
+local subject_kind_labels = {
+  pr = 'PR number',
+  issue = 'issue number',
+}
 
 local function copy(value)
   return vim.deepcopy(value)
@@ -858,8 +870,10 @@ function M.parse(args, opts)
   if implicit_command and verb_token ~= nil and not token_is_modifier_like(verb_token) then
     local subject = implicit_command.subject or {}
     local kind = subject.kind
-    local looks_like_subject = kind ~= 'pr' and kind ~= 'issue' and kind ~= 'run'
-      or verb_token:match('^%d+$') ~= nil
+    local only_default_verb = #(family.verb_order or {}) <= 1
+    local looks_like_subject = only_default_verb
+      or (kind ~= 'pr' and kind ~= 'issue' and kind ~= 'run')
+      or (verb_token:match('^%d+$') ~= nil)
     if not looks_like_subject then
       return error_result(unknown_verb_error(family.name, verb_token))
     end
@@ -930,6 +944,16 @@ function M.parse(args, opts)
   end
   if max ~= nil and #command.subjects > max then
     return error_result(subject_error(command.family, command.name, false))
+  end
+
+  local subject_pattern = subject.kind and subject_kind_patterns[subject.kind] or nil
+  if subject_pattern then
+    local subject_label = subject_kind_labels[subject.kind] or 'subject'
+    for _, value in ipairs(command.subjects) do
+      if not value:match(subject_pattern) then
+        return error_result(('invalid %s: %s'):format(subject_label, value))
+      end
+    end
   end
 
   for name, value in pairs(command.modifiers) do

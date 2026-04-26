@@ -369,6 +369,62 @@ describe('command schema', function()
     assert.equals('invalid commit: abc:def', commit_err.message)
   end)
 
+  it('rejects non-numeric subjects on PR-numbered verbs', function()
+    local _, browse_err = cmd.parse({ 'browse', 'main' })
+    local _, pr_browse_err = cmd.parse({ 'pr', 'browse', 'main' })
+    local _, pr_ci_err = cmd.parse({ 'pr', 'ci', 'main' })
+    local _, pr_close_err = cmd.parse({ 'pr', 'close', 'abc' })
+    local _, pr_merge_err = cmd.parse({ 'pr', 'merge', 'topic' })
+    local _, review_err = cmd.parse({ 'review', 'topic' })
+
+    assert.equals('invalid PR number: main', browse_err.message)
+    assert.equals('invalid PR number: main', pr_browse_err.message)
+    assert.equals('invalid PR number: main', pr_ci_err.message)
+    assert.equals('invalid PR number: abc', pr_close_err.message)
+    assert.equals('invalid PR number: topic', pr_merge_err.message)
+    assert.equals('invalid PR number: topic', review_err.message)
+  end)
+
+  it(
+    'preserves unknown-action errors when the family has multiple verbs and the token might be a verb typo',
+    function()
+      local _, pr_typo = cmd.parse({ 'pr', 'main' })
+      local _, issue_typo = cmd.parse({ 'issue', 'foo' })
+
+      assert.equals('unknown pr action: main', pr_typo.message)
+      assert.equals('unknown issue action: foo', issue_typo.message)
+    end
+  )
+
+  it('rejects non-numeric subjects on issue-numbered verbs', function()
+    local _, browse_err = cmd.parse({ 'issue', 'browse', 'main' })
+    local _, close_err = cmd.parse({ 'issue', 'close', 'abc' })
+    local _, edit_err = cmd.parse({ 'issue', 'edit', 'foo' })
+
+    assert.equals('invalid issue number: main', browse_err.message)
+    assert.equals('invalid issue number: abc', close_err.message)
+    assert.equals('invalid issue number: foo', edit_err.message)
+  end)
+
+  it('accepts purely numeric subjects on PR/issue verbs', function()
+    assert.is_not_nil(cmd.parse({ 'pr', '42' }))
+    assert.is_not_nil(cmd.parse({ 'pr', 'browse', '42' }))
+    assert.is_not_nil(cmd.parse({ 'pr', 'ci', '42' }))
+    assert.is_not_nil(cmd.parse({ 'pr', 'close', '42' }))
+    assert.is_not_nil(cmd.parse({ 'review', '42' }))
+    assert.is_not_nil(cmd.parse({ 'issue', 'browse', '7' }))
+    assert.is_not_nil(cmd.parse({ 'issue', 'close', '7' }))
+    assert.is_not_nil(cmd.parse({ 'browse', '42' }))
+  end)
+
+  it('leaves release tags and CI run ids unconstrained', function()
+    assert.is_not_nil(cmd.parse({ 'release', 'browse', 'v1.2.3' }))
+    assert.is_not_nil(cmd.parse({ 'release', 'browse', 'release-2024' }))
+    assert.is_not_nil(cmd.parse({ 'release', 'delete', 'v1.2.3' }))
+    assert.is_not_nil(cmd.parse({ 'ci', 'open', '24964024953' }))
+    assert.is_not_nil(cmd.parse({ 'ci', 'browse', 'abc-123' }))
+  end)
+
   it('returns nil or empty data for unknown lookups', function()
     assert.is_nil(cmd.family('missing'))
     assert.is_nil(cmd.resolve('pr', 'missing'))
