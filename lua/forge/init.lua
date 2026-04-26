@@ -73,6 +73,14 @@ local function git_root()
   return root
 end
 
+---@param num string
+---@param scope? forge.Scope
+---@return string?
+local function pr_state_key(num, scope)
+  local root = git_root()
+  return root and (root .. '|' .. scope_mod.key(scope) .. '|' .. num) or nil
+end
+
 local function cmd_error(result, fallback)
   local msg = vim.trim(result.stderr or '')
   if msg == '' then
@@ -236,8 +244,7 @@ end
 ---@param scope? forge.Scope
 ---@return forge.PRState
 function M.pr_state(f, num, scope)
-  local root = git_root()
-  local key = root and (root .. '|' .. scope_mod.key(scope) .. '|' .. num) or nil
+  local key = pr_state_key(num, scope)
   if key then
     local cached = pr_state_cache.get(key)
     if cached ~= nil then
@@ -245,6 +252,18 @@ function M.pr_state(f, num, scope)
     end
   end
   local state = f:pr_state(num, scope)
+  if key then
+    pr_state_cache.set(key, state)
+  end
+  return state
+end
+
+---@param num string
+---@param state forge.PRState
+---@param scope? forge.Scope
+---@return forge.PRState
+function M.set_pr_state(num, state, scope)
+  local key = pr_state_key(num, scope)
   if key then
     pr_state_cache.set(key, state)
   end
@@ -260,7 +279,12 @@ function M.clear_pr_state(num, scope)
     return
   end
   if num ~= nil then
-    pr_state_cache.clear(root .. '|' .. scope_mod.key(scope) .. '|' .. num)
+    local key = pr_state_key(num, scope)
+    if key then
+      pr_state_cache.clear(key)
+      return
+    end
+    pr_state_cache.clear()
     return
   end
   if scope ~= nil then
