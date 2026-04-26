@@ -11,6 +11,8 @@ local op_calls
 local pr_create_calls
 local pr_create_opts
 local default_system
+local picker_pick_calls
+local picker_refresh_calls
 local preload_modules = {
   'fzf-lua.utils',
   'forge',
@@ -170,6 +172,8 @@ describe('pickers', function()
     op_calls = {}
     pr_create_calls = 0
     pr_create_opts = nil
+    picker_pick_calls = 0
+    picker_refresh_calls = 0
     default_system = vim.system
     vim.system = function(_, _, cb)
       if cb then
@@ -227,6 +231,7 @@ describe('pickers', function()
           return 'fzf-lua'
         end,
         pick = function(opts)
+          picker_pick_calls = picker_pick_calls + 1
           captured = opts
           if type(opts.stream) == 'function' then
             local inner = opts.stream
@@ -243,6 +248,15 @@ describe('pickers', function()
               end)
             end
           end
+          return {
+            refresh = function()
+              picker_refresh_calls = picker_refresh_calls + 1
+              if type(captured.stream) == 'function' then
+                captured.stream(function() end)
+              end
+              return true
+            end,
+          }
         end,
         available = available,
         resolve_label = function(def, entry)
@@ -948,27 +962,16 @@ describe('pickers', function()
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
 
-    local first = captured
-    local first_streamed = {}
-    first.stream(function(entry)
+    local streamed = {}
+    captured.stream(function(entry)
       if entry == nil then
-        first_streamed.done = true
+        streamed.done = true
         return
       end
-      first_streamed[#first_streamed + 1] = entry
+      streamed[#streamed + 1] = entry
     end)
 
     action_by_name('refresh').fn()
-
-    local second = captured
-    local second_streamed = {}
-    second.stream(function(entry)
-      if entry == nil then
-        second_streamed.done = true
-        return
-      end
-      second_streamed[#second_streamed + 1] = entry
-    end)
 
     calls[1].cb({
       code = 0,
@@ -984,12 +987,13 @@ describe('pickers', function()
     })
 
     vim.wait(100, function()
-      return first_streamed.done == true and second_streamed.done == true
+      return streamed.done == true and captured.entries[1] ~= nil
     end)
     vim.system = old_system
 
-    assert.is_nil(first_streamed[1])
-    assert.equals('42', second_streamed[1].value.num)
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
+    assert.equals('42', captured.entries[1].value.num)
     assert.same(42, cache['pr:open'][1].number)
   end)
 
@@ -1192,8 +1196,30 @@ describe('pickers', function()
     assert.is_nil(cache['pr:open'])
     assert.is_nil(cache['pr:closed'])
     assert.is_nil(cache['pr:all'])
-    assert.equals('Open PRs> ', captured.prompt)
-    assert.same('function', type(captured.stream))
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
+  end)
+
+  it('refreshes the live PR picker in place after toggle succeeds', function()
+    cache['pr:closed'] = {
+      { number = 43, title = 'Old closed', state = 'CLOSED', author = 'alice', created_at = '' },
+    }
+    cache['pr:all'] = {
+      { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 43, title = 'Old closed', state = 'CLOSED', author = 'alice', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.pr('open', fake_forge())
+    captured.stream(function() end)
+
+    action_by_name('toggle').fn(captured.entries[1])
+
+    assert.is_nil(cache['pr:open'])
+    assert.is_nil(cache['pr:closed'])
+    assert.is_nil(cache['pr:all'])
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
   end)
 
   it('marks PR refresh and checks transitions as hard reopen actions', function()
@@ -1471,6 +1497,31 @@ describe('pickers', function()
     assert.is_false(action_by_name('refresh').reload)
   end)
 
+  it('refreshes the live issue picker in place after toggle succeeds', function()
+    cache['issue:open'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+    }
+    cache['issue:closed'] = {
+      { number = 6, title = 'Done', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+    cache['issue:all'] = {
+      { number = 7, title = 'Bug', state = 'OPEN', author = 'alice', created_at = '' },
+      { number = 6, title = 'Done', state = 'CLOSED', author = 'bob', created_at = '' },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.issue('open', fake_issue_forge())
+    captured.stream(function() end)
+
+    action_by_name('toggle').fn(captured.entries[1])
+
+    assert.is_nil(cache['issue:open'])
+    assert.is_nil(cache['issue:closed'])
+    assert.is_nil(cache['issue:all'])
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
+  end)
+
   it('dispatches flattened issue actions directly from the root picker', function()
     cache['issue:open'] = {
       { number = 42, title = 'Fix api drift', state = 'OPEN', author = 'alice', created_at = '' },
@@ -1686,6 +1737,26 @@ describe('pickers', function()
       url = 'https://example.com',
     }, op_calls[#op_calls].run)
     assert.equals('ci_toggle', op_calls[#op_calls].name)
+  end)
+
+  it('refreshes the live CI picker in place after toggle succeeds', function()
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+
+    local toggle = action_by_name('toggle')
+    assert.is_not_nil(toggle)
+    toggle.fn({
+      value = {
+        id = '5',
+        name = 'CI',
+        branch = 'main',
+        status = 'in_progress',
+        url = 'https://example.com',
+      },
+    })
+
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
   end)
 
   it('labels the CI toggle action from the highlighted run status', function()
@@ -2538,5 +2609,21 @@ describe('pickers', function()
     assert.is_not_nil(captured)
     assert.is_false(action_by_name('filter').reload)
     assert.is_false(action_by_name('refresh').reload)
+  end)
+
+  it('refreshes the live release picker in place after delete succeeds', function()
+    cache['release:list'] = {
+      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+    }
+
+    local pickers = require('forge.pickers')
+    pickers.release('all', fake_release_forge())
+    captured.stream(function() end)
+
+    action_by_name('delete').fn(captured.entries[1])
+
+    assert.is_nil(cache['release:list'])
+    assert.equals(1, picker_pick_calls)
+    assert.equals(1, picker_refresh_calls)
   end)
 end)

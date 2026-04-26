@@ -4,6 +4,8 @@ local close_calls = 0
 local ctx_clears = 0
 local ansi_headers = false
 local fzf_config
+local sigwinch_calls = {}
+local sigwinch_handlers = {}
 local function header_hls(bind, text, separator)
   return {
     header_bind = bind or 'FzfLuaHeaderBind',
@@ -89,6 +91,19 @@ package.preload['fzf-lua'] = function()
   }
 end
 
+package.preload['fzf-lua.win'] = function()
+  return {
+    on_SIGWINCH = function(opts, scope, cb)
+      sigwinch_handlers[scope] = { opts = opts, cb = cb }
+      return true
+    end,
+    SIGWINCH = function(scopes)
+      sigwinch_calls[#sigwinch_calls + 1] = scopes
+      return true
+    end,
+  }
+end
+
 describe('fzf picker', function()
   local selected
 
@@ -98,10 +113,13 @@ describe('fzf picker', function()
     close_calls = 0
     ctx_clears = 0
     ansi_headers = false
+    sigwinch_calls = {}
+    sigwinch_handlers = {}
     package.loaded['forge'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.picker.fzf'] = nil
     package.loaded['fzf-lua.config'] = nil
+    package.loaded['fzf-lua.win'] = nil
     vim.g.forge = nil
     set_header_hls()
   end)
@@ -621,6 +639,34 @@ describe('fzf picker', function()
       and captured.opts.keymap.fzf
       and captured.opts.keymap.fzf.focus
     assert.is_falsy(has_focus)
+  end)
+
+  it('returns a refresh handle for streamed pickers', function()
+    local picker = require('forge.picker.fzf')
+    local handle = picker.pick({
+      prompt = 'CI> ',
+      entries = {},
+      actions = {},
+      picker_name = 'ci',
+      stream = function(emit)
+        emit({
+          display = { { 'build' } },
+          value = '1',
+        })
+        emit(nil)
+      end,
+    })
+
+    assert.is_not_nil(handle)
+    assert.is_function(handle.refresh)
+    captured.opts._contents = 'printf build'
+
+    local scope = next(sigwinch_handlers)
+    assert.is_string(scope)
+    assert.same(captured.opts, sigwinch_handlers[scope].opts)
+    assert.equals('reload:printf build', sigwinch_handlers[scope].cb({}))
+    assert.is_true(handle.refresh())
+    assert.same({ scope }, sigwinch_calls[1])
   end)
 
   it('renders branch rows with visible labels and hidden selection ids', function()
