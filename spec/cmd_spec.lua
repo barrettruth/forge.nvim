@@ -406,6 +406,33 @@ describe('command schema', function()
     assert.equals('invalid issue number: foo', edit_err.message)
   end)
 
+  it('uses MR terminology for invalid PR-number errors on GitLab', function()
+    local opts = { forge_name = 'gitlab' }
+    local _, browse_err = cmd.parse({ 'pr', 'browse', 'main' }, opts)
+    local _, mr_alias_err = cmd.parse({ 'mr', 'browse', 'main' }, opts)
+    local _, ci_err = cmd.parse({ 'pr', 'ci', 'topic' }, opts)
+    local _, review_err = cmd.parse({ 'review', 'topic' }, opts)
+    local _, browse_subject_err = cmd.parse({ 'browse', 'main' }, opts)
+    local _, issue_err = cmd.parse({ 'issue', 'browse', 'main' }, opts)
+
+    assert.equals('invalid MR number: main', browse_err.message)
+    assert.equals('invalid MR number: main', mr_alias_err.message)
+    assert.equals('invalid MR number: topic', ci_err.message)
+    assert.equals('invalid MR number: topic', review_err.message)
+    assert.equals('invalid MR number: main', browse_subject_err.message)
+    assert.equals('invalid issue number: main', issue_err.message)
+  end)
+
+  it('keeps PR terminology when no forge_name is supplied or the forge is not GitLab', function()
+    local _, no_forge = cmd.parse({ 'pr', 'browse', 'main' })
+    local _, github = cmd.parse({ 'pr', 'browse', 'main' }, { forge_name = 'github' })
+    local _, codeberg = cmd.parse({ 'pr', 'browse', 'main' }, { forge_name = 'codeberg' })
+
+    assert.equals('invalid PR number: main', no_forge.message)
+    assert.equals('invalid PR number: main', github.message)
+    assert.equals('invalid PR number: main', codeberg.message)
+  end)
+
   it('accepts purely numeric subjects on PR/issue verbs', function()
     assert.is_not_nil(cmd.parse({ 'pr', '42' }))
     assert.is_not_nil(cmd.parse({ 'pr', 'browse', '42' }))

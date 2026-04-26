@@ -230,6 +230,22 @@ local subject_kind_labels = {
   issue = 'issue number',
 }
 
+---@type table<string, table<string, string>>
+local subject_kind_labels_by_forge = {
+  gitlab = { pr = 'MR number' },
+}
+
+---@param kind string
+---@param forge_name string?
+---@return string
+local function subject_kind_label(kind, forge_name)
+  local overrides = forge_name and subject_kind_labels_by_forge[forge_name] or nil
+  if overrides and overrides[kind] then
+    return overrides[kind]
+  end
+  return subject_kind_labels[kind] or 'subject'
+end
+
 local function copy(value)
   return vim.deepcopy(value)
 end
@@ -948,7 +964,7 @@ function M.parse(args, opts)
 
   local subject_pattern = subject.kind and subject_kind_patterns[subject.kind] or nil
   if subject_pattern then
-    local subject_label = subject_kind_labels[subject.kind] or 'subject'
+    local subject_label = subject_kind_label(subject.kind, opts.forge_name)
     for _, value in ipairs(command.subjects) do
       if not value:match(subject_pattern) then
         return error_result(('invalid %s: %s'):format(subject_label, value))
