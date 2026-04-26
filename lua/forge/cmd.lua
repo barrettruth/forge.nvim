@@ -224,12 +224,6 @@ local subject_kind_patterns = {
   issue = '^%d+$',
 }
 
----@type table<string, string>
-local subject_kind_labels = {
-  pr = 'PR number',
-  issue = 'issue number',
-}
-
 local function copy(value)
   return vim.deepcopy(value)
 end
@@ -265,7 +259,8 @@ end
 local function subject_error(family, verb, missing)
   if family == 'pr' then
     if verb == 'edit' then
-      return 'missing PR number'
+      local f = require('forge').detect()
+      return ('missing %s number'):format((f and f.labels and f.labels.pr_one) or 'PR')
     end
     return missing and 'missing argument' or 'too many arguments'
   end
@@ -273,7 +268,11 @@ local function subject_error(family, verb, missing)
     return missing and 'missing issue number' or 'too many arguments'
   end
   if family == 'review' then
-    return missing and 'missing PR number' or 'too many arguments'
+    if missing then
+      local f = require('forge').detect()
+      return ('missing %s number'):format((f and f.labels and f.labels.pr_one) or 'PR')
+    end
+    return 'too many arguments'
   end
   if family == 'release' then
     return missing and 'missing release tag' or 'too many arguments'
@@ -948,7 +947,15 @@ function M.parse(args, opts)
 
   local subject_pattern = subject.kind and subject_kind_patterns[subject.kind] or nil
   if subject_pattern then
-    local subject_label = subject_kind_labels[subject.kind] or 'subject'
+    local subject_label
+    if subject.kind == 'pr' then
+      local f = require('forge').detect()
+      subject_label = ((f and f.labels and f.labels.pr_one) or 'PR') .. ' number'
+    elseif subject.kind == 'issue' then
+      subject_label = 'issue number'
+    else
+      subject_label = 'subject'
+    end
     for _, value in ipairs(command.subjects) do
       if not value:match(subject_pattern) then
         return error_result(('invalid %s: %s'):format(subject_label, value))
