@@ -578,6 +578,7 @@ describe('pickers', function()
     vim.system = default_system
     helpers.restore_preload(old_preload)
     helpers.clear_loaded(loaded_modules)
+    vim.g.forge = nil
   end)
 
   it('uses row-aware labels for the highlighted open PR', function()
@@ -3225,19 +3226,77 @@ describe('pickers', function()
     assert.is_false(action_by_name('refresh').reload)
   end)
 
-  it('refreshes the live release picker in place after delete succeeds', function()
-    cache['release:list'] = {
-      { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
-    }
+  it(
+    'patches release caches locally and revalidates the live release picker after delete succeeds',
+    function()
+      vim.g.forge = {
+        display = {
+          limits = {
+            releases = 2,
+          },
+        },
+      }
+      cache['release:list'] = {
+        { tag = 'v3.0.0', title = 'Third', is_draft = false, is_prerelease = false },
+        { tag = 'v2.0.0', title = 'Second', is_draft = false, is_prerelease = false },
+        { tag = 'v1.0.0', title = 'First', is_draft = false, is_prerelease = false },
+      }
 
-    local pickers = require('forge.pickers')
-    pickers.release('all', fake_release_forge())
-    captured.stream(function() end)
+      local old_system = vim.system
+      local calls = {}
+      vim.system = function(cmd, _, cb)
+        calls[#calls + 1] = { cmd = cmd, cb = cb }
+        return {
+          wait = function()
+            return { code = 0 }
+          end,
+        }
+      end
 
-    action_by_name('delete').fn(captured.entries[1])
+      local pickers = require('forge.pickers')
+      pickers.release('all', fake_release_forge())
+      captured.stream(function() end)
 
-    assert.is_nil(cache['release:list'])
-    assert.equals(1, picker_pick_calls)
-    assert.equals(1, picker_refresh_calls)
-  end)
+      action_by_name('delete').fn(captured.entries[1])
+
+      assert.same(
+        { 'v2.0.0', 'v1.0.0' },
+        vim.tbl_map(function(rel)
+          return rel.tag
+        end, cache['release:list'])
+      )
+      assert.equals('v2.0.0', captured.entries[1].value.tag)
+      assert.equals('v1.0.0', captured.entries[2].value.tag)
+      assert.is_nil(captured.entries[3])
+      assert.equals(1, picker_pick_calls)
+      assert.equals(1, picker_refresh_calls)
+      assert.same({ 'releases', '3' }, calls[1].cmd)
+
+      calls[1].cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            tag = 'v2.0.0',
+            title = 'Authoritative second',
+            is_draft = false,
+            is_prerelease = false,
+          },
+          {
+            tag = 'v1.0.0',
+            title = 'Authoritative first',
+            is_draft = false,
+            is_prerelease = false,
+          },
+        }),
+      })
+
+      vim.wait(100, function()
+        return cache['release:list'][1].title == 'Authoritative second'
+      end)
+      vim.system = old_system
+
+      assert.equals('Authoritative second', cache['release:list'][1].title)
+      assert.equals(2, picker_refresh_calls)
+    end
+  )
 end)
