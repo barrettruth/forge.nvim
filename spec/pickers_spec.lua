@@ -13,6 +13,8 @@ local pr_create_opts
 local default_system
 local picker_pick_calls
 local picker_refresh_calls
+---@type table<string, forge.PRState>
+local pr_state_cache
 local preload_modules = {
   'fzf-lua.utils',
   'forge',
@@ -152,6 +154,26 @@ local function fake_release_forge()
   }
 end
 
+---@param scope forge.Scope?
+---@return string
+local function pr_state_scope_key(scope)
+  if type(scope) ~= 'table' then
+    return '|||'
+  end
+  return table.concat({
+    scope.kind or '',
+    scope.host or '',
+    scope.slug or '',
+  }, '|') .. '|'
+end
+
+---@param scope forge.Scope?
+---@param num string|integer?
+---@return string
+local function pr_state_key(scope, num)
+  return pr_state_scope_key(scope) .. tostring(num or '')
+end
+
 local function action_by_name(name)
   return helpers.action_by_name(captured.actions, name)
 end
@@ -174,6 +196,7 @@ describe('pickers', function()
     pr_create_opts = nil
     picker_pick_calls = 0
     picker_refresh_calls = 0
+    pr_state_cache = {}
     default_system = vim.system
     vim.system = function(_, _, cb)
       if cb then
@@ -507,9 +530,35 @@ describe('pickers', function()
           return f:repo_info()
         end,
         pr_state = function(f, num, scope)
-          return f:pr_state(num, scope)
+          local key = pr_state_key(scope, num)
+          local cached = pr_state_cache[key]
+          if cached ~= nil then
+            return cached
+          end
+          local state = f:pr_state(num, scope)
+          pr_state_cache[key] = state
+          return state
         end,
-        clear_pr_state = function() end,
+        set_pr_state = function(num, state, scope)
+          pr_state_cache[pr_state_key(scope, num)] = state
+          return state
+        end,
+        clear_pr_state = function(num, scope)
+          if num ~= nil then
+            pr_state_cache[pr_state_key(scope, num)] = nil
+            return
+          end
+          if scope ~= nil then
+            local prefix = pr_state_scope_key(scope)
+            for key in pairs(pr_state_cache) do
+              if key:sub(1, #prefix) == prefix then
+                pr_state_cache[key] = nil
+              end
+            end
+            return
+          end
+          pr_state_cache = {}
+        end,
         create_issue = function(...)
           issue_create_calls = issue_create_calls + 1
           issue_create_opts = select(1, ...)
@@ -1220,6 +1269,88 @@ describe('pickers', function()
     assert.equals(1, picker_pick_calls)
     assert.equals(1, picker_refresh_calls)
   end)
+
+  it(
+    'patches shared PR state locally and revalidates the live PR picker after approve succeeds',
+    function()
+      cache['pr:open'] = {
+        {
+          number = 42,
+          title = 'Draft approval',
+          state = 'OPEN',
+          author = 'alice',
+          created_at = '',
+        },
+      }
+      cache['pr:closed'] = {}
+
+      local old_system = vim.system
+      local calls = {}
+      vim.system = function(cmd, _, cb)
+        calls[#calls + 1] = { cmd = cmd, cb = cb }
+        return {
+          wait = function()
+            return { code = 0 }
+          end,
+        }
+      end
+
+      local pickers = require('forge.pickers')
+      pickers.pr(
+        'open',
+        fake_forge({
+          pr_states = {
+            ['42'] = {
+              state = 'OPEN',
+              mergeable = 'UNKNOWN',
+              review_decision = '',
+              is_draft = true,
+            },
+          },
+        })
+      )
+      captured.stream(function() end)
+
+      local labels = helpers.action_labels(captured.actions, captured.entries[1])
+      assert.equals('approve', labels.approve)
+      assert.is_nil(labels.merge)
+      assert.equals('ready', labels.draft)
+
+      action_by_name('approve').fn(captured.entries[1])
+
+      labels = helpers.action_labels(captured.actions, captured.entries[1])
+      assert.is_nil(labels.approve)
+      assert.is_nil(labels.merge)
+      assert.equals('ready', labels.draft)
+      assert.same({
+        { name = 'pr_approve', pr = { num = '42', scope = nil, state = 'OPEN', is_draft = nil } },
+      }, op_calls)
+      assert.equals(1, picker_pick_calls)
+      assert.equals(1, picker_refresh_calls)
+      assert.same({ 'prs', 'open' }, calls[1].cmd)
+
+      calls[1].cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            number = 42,
+            title = 'Authoritative',
+            state = 'OPEN',
+            author = 'alice',
+            created_at = '',
+          },
+        }),
+      })
+
+      vim.wait(100, function()
+        return cache['pr:open'][1].title == 'Authoritative'
+      end)
+      vim.system = old_system
+
+      assert.equals('Authoritative', cache['pr:open'][1].title)
+      assert.equals(2, picker_refresh_calls)
+    end
+  )
 
   it('patches PR caches locally and revalidates the live PR picker after close succeeds', function()
     cache['pr:open'] = {

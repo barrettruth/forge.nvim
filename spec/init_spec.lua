@@ -132,6 +132,43 @@ describe('pr_state cache', function()
     assert.same(first, second)
   end)
 
+  it('sets scoped PR state entries without refetching', function()
+    local calls = 0
+    local fake = {
+      pr_state = function()
+        calls = calls + 1
+        return {
+          state = 'OPEN',
+          mergeable = 'UNKNOWN',
+          review_decision = '',
+          is_draft = false,
+        }
+      end,
+    }
+    local scope = {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'barrettruth/forge.nvim',
+    }
+
+    forge.set_pr_state('42', {
+      state = 'OPEN',
+      mergeable = 'UNKNOWN',
+      review_decision = 'APPROVED',
+      is_draft = true,
+    }, scope)
+
+    local state = forge.pr_state(fake, '42', scope)
+
+    assert.equals(0, calls)
+    assert.same({
+      state = 'OPEN',
+      mergeable = 'UNKNOWN',
+      review_decision = 'APPROVED',
+      is_draft = true,
+    }, state)
+  end)
+
   it('clears scoped PR state entries without touching other scopes', function()
     local calls = 0
     local fake = {
