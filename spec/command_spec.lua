@@ -737,6 +737,51 @@ describe(':Forge command', function()
     }, captured.ops_calls[1])
   end)
 
+  it('dispatches implicit pr reopen through closed-only branch lookup', function()
+    captured.branch_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr reopen')
+
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+    assert.is_nil(captured.branch_pr_calls[1].opts.repo)
+    assert.is_nil(captured.branch_pr_calls[1].opts.head)
+    assert.same({
+      searches = {
+        { 'closed' },
+      },
+    }, captured.branch_pr_calls[1].policy)
+    assert.same({
+      name = 'pr_reopen',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({}, captured.warnings)
+  end)
+
+  it('passes repo= and head= disambiguation through implicit pr reopen branch lookup', function()
+    captured.branch_pr_result = {
+      num = '57',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr reopen repo=upstream head=origin@topic')
+
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+    assert.equals('repo', captured.branch_pr_calls[1].opts.repo.kind)
+    assert.equals('owner/upstream', captured.branch_pr_calls[1].opts.repo.slug)
+    assert.equals('rev', captured.branch_pr_calls[1].opts.head.kind)
+    assert.equals('topic', captured.branch_pr_calls[1].opts.head.rev)
+    assert.equals('owner/current', captured.branch_pr_calls[1].opts.head.repo.slug)
+    assert.same({
+      name = 'pr_reopen',
+      pr = { num = '57', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+  end)
+
   it('dispatches implicit current-open-PR mutators through forge.current_pr', function()
     captured.current_pr_result = {
       num = '42',
@@ -848,6 +893,15 @@ describe(':Forge command', function()
     assert.same({}, captured.ops_calls)
   end)
 
+  it('warns cleanly when implicit pr reopen finds no matching branch PR', function()
+    vim.cmd('Forge pr reopen')
+
+    assert.same({
+      'no reopenable PR found for this branch',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
   it('warns cleanly when implicit current-open-PR mutators find no matching PR', function()
     vim.cmd('Forge pr approve')
     vim.cmd('Forge pr merge')
@@ -886,6 +940,20 @@ describe(':Forge command', function()
     }
 
     vim.cmd('Forge pr ci')
+
+    assert.same({
+      'multiple PRs match head owner/current@main; pass repo= or head=',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('surfaces resolver errors from implicit pr reopen branch lookup', function()
+    captured.branch_pr_error = {
+      code = 'ambiguous_pr',
+      message = 'multiple PRs match head owner/current@main; pass repo= or head=',
+    }
+
+    vim.cmd('Forge pr reopen')
 
     assert.same({
       'multiple PRs match head owner/current@main; pass repo= or head=',
@@ -1084,6 +1152,16 @@ describe(':Forge command', function()
       name = 'pr_ci',
       pr = { num = '42', scope = repo_scope('upstream') },
     }, captured.ops_calls[2])
+  end)
+
+  it('keeps explicit PR reopen routed directly through forge.ops', function()
+    vim.cmd('Forge pr reopen 42 repo=upstream')
+
+    assert.same({
+      name = 'pr_reopen',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({}, captured.branch_pr_calls)
   end)
 
   it('passes ex ranges through browse file resolution', function()
@@ -1413,6 +1491,10 @@ describe(':Forge command', function()
         expected = { 'repo=', 'head=' },
       },
       {
+        cmdline = 'Forge pr reopen ',
+        expected = { 'repo=', 'head=' },
+      },
+      {
         cmdline = 'Forge issue browse ',
         expected = { 'repo=' },
       },
@@ -1709,6 +1791,7 @@ describe(':Forge command', function()
     local reopen = vim.fn.getcompletion('Forge pr reopen ', 'cmdline')
 
     assert.is_true(vim.tbl_contains(reopen, 'repo='))
+    assert.is_true(vim.tbl_contains(reopen, 'head='))
     assert.is_false(vim.tbl_contains(reopen, '201'))
     assert.is_false(vim.tbl_contains(reopen, '202'))
     assert.same({}, captured.get_list_calls)

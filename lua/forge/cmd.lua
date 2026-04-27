@@ -70,8 +70,8 @@ local families = {
         modifiers = { 'repo', 'head' },
       },
       reopen = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
       },
       create = {
         subject = { min = 0, max = 0 },
@@ -570,7 +570,18 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'reopen' then
-    ops.pr_reopen(f, { num = num, scope = resolve_repo_modifier(command, f.name) })
+    local pr = num and { num = num, scope = resolve_repo_modifier(command, f.name) }
+      or resolve_branch_pr_or_warn(command, f, {
+        searches = {
+          { 'closed' },
+        },
+      }, ('no reopenable %s found for this branch'):format(
+        (f.labels and f.labels.pr_one) or 'PR'
+      ))
+    if not pr then
+      return
+    end
+    ops.pr_reopen(f, pr)
     return
   end
   warn(('unsupported pr action: %s'):format(command.name))
