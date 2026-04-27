@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 package.preload['fzf-lua.utils'] = function()
   return {
     ansi_from_hl = function(_, text)
@@ -205,6 +207,150 @@ describe('pr_state cache', function()
     forge.pr_state(fake, '42', right)
 
     assert.equals(3, calls)
+  end)
+end)
+
+describe('status', function()
+  local old_executable
+  local old_fn_system
+  local old_system
+  local real_github
+  local updates
+
+  local function github_scope(repo)
+    return assert(require('forge.scope').from_url('github', 'https://github.com/owner/' .. repo))
+  end
+
+  before_each(function()
+    old_executable = vim.fn.executable
+    old_fn_system = vim.fn.system
+    old_system = vim.system
+    real_github = require('forge.backends.github')
+    updates = 0
+    local group = vim.api.nvim_create_augroup('forge_status_spec', { clear = true })
+    vim.api.nvim_create_autocmd('User', {
+      group = group,
+      pattern = 'ForgeStatusUpdate',
+      callback = function()
+        updates = updates + 1
+      end,
+    })
+  end)
+
+  after_each(function()
+    vim.fn.executable = old_executable
+    vim.fn.system = old_fn_system
+    vim.system = old_system
+    forge.register('github', real_github)
+    forge.clear_cache()
+    pcall(vim.api.nvim_del_augroup_by_name, 'forge_status_spec')
+  end)
+
+  it('refreshes and caches branch, scope, and current PR', function()
+    local calls = {}
+    forge.register(
+      'github',
+      vim.tbl_extend('force', real_github, {
+        pr_for_branch_cmd = function(_, branch, scope, state)
+          return { 'pr-for-branch', state or 'open', branch, scope and scope.slug or '' }
+        end,
+        fetch_pr_details_cmd = function(_, num, scope)
+          return { 'fetch-pr', num, scope and scope.slug or '' }
+        end,
+      })
+    )
+    vim.fn.executable = function(bin)
+      if bin == 'gh' then
+        return 1
+      end
+      return old_executable(bin)
+    end
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      calls = calls,
+      responses = {
+        ['git -C /repo remote get-url origin'] = helpers.command_result(
+          'git@github.com:owner/current.git\n'
+        ),
+        ['git -C /repo branch --show-current'] = helpers.command_result('feature\n'),
+        ['git -C /repo config branch.feature.pushRemote'] = helpers.command_result('fork\n'),
+        ['git -C /repo remote get-url fork'] = helpers.command_result(
+          'git@github.com:owner/fork.git\n'
+        ),
+        ['git -C /repo remote get-url upstream'] = helpers.command_result(
+          'git@github.com:owner/upstream.git\n'
+        ),
+        ['pr-for-branch open feature owner/fork'] = helpers.command_result('\n'),
+        ['pr-for-branch open feature owner/upstream'] = helpers.command_result('42\n'),
+        ['fetch-pr 42 owner/upstream'] = helpers.command_result(vim.json.encode({
+          state = 'OPEN',
+          headRefName = 'feature',
+          headRepository = {
+            name = 'fork',
+            nameWithOwner = 'owner/fork',
+          },
+          headRepositoryOwner = {
+            login = 'owner',
+          },
+        })),
+      },
+      default = helpers.command_result('', 1),
+    })
+
+    assert.is_nil(forge.status())
+    assert.is_true(vim.wait(200, function()
+      return updates > 0 and forge.status() ~= nil
+    end))
+    assert.same({
+      branch = 'feature',
+      scope = github_scope('fork'),
+      pr = {
+        num = '42',
+        scope = github_scope('upstream'),
+      },
+    }, forge.status())
+
+    local before = #calls
+    assert.same({
+      branch = 'feature',
+      scope = github_scope('fork'),
+      pr = {
+        num = '42',
+        scope = github_scope('upstream'),
+      },
+    }, forge.status())
+    assert.equals(before, #calls)
+  end)
+
+  it('falls back to branch-only status when no forge is detected', function()
+    vim.fn.executable = function()
+      return 0
+    end
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      responses = {
+        ['git -C /repo remote get-url origin'] = helpers.command_result('', 1),
+        ['git -C /repo branch --show-current'] = helpers.command_result('feature\n'),
+      },
+      default = helpers.command_result('', 1),
+    })
+
+    assert.is_nil(forge.status())
+    assert.is_true(vim.wait(200, function()
+      local status = forge.status()
+      return status and status.branch == 'feature' and status.scope == nil and status.pr == nil
+    end))
+    assert.same({ branch = 'feature' }, forge.status())
   end)
 end)
 
