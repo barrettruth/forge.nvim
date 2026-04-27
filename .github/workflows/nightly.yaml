@@ -1,93 +1,100 @@
 name: nightly
+run-name: nightly release ${{ github.sha }}
 
 on:
-  schedule:
-    - cron: '0 5 * * *'
   workflow_dispatch:
+  workflow_run:
+    workflows: ['quality']
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
 
 concurrency:
   group: nightly-release
   cancel-in-progress: true
 
 jobs:
-  precheck:
+  nightly_release:
+    if:
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      create: ${{ steps.precheck.outputs.create }}
+    env:
+      GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Detect unpublished main commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CURRENT_SHA: ${{ github.sha }}
-        id: precheck
+      - name: Resolve target commit
+        id: run
         run: |
-          short_sha="${CURRENT_SHA::7}"
-          existing_tag="$(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease and (.tagName | startswith("nightly-"))) | .tagName' | grep -F -- "-$short_sha" | head -n 1 || true)"
-          if [ -n "$existing_tag" ]; then
-            echo "create=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            sha="${{ github.event.workflow_run.head_sha }}"
+          else
+            sha="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow quality --branch main --event push --json headSha,conclusion,status --limit 20 | jq -r 'map(select(.status == "completed" and .conclusion == "success")) | .[0].headSha // empty')"
           fi
-          echo "create=true" >> "$GITHUB_OUTPUT"
+          [ -n "$sha" ]
+          echo "head_sha=$sha" >>"$GITHUB_OUTPUT"
 
-  quality:
-    if: ${{ needs.precheck.outputs.create == 'true' }}
-    needs: precheck
-    uses: ./.github/workflows/quality.yaml
-
-  release:
-    if: ${{ needs.precheck.outputs.create == 'true' }}
-    needs:
-      - precheck
-      - quality
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          fetch-depth: 0
+          ref: ${{ steps.run.outputs.head_sha }}
 
-      - name: Create nightly prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CURRENT_SHA: ${{ github.sha }}
+      - name: Resolve nightly state
+        id: state
         run: |
-          short_sha="${CURRENT_SHA::7}"
-          nightly_date="$(date -u +%Y%m%d)"
-          nightly_display_date="$(date -u +%Y-%m-%d)"
-          nightly_tag="nightly-${nightly_date}-${short_sha}"
-          nightly_title="nightly ${nightly_display_date} (${short_sha})"
-          nightly_notes="$(printf 'Nightly prerelease from main.\nCommit: %s\n' "$CURRENT_SHA")"
-          if gh release view "$nightly_tag" >/dev/null 2>&1; then
+          git fetch --tags origin
+          short_sha="${{ steps.run.outputs.head_sha }}"
+          short_sha="${short_sha:0:7}"
+          title="nightly (${short_sha})"
+          previous_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
+          current="$(git ls-remote --tags origin 'refs/tags/nightly^{}' | awk '{print $1}')"
+          if [ -z "$current" ]; then
+            current="$(git ls-remote --tags origin 'refs/tags/nightly' | awk '{print $1}')"
+          fi
+          if [ "$current" = "${{ steps.run.outputs.head_sha }}" ]; then
+            echo "publish=false" >>"$GITHUB_OUTPUT"
             exit 0
           fi
-          gh release create "$nightly_tag" --target "$CURRENT_SHA" --title "$nightly_title" --notes "$nightly_notes" --generate-notes --prerelease --latest=false
+          {
+            echo "publish=true"
+            echo "previous_tag=$previous_tag"
+            echo "title=$title"
+          } >>"$GITHUB_OUTPUT"
 
-  cleanup:
-    if: ${{ needs.precheck.outputs.create == 'true' }}
-    needs:
-      - precheck
-      - release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Trim old nightly prereleases
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Generate nightly notes
+        if: steps.state.outputs.publish == 'true'
         run: |
-          old_tags="$(gh release list --limit 100 --json tagName,isPrerelease,publishedAt --jq '[.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))] | sort_by(.publishedAt) | reverse | .[14:] | .[].tagName')"
-          if [ -z "$old_tags" ]; then
-            exit 0
+          if [ -n "${{ steps.state.outputs.previous_tag }}" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name=nightly \
+              -f target_commitish="${{ steps.run.outputs.head_sha }}" \
+              -f previous_tag_name="${{ steps.state.outputs.previous_tag }}" >"$RUNNER_TEMP/nightly-notes.json"
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name=nightly \
+              -f target_commitish="${{ steps.run.outputs.head_sha }}" >"$RUNNER_TEMP/nightly-notes.json"
           fi
-          while IFS= read -r old_tag; do
-            [ -n "$old_tag" ] || continue
-            gh release delete "$old_tag" --cleanup-tag --yes
-          done <<EOF
-          $old_tags
-          EOF
+          printf "Built from \`%s\`.\n\n" "${{ steps.run.outputs.head_sha }}" >"$RUNNER_TEMP/nightly-notes.md"
+          jq -r '.body' "$RUNNER_TEMP/nightly-notes.json" >>"$RUNNER_TEMP/nightly-notes.md"
+
+      - name: Create or update nightly release
+        if: steps.state.outputs.publish == 'true'
+        run: |
+          if gh release view nightly --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release delete nightly --repo "$GITHUB_REPOSITORY" -y
+          fi
+          git push origin :refs/tags/nightly || true
+          GIT_COMMITTER_NAME='github-actions[bot]' \
+          GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
+          git tag -a nightly "${{ steps.run.outputs.head_sha }}" -m nightly
+          git push --force origin refs/tags/nightly
+          gh release create nightly \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "${{ steps.state.outputs.title }}" \
+            --notes-file "$RUNNER_TEMP/nightly-notes.md" \
+            --prerelease \
+            --latest=false
