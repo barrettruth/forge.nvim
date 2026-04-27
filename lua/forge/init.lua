@@ -860,14 +860,11 @@ end
 
 ---@param opts forge.BranchCIOpts?
 function M.ci(opts)
-  local _, head = resolve_ci_head(opts)
-  if not head then
+  local forge, head = resolve_ci_head(opts)
+  if not forge or not head then
     return
   end
-  M.open('ci.current_branch', {
-    branch = head.branch,
-    scope = head.scope,
-  })
+  require('forge.ops').ci(forge, head)
 end
 
 ---@param opts forge.CreatePROpts?
