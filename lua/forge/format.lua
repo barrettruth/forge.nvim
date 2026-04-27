@@ -209,6 +209,7 @@ end
 local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
   local display = require('forge.config').config().display
   local icons = display.icons
+  local width = opts and opts.width or layout.picker_width()
   local numbers = {}
   local titles = {}
   local authors = {}
@@ -222,7 +223,7 @@ local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
   local title_pref, title_max = elastic_width(45, titles, 12)
   local author_pref, author_max = elastic_width(15, authors, 6)
   local plan = layout.plan({
-    width = opts and opts.width or layout.picker_width(),
+    width = width,
     columns = {
       { key = 'state', fixed = show_state and 1 or 0 },
       {
@@ -235,7 +236,7 @@ local function pr_issue_rows(entries, fields, show_state, opts, icon_fn)
         gap = ' ',
         min = 12,
         preferred = title_pref,
-        max = title_max,
+        max = math.max(title_max, width),
         shrink = 2,
         grow = 1,
         overflow = 'tail',
