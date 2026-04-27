@@ -7,6 +7,7 @@ local preload_modules = {
   'forge.logger',
   'forge.ops',
   'forge.pickers',
+  'forge.resolve',
 }
 
 local loaded_modules = {
@@ -15,6 +16,7 @@ local loaded_modules = {
   'forge.logger',
   'forge.ops',
   'forge.pickers',
+  'forge.resolve',
 }
 
 local function repo_scope(repo)
@@ -83,6 +85,9 @@ describe(':Forge command', function()
       opens = {},
       ops_calls = {},
       ci_calls = {},
+      branch_pr_calls = {},
+      branch_pr_result = nil,
+      branch_pr_error = nil,
       current_pr_calls = {},
       current_pr_result = nil,
       current_pr_error = nil,
@@ -136,6 +141,15 @@ describe(':Forge command', function()
         info = function() end,
         debug = function() end,
         error = function() end,
+      }
+    end
+
+    package.preload['forge.resolve'] = function()
+      return {
+        branch_pr = function(opts, policy)
+          table.insert(captured.branch_pr_calls, { opts = opts, policy = policy })
+          return captured.branch_pr_result, captured.branch_pr_error
+        end,
       }
     end
 
@@ -628,14 +642,12 @@ describe(':Forge command', function()
 
     vim.cmd('Forge pr')
     vim.cmd('Forge review adapter=worktree')
-    vim.cmd('Forge pr ci')
 
-    assert.equals(3, #captured.current_pr_calls)
+    assert.equals(2, #captured.current_pr_calls)
     assert.equals('github', captured.current_pr_calls[1].forge.name)
     assert.is_nil(captured.current_pr_calls[1].repo)
     assert.is_nil(captured.current_pr_calls[1].head)
     assert.equals('github', captured.current_pr_calls[2].forge.name)
-    assert.equals('github', captured.current_pr_calls[3].forge.name)
     assert.same({
       name = 'pr_edit',
       pr = { num = '42', scope = repo_scope('upstream') },
@@ -645,10 +657,32 @@ describe(':Forge command', function()
       pr = { num = '42', scope = repo_scope('upstream') },
       opts = { adapter = 'worktree' },
     }, captured.ops_calls[2])
+    assert.same({}, captured.branch_pr_calls)
+    assert.same({}, captured.warnings)
+  end)
+
+  it('dispatches implicit pr ci through forge.resolve.branch_pr', function()
+    captured.branch_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr ci')
+
     assert.same({
       name = 'pr_ci',
       pr = { num = '42', scope = repo_scope('upstream') },
-    }, captured.ops_calls[3])
+    }, captured.ops_calls[1])
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+    assert.is_nil(captured.branch_pr_calls[1].opts.repo)
+    assert.is_nil(captured.branch_pr_calls[1].opts.head)
+    assert.same({
+      searches = {
+        { 'open' },
+        { 'closed', 'merged' },
+      },
+    }, captured.branch_pr_calls[1].policy)
     assert.same({}, captured.warnings)
   end)
 
@@ -660,8 +694,8 @@ describe(':Forge command', function()
 
     vim.cmd('Forge pr repo=upstream head=origin@topic')
     vim.cmd('Forge review repo=upstream head=origin@topic adapter=worktree')
-    vim.cmd('Forge pr ci repo=upstream head=origin@topic')
 
+    assert.equals(2, #captured.current_pr_calls)
     for _, call in ipairs(captured.current_pr_calls) do
       assert.equals('github', call.forge.name)
       assert.equals('repo', call.repo.kind)
@@ -680,10 +714,27 @@ describe(':Forge command', function()
       pr = { num = '57', scope = repo_scope('upstream') },
       opts = { adapter = 'worktree' },
     }, captured.ops_calls[2])
+  end)
+
+  it('passes repo= and head= disambiguation through implicit pr ci branch lookup', function()
+    captured.branch_pr_result = {
+      num = '57',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr ci repo=upstream head=origin@topic')
+
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+    assert.equals('repo', captured.branch_pr_calls[1].opts.repo.kind)
+    assert.equals('owner/upstream', captured.branch_pr_calls[1].opts.repo.slug)
+    assert.equals('rev', captured.branch_pr_calls[1].opts.head.kind)
+    assert.equals('topic', captured.branch_pr_calls[1].opts.head.rev)
+    assert.equals('owner/current', captured.branch_pr_calls[1].opts.head.repo.slug)
     assert.same({
       name = 'pr_ci',
       pr = { num = '57', scope = repo_scope('upstream') },
-    }, captured.ops_calls[3])
+    }, captured.ops_calls[1])
   end)
 
   it('dispatches implicit current-open-PR mutators through forge.current_pr', function()
@@ -780,12 +831,19 @@ describe(':Forge command', function()
   it('warns cleanly when implicit current-PR commands find no matching PR', function()
     vim.cmd('Forge pr')
     vim.cmd('Forge review')
-    vim.cmd('Forge pr ci')
 
     assert.same({
       'no open PR found for this branch',
       'no open PR found for this branch',
-      'no open PR found for this branch',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('warns cleanly when implicit pr ci finds no matching branch PR', function()
+    vim.cmd('Forge pr ci')
+
+    assert.same({
+      'no PR found for this branch',
     }, captured.warnings)
     assert.same({}, captured.ops_calls)
   end)
@@ -814,6 +872,20 @@ describe(':Forge command', function()
     }
 
     vim.cmd('Forge pr')
+
+    assert.same({
+      'multiple PRs match head owner/current@main; pass repo= or head=',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('surfaces resolver errors from implicit pr ci branch lookup', function()
+    captured.branch_pr_error = {
+      code = 'ambiguous_pr',
+      message = 'multiple PRs match head owner/current@main; pass repo= or head=',
+    }
+
+    vim.cmd('Forge pr ci')
 
     assert.same({
       'multiple PRs match head owner/current@main; pass repo= or head=',
