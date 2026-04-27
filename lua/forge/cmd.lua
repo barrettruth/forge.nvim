@@ -463,11 +463,12 @@ local function dispatch_pr(command)
   local num = command.subjects[1]
   if command.name == 'create' then
     local target = require('forge.target')
+    local forge_mod = require('forge')
     local parse_opts = target_parse_opts()
     local head = command.parsed_modifiers.head or command.default_targets.head
     local base = command.parsed_modifiers.base or command.default_targets.base
     local scope = resolve_repo_modifier(command, f.name)
-    ops.pr_create({
+    forge_mod.create_pr({
       draft = command.modifiers.draft == true,
       instant = command.modifiers.fill == true,
       web = command.modifiers.web == true,
@@ -622,7 +623,7 @@ local function dispatch_issue(command)
   local scope = resolve_repo_modifier(command, f.name)
   if command.name == 'create' then
     local template = command.modifiers.template
-    ops.issue_create({
+    require('forge').create_issue({
       web = command.modifiers.web == true,
       blank = command.modifiers.blank == true,
       template = template ~= true and template or nil,
@@ -733,6 +734,7 @@ local function dispatch_browse(command)
   end
   local scope = resolve_scope_modifier(command, f.name)
   local subject = command.subjects[1]
+  local forge_mod = require('forge')
   if subject then
     ops.browse_subject(f, { num = subject, scope = scope })
     return
@@ -744,19 +746,19 @@ local function dispatch_browse(command)
   end
   local commit = command.parsed_modifiers.commit
   if commit and commit.commit then
-    ops.browse_commit({ commit = commit.commit, scope = scope })
+    forge_mod.open('browse.commit', { commit = commit.commit, scope = scope })
     return
   end
   local branch = command.parsed_modifiers.branch
-  local file_loc = require('forge').file_loc(command.range)
+  local file_loc = forge_mod.file_loc(command.range)
   if branch and branch.branch then
     if ops.browse_file(f, file_loc, branch.branch, scope) then
       return
     end
-    ops.browse_branch(branch.branch, { scope = scope })
+    forge_mod.open('browse.branch', { branch = branch.branch, scope = scope })
     return
   end
-  local ctx = require('forge').current_context()
+  local ctx = forge_mod.current_context()
   local ctx_branch = type(ctx) == 'table' and ctx.branch or nil
   if ops.browse_file(f, file_loc, ctx_branch, scope) then
     return

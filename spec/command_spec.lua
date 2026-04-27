@@ -399,14 +399,6 @@ describe(':Forge command', function()
 
     package.preload['forge.ops'] = function()
       return {
-        pr_list = function(state, opts)
-          table.insert(captured.ops_calls, { name = 'pr_list', state = state, opts = opts })
-          require('forge').open(state and ('prs.' .. state) or 'prs', opts)
-        end,
-        pr_create = function(opts)
-          table.insert(captured.ops_calls, { name = 'pr_create', opts = opts })
-          require('forge').create_pr(opts)
-        end,
         pr_edit = function(pr)
           table.insert(captured.ops_calls, { name = 'pr_edit', pr = pr })
         end,
@@ -444,14 +436,6 @@ describe(':Forge command', function()
             f:browse_subject(ref.num, ref.scope)
           end
         end,
-        issue_list = function(state, opts)
-          table.insert(captured.ops_calls, { name = 'issue_list', state = state, opts = opts })
-          require('forge').open(state and ('issues.' .. state) or 'issues', opts)
-        end,
-        issue_create = function(opts)
-          table.insert(captured.ops_calls, { name = 'issue_create', opts = opts })
-          require('forge').create_issue(opts)
-        end,
         issue_edit = function(issue)
           table.insert(captured.ops_calls, { name = 'issue_edit', issue = issue })
         end,
@@ -465,13 +449,6 @@ describe(':Forge command', function()
         issue_reopen = function(_, issue)
           table.insert(captured.ops_calls, { name = 'issue_reopen', issue = issue })
         end,
-        ci_list = function(branch, opts)
-          table.insert(captured.ops_calls, { name = 'ci_list', branch = branch, opts = opts })
-          require('forge').open(
-            branch == nil and 'ci.all' or 'ci.current_branch',
-            vim.tbl_extend('force', opts or {}, { branch = branch })
-          )
-        end,
         ci_log = function(_, run)
           table.insert(captured.ops_calls, { name = 'ci_log', run = run })
         end,
@@ -483,10 +460,6 @@ describe(':Forge command', function()
         end,
         ci_browse = function(_, run)
           table.insert(captured.ops_calls, { name = 'ci_browse', run = run })
-        end,
-        release_list = function(state, opts)
-          table.insert(captured.ops_calls, { name = 'release_list', state = state, opts = opts })
-          require('forge').open(state and ('releases.' .. state) or 'releases', opts)
         end,
         release_browse = function(f, release)
           table.insert(captured.ops_calls, { name = 'release_browse', release = release })
@@ -500,21 +473,6 @@ describe(':Forge command', function()
         end,
         list_browse = function(_, kind, opts)
           table.insert(captured.ops_calls, { name = 'list_browse', kind = kind, opts = opts })
-        end,
-        browse_commit = function(opts)
-          table.insert(captured.ops_calls, { name = 'browse_commit', opts = opts })
-          require('forge').open('browse.commit', opts)
-        end,
-        browse_branch = function(branch, opts)
-          table.insert(captured.ops_calls, { name = 'browse_branch', branch = branch, opts = opts })
-          require('forge').open(
-            'browse.branch',
-            vim.tbl_extend('force', opts or {}, { branch = branch })
-          )
-        end,
-        browse_contextual = function(opts)
-          table.insert(captured.ops_calls, { name = 'browse_contextual', opts = opts })
-          require('forge').open('browse.contextual', opts)
         end,
         browse_repo = function(opts)
           table.insert(captured.ops_calls, { name = 'browse_repo', opts = opts })
@@ -1035,45 +993,17 @@ describe(':Forge command', function()
 
     vim.cmd('Forge browse branch=main')
 
-    assert.same({
-      name = 'browse_branch',
-      branch = 'main',
-      opts = {
-        scope = {
-          kind = 'github',
-          host = 'github.com',
-          owner = 'owner',
-          repo = 'current',
-          slug = 'owner/current',
-          repo_arg = 'owner/current',
-          web_url = 'https://github.com/owner/current',
-        },
-      },
-    }, captured.ops_calls[1])
     assert.equals('browse.branch', captured.opens[1].route)
     assert.equals('main', captured.opens[1].opts.branch)
+    assert.same(repo_scope('current'), captured.opens[1].opts.scope)
   end)
 
-  it('dispatches explicit commit browsing through ops.browse_commit', function()
+  it('dispatches explicit commit browsing through forge.open', function()
     vim.cmd('Forge browse commit=abc1234')
 
-    assert.same({
-      name = 'browse_commit',
-      opts = {
-        commit = 'abc1234',
-        scope = {
-          kind = 'github',
-          host = 'github.com',
-          owner = 'owner',
-          repo = 'current',
-          slug = 'owner/current',
-          repo_arg = 'owner/current',
-          web_url = 'https://github.com/owner/current',
-        },
-      },
-    }, captured.ops_calls[1])
     assert.equals('browse.commit', captured.opens[1].route)
     assert.equals('abc1234', captured.opens[1].opts.commit)
+    assert.same(repo_scope('current'), captured.opens[1].opts.scope)
   end)
 
   it('dispatches explicit location browsing through ops.browse_location', function()

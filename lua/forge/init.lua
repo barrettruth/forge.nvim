@@ -864,7 +864,8 @@ function M.ci(opts)
   if not head then
     return
   end
-  require('forge.ops').ci_list(head.branch, {
+  M.open('ci.current_branch', {
+    branch = head.branch,
     scope = head.scope,
   })
 end

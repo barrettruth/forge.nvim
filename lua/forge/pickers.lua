@@ -1410,7 +1410,7 @@ function M.pr(state, f, opts)
       label = 'create',
       available = pr_create_visible,
       fn = function()
-        ops.pr_create({ back = opts.back, scope = ref })
+        forge_mod.create_pr({ back = opts.back, scope = ref })
       end,
     },
     {
@@ -1830,7 +1830,7 @@ function M.issue(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        ops.issue_create({ back = opts.back, scope = ref })
+        forge_mod.create_issue({ back = opts.back, scope = ref })
       end,
     },
     {

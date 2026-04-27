@@ -185,17 +185,6 @@ local function location_arg(location)
   return ('%s:%d-%d'):format(location.path, range.start_line, range.end_line)
 end
 
----@param state? 'open'|'closed'|'all'
----@param opts? forge.PickerBackOpts
-function M.pr_list(state, opts)
-  require('forge').open(state and ('prs.' .. state) or 'prs', opts)
-end
-
----@param opts? forge.CreatePROpts
-function M.pr_create(opts)
-  require('forge').create_pr(opts)
-end
-
 ---@param pr forge.PRRefLike
 ---@param f forge.Forge?
 function M.pr_edit(pr, f)
@@ -337,17 +326,6 @@ function M.pr_browse(f, pr)
   f:view_web(f.kinds.pr, pr.num, pr.scope)
 end
 
----@param state? 'open'|'closed'|'all'
----@param opts? forge.PickerBackOpts
-function M.issue_list(state, opts)
-  require('forge').open(state and ('issues.' .. state) or 'issues', opts)
-end
-
----@param opts? forge.CreateIssueOpts
-function M.issue_create(opts)
-  require('forge').create_issue(opts)
-end
-
 ---@param issue forge.IssueRefLike
 ---@param f forge.Forge?
 function M.issue_edit(issue, f)
@@ -410,13 +388,6 @@ function M.issue_reopen(f, issue, opts)
     'reopen failed',
     opts
   )
-end
-
----@param branch string?
----@param opts? forge.PickerBackOpts
-function M.ci_list(branch, opts)
-  opts = vim.tbl_extend('force', opts or {}, { branch = branch })
-  require('forge').open(branch == nil and 'ci.all' or 'ci.current_branch', opts)
 end
 
 ---@param f forge.Forge
@@ -661,12 +632,6 @@ function M.ci_toggle(f, run, opts)
   end
 end
 
----@param state? 'all'|'draft'|'prerelease'
----@param opts? forge.PickerBackOpts
-function M.release_list(state, opts)
-  require('forge').open(state and ('releases.' .. state) or 'releases', opts)
-end
-
 ---@param f forge.Forge
 ---@param release forge.ReleaseRefLike
 function M.release_browse(f, release)
@@ -717,11 +682,6 @@ function M.browse_subject(f, ref)
   f:browse_subject(ref.num, ref.scope)
 end
 
----@param opts? { commit?: string, scope?: forge.Scope }
-function M.browse_commit(opts)
-  require('forge').open('browse.commit', opts)
-end
-
 ---@param opts? forge.ScopedOpts
 ---@return boolean
 function M.browse_repo(opts)
@@ -732,17 +692,6 @@ function M.browse_repo(opts)
   end
   vim.ui.open(url)
   return true
-end
-
----@param branch string?
----@param opts? forge.RouteOpts
-function M.browse_branch(branch, opts)
-  require('forge').open('browse.branch', vim.tbl_extend('force', opts or {}, { branch = branch }))
-end
-
----@param opts? forge.RouteOpts
-function M.browse_contextual(opts)
-  require('forge').open('browse.contextual', opts)
 end
 
 ---@param f forge.Forge
