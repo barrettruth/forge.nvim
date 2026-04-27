@@ -9,6 +9,7 @@ describe('edit_issue', function()
 
   before_each(function()
     captured = {
+      debugs = {},
       errors = {},
       infos = {},
       systems = {},
@@ -149,7 +150,9 @@ describe('edit_issue', function()
 
     package.preload['forge.logger'] = function()
       return {
-        debug = function() end,
+        debug = function(msg)
+          table.insert(captured.debugs, msg)
+        end,
         info = function(msg)
           table.insert(captured.infos, msg)
         end,
@@ -228,6 +231,7 @@ describe('edit_issue', function()
       },
       scope = nil,
     }, captured.opened)
-    assert.is_true(vim.tbl_contains(captured.infos, 'fetching issue #23...'))
+    assert.same({}, captured.infos)
+    assert.is_true(vim.tbl_contains(captured.debugs, 'fetching issue #23...'))
   end)
 end)

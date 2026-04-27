@@ -297,6 +297,7 @@ describe('create_issue', function()
       return vim.tbl_contains(captured.infos, 'opened issue creation in browser')
     end)
 
+    assert.same({ 'opened issue creation in browser' }, captured.infos)
     assert.is_true(vim.tbl_contains(captured.systems, 'create-issue-web'))
   end)
 

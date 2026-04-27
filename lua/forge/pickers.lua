@@ -437,7 +437,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       require('forge.term').open(f:live_tail_cmd(run_id, job_id, check_ref), { url = c.link })
       return
     end
-    log.info('fetching check logs...')
+    log.debug('fetching check logs...')
     local cmd = f:check_log_cmd(run_id, bucket == 'fail', job_id, check_ref)
     local steps_cmd = f.steps_cmd and f:steps_cmd(run_id, check_ref) or nil
     local status_cmd = f.run_status_cmd and f:run_status_cmd(run_id, check_ref) or nil
@@ -521,7 +521,7 @@ function M.checks(f, num, filter, cached_checks, opts)
       label = 'refresh',
       reload = false,
       fn = function()
-        log.info(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
+        log.debug(('refreshing checks for %s #%s...'):format(f.labels.pr_one, num))
         M.checks(f, num, filter, nil, { back = opts.back, scope = ref })
       end,
     },
@@ -562,7 +562,7 @@ function M.checks(f, num, filter, cached_checks, opts)
         return f:checks_json_cmd(num, ref)
       end,
       on_fetch = function()
-        log.info(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
+        log.debug(('fetching checks for %s #%s...'):format(f.labels.pr_one, num))
       end,
       on_success = function(checks)
         current_checks = checks
@@ -710,7 +710,7 @@ function M.ci(f, branch, filter, opts)
       emit_cached(emit)
       return
     end
-    log.info('fetching ' .. ci_inline_label(f) .. '...')
+    log.debug('fetching ' .. ci_inline_label(f) .. '...')
     picker_session.request_json(
       request_key,
       f:list_runs_json_cmd(branch, ref, current_limit + 1),
@@ -907,7 +907,7 @@ function M.ci(f, branch, filter, opts)
       label = 'refresh',
       reload = false,
       fn = function()
-        log.info('refreshing ' .. ci_inline_label(f) .. '...')
+        log.debug('refreshing ' .. ci_inline_label(f) .. '...')
         runs_stale = true
         if refresh_picker(picker_handle) then
           return
@@ -1028,7 +1028,7 @@ function M.pr(state, f, opts)
       emit_cached_prs(emit)
       return
     end
-    log.info(('fetching %s list (%s)...'):format(f.labels.pr, state))
+    log.debug(('fetching %s list (%s)...'):format(f.labels.pr, state))
     picker_session.request_json(
       cache_key,
       f:list_pr_json_cmd(state, current_limit + 1, ref),
@@ -1601,7 +1601,7 @@ function M.issue(state, f, opts)
       emit_cached_issues(emit)
       return
     end
-    log.info('fetching issue list (' .. state .. ')...')
+    log.debug('fetching issue list (' .. state .. ')...')
     picker_session.request_json(
       cache_key,
       f:list_issue_json_cmd(state, current_limit + 1, ref),
@@ -2033,7 +2033,7 @@ function M.release(state, f, opts)
       emit_cached_releases(emit)
       return
     end
-    log.info('fetching releases...')
+    log.debug('fetching releases...')
     local requested = current_limit + 1
     picker_session.request_json(
       cache_key,

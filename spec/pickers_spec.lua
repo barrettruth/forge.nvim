@@ -2896,7 +2896,8 @@ describe('pickers', function()
 
     assert.equals('error', streamed[1].placeholder_kind)
     assert.equals('boom', streamed[1].display[1][1])
-    assert.same({ 'fetching checks for PR #42...' }, logger_messages.info)
+    assert.same({}, logger_messages.info)
+    assert.same({ 'fetching checks for PR #42...' }, logger_messages.debug)
     assert.same({ 'boom' }, logger_messages.error)
   end)
 

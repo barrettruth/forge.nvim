@@ -208,7 +208,7 @@ function M.pr_edit(pr, f)
   local ref = pr.scope or forge.current_scope(f.name)
   local current_branch = trim(vim.fn.system('git branch --show-current'))
 
-  log.info(('fetching %s #%s...'):format(f.labels.pr_one, pr.num))
+  log.debug(('fetching %s #%s...'):format(f.labels.pr_one, pr.num))
   load_details(
     f:fetch_pr_details_cmd(pr.num, ref),
     'failed to fetch ' .. f.labels.pr_one .. ' #' .. pr.num,
@@ -359,7 +359,7 @@ function M.issue_edit(issue, f)
   local forge = require('forge')
   local ref = issue.scope or forge.current_scope(f.name)
 
-  log.info(('fetching issue #%s...'):format(issue.num))
+  log.debug(('fetching issue #%s...'):format(issue.num))
   load_details(
     f:fetch_issue_details_cmd(issue.num, ref),
     'failed to fetch issue #' .. issue.num,
@@ -513,7 +513,7 @@ local function ci_log(f, run)
     })
     return
   end
-  log.info('fetching CI/CD logs...')
+  log.debug('fetching CI/CD logs...')
   require('forge.log').open(
     f:run_log_cmd(run.id, status == 'failure' or status == 'failed', run_ref),
     {

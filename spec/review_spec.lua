@@ -15,6 +15,7 @@ describe('review adapters', function()
     captured = {
       calls = {},
       cmds = {},
+      debugs = {},
       infos = {},
       errors = {},
     }
@@ -74,7 +75,9 @@ describe('review adapters', function()
           table.insert(captured.errors, msg)
         end,
         warn = function() end,
-        debug = function() end,
+        debug = function(msg)
+          table.insert(captured.debugs, msg)
+        end,
       }
     end
 
@@ -153,7 +156,8 @@ describe('review adapters', function()
         opts = {},
       },
     }, captured.cmds)
-    assert.same({ 'opening PR #42 in diffview...' }, captured.infos)
+    assert.same({ 'opening PR #42 in diffview...' }, captured.debugs)
+    assert.same({}, captured.infos)
     assert.same({}, captured.errors)
   end)
 
@@ -224,7 +228,8 @@ describe('review adapters', function()
         opts = {},
       },
     }, captured.cmds)
-    assert.same({ 'opening PR #42 in codediff...' }, captured.infos)
+    assert.same({ 'opening PR #42 in codediff...' }, captured.debugs)
+    assert.same({}, captured.infos)
     assert.same({}, captured.errors)
   end)
 
@@ -295,7 +300,8 @@ describe('review adapters', function()
         opts = {},
       },
     }, captured.cmds)
-    assert.same({ 'opening PR #42 in diffs...' }, captured.infos)
+    assert.same({ 'opening PR #42 in diffs...' }, captured.debugs)
+    assert.same({}, captured.infos)
     assert.same({}, captured.errors)
   end)
 
@@ -329,10 +335,8 @@ describe('review adapters', function()
       'git fetch origin pull/42/head:pr-42',
       'git worktree add /pr-42 pr-42',
     }, captured.calls)
-    assert.same({
-      'fetching PR #42 into worktree...',
-      'worktree at /pr-42',
-    }, captured.infos)
+    assert.same({ 'worktree at /pr-42' }, captured.infos)
+    assert.same({ 'fetching PR #42 into worktree...' }, captured.debugs)
     assert.same({}, captured.errors)
   end)
 
@@ -362,7 +366,8 @@ describe('review adapters', function()
     }, { num = '42', scope = scope }, { adapter = 'worktree' })
 
     assert.same({ 'git fetch origin pull/42/head:pr-42' }, captured.calls)
-    assert.same({ 'fetching PR #42 into worktree...' }, captured.infos)
+    assert.same({}, captured.infos)
+    assert.same({ 'fetching PR #42 into worktree...' }, captured.debugs)
     assert.same({ 'fetch failed' }, captured.errors)
   end)
 

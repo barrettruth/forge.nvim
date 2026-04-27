@@ -150,7 +150,7 @@ local function builtins()
         local f = ctx.forge
         local pr = ctx.pr
         local kind = f.labels.pr_one
-        log.info(('checking out %s #%s...'):format(kind, pr.num))
+        log.debug(('checking out %s #%s...'):format(kind, pr.num))
         vim.system(f:checkout_cmd(pr.num, pr.scope), { text = true }, function(result)
           vim.schedule(function()
             if result.code == 0 then
@@ -175,7 +175,7 @@ local function builtins()
         end
         local root = trim(vim.fn.system('git rev-parse --show-toplevel'))
         local wt_path = vim.fs.normalize(root .. '/../' .. branch)
-        log.info(('fetching %s #%s into worktree...'):format(kind, pr.num))
+        log.debug(('fetching %s #%s into worktree...'):format(kind, pr.num))
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
@@ -231,7 +231,7 @@ local function builtins()
           return
         end
         local kind = ctx.forge.labels.pr_one
-        log.info(('opening %s #%s in diffview...'):format(kind, ctx.pr.num))
+        log.debug(('opening %s #%s in diffview...'):format(kind, ctx.pr.num))
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
@@ -270,7 +270,7 @@ local function builtins()
           return
         end
         local kind = ctx.forge.labels.pr_one
-        log.info(('opening %s #%s in codediff...'):format(kind, ctx.pr.num))
+        log.debug(('opening %s #%s in codediff...'):format(kind, ctx.pr.num))
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
@@ -309,7 +309,7 @@ local function builtins()
           return
         end
         local kind = ctx.forge.labels.pr_one
-        log.info(('opening %s #%s in diffs...'):format(kind, ctx.pr.num))
+        log.debug(('opening %s #%s in diffs...'):format(kind, ctx.pr.num))
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then

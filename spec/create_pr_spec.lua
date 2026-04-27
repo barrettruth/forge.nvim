@@ -542,7 +542,7 @@ describe('create_pr', function()
 
     assert.is_true(vim.tbl_contains(captured.systems, 'git push -u origin feature'))
     assert.is_true(vim.tbl_contains(captured.systems, 'create-pr-web'))
-    assert.is_true(vim.tbl_contains(captured.infos, 'opened PR creation in browser'))
+    assert.same({ 'opened PR creation in browser' }, captured.infos)
     assert.equals('feature', captured.web_create.head_branch)
     assert.equals('main', captured.web_create.base_branch)
   end)
