@@ -30,6 +30,7 @@ describe('shared operations', function()
       ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.pickers'] = package.preload['forge.pickers'],
+      ['forge.pr_checks'] = package.preload['forge.pr_checks'],
       ['forge.term'] = package.preload['forge.term'],
     }
 
@@ -126,6 +127,18 @@ describe('shared operations', function()
       }
     end
 
+    package.preload['forge.pr_checks'] = function()
+      return {
+        open = function(f, pr, opts)
+          captured.pr_checks = {
+            f = f,
+            pr = pr,
+            opts = opts,
+          }
+        end,
+      }
+    end
+
     package.preload['forge.term'] = function()
       return {
         open = function(cmd, opts)
@@ -148,6 +161,7 @@ describe('shared operations', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
+    package.loaded['forge.pr_checks'] = nil
     package.loaded['forge.term'] = nil
   end)
 
@@ -161,6 +175,7 @@ describe('shared operations', function()
     package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
+    package.preload['forge.pr_checks'] = old_preload['forge.pr_checks']
     package.preload['forge.term'] = old_preload['forge.term']
 
     package.loaded['forge'] = nil
@@ -168,6 +183,7 @@ describe('shared operations', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
+    package.loaded['forge.pr_checks'] = nil
     package.loaded['forge.term'] = nil
   end)
 
@@ -185,14 +201,13 @@ describe('shared operations', function()
 
     assert.same({
       f = f,
-      num = '42',
-      filter = nil,
-      cached_checks = nil,
-      opts = {
-        back = 'root',
+      pr = {
+        num = '42',
         scope = 'owner/repo',
       },
-    }, captured.checks)
+      opts = { back = 'root' },
+    }, captured.pr_checks)
+    assert.is_nil(captured.checks)
     assert.is_nil(captured.ci)
     assert.same({}, captured.infos)
   end)

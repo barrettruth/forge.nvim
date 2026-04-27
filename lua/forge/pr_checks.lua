@@ -1,0 +1,348 @@
+local M = {}
+
+local layout = require('forge.layout')
+local log = require('forge.logger')
+local scope_mod = require('forge.scope')
+local system_mod = require('forge.system')
+
+local ns = vim.api.nvim_create_namespace('forge_pr_checks')
+
+local buf_data = {}
+
+local function bufname(pr)
+  local prefix = scope_mod.bufpath(pr.scope)
+  if not prefix or not pr.num or pr.num == '' then
+    return nil
+  end
+  return ('forge://%s/pr/%s/checks'):format(prefix, pr.num)
+end
+
+local function data_for(buf)
+  local data = buf_data[buf]
+  if not data then
+    data = {}
+    buf_data[buf] = data
+  end
+  return data
+end
+
+local function set_data(buf, fields)
+  local data = data_for(buf)
+  for key, value in pairs(fields) do
+    data[key] = value
+  end
+  return data
+end
+
+local function stop_proc(buf)
+  local proc = data_for(buf).proc
+  if proc and type(proc.kill) == 'function' then
+    pcall(function()
+      proc:kill()
+    end)
+  end
+  data_for(buf).proc = nil
+end
+
+local function begin_request(buf)
+  local data = data_for(buf)
+  data.request_id = (data.request_id or 0) + 1
+  stop_proc(buf)
+  return data.request_id
+end
+
+local function request_current(buf, request_id)
+  return data_for(buf).request_id == request_id
+end
+
+local function line_positions(buf)
+  local lines = data_for(buf).lines or {}
+  local positions = {}
+  for lnum, line in ipairs(lines) do
+    if line.check ~= nil then
+      positions[#positions + 1] = lnum
+    end
+  end
+  return positions
+end
+
+local function jump(buf, dir)
+  local positions = line_positions(buf)
+  if #positions == 0 then
+    return
+  end
+  local current = vim.api.nvim_win_get_cursor(0)[1]
+  if dir > 0 then
+    for _, lnum in ipairs(positions) do
+      if lnum > current then
+        vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+        return
+      end
+    end
+    vim.api.nvim_win_set_cursor(0, { positions[1], 0 })
+    return
+  end
+  for i = #positions, 1, -1 do
+    if positions[i] < current then
+      vim.api.nvim_win_set_cursor(0, { positions[i], 0 })
+      return
+    end
+  end
+  vim.api.nvim_win_set_cursor(0, { positions[#positions], 0 })
+end
+
+local function current_check(buf)
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local lines = data_for(buf).lines or {}
+  local entry = lines[line]
+  return entry and entry.check or nil
+end
+
+local function check_run_id(check)
+  return check.run_id or (check.link or ''):match('/actions/runs/(%d+)')
+end
+
+local function check_job_id(check)
+  return check.job_id or (check.link or ''):match('/job/(%d+)')
+end
+
+local function render_rows(checks)
+  local forge = require('forge')
+  local rows = forge.format_checks(checks, { width = layout.picker_width() })
+  local lines = {}
+  for index, row in ipairs(rows) do
+    local text = {}
+    local highlights = {}
+    local col = 0
+    for _, seg in ipairs(row) do
+      local part = seg[1] or ''
+      local width = vim.fn.strdisplaywidth(part)
+      text[#text + 1] = part
+      if seg[2] then
+        highlights[#highlights + 1] = {
+          col = col,
+          end_col = col + width,
+          group = seg[2],
+        }
+      end
+      col = col + width
+    end
+    lines[#lines + 1] = {
+      text = table.concat(text),
+      highlights = highlights,
+      check = checks[index],
+    }
+  end
+  return lines
+end
+
+local function render_placeholder(text, group)
+  return {
+    {
+      text = text,
+      highlights = group and {
+        {
+          col = 0,
+          end_col = vim.fn.strdisplaywidth(text),
+          group = group,
+        },
+      } or {},
+      check = nil,
+    },
+  }
+end
+
+local function render(buf, lines)
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(
+    buf,
+    0,
+    -1,
+    false,
+    vim.tbl_map(function(line)
+      return line.text
+    end, lines)
+  )
+  vim.bo[buf].modifiable = false
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  for lnum, line in ipairs(lines) do
+    for _, hl in ipairs(line.highlights or {}) do
+      vim.api.nvim_buf_set_extmark(buf, ns, lnum - 1, hl.col, {
+        end_col = hl.end_col,
+        hl_group = hl.group,
+      })
+    end
+  end
+  set_data(buf, { lines = lines })
+end
+
+local function openable_check(check)
+  if type(check) ~= 'table' then
+    return false
+  end
+  if (check.bucket or ''):lower() == 'skipping' then
+    return false
+  end
+  return check_run_id(check) ~= nil
+end
+
+local function inspect_check(f, check, scope)
+  if not openable_check(check) then
+    return
+  end
+  local run_id = check_run_id(check)
+  local job_id = check_job_id(check)
+  local bucket = (check.bucket or ''):lower()
+  local ref = check.scope or scope
+  local in_progress = bucket == 'pending'
+  if in_progress and f.live_tail_cmd then
+    require('forge.term').open(f:live_tail_cmd(run_id, job_id, ref), { url = check.link })
+    return
+  end
+  require('forge.log').open(f:check_log_cmd(run_id, bucket == 'fail', job_id, ref), {
+    forge_name = f.name,
+    scope = ref,
+    run_id = run_id,
+    url = check.link,
+    steps_cmd = f.steps_cmd and f:steps_cmd(run_id, ref) or nil,
+    job_id = job_id,
+    in_progress = in_progress,
+    status_cmd = f.run_status_cmd and f:run_status_cmd(run_id, ref) or nil,
+    replace_win = vim.api.nvim_get_current_win(),
+  })
+end
+
+local function setup_keymaps(buf, f, pr, opts)
+  local cfg = require('forge').config()
+  local keys = type(cfg.keys) == 'table' and cfg.keys.log or {}
+  local function map(key, fn, desc)
+    if key and key ~= false then
+      vim.keymap.set('n', key, fn, { buffer = buf, desc = desc })
+    end
+  end
+  vim.keymap.set('n', 'q', function()
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end, { buffer = buf, desc = 'Close' })
+  vim.keymap.set('n', 'gx', function()
+    local check = current_check(buf)
+    if check and check.link and check.link ~= '' then
+      vim.ui.open(check.link)
+    end
+  end, { buffer = buf, desc = 'Browse' })
+  vim.keymap.set('n', '<cr>', function()
+    local check = current_check(buf)
+    if check then
+      inspect_check(f, check, pr.scope)
+    end
+  end, { buffer = buf, desc = 'Open' })
+  map(keys.refresh, function()
+    M.open(f, pr, opts, buf)
+  end, 'Refresh')
+  map(keys.next_step, function()
+    jump(buf, 1)
+  end, 'Next check')
+  map(keys.prev_step, function()
+    jump(buf, -1)
+  end, 'Previous check')
+end
+
+local function prepare_buf(pr, reuse_buf)
+  local name = bufname(pr)
+  local buf
+  local reusing = false
+  if reuse_buf and vim.api.nvim_buf_is_valid(reuse_buf) then
+    buf = reuse_buf
+    reusing = true
+  else
+    local existing = name and vim.fn.bufnr(name) or -1
+    if existing ~= -1 and vim.api.nvim_buf_is_valid(existing) then
+      buf = existing
+      reusing = true
+      local wins = vim.fn.win_findbuf(buf)
+      if #wins == 0 then
+        local cfg = require('forge').config()
+        local split = cfg.ci.split or cfg.split
+        local prefix = split == 'vertical' and 'vertical' or 'botright'
+        vim.cmd('noautocmd ' .. prefix .. ' sbuffer ' .. buf)
+      end
+    else
+      local cfg = require('forge').config()
+      local split = cfg.ci.split or cfg.split
+      local prefix = split == 'vertical' and 'vertical' or 'botright'
+      vim.cmd('noautocmd ' .. prefix .. ' new')
+      buf = vim.api.nvim_get_current_buf()
+      vim.bo[buf].buftype = 'nofile'
+      vim.bo[buf].bufhidden = 'wipe'
+      vim.bo[buf].swapfile = false
+      vim.bo[buf].modifiable = false
+      vim.bo[buf].filetype = 'forge_log'
+      if name then
+        vim.api.nvim_buf_set_name(buf, name)
+      end
+      vim.api.nvim_create_autocmd('BufWipeout', {
+        buffer = buf,
+        callback = function()
+          stop_proc(buf)
+          buf_data[buf] = nil
+        end,
+      })
+    end
+  end
+  if not reusing then
+    render(buf, render_placeholder('Loading...', 'ForgeDim'))
+  end
+  return buf, reusing
+end
+
+local function normalize_checks(checks, scope)
+  local forge = require('forge')
+  local normalized = vim.deepcopy(checks)
+  for _, check in ipairs(normalized) do
+    check.scope = check.scope or scope
+  end
+  return forge.filter_checks(normalized, 'all')
+end
+
+function M.open(f, pr, opts, reuse_buf)
+  opts = opts or {}
+  local buf, reusing = prepare_buf(pr, reuse_buf)
+  if not reusing then
+    setup_keymaps(buf, f, pr, opts)
+  end
+  local request_id = begin_request(buf)
+  local cmd = f:checks_json_cmd(pr.num, pr.scope)
+  log.debug(('fetching checks for %s #%s...'):format(f.labels.pr_one, pr.num))
+  local proc = vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(buf) or not request_current(buf, request_id) then
+        return
+      end
+      local stdout = result.stdout or ''
+      if result.code ~= 0 or stdout == '' then
+        local msg = system_mod.cmd_error(
+          result,
+          ('failed to fetch checks for %s #%s'):format(f.labels.pr_one, pr.num)
+        )
+        render(buf, render_placeholder(msg, 'ForgeFail'))
+        log.error(msg)
+        return
+      end
+      local ok, decoded = pcall(vim.json.decode, stdout)
+      if not ok or type(decoded) ~= 'table' then
+        local msg = ('failed to parse checks for %s #%s'):format(f.labels.pr_one, pr.num)
+        render(buf, render_placeholder(msg, 'ForgeFail'))
+        log.error(msg)
+        return
+      end
+      local checks = normalize_checks(decoded, pr.scope)
+      if #checks == 0 then
+        render(buf, render_placeholder(('No checks for #%s'):format(pr.num), 'ForgeDim'))
+        return
+      end
+      render(buf, render_rows(checks))
+    end)
+  end)
+  set_data(buf, { proc = proc })
+end
+
+return M
