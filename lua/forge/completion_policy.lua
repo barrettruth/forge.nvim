@@ -3,6 +3,15 @@ local M = {}
 local availability = require('forge.availability')
 local picker = require('forge.picker')
 
+local implicit_pr_completion_verbs = {
+  approve = true,
+  merge = true,
+  close = true,
+  draft = true,
+  ready = true,
+  reopen = true,
+}
+
 local function pr_completion_available(verb, f, entry)
   if verb == 'approve' then
     return availability.pr_can_approve(f, entry)
@@ -98,6 +107,18 @@ function M.argument_slot(command, state)
     include_subjects = command ~= nil,
     static_before_dynamic = true,
   }
+end
+
+function M.verb(command, verb, f, entry)
+  if
+    type(command) == 'table'
+    and command.family == 'pr'
+    and command.name == 'open'
+    and implicit_pr_completion_verbs[verb]
+  then
+    return entry ~= nil and pr_completion_available(verb, f, entry)
+  end
+  return true
 end
 
 function M.subject(command)
@@ -208,6 +229,14 @@ function M.modifier_value(command, flag_name, spec)
       cmdline_usefulness = 'local_only',
       allow_empty_prefix = true,
       source = 'adapter',
+    }
+  end
+  if command.family == 'pr' and command.name == 'merge' and flag_name == 'method' then
+    return {
+      slot_class = 'modifier_value',
+      cmdline_usefulness = 'dynamic_allowed',
+      allow_empty_prefix = true,
+      source = 'available_merge_methods',
     }
   end
   if command.modifier_values and command.modifier_values[flag_name] then

@@ -118,6 +118,18 @@ describe('forge.completion_policy', function()
     ))
   end)
 
+  it('filters implicit PR family verbs through picker-aligned availability helpers', function()
+    local command = { family = 'pr', name = 'open' }
+
+    assert.is_true(policy.verb(command, 'browse', {}, nil))
+    assert.is_false(policy.verb(command, 'merge', {}, nil))
+    assert.is_true(policy.verb(command, 'merge', {}, { value = { merge = true } }))
+    assert.is_false(policy.verb(command, 'merge', {}, { value = { merge = false } }))
+    assert.is_true(policy.verb(command, 'close', {}, { value = { pr_toggle = 'close' } }))
+    assert.is_true(policy.verb(command, 'reopen', {}, { value = { pr_toggle = 'reopen' } }))
+    assert.is_false(policy.verb(command, 'reopen', {}, { value = { pr_toggle = 'close' } }))
+  end)
+
   it('classifies numeric subject suppression and release cache preferences', function()
     local merge = policy.subject({ name = 'merge', subject = { kind = 'pr' } })
     local reopen = policy.subject({ name = 'reopen', subject = { kind = 'pr' } })
@@ -232,6 +244,20 @@ describe('forge.completion_policy', function()
       allow_empty_prefix = true,
       source = 'command_values',
     }, policy.modifier_value(command, 'state'))
+
+    assert.same(
+      {
+        slot_class = 'modifier_value',
+        cmdline_usefulness = 'dynamic_allowed',
+        allow_empty_prefix = true,
+        source = 'available_merge_methods',
+      },
+      policy.modifier_value(
+        { family = 'pr', name = 'merge', modifiers = { 'method' } },
+        'method',
+        { values = { 'merge', 'squash', 'rebase' } }
+      )
+    )
 
     assert.same({
       slot_class = 'modifier_value',

@@ -207,6 +207,22 @@
 ---@field default_targets table
 ---@field range { start_line: integer, end_line: integer }?
 
+---@class forge.CommandCompletionState
+---@field subjects string[]
+---@field modifiers table<string, string>
+
+---@class forge.PRCompletionValue
+---@field num string
+---@field scope forge.Scope?
+---@field state string
+---@field is_draft boolean?
+---@field review_decision string?
+---@field mergeable string?
+
+---@class forge.PRCompletionTarget
+---@field forge forge.Forge
+---@field entry forge.PickerEntry
+
 ---@class forge.Context
 ---@field id string
 ---@field root string

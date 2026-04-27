@@ -148,6 +148,12 @@ describe(':Forge command', function()
       return {
         branch_pr = function(opts, policy)
           table.insert(captured.branch_pr_calls, { opts = opts, policy = policy })
+          if type(captured.branch_pr_result) == 'function' then
+            return captured.branch_pr_result(opts, policy)
+          end
+          if type(captured.branch_pr_error) == 'function' then
+            return nil, captured.branch_pr_error(opts, policy)
+          end
           return captured.branch_pr_result, captured.branch_pr_error
         end,
       }
@@ -1449,14 +1455,8 @@ describe(':Forge command', function()
           'open',
           'browse',
           'ci',
-          'close',
-          'reopen',
           'create',
           'edit',
-          'approve',
-          'merge',
-          'draft',
-          'ready',
           'refresh',
           'repo=',
           'head=',
@@ -1540,10 +1540,12 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'open'))
     assert.is_true(vim.tbl_contains(pr, 'ci'))
     assert.is_true(vim.tbl_contains(pr, 'create'))
-    assert.is_true(vim.tbl_contains(pr, 'approve'))
-    assert.is_true(vim.tbl_contains(pr, 'merge'))
-    assert.is_true(vim.tbl_contains(pr, 'draft'))
-    assert.is_true(vim.tbl_contains(pr, 'ready'))
+    assert.is_false(vim.tbl_contains(pr, 'approve'))
+    assert.is_false(vim.tbl_contains(pr, 'merge'))
+    assert.is_false(vim.tbl_contains(pr, 'draft'))
+    assert.is_false(vim.tbl_contains(pr, 'ready'))
+    assert.is_false(vim.tbl_contains(pr, 'close'))
+    assert.is_false(vim.tbl_contains(pr, 'reopen'))
     assert.is_true(vim.tbl_contains(pr, 'refresh'))
     assert.is_true(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(pr, 'head='))
@@ -1583,6 +1585,99 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(issue_create, 'head='))
   end)
 
+  it('filters bare pr verb completion for an open non-draft branch PR', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+    captured.pr_states['owner/upstream#42'] = {
+      state = 'OPEN',
+      review_decision = '',
+      is_draft = false,
+    }
+    captured.repo_infos['owner/upstream'] = {
+      permission = 'WRITE',
+      merge_methods = { 'merge', 'squash' },
+    }
+
+    local pr = completion('Forge pr ')
+
+    assert.is_true(vim.tbl_contains(pr, 'approve'))
+    assert.is_true(vim.tbl_contains(pr, 'merge'))
+    assert.is_true(vim.tbl_contains(pr, 'close'))
+    assert.is_true(vim.tbl_contains(pr, 'draft'))
+    assert.is_false(vim.tbl_contains(pr, 'ready'))
+    assert.is_false(vim.tbl_contains(pr, 'reopen'))
+    assert.equals(1, #captured.current_pr_calls)
+    assert.same({}, captured.branch_pr_calls)
+  end)
+
+  it('filters bare pr verb completion for an open draft branch PR', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+    captured.pr_states['owner/upstream#42'] = {
+      state = 'OPEN',
+      review_decision = '',
+      is_draft = true,
+    }
+    captured.repo_infos['owner/upstream'] = {
+      permission = 'WRITE',
+      merge_methods = { 'merge', 'squash' },
+    }
+
+    local pr = completion('Forge pr ')
+
+    assert.is_true(vim.tbl_contains(pr, 'approve'))
+    assert.is_true(vim.tbl_contains(pr, 'close'))
+    assert.is_true(vim.tbl_contains(pr, 'ready'))
+    assert.is_false(vim.tbl_contains(pr, 'merge'))
+    assert.is_false(vim.tbl_contains(pr, 'draft'))
+    assert.is_false(vim.tbl_contains(pr, 'reopen'))
+  end)
+
+  it('filters bare pr verb completion for a closed branch PR', function()
+    captured.branch_pr_result = function(_, policy)
+      local state = policy and policy.searches and policy.searches[1] and policy.searches[1][1]
+        or nil
+      if state == 'closed' then
+        return {
+          num = '42',
+          scope = repo_scope('upstream'),
+        }
+      end
+      return nil
+    end
+
+    local pr = completion('Forge pr ')
+
+    assert.is_true(vim.tbl_contains(pr, 'reopen'))
+    assert.is_false(vim.tbl_contains(pr, 'approve'))
+    assert.is_false(vim.tbl_contains(pr, 'merge'))
+    assert.is_false(vim.tbl_contains(pr, 'close'))
+    assert.is_false(vim.tbl_contains(pr, 'draft'))
+    assert.is_false(vim.tbl_contains(pr, 'ready'))
+    assert.equals(1, #captured.current_pr_calls)
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.same({ { 'closed' } }, captured.branch_pr_calls[1].policy.searches)
+  end)
+
+  it('suppresses implicit current-pr action verbs when branch completion is ambiguous', function()
+    captured.current_pr_error = {
+      code = 'ambiguous_pr',
+      message = 'multiple PRs match head owner/current@main; pass repo= or head=',
+    }
+
+    local pr = completion('Forge pr ')
+
+    for _, verb in ipairs({ 'approve', 'merge', 'close', 'draft', 'ready', 'reopen' }) do
+      assert.is_false(vim.tbl_contains(pr, verb))
+    end
+    assert.is_true(vim.tbl_contains(pr, 'repo='))
+    assert.is_true(vim.tbl_contains(pr, 'head='))
+  end)
+
   it('completes GitLab family aliases contextually', function()
     detected_forge_name = 'gitlab'
 
@@ -1598,14 +1693,8 @@ describe(':Forge command', function()
       'open',
       'browse',
       'ci',
-      'close',
-      'reopen',
       'create',
       'edit',
-      'approve',
-      'merge',
-      'draft',
-      'ready',
       'refresh',
       'repo=',
       'head=',
@@ -1689,6 +1778,40 @@ describe(':Forge command', function()
       )
     end
   )
+
+  it('filters implicit merge method completion through repo-supported merge methods', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+    captured.pr_states['owner/upstream#42'] = {
+      state = 'OPEN',
+      review_decision = '',
+      is_draft = false,
+    }
+    captured.repo_infos['owner/upstream'] = {
+      permission = 'WRITE',
+      merge_methods = { 'squash' },
+    }
+
+    assert.same({ 'method=squash' }, completion('Forge pr merge method='))
+    assert.equals(1, #captured.current_pr_calls)
+  end)
+
+  it('filters explicit merge method completion through the targeted repo info', function()
+    captured.pr_states['owner/upstream#42'] = {
+      state = 'OPEN',
+      review_decision = '',
+      is_draft = false,
+    }
+    captured.repo_infos['owner/upstream'] = {
+      permission = 'WRITE',
+      merge_methods = { 'rebase' },
+    }
+
+    assert.same({ 'method=rebase' }, completion('Forge pr merge 42 repo=upstream method='))
+    assert.same({}, captured.current_pr_calls)
+  end)
 
   it('completes registered review adapters for adapter=', function()
     extra_review_adapters = { 'custom-test-review' }
