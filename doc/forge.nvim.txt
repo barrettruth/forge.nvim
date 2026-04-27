@@ -452,8 +452,9 @@ PR COMMANDS                                                *forge-pr-commands*
                        refs.
 
 IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
-    `:Forge pr`, `:Forge review`, and `:Forge pr ci` resolve the current PR
-    from the current branch head when `{num}` is omitted.
+    `:Forge pr`, `:Forge review`, `:Forge pr ci`, and the omitted-subject
+    `:Forge pr approve`, `merge`, `close`, `draft`, and `ready` forms resolve
+    the current PR from the current branch head when `{num}` is omitted.
 
     Default lookup policy:
     - head = current branch push context
@@ -465,30 +466,70 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
     - no matches: warn `no open PR found for this branch`
     - multiple matches: warn and ask for `repo=` or `head=`
 
+`:Forge pr close` [repo=...] [head=...]                   *:Forge-pr-close*
+`:Forge pr close` {num} [repo=...]
+    Close a PR.
+    (no `{num}`)       Resolve the current PR from the current branch and close
+                       it.
+    `{num}`            Close PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
+
 `:Forge pr edit` {num} [repo=...]                           *:Forge-pr-edit*
     Open the PR edit compose flow for PR `{num}`.
-
-`:Forge pr close` {num} [repo=...]                         *:Forge-pr-close*
-    Close PR `{num}`.
 
 `:Forge pr reopen` {num} [repo=...]                       *:Forge-pr-reopen*
     Reopen PR `{num}`.
 
-`:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
-    Approve PR `{num}`.
+`:Forge pr approve` [repo=...] [head=...]                 *:Forge-pr-approve*
+`:Forge pr approve` {num} [repo=...]
+    Approve a PR.
+    (no `{num}`)       Resolve the current PR from the current branch and
+                       approve it.
+    `{num}`            Approve PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
 
-`:Forge pr merge` {num} [repo=...] [`method=`]               *:Forge-pr-merge*
-    Merge PR `{num}`. When `method=` is omitted, the forge CLI uses its
-    default merge behavior.
+`:Forge pr merge` [repo=...] [head=...] [`method=`]         *:Forge-pr-merge*
+`:Forge pr merge` {num} [repo=...] [`method=`]
+    Merge a PR. When `method=` is omitted, the forge CLI uses its default
+    merge behavior.
+    (no `{num}`)       Resolve the current PR from the current branch and
+                       merge it.
+    `{num}`            Merge PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
     `method=merge`     Merge commit.
     `method=squash`    Squash merge.
     `method=rebase`    Rebase merge.
 
-`:Forge pr draft` {num} [repo=...]                           *:Forge-pr-draft*
-    Mark PR `{num}` as draft when the forge supports draft toggles.
+`:Forge pr draft` [repo=...] [head=...]                     *:Forge-pr-draft*
+`:Forge pr draft` {num} [repo=...]
+    Mark a PR as draft when the forge supports draft toggles.
+    (no `{num}`)       Resolve the current PR from the current branch and mark
+                       it as draft.
+    `{num}`            Mark PR `{num}` as draft directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
 
-`:Forge pr ready` {num} [repo=...]                           *:Forge-pr-ready*
-    Mark PR `{num}` as ready when supported by the forge.
+`:Forge pr ready` [repo=...] [head=...]                     *:Forge-pr-ready*
+`:Forge pr ready` {num} [repo=...]
+    Mark a PR as ready when supported by the forge.
+    (no `{num}`)       Resolve the current PR from the current branch and mark
+                       it as ready.
+    `{num}`            Mark PR `{num}` as ready directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       current-PR lookup.
+    `head=`            Override the head used for implicit current-PR lookup.
+                       Only used when `{num}` is omitted.
 
 `:Forge pr browse` [{num}] [repo=...]                       *:Forge-pr-browse*
     Open PR `{num}` in the browser, or the PR list landing page when

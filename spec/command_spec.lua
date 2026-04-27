@@ -686,12 +686,120 @@ describe(':Forge command', function()
     }, captured.ops_calls[3])
   end)
 
+  it('dispatches implicit current-open-PR mutators through forge.current_pr', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr approve')
+    vim.cmd('Forge pr merge')
+    vim.cmd('Forge pr close')
+    vim.cmd('Forge pr draft')
+    vim.cmd('Forge pr ready')
+
+    assert.equals(5, #captured.current_pr_calls)
+    for _, call in ipairs(captured.current_pr_calls) do
+      assert.equals('github', call.forge.name)
+      assert.is_nil(call.repo)
+      assert.is_nil(call.head)
+    end
+
+    assert.same({
+      name = 'pr_approve',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({
+      name = 'pr_merge',
+      pr = { num = '42', scope = repo_scope('upstream') },
+      method = nil,
+    }, captured.ops_calls[2])
+    assert.same({
+      name = 'pr_close',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[3])
+    assert.same({
+      name = 'pr_toggle_draft',
+      pr = { num = '42', scope = repo_scope('upstream') },
+      is_draft = false,
+    }, captured.ops_calls[4])
+    assert.same({
+      name = 'pr_toggle_draft',
+      pr = { num = '42', scope = repo_scope('upstream') },
+      is_draft = true,
+    }, captured.ops_calls[5])
+    assert.same({}, captured.warnings)
+  end)
+
+  it('passes repo= and head= disambiguation through implicit current-open-PR mutators', function()
+    captured.current_pr_result = {
+      num = '57',
+      scope = repo_scope('upstream'),
+    }
+
+    vim.cmd('Forge pr approve repo=upstream head=origin@topic')
+    vim.cmd('Forge pr merge repo=upstream head=origin@topic method=squash')
+    vim.cmd('Forge pr close repo=upstream head=origin@topic')
+    vim.cmd('Forge pr draft repo=upstream head=origin@topic')
+    vim.cmd('Forge pr ready repo=upstream head=origin@topic')
+
+    for _, call in ipairs(captured.current_pr_calls) do
+      assert.equals('github', call.forge.name)
+      assert.equals('repo', call.repo.kind)
+      assert.equals('owner/upstream', call.repo.slug)
+      assert.equals('rev', call.head.kind)
+      assert.equals('topic', call.head.rev)
+      assert.equals('owner/current', call.head.repo.slug)
+    end
+
+    assert.same({
+      name = 'pr_approve',
+      pr = { num = '57', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({
+      name = 'pr_merge',
+      pr = { num = '57', scope = repo_scope('upstream') },
+      method = 'squash',
+    }, captured.ops_calls[2])
+    assert.same({
+      name = 'pr_close',
+      pr = { num = '57', scope = repo_scope('upstream') },
+    }, captured.ops_calls[3])
+    assert.same({
+      name = 'pr_toggle_draft',
+      pr = { num = '57', scope = repo_scope('upstream') },
+      is_draft = false,
+    }, captured.ops_calls[4])
+    assert.same({
+      name = 'pr_toggle_draft',
+      pr = { num = '57', scope = repo_scope('upstream') },
+      is_draft = true,
+    }, captured.ops_calls[5])
+  end)
+
   it('warns cleanly when implicit current-PR commands find no matching PR', function()
     vim.cmd('Forge pr')
     vim.cmd('Forge review')
     vim.cmd('Forge pr ci')
 
     assert.same({
+      'no open PR found for this branch',
+      'no open PR found for this branch',
+      'no open PR found for this branch',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('warns cleanly when implicit current-open-PR mutators find no matching PR', function()
+    vim.cmd('Forge pr approve')
+    vim.cmd('Forge pr merge')
+    vim.cmd('Forge pr close')
+    vim.cmd('Forge pr draft')
+    vim.cmd('Forge pr ready')
+
+    assert.same({
+      'no open PR found for this branch',
+      'no open PR found for this branch',
       'no open PR found for this branch',
       'no open PR found for this branch',
       'no open PR found for this branch',
@@ -706,6 +814,20 @@ describe(':Forge command', function()
     }
 
     vim.cmd('Forge pr')
+
+    assert.same({
+      'multiple PRs match head owner/current@main; pass repo= or head=',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('surfaces resolver errors from implicit current-open-PR mutators', function()
+    captured.current_pr_error = {
+      code = 'ambiguous_pr',
+      message = 'multiple PRs match head owner/current@main; pass repo= or head=',
+    }
+
+    vim.cmd('Forge pr merge')
 
     assert.same({
       'multiple PRs match head owner/current@main; pass repo= or head=',
@@ -1477,14 +1599,19 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(pr, 'repo='))
     assert.is_true(vim.tbl_contains(pr, 'head='))
     assert.is_true(vim.tbl_contains(close, 'repo='))
+    assert.is_true(vim.tbl_contains(close, 'head='))
     assert.is_true(vim.tbl_contains(edit, 'repo='))
     assert.is_true(vim.tbl_contains(approve, 'repo='))
+    assert.is_true(vim.tbl_contains(approve, 'head='))
     assert.is_true(vim.tbl_contains(merge, 'repo='))
+    assert.is_true(vim.tbl_contains(merge, 'head='))
     assert.is_true(vim.tbl_contains(merge, 'method='))
     assert.is_true(vim.tbl_contains(pr_ci, 'repo='))
     assert.is_true(vim.tbl_contains(pr_ci, 'head='))
     assert.is_true(vim.tbl_contains(draft, 'repo='))
+    assert.is_true(vim.tbl_contains(draft, 'head='))
     assert.is_true(vim.tbl_contains(ready, 'repo='))
+    assert.is_true(vim.tbl_contains(ready, 'head='))
     assert.is_true(vim.tbl_contains(review, 'open'))
     assert.is_true(vim.tbl_contains(review, 'repo='))
     assert.is_true(vim.tbl_contains(review, 'head='))
@@ -1529,6 +1656,7 @@ describe(':Forge command', function()
     local merge = require('forge.cmd').complete('', 'Forge pr merge repo=upstream ', 0)
 
     assert.is_false(vim.tbl_contains(merge, 'repo='))
+    assert.is_true(vim.tbl_contains(merge, 'head='))
     assert.is_true(vim.tbl_contains(merge, 'method='))
     assert.is_false(vim.tbl_contains(merge, '302'))
     assert.is_false(vim.tbl_contains(merge, '301'))
