@@ -349,9 +349,6 @@ describe('pickers', function()
         pr_edit = function(pr)
           table.insert(op_calls, { name = 'pr_edit', pr = pr })
         end,
-        pr_create = function(opts)
-          require('forge').create_pr(opts)
-        end,
         pr_close = function(_, pr, opts)
           table.insert(op_calls, { name = 'pr_close', pr = pr })
           if opts and opts.on_success then
@@ -405,9 +402,6 @@ describe('pickers', function()
         end,
         issue_edit = function(issue)
           table.insert(op_calls, { name = 'issue_edit', issue = issue })
-        end,
-        issue_create = function(opts)
-          require('forge').create_issue(opts)
         end,
         issue_close = function(_, issue, opts)
           table.insert(op_calls, { name = 'issue_close', issue = issue, opts = opts })

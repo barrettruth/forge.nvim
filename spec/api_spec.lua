@@ -53,6 +53,7 @@ describe('high-level implicit-ref API', function()
       head_error = nil,
       head_result = nil,
       infos = {},
+      opens = {},
       ops_calls = {},
       repo_calls = {},
       repo_error = nil,
@@ -162,9 +163,6 @@ describe('high-level implicit-ref API', function()
 
     package.preload['forge.ops'] = function()
       return {
-        ci_list = function(branch, opts)
-          table.insert(captured.ops_calls, { name = 'ci_list', branch = branch, opts = opts or {} })
-        end,
         pr_ci = function(f, pr, opts)
           table.insert(captured.ops_calls, { name = 'pr_ci', f = f, pr = pr, opts = opts })
         end,
@@ -215,7 +213,9 @@ describe('high-level implicit-ref API', function()
         current_context = function()
           return nil
         end,
-        open = function() end,
+        open = function(route, opts)
+          table.insert(captured.opens, { route = route, opts = opts })
+        end,
       }
     end
 
@@ -411,15 +411,13 @@ describe('high-level implicit-ref API', function()
     assert.is_nil(captured.head_calls[1].head)
     assert.equals('upstream@release', captured.head_calls[2].head)
     assert.same({
-      name = 'ci_list',
-      branch = 'feature',
-      opts = { scope = repo_scope('current') },
-    }, captured.ops_calls[1])
+      route = 'ci.current_branch',
+      opts = { branch = 'feature', scope = repo_scope('current') },
+    }, captured.opens[1])
     assert.same({
-      name = 'ci_list',
-      branch = 'release',
-      opts = { scope = repo_scope('upstream') },
-    }, captured.ops_calls[2])
+      route = 'ci.current_branch',
+      opts = { branch = 'release', scope = repo_scope('upstream') },
+    }, captured.opens[2])
     assert.same({}, captured.repo_calls)
   end)
 
@@ -436,10 +434,9 @@ describe('high-level implicit-ref API', function()
     assert.is_nil(captured.repo_calls[1].repo)
     assert.equals('upstream', captured.repo_calls[1].opts.repo)
     assert.same({
-      name = 'ci_list',
-      branch = 'feature',
-      opts = { scope = repo_scope('upstream') },
-    }, captured.ops_calls[1])
+      route = 'ci.current_branch',
+      opts = { branch = 'feature', scope = repo_scope('upstream') },
+    }, captured.opens[1])
   end)
 
   it('warns cleanly when no current PR matches the high-level current-ref entrypoints', function()

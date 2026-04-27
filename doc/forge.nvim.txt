@@ -336,9 +336,12 @@ Top-level keys: ~
 COMMANDS                                                              *:Forge*
 
 `:Forge`                                                      *:Forge-no-args*
-    The `:Forge` command surface is action-oriented. It does not open picker
-    UIs. `:Forge` with no arguments warns with `missing command`.
-    Use `require('forge').open()` for the interactive picker surface.
+    The `:Forge` command surface is the direct-action side of the plugin.
+    Most commands resolve into deterministic actions or deterministic UI
+    entrypoints rather than list navigation or picker control flow. `:Forge`
+    with no arguments warns with `missing command`.
+    Use `require('forge').open()` for the interactive route and picker
+    surface.
     Direct commands cover explicit forge actions with stable targets such as
     PR/issue/release numbers, tags, and CI run ids, plus current-ref actions
     rooted in the current branch such as bare `:Forge pr`, `:Forge review`,
@@ -388,6 +391,35 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     through `:Forge`; use the interactive picker surface instead.
     This includes list navigation, list-scoped filters/refresh, CI
     cancel/rerun toggles, nested per-PR checks, and copy helpers.
+
+SURFACE TAXONOMY                                          *forge-surface-model*
+
+The user-facing surface is organized into three layers:
+
+1. Deterministic core
+   - Direct command and helper entrypoints
+   - Explicit targets or current-ref resolution
+   - No list navigation or picker-specific control flow
+
+2. Deterministic UI
+   - Buffers, browser opens, review adapters, CI log/summary views
+   - Still entered through a direct action rather than picker navigation
+
+3. Interactive route/picker
+   - `require('forge').open(route?, opts?)`
+   - `require('forge.picker').pick(opts)`
+   - Root sections, list routes, filters, load-more, nested picker actions
+
+Today, most Ex commands and top-level Lua helpers stay on the deterministic
+side of that boundary. The remaining CI helpers still bridge into the
+interactive layer:
+- `:Forge pr ci`
+- `:Forge ci`
+- `require('forge').pr_ci(opts?)`
+- `require('forge').ci(opts?)`
+
+Those entrypoints are still classified as interactive route/picker workflows
+for now even though they use current-ref targeting.
 
 PR COMMANDS                                                *forge-pr-commands*
 
@@ -1091,18 +1123,19 @@ Lua surfaces exist at several layers:
 
 MENTAL MODEL                                           *forge-extending-model*
 
-The canonical order is:
-1. `require('forge').open(route)` for built-in route and picker flows.
-2. `require('forge').pr()`, `review()`, `pr_ci()`, and `ci()` for common
-   current-ref actions.
-3. `require('forge').current_pr(opts?)` when you need the resolved PR ref
-   without running an action.
-4. `require('forge.picker').pick()` for custom picker UIs.
+Choose the surface by workflow type instead of by call depth:
+1. Deterministic core and deterministic UI:
+   `require('forge').pr()`, `review()`, `create_pr()`, `create_issue()`,
+   `edit_issue()`, `current_pr(opts?)`, and `status()`
+2. Interactive built-in workflows:
+   `require('forge').open(route?, opts?)`
+3. Custom interactive UIs:
+   `require('forge.picker').pick()`
 
-Routes are still the highest-level and most stable surface. The top-level
-current-ref helpers mirror the Ex command semantics, including explicit
-`num=` targeting for PR actions. `forge.picker.pick()` is the low-level UI
-primitive wired to `fzf-lua`.
+The top-level current-ref helpers mirror the Ex command semantics, including
+explicit `num=` targeting for PR actions. `require('forge').open()` is the
+entrypoint for built-in route and picker flows. `forge.picker.pick()` is the
+low-level UI primitive wired to `fzf-lua`.
 On GitLab, route arguments also accept provider-native aliases such as `mrs`,
 `mrs.open`, `pipelines`, and `pipelines.current_branch`.
 
@@ -1118,8 +1151,8 @@ built-in forge route and its action set.
 
 CALLING THE TOP-LEVEL API                             *forge-extending-verbs*
 
-For common current-ref workflows, call `require('forge')` directly. These
-helpers mirror the Ex surface and reuse the shared resolver layer. >lua
+For common direct workflows, call `require('forge')` directly. These helpers
+mirror the Ex surface and reuse the shared resolver layer. >lua
     local forge = require('forge')
     forge.pr()
     forge.pr({ num = '42' })
@@ -1130,9 +1163,14 @@ helpers mirror the Ex surface and reuse the shared resolver layer. >lua
     forge.ci({ repo = 'upstream' })
 <
 
-Internal layers such as `lua/forge/ops.lua` and `lua/forge/pickers.lua` power
-the built-in commands and pickers, but they are no longer documented as the
-public integration surface.
+`pr_ci()` and `ci()` still currently enter the interactive CI/checks layer
+even though they use current-ref resolution. They remain top-level helpers
+because they mirror the command surface, but they are not part of the
+deterministic contract yet.
+
+Internal layers such as `lua/forge/ops.lua` and `lua/forge/pickers.lua`
+power the built-in commands and pickers, but they are not the public
+integration surface.
 
 STATUSLINE INTEGRATION                                  *forge-statusline*
 
@@ -1202,21 +1240,23 @@ The help file does not mirror every exported helper. Canonical signatures and
 contracts live in the source:
 
   Surface                    Canonical file                  Use case ~
-  `require('forge')`         `lua/forge/init.lua`            routes, high-level
-                                                            current-ref helpers,
+  `require('forge')`         `lua/forge/init.lua`            deterministic helpers,
+                                                            built-in routes,
                                                             and extension hooks
   `require('forge.picker')`  `lua/forge/picker/init.lua`     custom picker UI
   `forge.Forge` / shared     `lua/forge/types.lua`           backend and shared
                                                             contracts
 
 Most integrations only need one of these entrypoints:
-- `require('forge').open(route?, opts?)`
-- `require('forge').pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, `ci(opts?)`
-- `require('forge').current_pr(opts?)`
-- `require('forge').status()`
-- `require('forge').create_pr(opts?)`, `create_issue(opts?)`
-- `require('forge.picker').pick(opts)`
-- `require('forge').register(name, source)`
+- Deterministic helpers:
+  `require('forge').pr(opts?)`, `review(opts?)`, `edit_issue(num, scope?)`,
+  `current_pr(opts?)`, `status()`, `create_pr(opts?)`, `create_issue(opts?)`
+- Interactive built-in routes:
+  `require('forge').open(route?, opts?)`
+- Interactive picker primitive:
+  `require('forge.picker').pick(opts)`
+- Extension registration:
+  `require('forge').register(name, source)`
 
 Advanced registration helpers such as `register_context_provider()`,
 `register_action()`, and `register_review_adapter()` live in
@@ -1226,14 +1266,13 @@ TOP-LEVEL API: `require('forge')` ~                     *forge-top-level-api*
 
 The canonical user-facing Lua surface lives in `lua/forge/init.lua`.
 Prefer these helpers for normal integrations:
-- `open(route?, opts?)` for built-in routes
-- `pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, and `ci(opts?)` for current-ref
-  workflows
+- `pr(opts?)`, `review(opts?)`, `edit_issue(num, scope?)`,
+  `current_pr(opts?)`, `status()`, `create_pr(opts?)`, and
+  `create_issue(opts?)` for deterministic integrations
+- `open(route?, opts?)` for built-in interactive routes
+- `pr_ci(opts?)` and `ci(opts?)` for the current interactive CI/checks helpers
 - `pr({ num = '42' })`, `review({ num = '42' })`, and `pr_ci({ num = '42' })`
   for explicit PR targeting
-- `current_pr(opts?)` when you need the resolved PR ref
-- `status()` when you need cached branch/current-PR UI state
-- `create_pr(opts?)` and `create_issue(opts?)` for create flows
 
 `create_pr()` is create-only: if the current branch already has an open PR, it
 warns instead of redirecting into edit.
@@ -1247,7 +1286,7 @@ For the implicit-ref rollout:
 - `:Forge pr create` and `require('forge').create_pr()` are create-only.
 - `edit_pr()` is removed; use `pr({ num = '42' })` instead.
 - Prefer `require('forge').pr()`, `review()`, `pr_ci()`, `ci()`, and
-  `current_pr()` over internal verb modules for common workflows.
+  `current_pr()` over internal modules for common workflows.
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 
