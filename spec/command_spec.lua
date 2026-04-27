@@ -615,7 +615,7 @@ describe(':Forge command', function()
     assert.same({}, captured.warnings)
   end)
 
-  it('warns when :Forge pr ci would enter interactive PR checks', function()
+  it('dispatches implicit :Forge pr ci through branch-relative PR lookup', function()
     captured.branch_pr_result = {
       num = '42',
       scope = repo_scope('upstream'),
@@ -623,11 +623,21 @@ describe(':Forge command', function()
 
     vim.cmd('Forge pr ci')
 
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+    assert.is_nil(captured.branch_pr_calls[1].opts.repo)
+    assert.is_nil(captured.branch_pr_calls[1].opts.head)
     assert.same({
-      "PR checks are not available from :Forge; use require('forge').pr_ci()",
-    }, captured.warnings)
-    assert.same({}, captured.ops_calls)
-    assert.same({}, captured.branch_pr_calls)
+      searches = {
+        { 'open' },
+        { 'closed', 'merged' },
+      },
+    }, captured.branch_pr_calls[1].policy)
+    assert.same({
+      name = 'pr_ci',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({}, captured.warnings)
   end)
 
   it('passes repo= and head= disambiguation through implicit current-PR commands', function()
@@ -660,7 +670,7 @@ describe(':Forge command', function()
     }, captured.ops_calls[2])
   end)
 
-  it('warns for :Forge pr ci even when repo= and head= are provided', function()
+  it('passes repo= and head= disambiguation through implicit :Forge pr ci', function()
     captured.branch_pr_result = {
       num = '57',
       scope = repo_scope('upstream'),
@@ -668,11 +678,18 @@ describe(':Forge command', function()
 
     vim.cmd('Forge pr ci repo=upstream head=origin@topic')
 
+    assert.equals(1, #captured.branch_pr_calls)
+    assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+    assert.equals('repo', captured.branch_pr_calls[1].opts.repo.kind)
+    assert.equals('owner/upstream', captured.branch_pr_calls[1].opts.repo.slug)
+    assert.equals('rev', captured.branch_pr_calls[1].opts.head.kind)
+    assert.equals('topic', captured.branch_pr_calls[1].opts.head.rev)
+    assert.equals('owner/current', captured.branch_pr_calls[1].opts.head.repo.slug)
     assert.same({
-      "PR checks are not available from :Forge; use require('forge').pr_ci()",
-    }, captured.warnings)
-    assert.same({}, captured.ops_calls)
-    assert.same({}, captured.branch_pr_calls)
+      name = 'pr_ci',
+      pr = { num = '57', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({}, captured.warnings)
   end)
 
   it('dispatches implicit pr reopen through closed-only branch lookup', function()
@@ -826,10 +843,10 @@ describe(':Forge command', function()
     vim.cmd('Forge pr ci')
 
     assert.same({
-      "PR checks are not available from :Forge; use require('forge').pr_ci()",
+      'no PR found for this branch',
     }, captured.warnings)
     assert.same({}, captured.ops_calls)
-    assert.same({}, captured.branch_pr_calls)
+    assert.equals(1, #captured.branch_pr_calls)
   end)
 
   it('warns cleanly when implicit pr reopen finds no matching branch PR', function()
@@ -872,7 +889,7 @@ describe(':Forge command', function()
     assert.same({}, captured.ops_calls)
   end)
 
-  it('does not consult the resolver for unsupported implicit pr ci flows', function()
+  it('surfaces resolver errors from implicit pr ci branch lookup', function()
     captured.branch_pr_error = {
       code = 'ambiguous_pr',
       message = 'multiple PRs match head owner/current@main; pass repo= or head=',
@@ -881,10 +898,10 @@ describe(':Forge command', function()
     vim.cmd('Forge pr ci')
 
     assert.same({
-      "PR checks are not available from :Forge; use require('forge').pr_ci()",
+      'multiple PRs match head owner/current@main; pass repo= or head=',
     }, captured.warnings)
     assert.same({}, captured.ops_calls)
-    assert.same({}, captured.branch_pr_calls)
+    assert.equals(1, #captured.branch_pr_calls)
   end)
 
   it('surfaces resolver errors from implicit pr reopen branch lookup', function()
@@ -1052,7 +1069,7 @@ describe(':Forge command', function()
     }, captured.ops_calls[2])
   end)
 
-  it('keeps explicit PR open direct while rejecting explicit PR checks from Ex', function()
+  it('keeps explicit PR open and explicit PR checks routed directly through forge.ops', function()
     vim.cmd('Forge pr open 42')
     vim.cmd('Forge pr ci 42 repo=upstream')
 
@@ -1061,8 +1078,10 @@ describe(':Forge command', function()
       pr = { num = '42', scope = nil },
     }, captured.ops_calls[1])
     assert.same({
-      "PR checks are not available from :Forge; use require('forge').pr_ci()",
-    }, captured.warnings)
+      name = 'pr_ci',
+      pr = { num = '42', scope = repo_scope('upstream') },
+    }, captured.ops_calls[2])
+    assert.same({}, captured.warnings)
   end)
 
   it('keeps explicit PR reopen routed directly through forge.ops', function()
@@ -1359,6 +1378,7 @@ describe(':Forge command', function()
         expected = {
           'open',
           'browse',
+          'ci',
           'create',
           'edit',
           'refresh',
@@ -1392,7 +1412,7 @@ describe(':Forge command', function()
       },
       {
         cmdline = 'Forge pr ci ',
-        expected = {},
+        expected = { 'repo=', 'head=' },
       },
       {
         cmdline = 'Forge pr reopen ',
@@ -1442,7 +1462,7 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(families, 'worktrees'))
 
     assert.is_true(vim.tbl_contains(pr, 'open'))
-    assert.is_false(vim.tbl_contains(pr, 'ci'))
+    assert.is_true(vim.tbl_contains(pr, 'ci'))
     assert.is_true(vim.tbl_contains(pr, 'create'))
     assert.is_false(vim.tbl_contains(pr, 'approve'))
     assert.is_false(vim.tbl_contains(pr, 'merge'))
@@ -1466,7 +1486,7 @@ describe(':Forge command', function()
     assert.is_false(vim.tbl_contains(ci, 'repo='))
     assert.is_false(vim.tbl_contains(ci, 'log'))
     assert.is_false(vim.tbl_contains(ci, 'watch'))
-    assert.same({}, pr_ci)
+    assert.same({ 'repo=', 'head=' }, pr_ci)
     assert.is_true(vim.tbl_contains(issue, 'edit'))
     assert.is_true(vim.tbl_contains(issue, 'refresh'))
     assert.is_true(vim.tbl_contains(release, 'browse'))
@@ -1596,6 +1616,7 @@ describe(':Forge command', function()
     assert.same({
       'open',
       'browse',
+      'ci',
       'create',
       'edit',
       'refresh',
@@ -1649,6 +1670,7 @@ describe(':Forge command', function()
         { values = bases, prefix = 'base=' },
         { values = current_pr_heads, prefix = 'head=' },
         { values = review_heads, prefix = 'head=' },
+        { values = pr_ci_heads, prefix = 'head=' },
       }) do
         local values = case.values
         local prefix = case.prefix
@@ -1657,8 +1679,6 @@ describe(':Forge command', function()
         assert.is_true(vim.tbl_contains(values, prefix .. '@main'))
         assert.is_true(vim.tbl_contains(values, prefix .. '@deadbee'))
       end
-
-      assert.same({}, pr_ci_heads)
 
       assert.is_true(vim.tbl_contains(templates, 'template=bug'))
       assert.is_true(vim.tbl_contains(templates, 'template=feature'))
@@ -1787,7 +1807,8 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(merge, 'repo='))
     assert.is_true(vim.tbl_contains(merge, 'head='))
     assert.is_true(vim.tbl_contains(merge, 'method='))
-    assert.same({}, pr_ci)
+    assert.is_true(vim.tbl_contains(pr_ci, 'repo='))
+    assert.is_true(vim.tbl_contains(pr_ci, 'head='))
     assert.is_true(vim.tbl_contains(draft, 'repo='))
     assert.is_true(vim.tbl_contains(draft, 'head='))
     assert.is_true(vim.tbl_contains(ready, 'repo='))

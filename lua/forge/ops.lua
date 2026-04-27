@@ -224,10 +224,8 @@ end
 ---@param opts? forge.PickerLimitOpts
 function M.pr_ci(f, pr, opts)
   pr = normalize_pr_ref(pr)
-  opts = vim.tbl_extend('force', opts or {}, { scope = pr.scope })
-  local pickers = require('forge.pickers')
   if f.capabilities.per_pr_checks then
-    pickers.checks(f, pr.num, nil, nil, opts)
+    require('forge.pr_checks').open(f, pr, opts)
     return
   end
   log.warn(('%s does not support %s checks'):format(f.name, f.labels.pr_one))

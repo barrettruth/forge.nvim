@@ -342,6 +342,7 @@ describe('command schema', function()
     assert.same({
       'open',
       'browse',
+      'ci',
       'close',
       'reopen',
       'create',
