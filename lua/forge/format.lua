@@ -126,62 +126,61 @@ local function elastic_width(preferred, values, min, opts)
   return layout.elastic(preferred, layout.measure(values, opts), min)
 end
 
+local pr_state_icons = {
+  open = { 'open', 'ForgeOpen' },
+  opened = { 'open', 'ForgeOpen' },
+  merged = { 'merged', 'ForgeMerged' },
+}
+
+local issue_state_icons = {
+  open = { 'open', 'ForgeOpen' },
+  opened = { 'open', 'ForgeOpen' },
+}
+
+local check_bucket_icons = {
+  pass = { 'pass', 'ForgePass' },
+  fail = { 'fail', 'ForgeFail' },
+  pending = { 'pending', 'ForgePending' },
+  skipping = { 'skip', 'ForgeSkip' },
+  cancel = { 'skip', 'ForgeSkip' },
+}
+
+local run_status_icons = {
+  success = { 'pass', 'ForgePass' },
+  failure = { 'fail', 'ForgeFail' },
+  failed = { 'fail', 'ForgeFail' },
+  in_progress = { 'pending', 'ForgePending' },
+  running = { 'pending', 'ForgePending' },
+  pending = { 'pending', 'ForgePending' },
+  queued = { 'pending', 'ForgePending' },
+  cancelled = { 'skip', 'ForgeSkip' },
+  canceled = { 'skip', 'ForgeSkip' },
+  skipped = { 'skip', 'ForgeSkip' },
+}
+
+local function mapped_icon(icons, value, map, default_icon, default_group)
+  value = type(value) == 'string' and value:lower() or ''
+  local match = map[value]
+  if match then
+    return icons[match[1]], match[2]
+  end
+  return icons[default_icon], default_group
+end
+
 local function pr_state_icon(icons, state)
-  state = (state or ''):lower()
-  if state == 'open' or state == 'opened' then
-    return icons.open, 'ForgeOpen'
-  end
-  if state == 'merged' then
-    return icons.merged, 'ForgeMerged'
-  end
-  return icons.closed, 'ForgeClosed'
+  return mapped_icon(icons, state, pr_state_icons, 'closed', 'ForgeClosed')
 end
 
 local function issue_state_icon(icons, state)
-  state = (state or ''):lower()
-  if state == 'open' or state == 'opened' then
-    return icons.open, 'ForgeOpen'
-  end
-  return icons.closed, 'ForgeClosed'
+  return mapped_icon(icons, state, issue_state_icons, 'closed', 'ForgeClosed')
 end
 
 local function check_bucket_icon(icons, bucket)
-  bucket = (bucket or 'pending'):lower()
-  if bucket == 'pass' then
-    return icons.pass, 'ForgePass'
-  end
-  if bucket == 'fail' then
-    return icons.fail, 'ForgeFail'
-  end
-  if bucket == 'pending' then
-    return icons.pending, 'ForgePending'
-  end
-  if bucket == 'skipping' or bucket == 'cancel' then
-    return icons.skip, 'ForgeSkip'
-  end
-  return icons.unknown, 'ForgeSkip'
+  return mapped_icon(icons, bucket or 'pending', check_bucket_icons, 'unknown', 'ForgeSkip')
 end
 
 local function run_status_icon(icons, status)
-  status = (status or ''):lower()
-  if status == 'success' then
-    return icons.pass, 'ForgePass'
-  end
-  if status == 'failure' or status == 'failed' then
-    return icons.fail, 'ForgeFail'
-  end
-  if
-    status == 'in_progress'
-    or status == 'running'
-    or status == 'pending'
-    or status == 'queued'
-  then
-    return icons.pending, 'ForgePending'
-  end
-  if status == 'cancelled' or status == 'canceled' or status == 'skipped' then
-    return icons.skip, 'ForgeSkip'
-  end
-  return icons.unknown, 'ForgeSkip'
+  return mapped_icon(icons, status, run_status_icons, 'unknown', 'ForgeSkip')
 end
 
 local function release_state_icon(icons, is_draft, is_pre, is_latest)
