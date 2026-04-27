@@ -35,6 +35,15 @@ Install with your package manager of choice or via
 luarocks install forge.nvim
 ```
 
+## Releases
+
+Stable releases are cut from manual tags named `v0.x.y`. Pushing one of those
+tags creates a GitHub release and publishes the tagged version to LuaRocks.
+
+Nightly prereleases are automated snapshots from `main`. They are published as
+GitHub prereleases tagged `nightly-YYYYMMDD-<sha7>` and are kept off the stable
+LuaRocks channel.
+
 ## Documentation
 
 ```vim

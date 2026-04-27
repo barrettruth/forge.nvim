@@ -1,20 +1,53 @@
-name: luarocks
+name: release-stable
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v0.*.*'
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: printf '%s\n' "$TAG" | grep -Eq '^v0\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+
   quality:
+    needs: validate
     uses: ./.github/workflows/quality.yaml
 
-  publish:
+  release:
     needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release create "$TAG" --verify-tag --generate-notes --title "$TAG" --latest
+
+  publish:
+    needs: release
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - uses: nvim-neorocks/luarocks-tag-release@v7
         env:
