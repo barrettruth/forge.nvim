@@ -42,6 +42,9 @@ describe('high-level implicit-ref API', function()
 
   before_each(function()
     captured = {
+      branch_pr_calls = {},
+      branch_pr_error = nil,
+      branch_pr_result = nil,
       current_pr_calls = {},
       current_pr_error = nil,
       current_pr_result = nil,
@@ -179,6 +182,10 @@ describe('high-level implicit-ref API', function()
 
     package.preload['forge.resolve'] = function()
       return {
+        branch_pr = function(opts, policy)
+          table.insert(captured.branch_pr_calls, { opts = opts, policy = policy })
+          return captured.branch_pr_result, captured.branch_pr_error
+        end,
         current_pr = function(opts)
           table.insert(captured.current_pr_calls, opts)
           return captured.current_pr_result, captured.current_pr_error
@@ -344,31 +351,46 @@ describe('high-level implicit-ref API', function()
     end
   )
 
-  it('routes review() and pr_ci() through current_pr() with explicit address opts', function()
-    captured.current_pr_result = {
-      num = '57',
-      scope = repo_scope('upstream'),
-    }
+  it(
+    'routes review() through current_pr() and pr_ci() through branch_pr() with explicit address opts',
+    function()
+      captured.current_pr_result = {
+        num = '57',
+        scope = repo_scope('upstream'),
+      }
+      captured.branch_pr_result = {
+        num = '57',
+        scope = repo_scope('upstream'),
+      }
 
-    local forge = require('forge')
-    forge.review({ repo = 'upstream', head = 'origin@topic', adapter = 'worktree' })
-    forge.pr_ci({ repo = 'upstream', head = 'origin@topic' })
+      local forge = require('forge')
+      forge.review({ repo = 'upstream', head = 'origin@topic', adapter = 'worktree' })
+      forge.pr_ci({ repo = 'upstream', head = 'origin@topic' })
 
-    assert.equals(2, #captured.current_pr_calls)
-    for _, call in ipairs(captured.current_pr_calls) do
-      assert.equals('github', call.forge.name)
-      assert.equals('upstream', call.repo)
-      assert.equals('origin@topic', call.head)
+      assert.equals(1, #captured.current_pr_calls)
+      assert.equals('github', captured.current_pr_calls[1].forge.name)
+      assert.equals('upstream', captured.current_pr_calls[1].repo)
+      assert.equals('origin@topic', captured.current_pr_calls[1].head)
+      assert.equals(1, #captured.branch_pr_calls)
+      assert.equals('github', captured.branch_pr_calls[1].opts.forge.name)
+      assert.equals('upstream', captured.branch_pr_calls[1].opts.repo)
+      assert.equals('origin@topic', captured.branch_pr_calls[1].opts.head)
+      assert.same({
+        searches = {
+          { 'open' },
+          { 'closed', 'merged' },
+        },
+      }, captured.branch_pr_calls[1].policy)
+      assert.equals('pr_review', captured.ops_calls[1].name)
+      assert.equals('github', captured.ops_calls[1].f.name)
+      assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[1].pr)
+      assert.same({ adapter = 'worktree' }, captured.ops_calls[1].opts)
+      assert.equals('pr_ci', captured.ops_calls[2].name)
+      assert.equals('github', captured.ops_calls[2].f.name)
+      assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[2].pr)
+      assert.is_nil(captured.ops_calls[2].opts)
     end
-    assert.equals('pr_review', captured.ops_calls[1].name)
-    assert.equals('github', captured.ops_calls[1].f.name)
-    assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[1].pr)
-    assert.same({ adapter = 'worktree' }, captured.ops_calls[1].opts)
-    assert.equals('pr_ci', captured.ops_calls[2].name)
-    assert.equals('github', captured.ops_calls[2].f.name)
-    assert.same({ num = '57', scope = repo_scope('upstream') }, captured.ops_calls[2].pr)
-    assert.is_nil(captured.ops_calls[2].opts)
-  end)
+  )
 
   it('opens current-branch CI through ci() and supports explicit head targeting', function()
     local forge = require('forge')
@@ -430,7 +452,21 @@ describe('high-level implicit-ref API', function()
     assert.same({
       'no open PR found for this branch',
       'no open PR found for this branch',
-      'no open PR found for this branch',
+      'no PR found for this branch',
+    }, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('surfaces branch-relative PR lookup warnings from pr_ci()', function()
+    captured.branch_pr_error = {
+      code = 'ambiguous_pr',
+      message = 'multiple PRs match head owner/current@main; pass repo= or head=',
+    }
+
+    require('forge').pr_ci()
+
+    assert.same({
+      'multiple PRs match head owner/current@main; pass repo= or head=',
     }, captured.warnings)
     assert.same({}, captured.ops_calls)
   end)

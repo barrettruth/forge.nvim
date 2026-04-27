@@ -439,6 +439,19 @@ local function resolve_current_pr_or_warn(command, f)
   return nil
 end
 
+local function resolve_branch_pr_or_warn(command, f, policy, no_match)
+  local pr, err = require('forge.resolve').branch_pr(current_pr_resolution_opts(command, f), policy)
+  if err then
+    warn(err.message)
+    return nil
+  end
+  if pr then
+    return pr
+  end
+  warn(no_match)
+  return nil
+end
+
 local function dispatch_pr(command)
   if not require_git_or_warn() then
     return
@@ -480,7 +493,12 @@ local function dispatch_pr(command)
   end
   if command.name == 'ci' then
     local pr = num and { num = num, scope = resolve_repo_modifier(command, f.name) }
-      or resolve_current_pr_or_warn(command, f)
+      or resolve_branch_pr_or_warn(command, f, {
+        searches = {
+          { 'open' },
+          { 'closed', 'merged' },
+        },
+      }, ('no %s found for this branch'):format((f.labels and f.labels.pr_one) or 'PR'))
     if not pr then
       return
     end

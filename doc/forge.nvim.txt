@@ -351,8 +351,10 @@ TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Default policy:
     - collaboration repo = `targets.default_repo`, else `upstream`, else
       `origin`
-    - `:Forge pr`, `:Forge review`, and `:Forge pr ci` default to resolving
-      the current PR from the current branch head
+    - `:Forge pr` and `:Forge review` default to resolving the current open PR
+      from the current branch head
+    - `:Forge pr ci` defaults to resolving checks for the current branch's PR,
+      preferring an open PR and falling back to a unique closed or merged PR
     - `:Forge pr create` defaults `head=` to the current branch push
       context and `base=` to the collaboration repo default branch
     - `:Forge ci` defaults to current-branch CI history
@@ -370,7 +372,7 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     name is meaningful:
     - `:Forge pr` opens the current PR
     - `:Forge review` reviews the current PR
-    - `:Forge pr ci` opens checks for the current PR
+    - `:Forge pr ci` opens checks for the current branch's PR
     - `:Forge ci` opens current-branch CI history
     - `:Forge browse` opens the current file/line context
 
@@ -421,8 +423,9 @@ PR COMMANDS                                                *forge-pr-commands*
 `:Forge pr ci` [repo=...] [head=...]                           *:Forge-pr-ci*
 `:Forge pr ci` {num} [repo=...]
     Open PR checks.
-    (no `{num}`)       Resolve the current PR from the current branch and open
-                       its checks.
+    (no `{num}`)       Resolve the current branch's PR and open its checks.
+                       Forge prefers a unique open PR; if none match, it falls
+                       back to a unique closed or merged PR.
     `{num}`            Open checks for PR `{num}` directly.
     `repo=`            Scope the explicit `{num}` or disambiguate implicit
                        current-PR lookup.
@@ -452,7 +455,7 @@ PR COMMANDS                                                *forge-pr-commands*
                        refs.
 
 IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
-    `:Forge pr`, `:Forge review`, `:Forge pr ci`, and the omitted-subject
+    `:Forge pr`, `:Forge review`, and the omitted-subject
     `:Forge pr approve`, `merge`, `close`, `draft`, and `ready` forms resolve
     the current PR from the current branch head when `{num}` is omitted.
 
@@ -465,6 +468,20 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
     - exactly one match: run the action
     - no matches: warn `no open PR found for this branch`
     - multiple matches: warn and ask for `repo=` or `head=`
+
+IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~             *forge-pr-ci-resolution*
+    `:Forge pr ci` uses the same branch-context + `repo=` / `head=`
+    disambiguation model, but with a broader state policy when `{num}` is
+    omitted.
+
+    Lookup policy:
+    - first search open PRs for the current branch
+    - if no open PR matches, search closed and merged PRs
+
+    Outcomes:
+    - exactly one match in a pass: open its checks
+    - no matches in any pass: warn `no PR found for this branch`
+    - multiple matches in a pass: warn and ask for `repo=` or `head=`
 
 `:Forge pr close` [repo=...] [head=...]                   *:Forge-pr-close*
 `:Forge pr close` {num} [repo=...]

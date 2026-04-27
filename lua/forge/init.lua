@@ -535,6 +535,7 @@ local function review_action_opts(opts)
 end
 
 local resolve_action_pr
+local resolve_pr_ci_target
 
 ---@param opts forge.PRActionOpts?
 ---@param require_forge boolean?
@@ -578,6 +579,33 @@ resolve_action_pr = function(opts)
     return forge, pr
   end
   log.warn(('no open %s found for this branch'):format(forge.labels.pr_one or 'PR'))
+  return nil
+end
+
+resolve_pr_ci_target = function(opts)
+  local _, explicit = explicit_pr_num(opts)
+  if explicit then
+    return resolve_pr_action_target(opts, true)
+  end
+  local log = require('forge.logger')
+  local forge = detect_or_warn()
+  if not forge then
+    return nil
+  end
+  local pr, err = resolve_mod.branch_pr(implicit_ref_opts(opts, forge), {
+    searches = {
+      { 'open' },
+      { 'closed', 'merged' },
+    },
+  })
+  if err then
+    log.warn(err.message or 'PR lookup failed')
+    return nil
+  end
+  if pr then
+    return forge, pr
+  end
+  log.warn(('no %s found for this branch'):format(forge.labels.pr_one or 'PR'))
   return nil
 end
 
@@ -639,7 +667,7 @@ end
 
 ---@param opts forge.PRActionOpts?
 function M.pr_ci(opts)
-  local forge, pr = resolve_pr_action_target(opts, true)
+  local forge, pr = resolve_pr_ci_target(opts)
   if not forge or not pr then
     return
   end
