@@ -2,24 +2,13 @@ local M = {}
 
 local ci = require('forge.ci')
 local log = require('forge.logger')
+local system_mod = require('forge.system')
 
 local function trim(text)
   if type(text) ~= 'string' then
     return ''
   end
   return vim.trim(text)
-end
-
-local function cmd_error(result, fallback)
-  local msg = result.stderr or ''
-  if vim.trim(msg) == '' then
-    msg = result.stdout or ''
-  end
-  msg = vim.trim(msg)
-  if msg == '' then
-    msg = fallback
-  end
-  return msg
 end
 
 local function run_forge_cmd(kind, id, label, cmd, success_msg, fail_msg, opts)
@@ -33,7 +22,7 @@ local function run_forge_cmd(kind, id, label, cmd, success_msg, fail_msg, opts)
           opts.on_success()
         end
       else
-        log.error(cmd_error(result, fail_msg))
+        log.error(system_mod.cmd_error(result, fail_msg))
         if opts.on_failure then
           opts.on_failure()
         end
@@ -74,7 +63,7 @@ local function load_details(cmd, fetch_err, parse_err, parse, open)
   vim.system(cmd, { text = true }, function(result)
     if result.code ~= 0 then
       vim.schedule(function()
-        log.error(cmd_error(result, fetch_err))
+        log.error(system_mod.cmd_error(result, fetch_err))
       end)
       return
     end

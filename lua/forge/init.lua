@@ -9,6 +9,7 @@ local format_mod = require('forge.format')
 local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
 local scope_mod = require('forge.scope')
+local system_mod = require('forge.system')
 local target_mod = require('forge.target')
 local template_mod = require('forge.template')
 
@@ -81,17 +82,6 @@ local function pr_state_key(num, scope)
   return root and (root .. '|' .. scope_mod.key(scope) .. '|' .. num) or nil
 end
 
-local function cmd_error(result, fallback)
-  local msg = vim.trim(result.stderr or '')
-  if msg == '' then
-    msg = vim.trim(result.stdout or '')
-  end
-  if msg == '' then
-    msg = fallback
-  end
-  return msg
-end
-
 local function push_target(branch, scope)
   if scope_mod.key(scope) ~= '' then
     return scope_mod.remote_name(scope) or scope_mod.git_url(scope) or ''
@@ -126,7 +116,7 @@ local function open_web_create(label, cmd, url)
         if result.code == 0 then
           log.info(success_msg)
         else
-          log.error(cmd_error(result, fail_msg))
+          log.error(system_mod.cmd_error(result, fail_msg))
         end
       end)
     end)
@@ -700,7 +690,7 @@ function M.create_pr(opts)
       local base = vim.trim(base_result.stdout or '')
       if base_result.code ~= 0 or base == '' then
         vim.schedule(function()
-          log.error(cmd_error(base_result, 'failed to resolve base branch'))
+          log.error(system_mod.cmd_error(base_result, 'failed to resolve base branch'))
         end)
         return
       end

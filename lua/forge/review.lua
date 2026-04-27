@@ -1,6 +1,7 @@
 local M = {}
 
 local log = require('forge.logger')
+local system_mod = require('forge.system')
 
 ---@type table<string, forge.ReviewAdapter>
 local adapters = {}
@@ -33,17 +34,6 @@ local function trim(text)
     return ''
   end
   return vim.trim(text)
-end
-
-local function cmd_error(result, fallback)
-  local msg = trim(result.stderr or '')
-  if msg == '' then
-    msg = trim(result.stdout or '')
-  end
-  if msg == '' then
-    msg = fallback
-  end
-  return msg
 end
 
 local function normalize_pr_ref(pr)
@@ -166,7 +156,7 @@ local function builtins()
             if result.code == 0 then
               log.info(('checked out %s #%s'):format(kind, pr.num))
             else
-              log.error(cmd_error(result, 'checkout failed'))
+              log.error(system_mod.cmd_error(result, 'checkout failed'))
             end
           end)
         end)
@@ -189,7 +179,7 @@ local function builtins()
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
-              log.error(cmd_error(result, 'review fetch failed'))
+              log.error(system_mod.cmd_error(result, 'review fetch failed'))
               return
             end
             vim.system(
@@ -200,7 +190,7 @@ local function builtins()
                   if worktree_result.code == 0 then
                     log.info(('worktree at %s'):format(wt_path))
                   else
-                    log.error(cmd_error(worktree_result, 'worktree failed'))
+                    log.error(system_mod.cmd_error(worktree_result, 'worktree failed'))
                   end
                 end)
               end
@@ -245,7 +235,7 @@ local function builtins()
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
-              log.error(cmd_error(result, 'review fetch failed'))
+              log.error(system_mod.cmd_error(result, 'review fetch failed'))
               return
             end
             local ok, open_err = open_diffview(base .. '...' .. head)
@@ -284,7 +274,7 @@ local function builtins()
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
-              log.error(cmd_error(result, 'review fetch failed'))
+              log.error(system_mod.cmd_error(result, 'review fetch failed'))
               return
             end
             local ok, open_err = open_codediff(base .. '...' .. head)
@@ -323,7 +313,7 @@ local function builtins()
         vim.system(fetch_cmd, { text = true }, function(result)
           vim.schedule(function()
             if result.code ~= 0 then
-              log.error(cmd_error(result, 'review fetch failed'))
+              log.error(system_mod.cmd_error(result, 'review fetch failed'))
               return
             end
             local ok, open_err = open_diffs(base .. '...' .. head)
@@ -401,7 +391,7 @@ function M.context(f, pr, opts)
     end
     local result = vim.system(f:fetch_pr_details_cmd(pr.num, pr.scope), { text = true }):wait()
     if result.code ~= 0 then
-      err = cmd_error(result, 'failed to load review details')
+      err = system_mod.cmd_error(result, 'failed to load review details')
       return nil, err
     end
     local ok, json = pcall(vim.json.decode, result.stdout or '{}')
