@@ -41,7 +41,6 @@ local families = {
     verb_order = {
       'open',
       'browse',
-      'ci',
       'close',
       'reopen',
       'create',
@@ -307,6 +306,18 @@ local function warn(msg)
   require('forge.logger').warn(msg)
 end
 
+local function unavailable_pr_checks_message(f)
+  local pr_one = (f and f.labels and f.labels.pr_one) or 'PR'
+  return ("%s checks are not available from :Forge; use require('forge').pr_ci()"):format(pr_one)
+end
+
+local function unavailable_ci_history_message(f)
+  local ci_inline = (f and f.labels and f.labels.ci_inline) or 'CI runs'
+  return ("current-branch %s are not available from :Forge; use require('forge').ci()"):format(
+    ci_inline
+  )
+end
+
 local function error_result(msg, opts)
   opts = opts or {}
   return nil, {
@@ -493,17 +504,7 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'ci' then
-    local pr = num and { num = num, scope = resolve_repo_modifier(command, f.name) }
-      or resolve_branch_pr_or_warn(command, f, {
-        searches = {
-          { 'open' },
-          { 'closed', 'merged' },
-        },
-      }, ('no %s found for this branch'):format((f.labels and f.labels.pr_one) or 'PR'))
-    if not pr then
-      return
-    end
-    ops.pr_ci(f, pr)
+    warn(unavailable_pr_checks_message(f))
     return
   end
   if command.name == 'browse' then
@@ -664,9 +665,11 @@ local function dispatch_ci(command)
     return
   end
   if command.name == 'open' and command.subjects[1] == nil then
-    require('forge').ci(command.parsed_modifiers.repo ~= nil and {
-      repo = command.parsed_modifiers.repo,
-    } or nil)
+    local f = require_forge_or_warn()
+    if not f then
+      return
+    end
+    warn(unavailable_ci_history_message(f))
     return
   end
   local f = require_forge_or_warn()

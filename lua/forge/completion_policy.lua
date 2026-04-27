@@ -61,6 +61,15 @@ local function declares_modifier(command, flag_name)
 end
 
 function M.family_slot(command)
+  if command and command.family == 'ci' and command.name == 'open' and command.implicit then
+    return {
+      slot_class = 'family',
+      include_verbs = true,
+      include_modifiers = false,
+      include_subjects = false,
+      static_before_dynamic = true,
+    }
+  end
   if command and command.family == 'browse' and command.name == 'open' then
     return {
       slot_class = 'family',
@@ -93,6 +102,14 @@ local function release_delete_subject_slot(state)
 end
 
 function M.argument_slot(command, state)
+  if command and command.family == 'pr' and command.name == 'ci' then
+    return {
+      slot_class = 'argument',
+      include_modifiers = false,
+      include_subjects = false,
+      static_before_dynamic = true,
+    }
+  end
   if command and command.family == 'release' and command.name == 'delete' then
     return {
       slot_class = 'argument',
@@ -180,6 +197,12 @@ function M.subject(command)
 end
 
 function M.modifier_value(command, flag_name, spec)
+  if command.family == 'pr' and command.name == 'ci' then
+    return nil
+  end
+  if command.family == 'ci' and command.name == 'open' and command.implicit then
+    return nil
+  end
   if not declares_modifier(command, flag_name) then
     return nil
   end
