@@ -65,6 +65,17 @@ describe('github', function()
     assert.truthy(vim.tbl_contains(cmd, '--json'))
   end)
 
+  it('builds pr_for_branch_cmd with explicit state filters', function()
+    local cmd = gh:pr_for_branch_cmd('topic', { repo_arg = 'owner/repo' }, 'merged')
+    assert.same({ 'gh', 'pr', 'list' }, vim.list_slice(cmd, 1, 3))
+    assert.truthy(vim.tbl_contains(cmd, '--head'))
+    assert.truthy(vim.tbl_contains(cmd, 'topic'))
+    assert.truthy(vim.tbl_contains(cmd, '--state'))
+    assert.truthy(vim.tbl_contains(cmd, 'merged'))
+    assert.truthy(vim.tbl_contains(cmd, '-R'))
+    assert.truthy(vim.tbl_contains(cmd, 'owner/repo'))
+  end)
+
   it('respects explicit PR list limits', function()
     local cmd = gh:list_pr_json_cmd('open', 55)
     assert.truthy(vim.tbl_contains(cmd, '--limit'))
@@ -134,7 +145,7 @@ describe('github', function()
     assert.truthy(
       vim.tbl_contains(
         pr_details,
-        'title,body,isDraft,headRefName,headRepository,headRepositoryOwner,baseRefName,labels,assignees,reviewRequests,milestone,url'
+        'title,body,isDraft,state,mergedAt,headRefName,headRepository,headRepositoryOwner,baseRefName,labels,assignees,reviewRequests,milestone,url'
       )
     )
 
@@ -570,6 +581,17 @@ describe('gitlab', function()
     assert.equals('mr', cmd[2])
     assert.truthy(vim.tbl_contains(gl:list_pr_json_cmd('closed'), '--closed'))
     assert.truthy(vim.tbl_contains(gl:list_pr_json_cmd('all'), '--all'))
+  end)
+
+  it('builds pr_for_branch_cmd with state variants', function()
+    local closed = gl:pr_for_branch_cmd('topic', { repo_arg = 'group/repo' }, 'closed')
+    local merged = gl:pr_for_branch_cmd('topic', { repo_arg = 'group/repo' }, 'merged')
+    local all = gl:pr_for_branch_cmd('topic', { repo_arg = 'group/repo' }, 'all')
+    assert.equals('sh', closed[1])
+    assert.truthy(closed[3]:find("--source%-branch 'topic'", 1))
+    assert.truthy(closed[3]:find('--closed', 1, true))
+    assert.truthy(merged[3]:find('--merged', 1, true))
+    assert.truthy(all[3]:find('--all', 1, true))
   end)
 
   it('respects explicit issue list limits', function()
@@ -1044,6 +1066,13 @@ describe('codeberg', function()
     local cmd = cb:list_pr_json_cmd('open')
     assert.equals('tea', cmd[1])
     assert.truthy(vim.tbl_contains(cmd, '--fields'))
+  end)
+
+  it('builds pr_for_branch_cmd with explicit states', function()
+    local cmd = cb:pr_for_branch_cmd('topic', { repo_arg = 'owner/repo' }, 'closed')
+    assert.equals('sh', cmd[1])
+    assert.truthy(cmd[3]:find('--state closed', 1, true))
+    assert.truthy(cmd[3]:find('.head=="topic"', 1, true))
   end)
 
   it('respects explicit issue list limits', function()

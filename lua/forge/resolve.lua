@@ -145,23 +145,100 @@ local function fetch_pr_json(forge, num, scope)
   return json
 end
 
+---@param value any
+---@return forge.PRLookupState?
+local function pr_lookup_state_name(value)
+  local state = trim(value)
+  if not state then
+    return nil
+  end
+  state = state:lower()
+  if state == 'open' or state == 'opened' then
+    return 'open'
+  end
+  if state == 'closed' then
+    return 'closed'
+  end
+  if state == 'merged' then
+    return 'merged'
+  end
+  return nil
+end
+
+---@param json table
+---@return forge.PRLookupState?
+local function pr_lookup_state(json)
+  if json.merged == true then
+    return 'merged'
+  end
+  local pull_request = type(json.pull_request) == 'table' and json.pull_request or nil
+  if pull_request and pull_request.merged == true then
+    return 'merged'
+  end
+  if trim(json.mergedAt or json.merged_at) then
+    return 'merged'
+  end
+  return pr_lookup_state_name(json.state)
+end
+
+---@param states forge.PRLookupState[]
+---@param value forge.PRLookupState?
+---@return boolean
+local function lookup_states_include(states, value)
+  if not value then
+    return false
+  end
+  for _, state in ipairs(states) do
+    if state == value then
+      return true
+    end
+  end
+  return false
+end
+
+---@param forge forge.Forge
+---@param states forge.PRLookupState[]
+---@return forge.PRListState[]
+local function branch_lookup_states(forge, states)
+  local list_states = {}
+  local seen = {}
+  for _, value in ipairs(states) do
+    local state = pr_lookup_state_name(value)
+    if state then
+      local list_state = state
+      if state == 'merged' and forge.name == 'codeberg' then
+        list_state = 'closed'
+      end
+      if not seen[list_state] then
+        seen[list_state] = true
+        list_states[#list_states + 1] = list_state
+      end
+    end
+  end
+  return list_states
+end
+
 ---@param forge forge.Forge
 ---@param branch string
 ---@param scope forge.Scope?
+---@param states forge.PRLookupState[]
 ---@return string[]?, string?
-local function list_pr_numbers(forge, branch, scope)
-  local result = vim.system(forge:pr_for_branch_cmd(branch, scope), { text = true }):wait()
-  if result.code ~= 0 then
-    return nil,
-      system_mod.cmd_error(result, ('failed to fetch %s'):format(forge.labels.pr or 'PRs'))
-  end
+local function list_pr_numbers(forge, branch, scope, states)
   local nums = {}
   local seen = {}
-  for _, line in ipairs(vim.split(result.stdout or '', '\n', { plain = true, trimempty = true })) do
-    local num = trim(line)
-    if num and num ~= 'null' and not seen[num] then
-      seen[num] = true
-      nums[#nums + 1] = num
+  for _, list_state in ipairs(branch_lookup_states(forge, states)) do
+    local result =
+      vim.system(forge:pr_for_branch_cmd(branch, scope, list_state), { text = true }):wait()
+    if result.code ~= 0 then
+      return nil,
+        system_mod.cmd_error(result, ('failed to fetch %s'):format(forge.labels.pr or 'PRs'))
+    end
+    for _, line in ipairs(vim.split(result.stdout or '', '\n', { plain = true, trimempty = true })) do
+      local num = trim(line)
+      if num and num ~= 'null' and not seen[num] then
+        seen[num] = true
+        nums[#nums + 1] = num
+      end
     end
   end
   return nums
@@ -270,9 +347,10 @@ end
 ---@param forge forge.Forge
 ---@param head forge.HeadRef
 ---@param scope forge.Scope
+---@param states forge.PRLookupState[]
 ---@return forge.PRRef[]?, string?
-local function matching_prs(forge, head, scope)
-  local nums, list_err = list_pr_numbers(forge, head.branch, scope)
+local function matching_prs(forge, head, scope, states)
+  local nums, list_err = list_pr_numbers(forge, head.branch, scope, states)
   if not nums then
     return nil, list_err
   end
@@ -286,7 +364,7 @@ local function matching_prs(forge, head, scope)
     if match_err then
       return nil, match_err
     end
-    if exact then
+    if exact and lookup_states_include(states, pr_lookup_state(json)) then
       matches[#matches + 1] = {
         num = num,
         scope = scope,
@@ -294,6 +372,34 @@ local function matching_prs(forge, head, scope)
     end
   end
   return matches
+end
+
+---@param policy forge.BranchPRPolicy?
+---@return forge.PRLookupPass[]
+local function branch_pr_searches(policy)
+  local searches = {}
+  if type(policy) == 'table' and type(policy.searches) == 'table' then
+    for _, pass in ipairs(policy.searches) do
+      local states = {}
+      local seen = {}
+      if type(pass) == 'table' then
+        for _, value in ipairs(pass) do
+          local state = pr_lookup_state_name(value)
+          if state and not seen[state] then
+            seen[state] = true
+            states[#states + 1] = state
+          end
+        end
+      end
+      if #states > 0 then
+        searches[#searches + 1] = states
+      end
+    end
+  end
+  if #searches == 0 then
+    return { { 'open' } }
+  end
+  return searches
 end
 
 ---@param repo forge.RepoLike?
@@ -341,8 +447,9 @@ function M.head(head, opts)
 end
 
 ---@param opts forge.CurrentPROpts?
+---@param policy forge.BranchPRPolicy?
 ---@return forge.PRRef?, forge.CmdError?
-function M.current_pr(opts)
+function M.branch_pr(opts, policy)
   opts = opts or {}
   local forge = current_forge(opts)
   if not forge then
@@ -364,25 +471,35 @@ function M.current_pr(opts)
   if not repos then
     return error_result(repo_err or 'invalid repo address', repo_code or 'invalid_repo')
   end
-  for _, scope in ipairs(repos) do
-    local matches, match_err = matching_prs(forge, head, scope)
-    if not matches then
-      return error_result(match_err or 'current PR lookup failed', 'lookup_failed')
-    end
-    if #matches == 1 then
-      return matches[1]
-    end
-    if #matches > 1 then
-      return error_result(
-        ('multiple %s match head %s; pass repo= or head='):format(
-          forge.labels.pr_full or 'PRs',
-          head_label(head)
-        ),
-        'ambiguous_pr'
-      )
+  for _, states in ipairs(branch_pr_searches(policy)) do
+    for _, scope in ipairs(repos) do
+      local matches, match_err = matching_prs(forge, head, scope, states)
+      if not matches then
+        return error_result(match_err or 'current PR lookup failed', 'lookup_failed')
+      end
+      if #matches == 1 then
+        return matches[1]
+      end
+      if #matches > 1 then
+        return error_result(
+          ('multiple %s match head %s; pass repo= or head='):format(
+            forge.labels.pr_full or 'PRs',
+            head_label(head)
+          ),
+          'ambiguous_pr'
+        )
+      end
     end
   end
   return nil
+end
+
+---@param opts forge.CurrentPROpts?
+---@return forge.PRRef?, forge.CmdError?
+function M.current_pr(opts)
+  return M.branch_pr(opts, {
+    searches = { { 'open' } },
+  })
 end
 
 return M

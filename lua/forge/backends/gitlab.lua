@@ -307,13 +307,23 @@ end
 
 ---@param branch string
 ---@param scope forge.Scope?
+---@param state forge.PRListState?
 ---@return string[]
-function M:pr_for_branch_cmd(branch, scope)
+function M:pr_for_branch_cmd(branch, scope, state)
+  local flag = ''
+  if state == 'closed' then
+    flag = ' --closed'
+  elseif state == 'merged' then
+    flag = ' --merged'
+  elseif state == 'all' then
+    flag = ' --all'
+  end
   return {
     'sh',
     '-c',
-    ("glab mr list --source-branch '%s' -F json -R '%s' | jq -r '.[].iid // empty'"):format(
+    ("glab mr list --source-branch '%s'%s -F json -R '%s' | jq -r '.[].iid // empty'"):format(
       branch,
+      flag,
       repo_arg(scope)
     ),
   }

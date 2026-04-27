@@ -36,8 +36,8 @@ describe('current_pr resolver', function()
   local function fake_backend(name)
     local backend = require('forge.backends.' .. name)
     return vim.tbl_extend('force', backend, {
-      pr_for_branch_cmd = function(_, branch, scope)
-        return { 'pr-for-branch', branch, scope and scope.slug or '' }
+      pr_for_branch_cmd = function(_, branch, scope, state)
+        return { 'pr-for-branch', state or 'open', branch, scope and scope.slug or '' }
       end,
       fetch_pr_details_cmd = function(_, num, scope)
         return { 'fetch-pr', num, scope and scope.slug or '' }
@@ -91,8 +91,9 @@ describe('current_pr resolver', function()
         'git@github.com:owner/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('17\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('17\n'),
       ['fetch-pr 17 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
         headRefName = 'topic',
         headRepository = {
           name = 'fork',
@@ -123,7 +124,7 @@ describe('current_pr resolver', function()
         'git@github.com:owner/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('\n'),
     })
 
     local pr, err = require('forge.resolve').current_pr({
@@ -160,9 +161,10 @@ describe('current_pr resolver', function()
       ['git remote get-url upstream'] = helpers.command_result(
         'git@github.com:owner/upstream.git\n'
       ),
-      ['pr-for-branch feature owner/fork'] = helpers.command_result('\n'),
-      ['pr-for-branch feature owner/upstream'] = helpers.command_result('42\n'),
+      ['pr-for-branch open feature owner/fork'] = helpers.command_result('\n'),
+      ['pr-for-branch open feature owner/upstream'] = helpers.command_result('42\n'),
       ['fetch-pr 42 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
         headRefName = 'feature',
         headRepository = {
           name = 'fork',
@@ -183,11 +185,11 @@ describe('current_pr resolver', function()
       num = '42',
       scope = github_scope('upstream'),
     }, pr)
-    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch feature owner/fork'))
-    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch feature owner/upstream'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch open feature owner/fork'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch open feature owner/upstream'))
     assert.is_true(
-      vim.fn.index(captured.systems, 'pr-for-branch feature owner/fork')
-        < vim.fn.index(captured.systems, 'pr-for-branch feature owner/upstream')
+      vim.fn.index(captured.systems, 'pr-for-branch open feature owner/fork')
+        < vim.fn.index(captured.systems, 'pr-for-branch open feature owner/upstream')
     )
   end)
 
@@ -198,9 +200,10 @@ describe('current_pr resolver', function()
       ['git remote get-url upstream'] = helpers.command_result(
         'git@github.com:owner/upstream.git\n'
       ),
-      ['pr-for-branch topic owner/fork'] = helpers.command_result('\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('57\n'),
+      ['pr-for-branch open topic owner/fork'] = helpers.command_result('\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('57\n'),
       ['fetch-pr 57 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
         headRefName = 'topic',
         headRepository = {
           name = 'fork',
@@ -226,14 +229,118 @@ describe('current_pr resolver', function()
     assert.is_false(vim.tbl_contains(captured.systems, 'git branch --show-current'))
   end)
 
+  it('keeps current_pr open-only when broader branch PR states exist', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('\n'),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = github,
+      repo = 'upstream',
+      head = 'fork@topic',
+    })
+
+    assert.is_nil(pr)
+    assert.is_nil(err)
+    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch open topic owner/upstream'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'pr-for-branch closed topic owner/upstream'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'pr-for-branch merged topic owner/upstream'))
+  end)
+
+  it('resolves merged GitHub PRs through branch_pr', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['pr-for-branch merged topic owner/upstream'] = helpers.command_result('17\n'),
+      ['fetch-pr 17 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'MERGED',
+        mergedAt = '2026-04-27T00:00:00Z',
+        headRefName = 'topic',
+        headRepository = {
+          name = 'fork',
+          nameWithOwner = 'owner/fork',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').branch_pr({
+      forge = github,
+      repo = 'upstream',
+      head = 'fork@topic',
+    }, {
+      searches = { { 'merged' } },
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '17',
+      scope = github_scope('upstream'),
+    }, pr)
+  end)
+
+  it('supports open-first fallback policies across candidate repos', function()
+    use_system_responses({
+      ['git branch --show-current'] = helpers.command_result('feature\n'),
+      ['git config branch.feature.pushRemote'] = helpers.command_result('fork\n'),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['pr-for-branch open feature owner/fork'] = helpers.command_result('\n'),
+      ['pr-for-branch open feature owner/upstream'] = helpers.command_result('42\n'),
+      ['fetch-pr 42 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
+        headRefName = 'feature',
+        headRepository = {
+          name = 'fork',
+          nameWithOwner = 'owner/fork',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').branch_pr({
+      forge = github,
+    }, {
+      searches = {
+        { 'open' },
+        { 'closed', 'merged' },
+      },
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '42',
+      scope = github_scope('upstream'),
+    }, pr)
+    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch open feature owner/fork'))
+    assert.is_true(vim.tbl_contains(captured.systems, 'pr-for-branch open feature owner/upstream'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'pr-for-branch closed feature owner/fork'))
+    assert.is_false(
+      vim.tbl_contains(captured.systems, 'pr-for-branch merged feature owner/upstream')
+    )
+  end)
+
   it('matches GitLab merge requests by source project and branch', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(
         'git@gitlab.com:group/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@gitlab.com:group/fork.git\n'),
-      ['pr-for-branch topic group/upstream'] = helpers.command_result('8\n'),
+      ['pr-for-branch open topic group/upstream'] = helpers.command_result('8\n'),
       ['fetch-pr 8 group/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'opened',
         source_branch = 'topic',
         source_project_id = 101,
       })),
@@ -255,14 +362,47 @@ describe('current_pr resolver', function()
     }, pr)
   end)
 
+  it('matches GitLab merged requests by source project and branch in branch_pr', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@gitlab.com:group/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@gitlab.com:group/fork.git\n'),
+      ['pr-for-branch merged topic group/upstream'] = helpers.command_result('8\n'),
+      ['fetch-pr 8 group/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'merged',
+        source_branch = 'topic',
+        source_project_id = 101,
+      })),
+      ['glab api --hostname gitlab.com projects/group%2Ffork'] = helpers.command_result(
+        vim.json.encode({ id = 101 })
+      ),
+    })
+
+    local pr, err = require('forge.resolve').branch_pr({
+      forge = gitlab,
+      repo = 'upstream',
+      head = 'fork@topic',
+    }, {
+      searches = { { 'merged' } },
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '8',
+      scope = gitlab_scope('group/upstream'),
+    }, pr)
+  end)
+
   it('matches Codeberg pull requests by head repo and branch', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(
         'git@codeberg.org:owner/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@codeberg.org:owner/fork.git\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('13\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('13\n'),
       ['fetch-pr 13 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'open',
         head = {
           ref = 'topic',
           repo = {
@@ -285,13 +425,83 @@ describe('current_pr resolver', function()
     }, pr)
   end)
 
+  it(
+    'treats Codeberg merged PRs as merged even though branch lookup uses closed candidates',
+    function()
+      use_system_responses({
+        ['git remote get-url upstream'] = helpers.command_result(
+          'git@codeberg.org:owner/upstream.git\n'
+        ),
+        ['git remote get-url fork'] = helpers.command_result('git@codeberg.org:owner/fork.git\n'),
+        ['pr-for-branch closed topic owner/upstream'] = helpers.command_result('13\n'),
+        ['fetch-pr 13 owner/upstream'] = helpers.command_result(vim.json.encode({
+          state = 'closed',
+          merged = true,
+          merged_at = '2026-04-27T00:00:00Z',
+          head = {
+            ref = 'topic',
+            repo = {
+              full_name = 'owner/fork',
+            },
+          },
+        })),
+      })
+
+      local pr, err = require('forge.resolve').branch_pr({
+        forge = codeberg,
+        repo = 'upstream',
+        head = 'fork@topic',
+      }, {
+        searches = { { 'merged' } },
+      })
+
+      assert.is_nil(err)
+      assert.same({
+        num = '13',
+        scope = codeberg_scope('upstream'),
+      }, pr)
+    end
+  )
+
+  it('excludes merged Codeberg PRs from closed-only branch_pr policies', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@codeberg.org:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@codeberg.org:owner/fork.git\n'),
+      ['pr-for-branch closed topic owner/upstream'] = helpers.command_result('13\n'),
+      ['fetch-pr 13 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'closed',
+        merged = true,
+        merged_at = '2026-04-27T00:00:00Z',
+        head = {
+          ref = 'topic',
+          repo = {
+            full_name = 'owner/fork',
+          },
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').branch_pr({
+      forge = codeberg,
+      repo = 'upstream',
+      head = 'fork@topic',
+    }, {
+      searches = { { 'closed' } },
+    })
+
+    assert.is_nil(pr)
+    assert.is_nil(err)
+  end)
+
   it('uses existing fetch-style error phrasing for resolver failures', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(
         'git@github.com:owner/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('', 1),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('', 1),
     })
 
     local pr, err = require('forge.resolve').current_pr({
@@ -313,8 +523,9 @@ describe('current_pr resolver', function()
         'git@github.com:owner/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('17\n18\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('17\n18\n'),
       ['fetch-pr 17 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
         headRefName = 'topic',
         headRepository = {
           name = 'fork',
@@ -325,6 +536,7 @@ describe('current_pr resolver', function()
         },
       })),
       ['fetch-pr 18 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
         headRefName = 'topic',
         headRepository = {
           name = 'fork',
@@ -347,13 +559,59 @@ describe('current_pr resolver', function()
     assert.matches('pass repo= or head=', err.message)
   end)
 
+  it('reports ambiguity when multiple non-open PRs match the same head', function()
+    use_system_responses({
+      ['git remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
+      ['pr-for-branch closed topic owner/upstream'] = helpers.command_result('17\n'),
+      ['pr-for-branch merged topic owner/upstream'] = helpers.command_result('18\n'),
+      ['fetch-pr 17 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'CLOSED',
+        headRefName = 'topic',
+        headRepository = {
+          name = 'fork',
+          nameWithOwner = 'owner/fork',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
+      })),
+      ['fetch-pr 18 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'MERGED',
+        mergedAt = '2026-04-27T00:00:00Z',
+        headRefName = 'topic',
+        headRepository = {
+          name = 'fork',
+          nameWithOwner = 'owner/fork',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').branch_pr({
+      forge = github,
+      repo = 'upstream',
+      head = 'fork@topic',
+    }, {
+      searches = { { 'closed', 'merged' } },
+    })
+
+    assert.is_nil(pr)
+    assert.same('ambiguous_pr', err.code)
+    assert.matches('pass repo= or head=', err.message)
+  end)
+
   it('uses existing parse-detail phrasing when PR details are malformed', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(
         'git@github.com:owner/upstream.git\n'
       ),
       ['git remote get-url fork'] = helpers.command_result('git@github.com:owner/fork.git\n'),
-      ['pr-for-branch topic owner/upstream'] = helpers.command_result('17\n'),
+      ['pr-for-branch open topic owner/upstream'] = helpers.command_result('17\n'),
       ['fetch-pr 17 owner/upstream'] = helpers.command_result('{'),
     })
 

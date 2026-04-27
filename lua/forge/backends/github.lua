@@ -285,12 +285,15 @@ end
 
 ---@param branch string
 ---@param scope forge.Scope?
+---@param state forge.PRListState?
 ---@return string[]
-function M:pr_for_branch_cmd(branch, scope)
+function M:pr_for_branch_cmd(branch, scope, state)
   local cmd = {
     'gh',
     'pr',
     'list',
+    '--state',
+    state or 'open',
     '--head',
     branch,
     '--json',
@@ -605,7 +608,7 @@ function M:fetch_pr_details_cmd(num, scope)
     '-R',
     nwo(scope),
     '--json',
-    'title,body,isDraft,headRefName,headRepository,headRepositoryOwner,baseRefName,labels,assignees,reviewRequests,milestone,url',
+    'title,body,isDraft,state,mergedAt,headRefName,headRepository,headRepositoryOwner,baseRefName,labels,assignees,reviewRequests,milestone,url',
   }
 end
 

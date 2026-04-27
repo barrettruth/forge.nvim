@@ -111,8 +111,14 @@
 ---@alias forge.ReleaseRefLike forge.ReleaseRef|string
 ---@alias forge.RunRefLike forge.RunRef|string
 ---@alias forge.TargetValue forge.RepoTarget|forge.RevTarget|forge.BranchTarget|forge.CommitTarget|forge.LocationTarget
+---@alias forge.PRLookupState 'open'|'closed'|'merged'
+---@alias forge.PRListState 'open'|'closed'|'merged'|'all'
+---@alias forge.PRLookupPass forge.PRLookupState[]
 ---@alias forge.RepoLike forge.Scope|forge.RepoTarget|string
 ---@alias forge.HeadLike forge.HeadInput|forge.HeadRef|forge.RevTarget|string
+
+---@class forge.BranchPRPolicy
+---@field searches forge.PRLookupPass[]
 
 ---@class forge.ScopedOpts
 ---@field scope forge.Scope?
@@ -375,7 +381,7 @@
 ---@field checkout_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field fetch_pr fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
 ---@field pr_base_cmd fun(self: forge.Forge, num: string, scope?: forge.Scope): string[]
----@field pr_for_branch_cmd fun(self: forge.Forge, branch: string, scope?: forge.Scope): string[]
+---@field pr_for_branch_cmd fun(self: forge.Forge, branch: string, scope?: forge.Scope, state?: forge.PRListState): string[]
 ---@field checks_cmd fun(self: forge.Forge, num: string): string
 ---@field check_log_cmd fun(self: forge.Forge, run_id: string, failed_only: boolean, job_id: string?, scope?: forge.Scope): string[]
 ---@field steps_cmd (fun(self: forge.Forge, run_id: string, scope?: forge.Scope): string[])?
