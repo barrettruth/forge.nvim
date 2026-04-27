@@ -261,6 +261,37 @@ describe('command schema', function()
     assert.equals('topic', pr_ci.parsed_modifiers.head.rev)
   end)
 
+  it(
+    'attaches implicit current-open-PR mutator disambiguation modifiers to normalized commands',
+    function()
+      local close = assert(cmd.parse({ 'pr', 'close', 'repo=upstream', 'head=origin@topic' }))
+      local approve = assert(cmd.parse({ 'pr', 'approve', 'repo=upstream', 'head=origin@topic' }))
+      local merge = assert(cmd.parse({
+        'pr',
+        'merge',
+        'repo=upstream',
+        'head=origin@topic',
+        'method=squash',
+      }))
+      local draft = assert(cmd.parse({ 'pr', 'draft', 'repo=upstream', 'head=origin@topic' }))
+      local ready = assert(cmd.parse({ 'pr', 'ready', 'repo=upstream', 'head=origin@topic' }))
+
+      for _, command in ipairs({ close, approve, merge, draft, ready }) do
+        assert.same({}, command.subjects)
+        assert.equals('owner/upstream', command.parsed_modifiers.repo.slug)
+        assert.equals('topic', command.parsed_modifiers.head.rev)
+        assert.equals('owner/current', command.parsed_modifiers.head.repo.slug)
+      end
+
+      assert.equals('close', close.name)
+      assert.equals('approve', approve.name)
+      assert.equals('merge', merge.name)
+      assert.equals('squash', merge.modifiers.method)
+      assert.equals('draft', draft.name)
+      assert.equals('ready', ready.name)
+    end
+  )
+
   it('attaches default target policy for omitted direct-action addresses', function()
     local create = assert(cmd.parse({ 'pr', 'create' }))
 
@@ -282,10 +313,14 @@ describe('command schema', function()
       cmd.modifier_names('pr', 'create')
     )
     assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'ci'))
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'close'))
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'approve'))
+    assert.same({ 'repo', 'head', 'method' }, cmd.modifier_names('pr', 'merge'))
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'draft'))
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'ready'))
     assert.same({ 'repo' }, cmd.modifier_names('ci', 'open'))
     assert.same({ 'repo' }, cmd.modifier_names('ci', 'browse'))
     assert.same({ 'repo', 'web', 'blank', 'template' }, cmd.modifier_names('issue', 'create'))
-    assert.same({ 'repo', 'method' }, cmd.modifier_names('pr', 'merge'))
     assert.same({ 'repo', 'head', 'adapter' }, cmd.modifier_names('review'))
   end)
 

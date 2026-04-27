@@ -66,8 +66,8 @@ local families = {
         modifiers = { 'repo', 'head' },
       },
       close = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
       },
       reopen = {
         subject = { kind = 'pr', min = 1, max = 1 },
@@ -82,20 +82,20 @@ local families = {
         modifiers = { 'repo' },
       },
       approve = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
       },
       merge = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo', 'method' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head', 'method' },
       },
       draft = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
       },
       ready = {
-        subject = { kind = 'pr', min = 1, max = 1 },
-        modifiers = { 'repo' },
+        subject = { kind = 'pr', min = 0, max = 1 },
+        modifiers = { 'repo', 'head' },
       },
       refresh = {
         subject = { min = 0, max = 0 },
@@ -501,33 +501,58 @@ local function dispatch_pr(command)
     require('forge.logger').info('refreshed ' .. ((f.labels and f.labels.pr) or 'pr') .. ' list')
     return
   end
-  local scope = resolve_repo_modifier(command, f.name)
+  local function action_pr()
+    if num then
+      return { num = num, scope = resolve_repo_modifier(command, f.name) }
+    end
+    return resolve_current_pr_or_warn(command, f)
+  end
   if command.name == 'edit' then
-    ops.pr_edit({ num = num, scope = scope })
+    ops.pr_edit({ num = num, scope = resolve_repo_modifier(command, f.name) })
     return
   end
   if command.name == 'approve' then
-    ops.pr_approve(f, { num = num, scope = scope })
+    local pr = action_pr()
+    if not pr then
+      return
+    end
+    ops.pr_approve(f, pr)
     return
   end
   if command.name == 'merge' then
-    ops.pr_merge(f, { num = num, scope = scope }, command.modifiers.method)
+    local pr = action_pr()
+    if not pr then
+      return
+    end
+    ops.pr_merge(f, pr, command.modifiers.method)
     return
   end
   if command.name == 'draft' then
-    ops.pr_toggle_draft(f, { num = num, scope = scope }, false)
+    local pr = action_pr()
+    if not pr then
+      return
+    end
+    ops.pr_toggle_draft(f, pr, false)
     return
   end
   if command.name == 'ready' then
-    ops.pr_toggle_draft(f, { num = num, scope = scope }, true)
+    local pr = action_pr()
+    if not pr then
+      return
+    end
+    ops.pr_toggle_draft(f, pr, true)
     return
   end
   if command.name == 'close' then
-    ops.pr_close(f, { num = num, scope = scope })
+    local pr = action_pr()
+    if not pr then
+      return
+    end
+    ops.pr_close(f, pr)
     return
   end
   if command.name == 'reopen' then
-    ops.pr_reopen(f, { num = num, scope = scope })
+    ops.pr_reopen(f, { num = num, scope = resolve_repo_modifier(command, f.name) })
     return
   end
   warn(('unsupported pr action: %s'):format(command.name))
