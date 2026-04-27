@@ -251,12 +251,14 @@ end
 
 ---@param branch string
 ---@param scope forge.Scope?
+---@param state forge.PRListState?
 ---@return string[]
-function M:pr_for_branch_cmd(branch, scope)
+function M:pr_for_branch_cmd(branch, scope, state)
   return {
     'sh',
     '-c',
-    ('tea pr list --state open --output json --fields index,head --repo %s | jq -r \'.[] | select(.head=="%s" or .head.name=="%s") | .index // empty\''):format(
+    ('tea pr list --state %s --output json --fields index,head --repo %s | jq -r \'.[] | select(.head=="%s" or .head.name=="%s") | .index // empty\''):format(
+      state or 'open',
       repo_arg(scope),
       branch,
       branch

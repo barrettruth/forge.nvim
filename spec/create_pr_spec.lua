@@ -365,6 +365,7 @@ describe('create_pr', function()
         ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/repo.git\n'),
         ['pr-for-branch feature'] = helpers.command_result('23\n'),
         ['fetch-pr 23'] = helpers.command_result(vim.json.encode({
+          state = 'OPEN',
           title = 'Existing PR',
           body = 'Body',
           isDraft = false,
@@ -401,6 +402,7 @@ describe('create_pr', function()
       ['git remote get-url origin'] = helpers.command_result('git@github.com:owner/repo.git\n'),
       ['pr-for-branch feature'] = helpers.command_result('23\n'),
       ['fetch-pr 23'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
         title = 'Existing PR',
         body = 'Body',
         isDraft = false,
