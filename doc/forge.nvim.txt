@@ -42,7 +42,9 @@ Requirements: ~
   - `gh` for GitHub
   - `glab` for GitLab
   - `tea` for Codeberg/Gitea/Forgejo
-- Optional: `fzf-lua` >= 0.40.0 for interactive picker workflows
+- Optional: `fzf-lua` >= 0.40.0 for interactive built-in routes
+  (`require('forge').open()`) and the picker API
+  (`require('forge.picker').pick()`)
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
@@ -832,7 +834,9 @@ On GitLab, both canonical and provider-native route arguments work here, such
 as `require('forge').open('prs')` or `require('forge').open('mrs')`; route
 config keys still remain `routes.prs` and `routes.ci`.
 
-This interactive surface requires `fzf-lua`. Direct `:Forge` commands do not.
+This interactive surface requires `fzf-lua`. Direct `:Forge` commands and
+deterministic Lua helpers such as `require('forge').pr()`, `review()`,
+`pr_ci()`, `ci()`, `create_pr()`, and `create_issue()` do not.
 
 The picker surface covers workflows that do not fit cleanly in a single
 command, such as list navigation, row-scoped actions, filters, refresh,
@@ -1137,8 +1141,8 @@ Choose the surface by workflow type instead of by call depth:
 
 The top-level current-ref helpers mirror the Ex command semantics, including
 explicit `num=` targeting for PR actions. `require('forge').open()` is the
-entrypoint for built-in route and picker flows. `forge.picker.pick()` is the
-low-level UI primitive wired to `fzf-lua`.
+entrypoint for built-in interactive routes and picker flows.
+`forge.picker.pick()` is the low-level UI primitive wired to `fzf-lua`.
 On GitLab, route arguments also accept provider-native aliases such as `mrs`,
 `mrs.open`, `pipelines`, and `pipelines.current_branch`.
 

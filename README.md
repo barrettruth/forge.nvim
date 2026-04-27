@@ -19,8 +19,9 @@ without leaving your editor.
 - At least one forge CLI: [`gh`](https://cli.github.com/),
   [`glab`](https://gitlab.com/gitlab-org/cli), or
   [`tea`](https://gitea.com/gitea/tea)
-- (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) >= 0.40 for the
-  picker UI
+- (Optionally) [fzf-lua](https://github.com/ibhagwan/fzf-lua) >= 0.40 for
+  interactive built-in routes (`require('forge').open()`) and the picker API
+  (`require('forge.picker').pick()`)
 - (Optionally) a code reviewing plugin:
   [`diffview.nvim`](https://github.com/sindrets/diffview.nvim),
   [`codediff.nvim`](https://github.com/esmuellert/codediff.nvim), or

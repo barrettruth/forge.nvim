@@ -247,3 +247,85 @@ describe('forge.picker.order_hints', function()
     assert.same({ 'default', 'create', 'filter', 'refresh', 'mystery_a' }, names(ordered))
   end)
 end)
+
+describe('forge.picker.pick', function()
+  local old_preload
+  local warnings
+
+  before_each(function()
+    warnings = {}
+    old_preload = {
+      ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.picker.fzf'] = package.preload['forge.picker.fzf'],
+      ['fzf-lua'] = package.preload['fzf-lua'],
+    }
+
+    package.preload['forge.logger'] = function()
+      return {
+        warn = function(msg)
+          warnings[#warnings + 1] = msg
+        end,
+      }
+    end
+
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.picker'] = nil
+    package.loaded['forge.picker.fzf'] = nil
+    package.loaded['fzf-lua'] = nil
+  end)
+
+  after_each(function()
+    package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.picker.fzf'] = old_preload['forge.picker.fzf']
+    package.preload['fzf-lua'] = old_preload['fzf-lua']
+
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.picker'] = nil
+    package.loaded['forge.picker.fzf'] = nil
+    package.loaded['fzf-lua'] = nil
+  end)
+
+  it('warns cleanly when fzf-lua is unavailable', function()
+    package.preload['fzf-lua'] = function()
+      error("module 'fzf-lua' not found")
+    end
+
+    local picker = require('forge.picker')
+    local handle = picker.pick({
+      entries = {},
+      actions = {},
+      picker_name = 'pr',
+    })
+
+    assert.is_nil(handle)
+    assert.same({
+      "fzf-lua not found (interactive routes and require('forge.picker').pick() disabled; direct :Forge commands and deterministic Lua helpers still available)",
+    }, warnings)
+  end)
+
+  it('delegates to the fzf backend when available', function()
+    local captured
+    package.preload['fzf-lua'] = function()
+      return {}
+    end
+    package.preload['forge.picker.fzf'] = function()
+      return {
+        pick = function(opts)
+          captured = opts
+          return { refresh = function() end }
+        end,
+      }
+    end
+
+    local picker = require('forge.picker')
+    local handle = picker.pick({
+      entries = {},
+      actions = {},
+      picker_name = 'pr',
+    })
+
+    assert.is_table(handle)
+    assert.same('pr', captured.picker_name)
+    assert.same({}, warnings)
+  end)
+end)

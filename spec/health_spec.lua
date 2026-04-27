@@ -95,10 +95,12 @@ describe('health', function()
 
     package.preload['forge.picker'] = function()
       return {
-        backend = function()
-          return 'fzf-lua'
+        ui_available = function()
+          return pcall(require, 'fzf-lua')
         end,
-        detect_order = { 'fzf-lua' },
+        unavailable_message = function()
+          return "fzf-lua not found (interactive routes and require('forge.picker').pick() disabled; direct :Forge commands and deterministic Lua helpers still available)"
+        end,
       }
     end
 
@@ -141,7 +143,12 @@ describe('health', function()
     assert.is_true(vim.tbl_contains(captured.starts, 'Review adapters'))
     assert.is_true(vim.tbl_contains(captured.oks, 'git found'))
     assert.is_true(vim.tbl_contains(captured.oks, 'configured review adapter "checkout" available'))
-    assert.is_true(vim.tbl_contains(captured.oks, 'fzf-lua found (interactive picker UI enabled)'))
+    assert.is_true(
+      vim.tbl_contains(
+        captured.oks,
+        "fzf-lua found (require('forge').open() and require('forge.picker').pick() enabled)"
+      )
+    )
     assert.is_true(
       vim.tbl_contains(captured.infos, 'diffview.nvim not found (adapter=diffview unavailable)')
     )
@@ -160,7 +167,9 @@ describe('health', function()
   end)
 
   it('reports missing optional interactive picker UI as info', function()
-    package.preload['fzf-lua'] = nil
+    package.preload['fzf-lua'] = function()
+      error("module 'fzf-lua' not found")
+    end
     package.loaded['fzf-lua'] = nil
     package.loaded['forge.health'] = nil
 
@@ -169,7 +178,7 @@ describe('health', function()
     assert.is_true(
       vim.tbl_contains(
         captured.infos,
-        'fzf-lua not found (interactive picker UI disabled; direct :Forge commands still available)'
+        "fzf-lua not found (interactive routes and require('forge.picker').pick() disabled; direct :Forge commands and deterministic Lua helpers still available)"
       )
     )
   end)

@@ -4,6 +4,10 @@ local ci = require('forge.ci')
 local detect = require('forge.detect')
 local surface = require('forge.surface')
 
+local function has_fzf()
+  return pcall(require, 'fzf-lua')
+end
+
 ---@alias forge.Segment {[1]: string, [2]: string?}
 
 ---@class forge.PickerEntry
@@ -350,9 +354,23 @@ function M.ci_toggle_verb(entry)
   return ci.toggle_verb(value)
 end
 
+---@return boolean
+function M.ui_available()
+  return has_fzf()
+end
+
+---@return string
+function M.unavailable_message()
+  return "fzf-lua not found (interactive routes and require('forge.picker').pick() disabled; direct :Forge commands and deterministic Lua helpers still available)"
+end
+
 ---@param opts forge.PickerOpts
 ---@return forge.PickerHandle?
 function M.pick(opts)
+  if not M.ui_available() then
+    require('forge.logger').warn(M.unavailable_message())
+    return nil
+  end
   return require('forge.picker.fzf').pick(opts)
 end
 

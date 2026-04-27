@@ -53,12 +53,22 @@ end
 
 ---@return table<string, fun(ctx: forge.Context, opts: forge.RouteOpts): boolean?, string?>
 local function route_handlers()
-  local pickers = require('forge.pickers')
+  local function require_pickers()
+    local picker = require('forge.picker')
+    if not picker.ui_available() then
+      return nil, picker.unavailable_message()
+    end
+    return require('forge.pickers')
+  end
 
   return {
     ['prs.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
+      end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
       end
       pickers.pr('all', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
@@ -66,11 +76,19 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
+      end
       pickers.pr('open', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['prs.closed'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
+      end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
       end
       pickers.pr('closed', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
@@ -78,11 +96,19 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
+      end
       pickers.issue('all', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['issues.open'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
+      end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
       end
       pickers.issue('open', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
@@ -90,17 +116,29 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
+      end
       pickers.issue('closed', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['ci.all'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
+      end
       pickers.ci(ctx.forge, nil, nil, { back = opts.back, scope = opts.scope })
     end,
     ['ci.current_branch'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
+      end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
       end
       local branch = opts.branch
       if branch == nil or branch == '' then
@@ -153,17 +191,29 @@ local function route_handlers()
       if not ctx.forge then
         return false, 'no forge detected'
       end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
+      end
       pickers.release('all', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['releases.draft'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
       end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
+      end
       pickers.release('draft', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
     ['releases.prerelease'] = function(ctx, opts)
       if not ctx.forge then
         return false, 'no forge detected'
+      end
+      local pickers, err = require_pickers()
+      if not pickers then
+        return false, err
       end
       pickers.release('prerelease', ctx.forge, { back = opts.back, scope = opts.scope })
     end,
@@ -230,8 +280,13 @@ end
 
 ---@param ctx forge.Context
 ---@param opts? forge.RouteOpts
+---@return boolean?, string?
 local function open_root(ctx, opts)
   opts = opts or {}
+  local picker = require('forge.picker')
+  if not picker.ui_available() then
+    return false, picker.unavailable_message()
+  end
   local cfg = require('forge').config()
   local sections = rawget(cfg, 'sections') or {}
   local routes = rawget(cfg, 'routes') or {}
@@ -274,7 +329,7 @@ local function open_root(ctx, opts)
     return
   end
 
-  require('forge.picker').pick({
+  picker.pick({
     prompt = prompt(ctx),
     entries = entries,
     actions = { default_action },
@@ -297,7 +352,10 @@ function M.open(name, opts)
   local forge_name = route_forge_name(ctx, opts)
 
   if not name or name == '' then
-    open_root(ctx, vim.tbl_extend('force', opts, { forge_name = forge_name }))
+    local ok, msg = open_root(ctx, vim.tbl_extend('force', opts, { forge_name = forge_name }))
+    if ok == false and msg then
+      log.warn(msg)
+    end
     return
   end
 

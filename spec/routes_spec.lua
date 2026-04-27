@@ -117,6 +117,7 @@ describe('routes', function()
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['forge.pickers'] = package.preload['forge.pickers'],
+      ['fzf-lua'] = package.preload['fzf-lua'],
     }
 
     package.preload['forge'] = function()
@@ -156,13 +157,14 @@ describe('routes', function()
     package.preload['forge.picker'] = function()
       local picker = dofile(vim.fn.getcwd() .. '/lua/forge/picker/init.lua')
       return vim.tbl_extend('force', picker, {
-        backend = function()
-          return 'fzf-lua'
-        end,
         pick = function(opts)
           captured.root = opts
         end,
       })
+    end
+
+    package.preload['fzf-lua'] = function()
+      return {}
     end
 
     package.preload['forge.pickers'] = function()
@@ -205,11 +207,13 @@ describe('routes', function()
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
+    package.preload['fzf-lua'] = old_preload['fzf-lua']
 
     package.loaded['forge'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.pickers'] = nil
+    package.loaded['fzf-lua'] = nil
     package.loaded['forge.routes'] = nil
   end)
 
@@ -297,6 +301,45 @@ describe('routes', function()
     )
   end)
 
+  it('warns cleanly when fzf-lua is missing for the root picker surface', function()
+    package.preload['fzf-lua'] = function()
+      error("module 'fzf-lua' not found")
+    end
+    package.loaded['fzf-lua'] = nil
+    package.loaded['forge.picker'] = nil
+    package.loaded['forge.routes'] = nil
+
+    require('forge.routes').open()
+
+    assert.equals(
+      "fzf-lua not found (interactive routes and require('forge.picker').pick() disabled; direct :Forge commands and deterministic Lua helpers still available)",
+      captured.warn
+    )
+    assert.is_nil(captured.root)
+    assert.is_nil(captured.pr)
+    assert.is_nil(captured.issue)
+    assert.is_nil(captured.ci)
+    assert.is_nil(captured.release)
+  end)
+
+  it('warns cleanly when fzf-lua is missing for picker-backed routes', function()
+    package.preload['fzf-lua'] = function()
+      error("module 'fzf-lua' not found")
+    end
+    package.loaded['fzf-lua'] = nil
+    package.loaded['forge.picker'] = nil
+    package.loaded['forge.routes'] = nil
+
+    require('forge.routes').open('prs.open')
+
+    assert.equals(
+      "fzf-lua not found (interactive routes and require('forge.picker').pick() disabled; direct :Forge commands and deterministic Lua helpers still available)",
+      captured.warn
+    )
+    assert.is_nil(captured.pr)
+    assert.is_nil(captured.root)
+  end)
+
   it('accepts GitLab route aliases in root route defaults while keeping canonical keys', function()
     detected_forge = fake_gitlab_forge()
     current_config.routes.prs = 'mrs.closed'
@@ -330,6 +373,21 @@ describe('routes', function()
 
     assert.equals('https://github.com/owner/current', captured.opened_url)
     assert.is_nil(captured.browse)
+  end)
+
+  it('still allows non-picker browse routes when fzf-lua is missing', function()
+    package.preload['fzf-lua'] = function()
+      error("module 'fzf-lua' not found")
+    end
+    package.loaded['fzf-lua'] = nil
+    package.loaded['forge.picker'] = nil
+    package.loaded['forge.routes'] = nil
+
+    vim.api.nvim_set_current_buf(vim.api.nvim_create_buf(false, true))
+    require('forge.routes').open('browse.contextual')
+
+    assert.equals('https://github.com/owner/current', captured.opened_url)
+    assert.is_nil(captured.warn)
   end)
 
   it('treats special URI buffers as non-file context for contextual browse', function()
