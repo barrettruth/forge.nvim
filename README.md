@@ -41,8 +41,8 @@ Stable releases are cut from manual tags named `v0.x.y`. Pushing one of those
 tags creates a GitHub release and publishes the tagged version to LuaRocks.
 
 Nightly prereleases are automated snapshots from `main`. They are published as
-GitHub prereleases tagged `nightly-YYYYMMDD-<sha7>` and are kept off the stable
-LuaRocks channel.
+the rolling GitHub prerelease `nightly`, with the current short commit hash in
+the release title, and are kept off the stable LuaRocks channel.
 
 ## Documentation
 
