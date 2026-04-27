@@ -262,6 +262,19 @@ describe('command schema', function()
   end)
 
   it(
+    'attaches implicit current-branch CI disambiguation modifiers to normalized commands',
+    function()
+      local ci = assert(cmd.parse({ 'ci', 'repo=upstream', 'head=origin@topic' }))
+
+      assert.equals('open', ci.name)
+      assert.same({}, ci.subjects)
+      assert.equals('owner/upstream', ci.parsed_modifiers.repo.slug)
+      assert.equals('topic', ci.parsed_modifiers.head.rev)
+      assert.equals('owner/current', ci.parsed_modifiers.head.repo.slug)
+    end
+  )
+
+  it(
     'attaches implicit current-open-PR mutator disambiguation modifiers to normalized commands',
     function()
       local close = assert(cmd.parse({ 'pr', 'close', 'repo=upstream', 'head=origin@topic' }))
@@ -332,7 +345,7 @@ describe('command schema', function()
     assert.same({ 'repo', 'head', 'method' }, cmd.modifier_names('pr', 'merge'))
     assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'draft'))
     assert.same({ 'repo', 'head' }, cmd.modifier_names('pr', 'ready'))
-    assert.same({ 'repo' }, cmd.modifier_names('ci', 'open'))
+    assert.same({ 'repo', 'head' }, cmd.modifier_names('ci', 'open'))
     assert.same({ 'repo' }, cmd.modifier_names('ci', 'browse'))
     assert.same({ 'repo', 'web', 'blank', 'template' }, cmd.modifier_names('issue', 'create'))
     assert.same({ 'repo', 'head', 'adapter' }, cmd.modifier_names('review'))

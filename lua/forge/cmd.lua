@@ -154,7 +154,7 @@ local families = {
     verbs = {
       open = {
         subject = { kind = 'run', min = 0, max = 1 },
-        modifiers = { 'repo' },
+        modifiers = { 'repo', 'head' },
       },
       browse = {
         subject = { kind = 'run', min = 0, max = 1 },
@@ -305,13 +305,6 @@ end
 
 local function warn(msg)
   require('forge.logger').warn(msg)
-end
-
-local function unavailable_ci_history_message(f)
-  local ci_inline = (f and f.labels and f.labels.ci_inline) or 'CI runs'
-  return ("current-branch %s are not available from :Forge; use require('forge').ci()"):format(
-    ci_inline
-  )
 end
 
 local function error_result(msg, opts)
@@ -671,11 +664,10 @@ local function dispatch_ci(command)
     return
   end
   if command.name == 'open' and command.subjects[1] == nil then
-    local f = require_forge_or_warn()
-    if not f then
-      return
-    end
-    warn(unavailable_ci_history_message(f))
+    require('forge').ci({
+      repo = command.parsed_modifiers.repo,
+      head = command.parsed_modifiers.head,
+    })
     return
   end
   local f = require_forge_or_warn()

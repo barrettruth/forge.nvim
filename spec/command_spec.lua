@@ -576,15 +576,24 @@ describe(':Forge command', function()
     assert.is_nil(captured.ops_calls[1])
   end)
 
-  it('warns when bare :Forge ci would enter interactive current-branch history', function()
+  it('dispatches bare :Forge ci through the high-level current-branch helper', function()
     vim.cmd('Forge ci')
-    vim.cmd('Forge ci repo=upstream')
 
-    assert.same({
-      "current-branch CI runs are not available from :Forge; use require('forge').ci()",
-      "current-branch CI runs are not available from :Forge; use require('forge').ci()",
-    }, captured.warnings)
-    assert.same({}, captured.ci_calls)
+    assert.same({ {} }, captured.ci_calls)
+    assert.same({}, captured.warnings)
+    assert.same({}, captured.ops_calls)
+  end)
+
+  it('passes repo= and head= disambiguation through bare :Forge ci', function()
+    vim.cmd('Forge ci repo=upstream head=origin@topic')
+
+    assert.equals(1, #captured.ci_calls)
+    assert.equals('repo', captured.ci_calls[1].repo.kind)
+    assert.equals('owner/upstream', captured.ci_calls[1].repo.slug)
+    assert.equals('rev', captured.ci_calls[1].head.kind)
+    assert.equals('topic', captured.ci_calls[1].head.rev)
+    assert.equals('owner/current', captured.ci_calls[1].head.repo.slug)
+    assert.same({}, captured.warnings)
     assert.same({}, captured.ops_calls)
   end)
 
@@ -1392,7 +1401,7 @@ describe(':Forge command', function()
       },
       {
         cmdline = 'Forge ci ',
-        expected = { 'open', 'browse', 'refresh' },
+        expected = { 'open', 'browse', 'refresh', 'repo=', 'head=' },
       },
       {
         cmdline = 'Forge release ',
@@ -1483,7 +1492,8 @@ describe(':Forge command', function()
     assert.is_true(vim.tbl_contains(ci, 'open'))
     assert.is_true(vim.tbl_contains(ci, 'browse'))
     assert.is_true(vim.tbl_contains(ci, 'refresh'))
-    assert.is_false(vim.tbl_contains(ci, 'repo='))
+    assert.is_true(vim.tbl_contains(ci, 'repo='))
+    assert.is_true(vim.tbl_contains(ci, 'head='))
     assert.is_false(vim.tbl_contains(ci, 'log'))
     assert.is_false(vim.tbl_contains(ci, 'watch'))
     assert.same({ 'repo=', 'head=' }, pr_ci)
@@ -1623,7 +1633,7 @@ describe(':Forge command', function()
       'repo=',
       'head=',
     }, mr)
-    assert.same({ 'open', 'browse', 'refresh' }, pipeline)
+    assert.same({ 'open', 'browse', 'refresh', 'repo=', 'head=' }, pipeline)
   end)
 
   it(
@@ -1639,6 +1649,7 @@ describe(':Forge command', function()
       local current_pr_heads = completion('Forge pr head=')
       local review_heads = completion('Forge review head=')
       local pr_ci_heads = completion('Forge pr ci head=')
+      local ci_heads = completion('Forge ci head=')
       local templates = completion('Forge issue create template=')
       local adapters = completion('Forge review 42 adapter=')
       local methods = completion('Forge pr merge method=')
@@ -1671,6 +1682,7 @@ describe(':Forge command', function()
         { values = current_pr_heads, prefix = 'head=' },
         { values = review_heads, prefix = 'head=' },
         { values = pr_ci_heads, prefix = 'head=' },
+        { values = ci_heads, prefix = 'head=' },
       }) do
         local values = case.values
         local prefix = case.prefix
@@ -1925,6 +1937,7 @@ describe(':Forge command', function()
     local release_delete = vim.fn.getcompletion('Forge release delete ', 'cmdline')
 
     assert.is_true(vim.tbl_contains(open, 'repo='))
+    assert.is_true(vim.tbl_contains(open, 'head='))
     assert.is_true(vim.tbl_contains(browse, 'repo='))
     assert.is_false(vim.tbl_contains(open, '401'))
     assert.is_false(vim.tbl_contains(open, '402'))

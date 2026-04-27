@@ -163,6 +163,9 @@ describe('high-level implicit-ref API', function()
 
     package.preload['forge.ops'] = function()
       return {
+        ci = function(f, head, opts)
+          table.insert(captured.ops_calls, { name = 'ci', f = f, head = head, opts = opts })
+        end,
         pr_ci = function(f, pr, opts)
           table.insert(captured.ops_calls, { name = 'pr_ci', f = f, pr = pr, opts = opts })
         end,
@@ -411,14 +414,17 @@ describe('high-level implicit-ref API', function()
     assert.is_nil(captured.head_calls[1].head)
     assert.equals('upstream@release', captured.head_calls[2].head)
     assert.same({
-      route = 'ci.current_branch',
-      opts = { branch = 'feature', scope = repo_scope('current') },
-    }, captured.opens[1])
+      name = 'ci',
+      f = { name = 'github', cli = 'gh', labels = { ci = 'CI', pr_one = 'PR' } },
+      head = { branch = 'feature', scope = repo_scope('current') },
+    }, captured.ops_calls[1])
     assert.same({
-      route = 'ci.current_branch',
-      opts = { branch = 'release', scope = repo_scope('upstream') },
-    }, captured.opens[2])
+      name = 'ci',
+      f = { name = 'github', cli = 'gh', labels = { ci = 'CI', pr_one = 'PR' } },
+      head = { branch = 'release', scope = repo_scope('upstream') },
+    }, captured.ops_calls[2])
     assert.same({}, captured.repo_calls)
+    assert.same({}, captured.opens)
   end)
 
   it('uses explicit repo targeting for ci() when only the repo is overridden', function()
@@ -434,9 +440,11 @@ describe('high-level implicit-ref API', function()
     assert.is_nil(captured.repo_calls[1].repo)
     assert.equals('upstream', captured.repo_calls[1].opts.repo)
     assert.same({
-      route = 'ci.current_branch',
-      opts = { branch = 'feature', scope = repo_scope('upstream') },
-    }, captured.opens[1])
+      name = 'ci',
+      f = { name = 'github', cli = 'gh', labels = { ci = 'CI', pr_one = 'PR' } },
+      head = { branch = 'feature', scope = repo_scope('upstream') },
+    }, captured.ops_calls[1])
+    assert.same({}, captured.opens)
   end)
 
   it('warns cleanly when no current PR matches the high-level current-ref entrypoints', function()

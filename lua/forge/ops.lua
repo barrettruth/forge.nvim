@@ -232,6 +232,17 @@ function M.pr_ci(f, pr, opts)
 end
 
 ---@param f forge.Forge
+---@param head forge.HeadRef
+---@param opts? table
+function M.ci(f, head, opts)
+  if not f.list_runs_json_cmd then
+    log.warn('structured CI data not available for this forge')
+    return
+  end
+  require('forge.ci_history').open(f, head, opts)
+end
+
+---@param f forge.Forge
 ---@param pr forge.PRRefLike
 ---@param opts? forge.OpCallbacks
 function M.pr_close(f, pr, opts)

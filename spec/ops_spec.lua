@@ -30,6 +30,7 @@ describe('shared operations', function()
       ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.pickers'] = package.preload['forge.pickers'],
+      ['forge.ci_history'] = package.preload['forge.ci_history'],
       ['forge.pr_checks'] = package.preload['forge.pr_checks'],
       ['forge.term'] = package.preload['forge.term'],
     }
@@ -139,6 +140,18 @@ describe('shared operations', function()
       }
     end
 
+    package.preload['forge.ci_history'] = function()
+      return {
+        open = function(f, head, opts)
+          captured.ci_history = {
+            f = f,
+            head = head,
+            opts = opts,
+          }
+        end,
+      }
+    end
+
     package.preload['forge.term'] = function()
       return {
         open = function(cmd, opts)
@@ -161,6 +174,7 @@ describe('shared operations', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
+    package.loaded['forge.ci_history'] = nil
     package.loaded['forge.pr_checks'] = nil
     package.loaded['forge.term'] = nil
   end)
@@ -175,6 +189,7 @@ describe('shared operations', function()
     package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
+    package.preload['forge.ci_history'] = old_preload['forge.ci_history']
     package.preload['forge.pr_checks'] = old_preload['forge.pr_checks']
     package.preload['forge.term'] = old_preload['forge.term']
 
@@ -183,8 +198,45 @@ describe('shared operations', function()
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.pickers'] = nil
+    package.loaded['forge.ci_history'] = nil
     package.loaded['forge.pr_checks'] = nil
     package.loaded['forge.term'] = nil
+  end)
+
+  it('opens deterministic current-branch CI history when structured runs are supported', function()
+    local ops = require('forge.ops')
+    local f = {
+      name = 'github',
+      labels = { ci_inline = 'runs' },
+      list_runs_json_cmd = function()
+        return { 'runs' }
+      end,
+    }
+
+    ops.ci(f, { branch = 'feature', scope = 'owner/repo' }, { back = 'root' })
+
+    assert.same({
+      f = f,
+      head = {
+        branch = 'feature',
+        scope = 'owner/repo',
+      },
+      opts = { back = 'root' },
+    }, captured.ci_history)
+    assert.is_nil(captured.ci)
+    assert.same({}, captured.infos)
+  end)
+
+  it('warns when structured current-branch CI data is unavailable', function()
+    local ops = require('forge.ops')
+
+    ops.ci({
+      name = 'custom',
+      labels = { ci_inline = 'runs' },
+    }, { branch = 'feature', scope = 'owner/repo' }, { back = 'root' })
+
+    assert.is_nil(captured.ci_history)
+    assert.same({ 'structured CI data not available for this forge' }, captured.infos)
   end)
 
   it('opens PR checks when the backend supports per-PR checks', function()
