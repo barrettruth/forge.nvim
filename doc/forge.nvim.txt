@@ -344,8 +344,8 @@ COMMANDS                                                              *:Forge*
     surface.
     Direct commands cover explicit forge actions with stable targets such as
     PR/issue/release numbers, tags, and CI run ids, plus current-ref actions
-    rooted in the current branch such as bare `:Forge pr` and
-    `:Forge review`.
+    rooted in the current branch such as bare `:Forge pr`, `:Forge review`,
+    and `:Forge pr ci`.
 
 TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
     Supported verbs accept explicit target modifiers such as `repo=...`,
@@ -357,6 +357,8 @@ TARGET DEFAULTS AND OVERRIDES                          *forge-target-defaults*
       `origin`
     - `:Forge pr` and `:Forge review` default to resolving the current open PR
       from the current branch head
+    - `:Forge pr ci` defaults to resolving checks for the current branch's PR,
+      preferring an open PR and falling back to a unique closed or merged PR
     - `:Forge pr create` defaults `head=` to the current branch push
       context and `base=` to the collaboration repo default branch
     - `:Forge browse` defaults to the current file/line selection on the
@@ -385,7 +387,7 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     Commands that need interactive selection are intentionally not exposed
     through `:Forge`; use the interactive picker surface instead.
     This includes list navigation, list-scoped filters/refresh, CI
-    cancel/rerun toggles, nested per-PR checks, and copy helpers.
+    cancel/rerun toggles, and copy helpers.
 
 SURFACE TAXONOMY                                          *forge-surface-model*
 
@@ -405,10 +407,10 @@ The user-facing surface is organized into three layers:
    - `require('forge.picker').pick(opts)`
    - Root sections, list routes, filters, load-more, nested picker actions
 
-Today, `:Forge` commands stay on the deterministic side of that boundary.
-The remaining current-ref helpers that still bridge into the interactive
-layer are Lua-only:
-- `require('forge').pr_ci(opts?)`
+Today, `:Forge` commands and `require('forge').pr_ci()` stay on the
+deterministic side of that boundary.
+The remaining current-ref helper that still bridges into the interactive
+layer is Lua-only:
 - `require('forge').ci(opts?)`
 
 PR COMMANDS                                                *forge-pr-commands*
@@ -443,10 +445,18 @@ PR COMMANDS                                                *forge-pr-commands*
                        resolved `head=` / `base=` pair.
     `draft fill`       Create draft instantly.
 
-`:Forge pr ci`                                                  *:Forge-pr-ci*
-    PR checks are interactive-only and are not available from
-    `:Forge`. Use `require('forge').pr_ci()` for the interactive
-    checks flow.
+`:Forge pr ci` [repo=...] [head=...]                           *:Forge-pr-ci*
+`:Forge pr ci` {num} [repo=...]
+    Open PR checks in the buffer-native checks view.
+    (no `{num}`)       Resolve the current branch's PR and open its checks.
+                       Forge prefers a unique open PR; if none match, it falls
+                       back to a unique closed or merged PR.
+    `{num}`            Open checks for PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       branch-relative PR lookup.
+    `head=`            Override the head used for implicit branch-relative
+                       lookup. Only used when `{num}` is omitted.
+    Use `<cr>` to inspect the highlighted check and `gx` to open its URL.
 
 `:Forge review` [repo=...] [head=...] [adapter=...]              *:Forge-review*
 `:Forge review` {num} [repo=...] [adapter=...]
@@ -484,6 +494,20 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
     - exactly one match: run the action
     - no matches: warn `no open PR found for this branch`
     - multiple matches: warn and ask for `repo=` or `head=`
+
+IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~             *forge-pr-ci-resolution*
+    `:Forge pr ci` uses the same branch-context + `repo=` / `head=`
+    disambiguation model, but with a broader state policy when `{num}` is
+    omitted.
+
+    Lookup policy:
+    - first search open PRs for the current branch
+    - if no open PR matches, search closed and merged PRs
+
+    Outcomes:
+    - exactly one match in a pass: open its checks buffer
+    - no matches in any pass: warn `no PR found for this branch`
+    - multiple matches in a pass: warn and ask for `repo=` or `head=`
 
 IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     `:Forge pr reopen` uses the same branch-context + `repo=` / `head=`
@@ -1129,9 +1153,9 @@ mirror the Ex surface and reuse the shared resolver layer. >lua
     forge.ci({ repo = 'upstream' })
 <
 
-`pr_ci()` and `ci()` still currently enter the interactive CI/checks layer
-even though they use current-ref resolution. They remain top-level Lua
-helpers, but they are not part of the deterministic Ex contract.
+`pr_ci()` now opens the deterministic PR checks buffer. `ci()` still currently
+enters the interactive current-branch CI history layer, so only `ci()` remains
+outside the deterministic Ex contract.
 
 Internal layers such as `lua/forge/ops.lua` and `lua/forge/pickers.lua`
 power the built-in commands and pickers, but they are not the public
@@ -1214,8 +1238,9 @@ contracts live in the source:
 
 Most integrations only need one of these entrypoints:
 - Deterministic helpers:
-  `require('forge').pr(opts?)`, `review(opts?)`, `edit_issue(num, scope?)`,
-  `current_pr(opts?)`, `status()`, `create_pr(opts?)`, `create_issue(opts?)`
+  `require('forge').pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`,
+  `edit_issue(num, scope?)`, `current_pr(opts?)`, `status()`,
+  `create_pr(opts?)`, `create_issue(opts?)`
 - Interactive built-in routes:
   `require('forge').open(route?, opts?)`
 - Interactive picker primitive:
@@ -1232,10 +1257,10 @@ TOP-LEVEL API: `require('forge')` ~                     *forge-top-level-api*
 The canonical user-facing Lua surface lives in `lua/forge/init.lua`.
 Prefer these helpers for normal integrations:
 - `pr(opts?)`, `review(opts?)`, `edit_issue(num, scope?)`,
-  `current_pr(opts?)`, `status()`, `create_pr(opts?)`, and
-  `create_issue(opts?)` for deterministic integrations
+  `current_pr(opts?)`, `status()`, `create_pr(opts?)`,
+  `create_issue(opts?)`, and `pr_ci(opts?)` for deterministic integrations
 - `open(route?, opts?)` for built-in interactive routes
-- `pr_ci(opts?)` and `ci(opts?)` for the current interactive CI/checks helpers
+- `ci(opts?)` for the current interactive CI history helper
 - `pr({ num = '42' })`, `review({ num = '42' })`, and `pr_ci({ num = '42' })`
   for explicit PR targeting
 
@@ -1247,9 +1272,10 @@ MIGRATION NOTES ~                                         *forge-migration*
 For the implicit-ref rollout:
 - `:Forge pr` and `:Forge review` are the canonical current-PR commands when
   `{num}` is omitted.
-- `:Forge pr ci` and bare `:Forge ci` are not available from Ex; use
-  `require('forge').pr_ci()` and `require('forge').ci()` for the
-  interactive current-ref CI flows.
+- `:Forge pr ci` and `require('forge').pr_ci()` now open deterministic PR
+  checks buffers.
+- bare `:Forge ci` is still not available from Ex; use `require('forge').ci()`
+  for the current interactive CI history flow.
 - `:Forge pr create` and `require('forge').create_pr()` are create-only.
 - `edit_pr()` is removed; use `pr({ num = '42' })` instead.
 - Prefer `require('forge').pr()`, `review()`, `pr_ci()`, `ci()`, and

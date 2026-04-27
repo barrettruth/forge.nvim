@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('pr checks buffer', function()
   local old_system
   local old_ui_open
@@ -20,15 +22,15 @@ describe('pr checks buffer', function()
     }
     old_system = vim.system
     old_ui_open = vim.ui.open
-    old_preload = {
-      ['forge'] = package.preload['forge'],
-      ['forge.layout'] = package.preload['forge.layout'],
-      ['forge.log'] = package.preload['forge.log'],
-      ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.scope'] = package.preload['forge.scope'],
-      ['forge.system'] = package.preload['forge.system'],
-      ['forge.term'] = package.preload['forge.term'],
-    }
+    old_preload = helpers.capture_preload({
+      'forge',
+      'forge.layout',
+      'forge.log',
+      'forge.logger',
+      'forge.scope',
+      'forge.system',
+      'forge.term',
+    })
 
     package.preload['forge'] = function()
       return {
@@ -125,10 +127,14 @@ describe('pr checks buffer', function()
     vim.system = old_system
     vim.ui.open = old_ui_open
 
-    for name, loader in pairs(old_preload) do
-      package.preload[name] = loader
-      package.loaded[name] = nil
-    end
+    helpers.restore_preload(old_preload)
+    package.loaded['forge'] = nil
+    package.loaded['forge.layout'] = nil
+    package.loaded['forge.log'] = nil
+    package.loaded['forge.logger'] = nil
+    package.loaded['forge.scope'] = nil
+    package.loaded['forge.system'] = nil
+    package.loaded['forge.term'] = nil
     package.loaded['forge.pr_checks'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do

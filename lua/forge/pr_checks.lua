@@ -7,8 +7,21 @@ local system_mod = require('forge.system')
 
 local ns = vim.api.nvim_create_namespace('forge_pr_checks')
 
+---@class forge.PRChecksHighlight
+---@field col integer
+---@field end_col integer
+---@field group string
+
+---@class forge.PRChecksLine
+---@field text string
+---@field highlights forge.PRChecksHighlight[]
+---@field check forge.Check?
+
+---@type table<integer, { proc?: table, request_id?: integer, lines?: forge.PRChecksLine[] }>
 local buf_data = {}
 
+---@param pr forge.PRRef
+---@return string?
 local function bufname(pr)
   local prefix = scope_mod.bufpath(pr.scope)
   if not prefix or not pr.num or pr.num == '' then
@@ -91,6 +104,8 @@ local function jump(buf, dir)
   vim.api.nvim_win_set_cursor(0, { positions[#positions], 0 })
 end
 
+---@param buf integer
+---@return forge.Check?
 local function current_check(buf)
   local line = vim.api.nvim_win_get_cursor(0)[1]
   local lines = data_for(buf).lines or {}
@@ -98,14 +113,20 @@ local function current_check(buf)
   return entry and entry.check or nil
 end
 
+---@param check forge.Check
+---@return string?
 local function check_run_id(check)
   return check.run_id or (check.link or ''):match('/actions/runs/(%d+)')
 end
 
+---@param check forge.Check
+---@return string?
 local function check_job_id(check)
   return check.job_id or (check.link or ''):match('/job/(%d+)')
 end
 
+---@param checks forge.Check[]
+---@return forge.PRChecksLine[]
 local function render_rows(checks)
   local forge = require('forge')
   local rows = forge.format_checks(checks, { width = layout.picker_width() })
@@ -116,16 +137,15 @@ local function render_rows(checks)
     local col = 0
     for _, seg in ipairs(row) do
       local part = seg[1] or ''
-      local width = vim.fn.strdisplaywidth(part)
       text[#text + 1] = part
       if seg[2] then
         highlights[#highlights + 1] = {
           col = col,
-          end_col = col + width,
+          end_col = col + #part,
           group = seg[2],
         }
       end
-      col = col + width
+      col = col + #part
     end
     lines[#lines + 1] = {
       text = table.concat(text),
@@ -136,6 +156,9 @@ local function render_rows(checks)
   return lines
 end
 
+---@param text string
+---@param group string?
+---@return forge.PRChecksLine[]
 local function render_placeholder(text, group)
   return {
     {
@@ -143,7 +166,7 @@ local function render_placeholder(text, group)
       highlights = group and {
         {
           col = 0,
-          end_col = vim.fn.strdisplaywidth(text),
+          end_col = #text,
           group = group,
         },
       } or {},
@@ -152,6 +175,8 @@ local function render_placeholder(text, group)
   }
 end
 
+---@param buf integer
+---@param lines forge.PRChecksLine[]
 local function render(buf, lines)
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(
@@ -176,6 +201,8 @@ local function render(buf, lines)
   set_data(buf, { lines = lines })
 end
 
+---@param check forge.Check?
+---@return boolean
 local function openable_check(check)
   if type(check) ~= 'table' then
     return false
@@ -186,11 +213,17 @@ local function openable_check(check)
   return check_run_id(check) ~= nil
 end
 
+---@param f forge.Forge
+---@param check forge.Check
+---@param scope forge.Scope?
 local function inspect_check(f, check, scope)
   if not openable_check(check) then
     return
   end
   local run_id = check_run_id(check)
+  if not run_id then
+    return
+  end
   local job_id = check_job_id(check)
   local bucket = (check.bucket or ''):lower()
   local ref = check.scope or scope
@@ -212,6 +245,10 @@ local function inspect_check(f, check, scope)
   })
 end
 
+---@param buf integer
+---@param f forge.Forge
+---@param pr forge.PRRef
+---@param opts table?
 local function setup_keymaps(buf, f, pr, opts)
   local cfg = require('forge').config()
   local keys = type(cfg.keys) == 'table' and cfg.keys.log or {}
@@ -246,6 +283,9 @@ local function setup_keymaps(buf, f, pr, opts)
   end, 'Previous check')
 end
 
+---@param pr forge.PRRef
+---@param reuse_buf integer?
+---@return integer, boolean
 local function prepare_buf(pr, reuse_buf)
   local name = bufname(pr)
   local buf
@@ -294,6 +334,9 @@ local function prepare_buf(pr, reuse_buf)
   return buf, reusing
 end
 
+---@param checks forge.Check[]
+---@param scope forge.Scope?
+---@return forge.Check[]
 local function normalize_checks(checks, scope)
   local forge = require('forge')
   local normalized = vim.deepcopy(checks)
@@ -303,6 +346,10 @@ local function normalize_checks(checks, scope)
   return forge.filter_checks(normalized, 'all')
 end
 
+---@param f forge.Forge
+---@param pr forge.PRRef
+---@param opts table?
+---@param reuse_buf integer?
 function M.open(f, pr, opts, reuse_buf)
   opts = opts or {}
   local buf, reusing = prepare_buf(pr, reuse_buf)

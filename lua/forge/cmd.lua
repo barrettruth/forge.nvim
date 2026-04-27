@@ -41,6 +41,7 @@ local families = {
     verb_order = {
       'open',
       'browse',
+      'ci',
       'close',
       'reopen',
       'create',
@@ -306,11 +307,6 @@ local function warn(msg)
   require('forge.logger').warn(msg)
 end
 
-local function unavailable_pr_checks_message(f)
-  local pr_one = (f and f.labels and f.labels.pr_one) or 'PR'
-  return ("%s checks are not available from :Forge; use require('forge').pr_ci()"):format(pr_one)
-end
-
 local function unavailable_ci_history_message(f)
   local ci_inline = (f and f.labels and f.labels.ci_inline) or 'CI runs'
   return ("current-branch %s are not available from :Forge; use require('forge').ci()"):format(
@@ -504,7 +500,17 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'ci' then
-    warn(unavailable_pr_checks_message(f))
+    local pr = num and { num = num, scope = resolve_repo_modifier(command, f.name) }
+      or resolve_branch_pr_or_warn(command, f, {
+        searches = {
+          { 'open' },
+          { 'closed', 'merged' },
+        },
+      }, ('no %s found for this branch'):format((f.labels and f.labels.pr_one) or 'PR'))
+    if not pr then
+      return
+    end
+    ops.pr_ci(f, pr)
     return
   end
   if command.name == 'browse' then
