@@ -298,6 +298,32 @@ describe('format_prs', function()
     assert.equals(nil, title_text:find('...', 1, true))
     assert.truthy(title_text:find(long_title, 1, true))
   end)
+
+  it('pads PR rows to the full picker width in wide layouts', function()
+    local row = forge.format_prs({
+      { number = 1, title = 'short', state = 'OPEN', author = 'alice', created_at = '' },
+    }, fields, false, { width = 80 })[1]
+
+    assert.equals(80, require('forge.layout').display_width(flatten(row)))
+  end)
+end)
+
+describe('format_issues', function()
+  local fields = {
+    number = 'number',
+    title = 'title',
+    state = 'state',
+    author = 'author',
+    created_at = 'created_at',
+  }
+
+  it('pads issue rows to the full picker width in wide layouts', function()
+    local row = forge.format_issues({
+      { number = 10, title = 'bug report', state = 'open', author = 'alice', created_at = '' },
+    }, fields, false, { width = 80 })[1]
+
+    assert.equals(80, require('forge.layout').display_width(flatten(row)))
+  end)
 end)
 
 describe('format_issue', function()
