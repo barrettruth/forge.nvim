@@ -15,9 +15,11 @@ local function pr_state(f, entry)
   if not value then
     return nil
   end
-  if value.is_draft ~= nil then
+  if value.review_decision ~= nil or value.is_draft ~= nil or value.mergeable ~= nil then
     return {
-      review_decision = '',
+      state = value.state or '',
+      mergeable = value.mergeable or '',
+      review_decision = value.review_decision or '',
       is_draft = value.is_draft == true,
     }
   end
@@ -41,19 +43,24 @@ function M.pr_can_approve(f, entry)
   return state == nil or (state.review_decision or ''):upper() ~= 'APPROVED'
 end
 
-function M.pr_can_merge(f, entry)
+function M.pr_merge_methods(f, entry)
   if not pr_open(entry) then
-    return false
+    return {}
   end
   local state = pr_state(f, entry)
   if state and state.is_draft then
-    return false
+    return {}
   end
   local value = entry_value(entry)
   local info = require('forge').repo_info(f, value and value.scope or nil)
-  return merge_permission(info)
-    and type((info or {}).merge_methods) == 'table'
-    and #info.merge_methods > 0
+  if not merge_permission(info) or type((info or {}).merge_methods) ~= 'table' then
+    return {}
+  end
+  return info.merge_methods
+end
+
+function M.pr_can_merge(f, entry)
+  return #M.pr_merge_methods(f, entry) > 0
 end
 
 function M.pr_can_toggle_draft(f, entry)

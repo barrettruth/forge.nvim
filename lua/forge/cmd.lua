@@ -1089,6 +1089,9 @@ function M.run(opts)
   return M.dispatch(command)
 end
 
+---@param command forge.Command
+---@param args string[]
+---@return forge.CommandCompletionState
 local function completion_state(command, args)
   local state = {
     subjects = {},
@@ -1402,6 +1405,192 @@ local function completion_entry(value)
   return { value = value }
 end
 
+---@param value string?
+---@param forge_name forge.ScopeKind
+---@return forge.Scope?
+local function completion_repo_scope(value, forge_name)
+  if type(value) ~= 'string' or value == '' then
+    return nil
+  end
+  return require('forge.target').resolve_scope(value, forge_name, target_parse_opts())
+end
+
+---@param value forge.RepoLike?
+---@return forge.Scope?
+local function completion_repo_like_scope(value)
+  if type(value) ~= 'table' or value.kind == 'repo' then
+    return nil
+  end
+  ---@cast value forge.Scope
+  return value
+end
+
+---@param value string?
+---@return forge.RevTarget?
+local function completion_head(value)
+  if type(value) ~= 'string' or value == '' then
+    return nil
+  end
+  return require('forge.target').parse_rev(value, target_parse_opts())
+end
+
+---@param state forge.CommandCompletionState
+---@param f forge.Forge
+---@param include_head boolean?
+---@return forge.CurrentPROpts?
+local function completion_current_pr_opts(state, f, include_head)
+  local opts = {
+    forge = f,
+  }
+  if state.modifiers.repo ~= nil then
+    local scope = completion_repo_scope(state.modifiers.repo, f.name)
+    if not scope then
+      return nil
+    end
+    opts.repo = scope
+  end
+  if include_head ~= false and state.modifiers.head ~= nil then
+    local head = completion_head(state.modifiers.head)
+    if not head then
+      return nil
+    end
+    opts.head = head
+  end
+  return opts
+end
+
+---@param pr forge.PRRef
+---@param state string
+---@param pr_state forge.PRState?
+---@return forge.PickerEntry
+local function pr_completion_entry(pr, state, pr_state)
+  ---@type forge.PRCompletionValue
+  local value = {
+    num = pr.num,
+    scope = pr.scope,
+    state = state,
+  }
+  if type(pr_state) == 'table' then
+    value.is_draft = pr_state.is_draft
+    value.review_decision = pr_state.review_decision
+    value.mergeable = pr_state.mergeable
+  end
+  return completion_entry(value)
+end
+
+---@param state forge.CommandCompletionState
+---@return forge.PRCompletionTarget?
+local function implicit_pr_completion_target(state)
+  local forge_mod = require('forge')
+  local f = forge_mod.detect()
+  if not f then
+    return nil
+  end
+  local opts = completion_current_pr_opts(state, f)
+  if not opts then
+    return nil
+  end
+  local pr, err = forge_mod.current_pr(opts)
+  if err then
+    return nil
+  end
+  if pr then
+    local pr_state = forge_mod.pr_state(f, pr.num, pr.scope)
+    local state_name = type(pr_state) == 'table' and pr_state.state or nil
+    return {
+      forge = f,
+      entry = pr_completion_entry(pr, state_name or 'OPEN', pr_state),
+    }
+  end
+  pr, err = require('forge.resolve').branch_pr(opts, {
+    searches = { { 'closed' } },
+  })
+  if err then
+    return nil
+  end
+  if pr then
+    return {
+      forge = f,
+      entry = pr_completion_entry(pr, 'CLOSED'),
+    }
+  end
+  pr, err = require('forge.resolve').branch_pr(opts, {
+    searches = { { 'merged' } },
+  })
+  if err then
+    return nil
+  end
+  if pr then
+    return {
+      forge = f,
+      entry = pr_completion_entry(pr, 'MERGED'),
+    }
+  end
+  return nil
+end
+
+---@param command forge.Command
+---@param state forge.CommandCompletionState
+---@return forge.PRCompletionTarget?
+local function merge_method_completion_target(command, state)
+  if command.family ~= 'pr' or command.name ~= 'merge' then
+    return nil
+  end
+  local forge_mod = require('forge')
+  local f = forge_mod.detect()
+  if not f then
+    return nil
+  end
+  local opts = completion_current_pr_opts(state, f, false)
+  if not opts then
+    return nil
+  end
+  local num = state.subjects[1]
+  if num then
+    local scope = completion_repo_like_scope(opts.repo)
+    local pr_state = forge_mod.pr_state(f, num, scope)
+    local state_name = type(pr_state) == 'table' and pr_state.state or nil
+    return {
+      forge = f,
+      entry = pr_completion_entry({ num = num, scope = scope }, state_name or 'OPEN', pr_state),
+    }
+  end
+  local pr, err = forge_mod.current_pr(opts)
+  if err or not pr then
+    return nil
+  end
+  local pr_state = forge_mod.pr_state(f, pr.num, pr.scope)
+  local state_name = type(pr_state) == 'table' and pr_state.state or nil
+  return {
+    forge = f,
+    entry = pr_completion_entry(pr, state_name or 'OPEN', pr_state),
+  }
+end
+
+---@param command forge.Command?
+---@param state forge.CommandCompletionState
+---@param values string[]
+---@return string[]
+local function filter_family_verb_completion_items(command, state, values)
+  if not command then
+    return values
+  end
+  local items = {}
+  local target = nil
+  if command.family == 'pr' and command.name == 'open' then
+    target = implicit_pr_completion_target(state)
+  end
+  local policy = require('forge.completion_policy')
+  for _, value in ipairs(values) do
+    local forge = target and target.forge or nil
+    local entry = target and target.entry or nil
+    if policy.verb(command, value, forge, entry) then
+      items[#items + 1] = value
+    end
+  end
+  return items
+end
+
 local function complete_pr_subjects(command, state, prefix, policy)
   local f, forge_mod, scope = completion_forge(state)
   if not f or not forge_mod then
@@ -1482,12 +1671,9 @@ local function complete_release_subjects(state, prefix, policy)
   return filter(items, prefix)
 end
 
----@param opts? forge.SurfaceOpts
-local function completion_values(family_name, verb_name, flag_name, prefix, opts)
-  local command = M.resolve(family_name, verb_name, opts)
-  if not command then
-    return nil
-  end
+---@param command forge.Command
+---@param state forge.CommandCompletionState
+local function completion_values(command, state, flag_name, prefix)
   local spec = modifiers[flag_name]
   local policy = require('forge.completion_policy').modifier_value(command, flag_name, spec)
   if not policy then
@@ -1510,6 +1696,16 @@ local function completion_values(family_name, verb_name, flag_name, prefix, opts
   end
   if policy.source == 'adapter' then
     return filter(require('forge').review_adapter_names(), prefix or '')
+  end
+  if policy.source == 'available_merge_methods' then
+    local target = merge_method_completion_target(command, state)
+    if not target then
+      return filter(spec.values, prefix or '')
+    end
+    return filter(
+      require('forge.availability').pr_merge_methods(target.forge, target.entry),
+      prefix or ''
+    )
   end
   if policy.source == 'command_values' then
     return filter(command.modifier_values[flag_name], prefix or '')
@@ -1576,11 +1772,21 @@ function M.complete(arglead, cmdline, _)
 
   local flag, value_prefix = arglead:match('^([%w%-_]+)=(.*)$')
   if flag then
-    local values = completion_values(family_name, explicit_verb, flag, value_prefix, surface_opts)
-    if values then
-      return vim.tbl_map(function(v)
-        return flag .. '=' .. v
-      end, values)
+    local command = M.resolve(family_name, explicit_verb, surface_opts)
+    if command then
+      command.declared_modifiers = command.modifiers or {}
+      local rest_index = explicit_verb and 4 or 3
+      local consumed = {}
+      for i = rest_index, #words - 1 do
+        consumed[#consumed + 1] = words[i]
+      end
+      local state = completion_state(command, consumed)
+      local values = completion_values(command, state, flag, value_prefix)
+      if values then
+        return vim.tbl_map(function(v)
+          return flag .. '=' .. v
+        end, values)
+      end
     end
   end
   if arg_idx == 1 then
@@ -1601,7 +1807,15 @@ function M.complete(arglead, cmdline, _)
     local slot_policy = require('forge.completion_policy').family_slot(command)
     local candidates = {}
     if slot_policy.include_verbs then
-      for _, verb in ipairs(M.verb_names(family_name, surface_opts)) do
+      for _, verb in
+        ipairs(
+          filter_family_verb_completion_items(
+            command,
+            state,
+            M.verb_names(family_name, surface_opts)
+          )
+        )
+      do
         candidates[#candidates + 1] = verb
       end
     end
