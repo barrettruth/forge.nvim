@@ -302,6 +302,77 @@ end
 
 ---@param f forge.Forge
 ---@param branch string
+---@param metadata forge.CommentMetadata?
+---@return forge.CommentMetadata?, forge.CommentMetadata?
+local function created_pr_reviewer_follow_up(f, branch, metadata)
+  if branch == '' or type(f.update_pr_cmd) ~= 'function' then
+    return nil, nil
+  end
+  if submission.supports(f, 'pr', 'create', 'reviewers') then
+    return nil, nil
+  end
+  if not submission.supports(f, 'pr', 'update', 'reviewers') then
+    return nil, nil
+  end
+  local created = submission.filter(f, 'pr', 'create', metadata)
+  local desired = submission.filter(f, 'pr', 'update', metadata)
+  local add_reviewers, remove_reviewers = submission.diff(created.reviewers, desired.reviewers)
+  if #add_reviewers == 0 and #remove_reviewers == 0 then
+    return nil, nil
+  end
+  return desired, created
+end
+
+---@param f forge.Forge
+---@param branch string
+---@param ref forge.Scope?
+---@param head_scope forge.Scope?
+---@param title string
+---@param body string
+---@param metadata forge.CommentMetadata?
+---@param cb fun(err: string?)
+local function apply_created_pr_reviewers(f, branch, ref, head_scope, title, body, metadata, cb)
+  local desired, created = created_pr_reviewer_follow_up(f, branch, metadata)
+  if not desired or not created then
+    cb(nil)
+    return
+  end
+  local resolved, err = require('forge.resolve').current_pr({
+    forge = f,
+    scope = ref,
+    head_branch = branch,
+    head_scope = head_scope or ref,
+  })
+  if err then
+    cb(err.message)
+    return
+  end
+  if not resolved then
+    cb(('failed to resolve created %s reviewers'):format(f.labels.pr_one))
+    return
+  end
+  vim.system(
+    f:update_pr_cmd(resolved.num, title, body, ref, desired, created),
+    { text = true },
+    function(result)
+      vim.schedule(function()
+        if result.code ~= 0 then
+          cb(
+            require('forge.system').cmd_error(
+              result,
+              ('failed to update created %s'):format(f.labels.pr_one)
+            )
+          )
+          return
+        end
+        cb(nil)
+      end)
+    end
+  )
+end
+
+---@param f forge.Forge
+---@param branch string
 ---@param title string
 ---@param body string
 ---@param pr_base string
@@ -309,6 +380,8 @@ end
 ---@param buf integer?
 ---@param ref? forge.Scope
 ---@param push_target string?
+---@param metadata forge.CommentMetadata?
+---@param head_scope forge.Scope?
 local function push_and_create(
   f,
   branch,
@@ -319,7 +392,8 @@ local function push_and_create(
   buf,
   ref,
   push_target,
-  metadata
+  metadata,
+  head_scope
 )
   local log = require('forge.logger')
   log.info('pushing and creating ' .. f.labels.pr_one .. '...')
@@ -344,15 +418,29 @@ local function push_and_create(
           vim.schedule(function()
             if create_result.code == 0 then
               local url = vim.trim(create_result.stdout or '')
-              if url ~= '' then
-                set_clipboard(url)
-              end
-              log.info(('created %s -> %s'):format(f.labels.pr_one, url))
-              require('forge').clear_list()
-              if buf and vim.api.nvim_buf_is_valid(buf) then
-                vim.bo[buf].modified = false
-                close_compose_buf(buf)
-              end
+              apply_created_pr_reviewers(
+                f,
+                branch,
+                ref,
+                head_scope,
+                title,
+                body,
+                metadata,
+                function(err)
+                  if url ~= '' then
+                    set_clipboard(url)
+                  end
+                  log.info(('created %s -> %s'):format(f.labels.pr_one, url))
+                  if err then
+                    log.error(err)
+                  end
+                  require('forge').clear_list()
+                  if buf and vim.api.nvim_buf_is_valid(buf) then
+                    vim.bo[buf].modified = false
+                    close_compose_buf(buf)
+                  end
+                end
+              )
             else
               local msg = vim.trim(create_result.stderr or '')
               if msg == '' then
@@ -591,7 +679,8 @@ end
 ---@param push_target string?
 ---@param base_ref string?
 ---@param head_ref string?
-function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, head_ref)
+---@param head_scope forge.Scope?
+function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, head_ref, head_scope)
   local bufpath = resolve_bufpath(ref, f.name)
   if not bufpath then
     require('forge.logger').warn('cannot open compose buffer: no repo scope available')
@@ -711,7 +800,8 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
         buf,
         ref,
         push_target,
-        submission_data.metadata
+        submission_data.metadata,
+        head_scope
       )
     end,
   })

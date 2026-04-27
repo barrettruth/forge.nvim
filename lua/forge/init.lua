@@ -778,7 +778,9 @@ function M.create_pr(opts)
           opts.draft or false,
           nil,
           base_scope,
-          push_to
+          push_to,
+          nil,
+          head_scope
         )
       else
         local root = git_root() or ''
@@ -797,7 +799,8 @@ function M.create_pr(opts)
           base_scope,
           push_to,
           target_ref,
-          head_ref
+          head_ref,
+          head_scope
         )
       end
     end)

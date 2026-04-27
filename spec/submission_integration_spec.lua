@@ -5,6 +5,7 @@ describe('submission integration', function()
   local old_fn_system
   local old_system
   local old_feedkeys
+  local old_schedule
   local old_preload
 
   before_each(function()
@@ -19,9 +20,11 @@ describe('submission integration', function()
     old_fn_system = vim.fn.system
     old_system = vim.system
     old_feedkeys = vim.api.nvim_feedkeys
+    old_schedule = vim.schedule
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.resolve'] = package.preload['forge.resolve'],
       ['forge.template'] = package.preload['forge.template'],
     }
 
@@ -33,6 +36,9 @@ describe('submission integration', function()
     end
 
     vim.api.nvim_feedkeys = function() end
+    vim.schedule = function(fn)
+      fn()
+    end
 
     vim.system = function(cmd, _, cb)
       table.insert(captured.calls, cmd)
@@ -90,6 +96,15 @@ describe('submission integration', function()
       }
     end
 
+    package.preload['forge.resolve'] = function()
+      return {
+        current_pr = function(opts)
+          captured.current_pr_opts = opts
+          return { num = '24' }
+        end,
+      }
+    end
+
     package.preload['forge.template'] = function()
       return {
         normalize_body = function(s)
@@ -107,6 +122,7 @@ describe('submission integration', function()
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.backends.gitlab'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.resolve'] = nil
     package.loaded['forge.submission'] = nil
     package.loaded['forge.template'] = nil
   end)
@@ -115,9 +131,11 @@ describe('submission integration', function()
     vim.fn.system = old_fn_system
     vim.system = old_system
     vim.api.nvim_feedkeys = old_feedkeys
+    vim.schedule = old_schedule
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.resolve'] = old_preload['forge.resolve']
     package.preload['forge.template'] = old_preload['forge.template']
 
     package.loaded['forge'] = nil
@@ -126,6 +144,7 @@ describe('submission integration', function()
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.backends.gitlab'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.resolve'] = nil
     package.loaded['forge.submission'] = nil
     package.loaded['forge.template'] = nil
 
@@ -283,5 +302,112 @@ describe('submission integration', function()
     assert.truthy(vim.tbl_contains(cmd, 'carol'))
     assert.truthy(vim.tbl_contains(cmd, '--milestone'))
     assert.falsy(vim.tbl_contains(cmd, '--add-assignees'))
+  end)
+
+  it('applies Codeberg PR reviewers after create when tea create cannot set them', function()
+    local compose = require('forge.compose')
+    local cb = require('forge.backends.codeberg')
+    local ref = {
+      kind = 'codeberg',
+      host = 'codeberg.org',
+      slug = 'forgejo/tea-test',
+      repo_arg = 'forgejo/tea-test',
+      web_url = 'https://codeberg.org/forgejo/tea-test',
+    }
+
+    vim.system = function(cmd, _, cb_fn)
+      table.insert(captured.calls, cmd)
+      local key = table.concat(cmd, ' ')
+      local result = {
+        code = 0,
+        stdout = '',
+        stderr = '',
+      }
+      if
+        key
+        == 'tea pr create --title created pr --description created body --base main --repo forgejo/tea-test --labels docs --assignees alice --milestone v1'
+      then
+        result.stdout = 'https://codeberg.org/forgejo/tea-test/pulls/24'
+      end
+      if cb_fn then
+        cb_fn(result)
+      end
+      return {
+        wait = function()
+          return result
+        end,
+      }
+    end
+
+    compose.open_pr(
+      cb,
+      'topic',
+      'main',
+      false,
+      { body = 'body' },
+      ref,
+      'origin',
+      'origin/main',
+      'HEAD',
+      ref
+    )
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      '# created pr',
+      '',
+      'created body',
+      '',
+      '<!--',
+      '  Reviewers: carol',
+      '  Labels: docs',
+      '  Assignees: alice',
+      '  Milestone: v1',
+      '-->',
+    })
+    vim.cmd('write')
+
+    vim.wait(100, function()
+      return #captured.calls >= 3
+    end)
+
+    assert.same({ 'git', 'push', '-u', 'origin', 'topic' }, captured.calls[1])
+    assert.same({
+      'tea',
+      'pr',
+      'create',
+      '--title',
+      'created pr',
+      '--description',
+      'created body',
+      '--base',
+      'main',
+      '--repo',
+      'forgejo/tea-test',
+      '--labels',
+      'docs',
+      '--assignees',
+      'alice',
+      '--milestone',
+      'v1',
+    }, captured.calls[2])
+    assert.same({
+      forge = cb,
+      scope = ref,
+      head_branch = 'topic',
+      head_scope = ref,
+    }, captured.current_pr_opts)
+    assert.same({ 'tea', 'pr', 'edit', '24' }, vim.list_slice(captured.calls[3], 1, 4))
+    assert.truthy(vim.tbl_contains(captured.calls[3], '--add-reviewers'))
+    assert.truthy(vim.tbl_contains(captured.calls[3], 'carol'))
+    assert.falsy(vim.tbl_contains(captured.calls[3], '--add-labels'))
+    assert.falsy(vim.tbl_contains(captured.calls[3], '--add-assignees'))
+    assert.is_true(
+      vim.tbl_contains(
+        captured.infos,
+        'created PR -> https://codeberg.org/forgejo/tea-test/pulls/24'
+      )
+    )
+    assert.same({}, captured.errors)
   end)
 end)
