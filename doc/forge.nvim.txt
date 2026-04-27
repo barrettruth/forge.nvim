@@ -36,7 +36,7 @@ remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
 - Neovim 0.10.0+
-- tree-sitter `yaml` parser
+- tree-sitter `yaml` parser for YAML issue form templates
 - At least one forge CLI:
   - `gh` for GitHub
   - `glab` for GitLab
@@ -73,8 +73,9 @@ Top-level keys: ~
 
 `split`                                                   *forge-config-split*
   `string`  (default `"horizontal"`)
-    Default split direction for terminal views. One of `"horizontal"` or
-    `"vertical"`. Individual scopes (e.g. `ci.split`) override this value.
+    Default split direction for compose buffers and as the fallback for CI/log
+    views. One of `"horizontal"` or `"vertical"`. `ci.split` overrides this
+    value for CI surfaces.
 
 `ci`                                                         *forge-config-ci*
   `ci.lines`        `integer`  (default `1000`)
@@ -101,9 +102,10 @@ Top-level keys: ~
 `targets`                                               *forge-config-targets*
   `targets.aliases`      `table<string, string>`  (default `{}`)
     Symbolic target aliases used by the normalized `:Forge` command
-    modifiers (`repo=`, `head=`, and `base=`). Repo addresses resolve in
-    this order: configured alias, git remote name, explicit hosted repo
-    path.
+    modifiers (`repo=`, `head=`, and `base=`). Alias values can be
+    `owner/repo`, `host/owner/repo`, or `remote:<name>`. Repo addresses
+    resolve in this order: configured alias, git remote name, explicit hosted
+    repo path.
 
   `targets.default_repo` `string?`  (default `nil`)
     Preferred collaboration repo for commands that omit an explicit repo
@@ -165,6 +167,13 @@ Top-level keys: ~
     are equivalent shortcuts there, while config table keys stay canonical
     (`routes.prs`, `routes.ci`).
 
+  Built-in canonical route values: ~
+    `prs.open`, `prs.closed`, `prs.all`
+    `issues.open`, `issues.closed`, `issues.all`
+    `ci.current_branch`, `ci.all`
+    `browse.contextual`, `browse.branch`, `browse.commit`
+    `releases.all`, `releases.draft`, `releases.prerelease`
+
   Defaults: >lua
       routes = {
         prs = 'prs.open',
@@ -179,7 +188,8 @@ Top-level keys: ~
   `table|false`  (default shown below)
     Configurable picker and log-viewer bindings. Values use vim keymap
     notation (e.g. `"<c-d>"`). Set to `false` to remove all configurable
-    bindings and Forge-managed log/summary keymaps.
+    bindings and Forge-managed log/summary keymaps. Picker primary/back
+    bindings and CI terminal keymaps remain fixed.
 
   Defaults: >lua
       keys = {
@@ -275,6 +285,8 @@ Top-level keys: ~
     `refresh`        `<c-r>`          Refresh log/summary
 
   Fixed bindings: ~
+    Picker bindings below are always present. Forge-managed log/summary
+    bindings below are installed unless `keys = false`.
 
   Surface                  Key        Meaning ~
   picker default action    `<cr>`     Primary/default action
@@ -289,8 +301,8 @@ Top-level keys: ~
   CI terminal              `<cr>`     Open job under cursor when available
 
 `display`                                               *forge-config-display*
-  Controls icons, column widths, and fetch limits used in picker
-  formatting.
+  Controls status icons and fetch limits used in picker formatting. Picker
+  column widths are derived automatically from content and window width.
 
   `display.icons`                                 *forge-config-display-icons*
     `table`  Status icons used in picker lines. Defaults use ASCII mnemonic
@@ -309,9 +321,9 @@ Top-level keys: ~
     `unknown`     `"?"`       Unknown status
 
   `display.limits`                               *forge-config-display-limits*
-    `table`  Maximum items fetched per list API call. Repo CI runs use the
-             `runs` limit as their initial page size and show `Load more...`
-             when additional runs are available.
+    `table`  Maximum items fetched per list API call. PRs, issues, CI runs,
+             and releases use their matching limits as initial page sizes and
+             show `Load more...` when additional items are available.
 
     Key         Default ~
     `pulls`       `100`
@@ -378,10 +390,10 @@ PR COMMANDS                                                *forge-pr-commands*
 
 `:Forge pr` [repo=...] [head=...]                                   *:Forge-pr*
 `:Forge pr` {num} [repo=...]
-    Open a PR.
+    Open a PR in the edit compose flow.
     (no `{num}`)       Resolve the current PR from the current branch and open
-                       it.
-    `{num}`            Open PR `{num}` directly.
+                       it for editing.
+    `{num}`            Open PR `{num}` directly in the edit compose flow.
     `repo=`            Scope the explicit `{num}` or disambiguate implicit
                        current-PR lookup.
     `head=`            Override the head used for implicit current-PR lookup.
@@ -396,9 +408,10 @@ PR COMMANDS                                                *forge-pr-commands*
     PR creation commands are branch-relative. Default targets: `head=` is
     the current branch push context and `base=` is the collaboration repo
     default branch.
-    (no modifiers)     Open the compose buffer (|forge-compose|). If
+    (no modifiers)     Open the compose buffer (|forge-compose|). A single
+                       discovered PR template is loaded automatically. If
                        multiple PR templates exist, Forge does not prompt
-                       here and opens the default compose body instead.
+                       here and falls back to the normal commit/default body.
     `draft`            Open compose buffer with draft pre-set.
     `fill`             Create instantly from commits (skip compose).
     `web`              Push and open the forge's web create-PR page for the
@@ -452,6 +465,15 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
     - no matches: warn `no open PR found for this branch`
     - multiple matches: warn and ask for `repo=` or `head=`
 
+`:Forge pr edit` {num} [repo=...]                           *:Forge-pr-edit*
+    Open the PR edit compose flow for PR `{num}`.
+
+`:Forge pr close` {num} [repo=...]                         *:Forge-pr-close*
+    Close PR `{num}`.
+
+`:Forge pr reopen` {num} [repo=...]                       *:Forge-pr-reopen*
+    Reopen PR `{num}`.
+
 `:Forge pr approve` {num} [repo=...]                       *:Forge-pr-approve*
     Approve PR `{num}`.
 
@@ -474,8 +496,8 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
 
 `:Forge pr refresh` [repo=...]                             *:Forge-pr-refresh*
     Invalidate the cached PR list so the next picker or list-consuming
-    command fetches fresh data from the forge. Mirrors the PR picker's
-    refresh action.
+    command fetches fresh data from the forge. The PR picker's refresh action
+    also clears cached per-PR state for the current scope.
 
 ISSUE COMMANDS                                          *forge-issue-commands*
 
@@ -492,12 +514,15 @@ ISSUE COMMANDS                                          *forge-issue-commands*
 `:Forge issue create` [repo=...] [web] [blank] [template=...]
                                                          *:Forge-issue-create*
     Create a new issue.
-    (no modifiers)     Open the compose buffer. If multiple issue
-                       templates exist, use `template=...` to select one;
-                       otherwise Forge opens a blank issue compose.
+    (no modifiers)     Open the compose buffer. A single discovered issue
+                       template is loaded automatically. If multiple issue
+                       templates exist, use `template=...` to select one.
+                       If none exist, Forge opens a blank issue compose.
     `web`              Open the forge's web create-issue page.
-    `blank`            Start from a blank issue template when supported.
-    `template=...`     Use the named issue template.
+    `blank`            Skip template discovery and start from a blank issue
+                       compose.
+    `template=...`     Use the named issue template slug (filename without
+                       extension).
 
 `:Forge issue edit` {num} [repo=...]                       *:Forge-issue-edit*
     Open the issue edit compose flow for issue `{num}`.
@@ -600,7 +625,8 @@ For example, to force fresh forge detection after changing remotes, run
 `:Forge clear`.
 
 `:Forge clear`                                                  *:Forge-clear*
-    Clear all internal caches (forge detection, repo info, list data).
+    Clear all internal caches (forge detection, git-root resolution, repo
+    info, PR state, and list data).
 
 PICKERS                                                        *forge-pickers*
 
@@ -705,38 +731,67 @@ submits the current buffer. Quitting or deleting without `!` preserves
 modified-buffer protection. Use `:q!`, `:bd!`, or `:bwipeout!` to discard the
 buffer.
 
-Creating a PR (without `--fill` or `--web`) opens a compose buffer at
+Metadata lives inside the trailing `<!-- ... -->` block. Forge reads supported
+`Draft`, `Reviewers`, `Labels`, `Assignees`, and `Milestone` entries from that
+block on `:w`; unsupported fields are omitted from the scaffold for the current
+forge and operation.
+
+Creating a PR (without `fill` or `web`) opens a compose buffer at
 `forge://{host}/{slug}/pr/new` with filetype `markdown` and buftype `acwrite`.
 
 Layout: ~
   Line 1      PR title (pre-filled from single commit subject or branch)
   Line 2      Empty separator
   Lines 3+    PR body (from commit body or a single discovered PR template)
-  `<!--`        Informational comment block (branch, forge, diff stat).
-  `-->`         End of metadata
+  `<!--`        Start metadata block
+  `Creating ...`
+                Forge/context banner
+  `Draft:` / `Reviewers:` / `Labels:` / `Assignees:` / `Milestone:`
+                Editable metadata fields when supported
+  `Changes not in ...:`
+                Optional diff stat
+  `Writing ...`
+                Submit/discard hints
+  `-->`         End metadata
 
 Writing (`:w`) pushes the branch and creates the PR. Creation is aborted if
-the title or body is empty. The PR URL is copied to the `+` register on
-success.
+the title or body is empty. If the initial body came from a template or the
+current commit range and is still unchanged, Forge aborts instead of
+submitting it verbatim. The PR URL is copied to the `+` register on success.
 
-Creating an issue (without `--web`) opens a compose buffer at
+Editing a PR opens a compose buffer at
+`forge://{host}/{slug}/pr/{num}/edit` with the same title/body + metadata
+layout as PR creation. When the PR head matches the current branch, Forge also
+includes a diff stat against `origin/{base}`. Writing (`:w`) updates the PR.
+Editing is aborted if the title or body is empty.
+
+Creating an issue (without `web`) opens a compose buffer at
 `forge://{host}/{slug}/issue/new` with filetype `markdown` and buftype
 `acwrite`.
 
 Layout: ~
-  Line 1      Issue title
+  Line 1      Issue title (template-prefilled when provided)
   Line 2      Empty separator
-  Lines 3+    Issue body (from a single discovered issue template, or empty)
-  `<!--`        Informational comment block (forge, submit/discard hints).
-  `-->`         End of metadata
+  Lines 3+    Issue body (from a selected or single discovered issue
+              template, or empty)
+  `<!--`        Start metadata block
+  `Creating ...`
+                Forge banner
+  `Labels:` / `Assignees:` / `Milestone:`
+                Editable metadata fields when supported
+  `Writing ...`
+                Submit/discard hints
+  `-->`         End metadata
 
 Writing (`:w`) creates the issue. Creation is aborted if the title is empty.
-The issue URL is copied to the `+` register on success.
+If a template prefilled the title or body and those contents are still
+unchanged, Forge aborts instead of submitting placeholder text. The issue URL
+is copied to the `+` register on success.
 
 Editing an issue opens a compose buffer at
-`forge://{host}/{slug}/issue/{num}/edit` with the same title/body layout as
-issue creation. Writing (`:w`) updates the issue. Editing is aborted if the
-title is empty. Empty bodies are allowed.
+`forge://{host}/{slug}/issue/{num}/edit` with the same title/body + metadata
+layout as issue creation. Writing (`:w`) updates the issue. Editing is
+aborted if the title is empty. Empty bodies are allowed.
 
 Integration: ~                                     *forge-compose-integration*
   Compose buffers expose a small public buffer-local table for completion
@@ -754,18 +809,26 @@ Integration: ~                                     *forge-compose-integration*
   forge-specific behavior only inside compose buffers.
 
 Template discovery: ~
-  forge.nvim searches forge-specific template paths. If a template
-  directory contains multiple files, you are prompted to choose.
+  forge.nvim searches forge-specific template paths. A single discovered
+  template is loaded automatically.
+  When multiple issue templates exist, select one with `template=...`.
+  If none exist, `:Forge issue create` opens a blank issue compose.
+  `:Forge pr create` does not prompt and falls back to its normal
+  commit/default body.
+  `template=...` matches the filename without `.md`, `.yml`, or `.yaml`
+  (case-insensitive).
   Both `.md` and `.yml`/`.yaml` issue form templates are supported.
   YAML templates are parsed and rendered as markdown sections.
   YAML issue forms require the tree-sitter yaml parser.
   `config.yml`/`config.yaml` files are skipped.
 
   GitHub: `.github/pull_request_template.md`,
+          `.github/PULL_REQUEST_TEMPLATE.md`,
           `.github/PULL_REQUEST_TEMPLATE/`
   GitLab: `.gitlab/merge_request_templates/`
   Codeberg: `.gitea/pull_request_template.md`,
-            `.github/pull_request_template.md`
+            `.github/pull_request_template.md`,
+            `.github/PULL_REQUEST_TEMPLATE.md`
 
   Issue templates: ~
   GitHub: `.github/ISSUE_TEMPLATE.md`,
@@ -781,13 +844,15 @@ See |forge-highlights| for compose buffer highlight groups.
 ==============================================================================
 HIGHLIGHTS                                                  *forge-highlights*
 
-All highlight groups can be overriden.
+All highlight groups can be overridden.
 
 Compose buffer: ~
 
   Group                    Default Link      Description ~
   `ForgeComposeBranch`       `Special`          Branch names
   `ForgeComposeForge`        `Label`            Forge name
+  `ForgeComposeLabel`        `Label`            Metadata field labels
+  `ForgeComposeDraft`        `DiagnosticWarn`   Enabled draft metadata value
   `ForgeComposeFile`         `Directory`        File paths in diff stat
   `ForgeComposeAdded`        `Added`            Addition indicators (+)
   `ForgeComposeRemoved`      `Removed`          Deletion indicators (-)
@@ -902,8 +967,9 @@ differences:
   (9) Codeberg per-check log viewing depends on Gitea Actions log APIs,
       tracked by `go-gitea/gitea#35382`.
 
-Features marked `no` reflect CLI or API limits. Custom sources declare the
-same support in `capabilities`; see |forge-Forge-interface|.
+Features marked `no` reflect CLI or API limits. Custom sources express coarse
+forge support in `capabilities` and create/update metadata support in
+`submission`; see |forge-Forge-interface|.
 
 HOST OVERRIDES ~
                                                          *forge-sources-hosts*
@@ -931,9 +997,10 @@ The canonical field and method inventory lives in the LuaCATS definition of
 `forge.Forge` in `lua/forge/types.lua`. The built-in backends in
 `lua/forge/backends/` are the reference implementations.
 
-A custom source typically declares labels and capabilities, shells out for the
-verbs it supports, and normalizes forge-specific JSON into Forge's shared PR,
-issue, run, and release shapes. Start from the closest built-in backend.
+A custom source typically declares labels, capabilities, and optional
+`submission` field support, shells out for the verbs it supports, and
+normalizes forge-specific JSON into Forge's shared PR, issue, run, and release
+shapes. Start from the closest built-in backend.
 
 ==============================================================================
 EXTENDING                                                    *forge-extending*

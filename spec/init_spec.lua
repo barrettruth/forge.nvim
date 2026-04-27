@@ -65,6 +65,11 @@ describe('config', function()
     end
   end)
 
+  it('defines compose metadata highlight groups', function()
+    assert.equals(1, vim.fn.hlexists('ForgeComposeLabel'))
+    assert.equals(1, vim.fn.hlexists('ForgeComposeDraft'))
+  end)
+
   it('sets keys to false when user requests it', function()
     vim.g.forge = { keys = false }
     local cfg = forge.config()
