@@ -483,6 +483,19 @@ IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~             *forge-pr-ci-resolution*
     - no matches in any pass: warn `no PR found for this branch`
     - multiple matches in a pass: warn and ask for `repo=` or `head=`
 
+IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
+    `:Forge pr reopen` uses the same branch-context + `repo=` / `head=`
+    disambiguation model when `{num}` is omitted, but only searches closed PRs.
+    Merged PRs remain non-reopenable.
+
+    Lookup policy:
+    - search closed PRs for the current branch
+
+    Outcomes:
+    - exactly one match: reopen it
+    - no matches: warn `no reopenable PR found for this branch`
+    - multiple matches: warn and ask for `repo=` or `head=`
+
 `:Forge pr close` [repo=...] [head=...]                   *:Forge-pr-close*
 `:Forge pr close` {num} [repo=...]
     Close a PR.
@@ -497,8 +510,16 @@ IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~             *forge-pr-ci-resolution*
 `:Forge pr edit` {num} [repo=...]                           *:Forge-pr-edit*
     Open the PR edit compose flow for PR `{num}`.
 
-`:Forge pr reopen` {num} [repo=...]                       *:Forge-pr-reopen*
-    Reopen PR `{num}`.
+`:Forge pr reopen` [repo=...] [head=...]                *:Forge-pr-reopen*
+`:Forge pr reopen` {num} [repo=...]
+    Reopen a PR.
+    (no `{num}`)       Resolve the current branch's unique closed PR and reopen
+                       it. Merged PRs are not reopenable.
+    `{num}`            Reopen PR `{num}` directly.
+    `repo=`            Scope the explicit `{num}` or disambiguate implicit
+                       branch-relative lookup.
+    `head=`            Override the head used for implicit branch-relative
+                       lookup. Only used when `{num}` is omitted.
 
 `:Forge pr approve` [repo=...] [head=...]                 *:Forge-pr-approve*
 `:Forge pr approve` {num} [repo=...]
