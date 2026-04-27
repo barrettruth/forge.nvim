@@ -9,6 +9,7 @@ describe('forge.pr explicit PR targeting', function()
 
   before_each(function()
     captured = {
+      debugs = {},
       errors = {},
       infos = {},
       systems = {},
@@ -168,7 +169,9 @@ describe('forge.pr explicit PR targeting', function()
 
     package.preload['forge.logger'] = function()
       return {
-        debug = function() end,
+        debug = function(msg)
+          table.insert(captured.debugs, msg)
+        end,
         info = function(msg)
           table.insert(captured.infos, msg)
         end,
@@ -252,7 +255,8 @@ describe('forge.pr explicit PR targeting', function()
       current_branch = 'other-local-branch',
       scope = nil,
     }, captured.opened)
-    assert.is_true(vim.tbl_contains(captured.infos, 'fetching PR #23...'))
+    assert.same({}, captured.infos)
+    assert.is_true(vim.tbl_contains(captured.debugs, 'fetching PR #23...'))
     assert.is_false(vim.tbl_contains(captured.systems, 'pr-base 23'))
   end)
 

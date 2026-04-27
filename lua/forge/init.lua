@@ -110,7 +110,7 @@ local function open_web_create(label, cmd, url)
   local success_msg = ('opened %s creation in browser'):format(label)
   local fail_msg = ('failed to open %s creation in browser'):format(label)
   if cmd then
-    log.info(('opening %s creation in browser...'):format(label))
+    log.debug(('opening %s creation in browser...'):format(label))
     vim.system(cmd, { text = true }, function(result)
       vim.schedule(function()
         if result.code == 0 then
@@ -685,7 +685,7 @@ function M.create_pr(opts)
       cb(opts.base_branch)
       return
     end
-    log.info('resolving base branch...')
+    log.debug('resolving base branch...')
     vim.system(f:default_branch_cmd(base_scope), { text = true }, function(base_result)
       local base = vim.trim(base_result.stdout or '')
       if base_result.code ~= 0 or base == '' then
@@ -716,7 +716,7 @@ function M.create_pr(opts)
     cb(base, target_ref)
   end
 
-  log.info('checking for existing ' .. f.labels.pr_one .. '...')
+  log.debug('checking for existing ' .. f.labels.pr_one .. '...')
   local existing, err = resolve_mod.current_pr({
     forge = f,
     scope = base_scope,
@@ -740,7 +740,7 @@ function M.create_pr(opts)
   if opts.web then
     with_base(function(base)
       ensure_creatable(base, function()
-        log.info('pushing...')
+        log.debug('pushing...')
         vim.system(
           { 'git', 'push', '-u', push_to ~= '' and push_to or 'origin', branch },
           { text = true },
