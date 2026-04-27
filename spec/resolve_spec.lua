@@ -332,6 +332,47 @@ describe('current_pr resolver', function()
     )
   end)
 
+  it('resolves current PR relative to an explicit cwd', function()
+    use_system_responses({
+      ['git -C /tmp/worktree branch --show-current'] = helpers.command_result('feature\n'),
+      ['git -C /tmp/worktree config branch.feature.pushRemote'] = helpers.command_result('fork\n'),
+      ['git -C /tmp/worktree remote get-url fork'] = helpers.command_result(
+        'git@github.com:owner/fork.git\n'
+      ),
+      ['git -C /tmp/worktree remote get-url upstream'] = helpers.command_result(
+        'git@github.com:owner/upstream.git\n'
+      ),
+      ['pr-for-branch open feature owner/fork'] = helpers.command_result('\n'),
+      ['pr-for-branch open feature owner/upstream'] = helpers.command_result('42\n'),
+      ['fetch-pr 42 owner/upstream'] = helpers.command_result(vim.json.encode({
+        state = 'OPEN',
+        headRefName = 'feature',
+        headRepository = {
+          name = 'fork',
+          nameWithOwner = 'owner/fork',
+        },
+        headRepositoryOwner = {
+          login = 'owner',
+        },
+      })),
+    })
+
+    local pr, err = require('forge.resolve').current_pr({
+      forge = github,
+      target_opts = {
+        cwd = '/tmp/worktree',
+      },
+    })
+
+    assert.is_nil(err)
+    assert.same({
+      num = '42',
+      scope = github_scope('upstream'),
+    }, pr)
+    assert.is_true(vim.tbl_contains(captured.systems, 'git -C /tmp/worktree branch --show-current'))
+    assert.is_false(vim.tbl_contains(captured.systems, 'git branch --show-current'))
+  end)
+
   it('matches GitLab merge requests by source project and branch', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(

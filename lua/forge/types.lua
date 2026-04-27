@@ -88,6 +88,11 @@
 ---@field scope forge.Scope?
 ---@field project_id string?
 
+---@class forge.Status
+---@field branch string
+---@field scope forge.Scope?
+---@field pr forge.PRRef?
+
 ---@class forge.IssueRef
 ---@field num string
 ---@field scope forge.Scope?
@@ -127,6 +132,7 @@
 ---@field resolve_repo boolean?
 ---@field aliases table<string, string>?
 ---@field default_repo string?
+---@field cwd string?
 
 ---@class forge.SurfaceOpts
 ---@field forge_name string?

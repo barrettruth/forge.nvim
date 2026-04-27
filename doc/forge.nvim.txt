@@ -25,6 +25,7 @@ CONTENTS                                                 *forge.nvim-contents*
   7. Highlights ........................................... |forge-highlights|
   8. Sources ................................................. |forge-sources|
   9. Extending ............................................ |forge-extending|
+     Statusline Integration ......................... |forge-statusline|
   10. API ........................................................ |forge-api|
 
 ==============================================================================
@@ -1112,6 +1113,41 @@ Internal layers such as `lua/forge/ops.lua` and `lua/forge/pickers.lua` power
 the built-in commands and pickers, but they are no longer documented as the
 public integration surface.
 
+STATUSLINE INTEGRATION                                  *forge-statusline*
+
+`require('forge').status()` returns cached current-branch data for the current
+working tree. It returns `nil` outside git repos, always includes `branch` when
+available, and sets `scope` and `pr` when Forge can resolve them.
+
+`status.scope` is the branch head/push scope. `status.pr.scope` is the base
+repo scope for the matching PR, so fork-aware statuslines can distinguish the
+two.
+
+Refresh happens asynchronously. When the cached value changes, forge.nvim emits
+the `User` autocmd `ForgeStatusUpdate`. A minimal core Neovim integration
+looks like: >lua
+    function _G.ForgeStatusline()
+      local status = require('forge').status()
+      if not status then
+        return ''
+      end
+      local parts = { ' ' .. status.branch }
+      if status.pr then
+        parts[#parts + 1] = '#' .. status.pr.num
+      end
+      return table.concat(parts, ' ')
+    end
+
+    vim.api.nvim_create_autocmd('User', {
+      pattern = 'ForgeStatusUpdate',
+      callback = function()
+        vim.cmd.redrawstatus()
+      end,
+    })
+
+    vim.o.statusline = '%{%v:lua.ForgeStatusline()%} ' .. vim.o.statusline
+<
+
 BUILDING A CUSTOM PICKER FROM SCRATCH                 *forge-extending-picker*
 
 Call `require('forge.picker').pick()` when you want Forge to render a custom
@@ -1156,6 +1192,7 @@ Most integrations only need one of these entrypoints:
 - `require('forge').open(route?, opts?)`
 - `require('forge').pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, `ci(opts?)`
 - `require('forge').current_pr(opts?)`
+- `require('forge').status()`
 - `require('forge').create_pr(opts?)`, `create_issue(opts?)`
 - `require('forge.picker').pick(opts)`
 - `require('forge').register(name, source)`
@@ -1174,6 +1211,7 @@ Prefer these helpers for normal integrations:
 - `pr({ num = '42' })`, `review({ num = '42' })`, and `pr_ci({ num = '42' })`
   for explicit PR targeting
 - `current_pr(opts?)` when you need the resolved PR ref
+- `status()` when you need cached branch/current-PR UI state
 - `create_pr(opts?)` and `create_issue(opts?)` for create flows
 
 `create_pr()` is create-only: if the current branch already has an open PR, it

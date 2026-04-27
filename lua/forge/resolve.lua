@@ -27,7 +27,31 @@ local function error_result(message, code)
   }
 end
 
----@param opts forge.CurrentPROpts?
+---@param callback fun(...)
+local function schedule_callback(callback, ...)
+  local count = select('#', ...)
+  local first, second, third, fourth = ...
+  vim.schedule(function()
+    if count == 0 then
+      callback()
+      return
+    end
+    if count == 1 then
+      callback(first)
+      return
+    end
+    if count == 2 then
+      callback(first, second)
+      return
+    end
+    if count == 3 then
+      callback(first, second, third)
+      return
+    end
+    callback(first, second, third, fourth)
+  end)
+end
+
 ---@return forge.Forge?
 local function current_forge(opts)
   if type(opts) == 'table' and type(opts.forge) == 'table' then
@@ -59,7 +83,6 @@ local function scope_kind(value)
   return kind
 end
 
----@param opts forge.CurrentPROpts?
 ---@param forge forge.Forge?
 ---@return forge.ScopeKind?
 local function forge_name(opts, forge)
@@ -219,6 +242,36 @@ local function branch_lookup_states(forge, states)
 end
 
 ---@param forge forge.Forge
+---@param num string
+---@param scope forge.Scope?
+---@param callback fun(json: table?, err: string?)
+local function fetch_pr_json_async(forge, num, scope, callback)
+  vim.system(forge:fetch_pr_details_cmd(num, scope), { text = true }, function(result)
+    if result.code ~= 0 then
+      schedule_callback(
+        callback,
+        nil,
+        system_mod.cmd_error(
+          result,
+          ('failed to fetch %s #%s'):format(forge.labels.pr_one or 'PR', num)
+        )
+      )
+      return
+    end
+    local ok, json = pcall(vim.json.decode, result.stdout or '{}')
+    if not ok or type(json) ~= 'table' then
+      schedule_callback(
+        callback,
+        nil,
+        ('failed to parse %s details'):format(forge.labels.pr_one or 'PR')
+      )
+      return
+    end
+    schedule_callback(callback, json)
+  end)
+end
+
+---@param forge forge.Forge
 ---@param branch string
 ---@param scope forge.Scope?
 ---@param states forge.PRLookupState[]
@@ -242,6 +295,47 @@ local function list_pr_numbers(forge, branch, scope, states)
     end
   end
   return nums
+end
+
+---@param forge forge.Forge
+---@param branch string
+---@param scope forge.Scope?
+---@param states forge.PRLookupState[]
+---@param callback fun(nums: string[]?, err: string?)
+local function list_pr_numbers_async(forge, branch, scope, states, callback)
+  local nums = {}
+  local seen = {}
+  local list_states = branch_lookup_states(forge, states)
+  local index = 1
+  local function step()
+    local list_state = list_states[index]
+    if not list_state then
+      schedule_callback(callback, nums)
+      return
+    end
+    vim.system(forge:pr_for_branch_cmd(branch, scope, list_state), { text = true }, function(result)
+      if result.code ~= 0 then
+        schedule_callback(
+          callback,
+          nil,
+          system_mod.cmd_error(result, ('failed to fetch %s'):format(forge.labels.pr or 'PRs'))
+        )
+        return
+      end
+      for _, line in
+        ipairs(vim.split(result.stdout or '', '\n', { plain = true, trimempty = true }))
+      do
+        local num = trim(line)
+        if num and num ~= 'null' and not seen[num] then
+          seen[num] = true
+          nums[#nums + 1] = num
+        end
+      end
+      index = index + 1
+      step()
+    end)
+  end
+  step()
 end
 
 ---@param head forge.HeadRef
@@ -308,7 +402,7 @@ local function resolve_head(head, opts, kind, parse_opts)
     end
   end
   if not branch then
-    branch = target_mod.current_branch()
+    branch = target_mod.current_branch(parse_opts)
     if not branch then
       return nil, 'detached HEAD'
     end
@@ -402,8 +496,50 @@ local function branch_pr_searches(policy)
   return searches
 end
 
+---@param forge forge.Forge
+---@param head forge.HeadRef
+---@param scope forge.Scope
+---@param states forge.PRLookupState[]
+---@param callback fun(matches: forge.PRRef[]?, err: string?)
+local function matching_prs_async(forge, head, scope, states, callback)
+  list_pr_numbers_async(forge, head.branch, scope, states, function(nums, list_err)
+    if not nums then
+      callback(nil, list_err)
+      return
+    end
+    local matches = {}
+    local index = 1
+    local function step()
+      local num = nums[index]
+      if not num then
+        callback(matches)
+        return
+      end
+      fetch_pr_json_async(forge, num, scope, function(json, fetch_err)
+        if not json then
+          callback(nil, fetch_err)
+          return
+        end
+        local exact, match_err = head_matches(forge, head, pr_head(forge, json, scope))
+        if match_err then
+          callback(nil, match_err)
+          return
+        end
+        if exact and lookup_states_include(states, pr_lookup_state(json)) then
+          matches[#matches + 1] = {
+            num = num,
+            scope = scope,
+          }
+        end
+        index = index + 1
+        step()
+      end)
+    end
+    step()
+  end)
+end
+
 ---@param repo forge.RepoLike?
----@param opts forge.CurrentPROpts?
 ---@return forge.Scope?, forge.CmdError?
 function M.repo(repo, opts)
   opts = opts or {}
@@ -500,6 +636,82 @@ function M.current_pr(opts)
   return M.branch_pr(opts, {
     searches = { { 'open' } },
   })
+end
+
+---@param opts forge.CurrentPROpts?
+---@param callback fun(pr: forge.PRRef?, err: forge.CmdError?)
+function M.current_pr_async(opts, callback)
+  opts = opts or {}
+  local finish = function(pr, err)
+    schedule_callback(callback, pr, err)
+  end
+  local forge = current_forge(opts)
+  if not forge then
+    return finish(error_result('no forge detected', 'no_forge'))
+  end
+  local kind = forge_name(opts, forge)
+  if not kind then
+    return finish(error_result('no forge detected', 'no_forge'))
+  end
+  local parse_opts = target_mod.parse_opts(opts)
+  local head, head_err = resolve_head(opts.head, opts, kind, parse_opts)
+  if not head then
+    return finish(
+      error_result(
+        head_err or 'invalid head',
+        head_err == 'detached HEAD' and 'detached_head' or 'invalid_head'
+      )
+    )
+  end
+  local repos, repo_err, repo_code = candidate_scopes(opts, head, kind, parse_opts)
+  if not repos then
+    return finish(error_result(repo_err or 'invalid repo address', repo_code or 'invalid_repo'))
+  end
+  local searches = branch_pr_searches({
+    searches = { { 'open' } },
+  })
+  local search_index = 1
+  local repo_index = 1
+  local function step()
+    local states = searches[search_index]
+    if not states then
+      finish(nil, nil)
+      return
+    end
+    local scope = repos[repo_index]
+    if not scope then
+      search_index = search_index + 1
+      repo_index = 1
+      step()
+      return
+    end
+    matching_prs_async(forge, head, scope, states, function(matches, match_err)
+      if not matches then
+        finish(nil, {
+          code = 'lookup_failed',
+          message = match_err or 'current PR lookup failed',
+        })
+        return
+      end
+      if #matches == 1 then
+        finish(matches[1], nil)
+        return
+      end
+      if #matches > 1 then
+        finish(nil, {
+          code = 'ambiguous_pr',
+          message = ('multiple %s match head %s; pass repo= or head='):format(
+            forge.labels.pr_full or 'PRs',
+            head_label(head)
+          ),
+        })
+        return
+      end
+      repo_index = repo_index + 1
+      step()
+    end)
+  end
+  step()
 end
 
 return M

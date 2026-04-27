@@ -65,7 +65,12 @@ end
 ---@return boolean
 local function has_parse_opts(opts)
   return type(opts) == 'table'
-    and (opts.resolve_repo ~= nil or opts.aliases ~= nil or opts.default_repo ~= nil)
+    and (
+      opts.resolve_repo ~= nil
+      or opts.aliases ~= nil
+      or opts.default_repo ~= nil
+      or opts.cwd ~= nil
+    )
 end
 
 ---@return forge.TargetParseOpts
@@ -84,10 +89,25 @@ local function config_parse_opts()
   }
 end
 
----@param cmd string[]
+---@param opts table?
 ---@return string?
-local function shell_text(cmd)
-  local result = vim.system(cmd, { text = true }):wait()
+local function parse_cwd(opts)
+  return type(opts) == 'table' and trim(opts.cwd) or nil
+end
+
+---@param cmd string[]
+---@param cwd string?
+---@return string?
+local function shell_text(cmd, cwd)
+  local args = cmd
+  local root = trim(cwd)
+  if root and cmd[1] == 'git' then
+    args = { 'git', '-C', root }
+    for i = 2, #cmd do
+      args[#args + 1] = cmd[i]
+    end
+  end
+  local result = vim.system(args, { text = true }):wait()
   if result.code ~= 0 then
     return nil
   end
@@ -95,17 +115,19 @@ local function shell_text(cmd)
 end
 
 ---@param name string
+---@param cwd string?
 ---@return string?
-local function remote_url(name)
-  return shell_text({ 'git', 'remote', 'get-url', name })
+local function remote_url(name, cwd)
+  return shell_text({ 'git', 'remote', 'get-url', name }, cwd)
 end
 
+---@param cwd string?
 ---@return string?
-local function preferred_remote_name()
-  if remote_url('origin') then
+local function preferred_remote_name(cwd)
+  if remote_url('origin', cwd) then
     return 'origin'
   end
-  local remotes = shell_text({ 'git', 'remote' })
+  local remotes = shell_text({ 'git', 'remote' }, cwd)
   if not remotes then
     return nil
   end
@@ -113,28 +135,29 @@ local function preferred_remote_name()
 end
 
 ---@param branch string?
+---@param cwd string?
 ---@return string?
-local function push_remote_name(branch)
+local function push_remote_name(branch, cwd)
   local value = trim(branch)
   if not value then
-    return preferred_remote_name()
+    return preferred_remote_name(cwd)
   end
-  local branch_remote = shell_text({ 'git', 'config', 'branch.' .. value .. '.pushRemote' })
+  local branch_remote = shell_text({ 'git', 'config', 'branch.' .. value .. '.pushRemote' }, cwd)
   if branch_remote then
     return branch_remote
   end
-  local push_default = shell_text({ 'git', 'config', 'remote.pushDefault' })
+  local push_default = shell_text({ 'git', 'config', 'remote.pushDefault' }, cwd)
   if push_default then
     return push_default
   end
-  local upstream = shell_text({ 'git', 'rev-parse', '--abbrev-ref', value .. '@{upstream}' })
+  local upstream = shell_text({ 'git', 'rev-parse', '--abbrev-ref', value .. '@{upstream}' }, cwd)
   if upstream then
     local remote = upstream:match('^([^/]+)/')
     if remote then
       return remote
     end
   end
-  return preferred_remote_name()
+  return preferred_remote_name(cwd)
 end
 
 ---@param fragment string?
@@ -217,6 +240,7 @@ function M.resolve_repo(text, opts)
     return nil, 'empty repo address'
   end
 
+  local cwd = parse_cwd(opts)
   local aliases = alias_map(opts)
   local alias_target = aliases[value]
   if type(alias_target) == 'string' and alias_target ~= '' then
@@ -224,6 +248,7 @@ function M.resolve_repo(text, opts)
     if remote then
       local resolved, err = M.resolve_repo(remote, {
         aliases = {},
+        cwd = cwd,
       })
       if not resolved then
         return nil, err
@@ -241,7 +266,7 @@ function M.resolve_repo(text, opts)
     return resolved
   end
 
-  local remote = remote_url(value)
+  local remote = remote_url(value, cwd)
   if remote then
     local host, slug = split_url(remote)
     if not host or not slug then
@@ -340,36 +365,40 @@ function M.resolve_scope(value, forge_name, opts)
   return nil
 end
 
+---@param opts table?
 ---@return string?
-function M.current_branch()
-  return shell_text({ 'git', 'branch', '--show-current' })
+function M.current_branch(opts)
+  return shell_text({ 'git', 'branch', '--show-current' }, parse_cwd(opts))
 end
 
 ---@param opts table?
 ---@return forge.RepoTarget?
 function M.current_repo(opts)
-  local remote = preferred_remote_name()
+  local parse_opts = M.parse_opts(opts)
+  local remote = preferred_remote_name(parse_cwd(parse_opts))
   if not remote then
     return nil
   end
-  return M.resolve_repo(remote, M.parse_opts(opts))
+  return M.resolve_repo(remote, parse_opts)
 end
 
 ---@param branch string?
 ---@param opts table?
 ---@return forge.RepoTarget?
 function M.push_repo_for_branch(branch, opts)
-  local remote = push_remote_name(branch)
+  local parse_opts = M.parse_opts(opts)
+  local remote = push_remote_name(branch, parse_cwd(parse_opts))
   if not remote then
     return nil
   end
-  return M.resolve_repo(remote, M.parse_opts(opts))
+  return M.resolve_repo(remote, parse_opts)
 end
 
 ---@param opts table?
 ---@return forge.RepoTarget?
 function M.push_repo(opts)
-  return M.push_repo_for_branch(M.current_branch(), opts)
+  local parse_opts = M.parse_opts(opts)
+  return M.push_repo_for_branch(M.current_branch(parse_opts), parse_opts)
 end
 
 ---@param opts table?
@@ -428,7 +457,8 @@ end
 ---@param opts table?
 ---@return forge.RevTarget?
 function M.current_rev(opts)
-  return M.branch_rev(M.current_branch(), M.current_repo(opts))
+  local parse_opts = M.parse_opts(opts)
+  return M.branch_rev(M.current_branch(parse_opts), M.current_repo(parse_opts))
 end
 
 ---@param branch string?
@@ -449,7 +479,8 @@ end
 ---@param opts table?
 ---@return forge.RevTarget?
 function M.push_rev(opts)
-  return M.push_rev_for_branch(M.current_branch(), opts)
+  local parse_opts = M.parse_opts(opts)
+  return M.push_rev_for_branch(M.current_branch(parse_opts), parse_opts)
 end
 
 ---@param opts table?
