@@ -24,14 +24,22 @@ local function stringify(value)
   return trim(tostring(value))
 end
 
+---@param kind 'command'|'decode'
+---@param result forge.SystemResult
+---@param message? string
+---@return forge.PickerSessionFailure
+local function build_failure(kind, result, message)
+  return {
+    kind = kind,
+    result = result,
+    message = message or trim(result.stderr) or trim(result.stdout),
+  }
+end
+
 ---@param result forge.SystemResult
 ---@return forge.PickerSessionFailure
 local function command_failure(result)
-  return {
-    kind = 'command',
-    result = result,
-    message = trim(result.stderr) or trim(result.stdout),
-  }
+  return build_failure('command', result)
 end
 
 ---@param result forge.SystemResult
@@ -39,12 +47,10 @@ end
 ---@return forge.PickerSessionFailure
 local function decode_failure(result, decode_error)
   local decode_message = stringify(decode_error)
-  return {
-    kind = 'decode',
-    result = result,
-    message = trim(result.stderr) or decode_message or trim(result.stdout),
-    decode_error = decode_message,
-  }
+  local item =
+    build_failure('decode', result, trim(result.stderr) or decode_message or trim(result.stdout))
+  item.decode_error = decode_message
+  return item
 end
 
 local function scope(key)
