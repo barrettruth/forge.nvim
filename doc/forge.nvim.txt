@@ -913,23 +913,26 @@ layout as issue creation. Writing (`:w`) updates the issue. Editing is
 aborted if the title is empty. Empty bodies are allowed.
 
 Integration: ~                                     *forge-compose-integration*
-  Compose buffers expose a small public buffer-local table for completion
+  Forge-owned buffers expose a small public buffer-local table for completion
   and other integrations: >
       vim.b.forge = {
         version = 1,
-        kind = 'pr' | 'issue',
+        kind = 'pr' | 'issue'
+             | 'ci_history' | 'pr_checks' | 'ci_summary'
+             | 'ci_log',
         url = 'https://host/owner/repo',
       }
 <
-  `kind` identifies the compose target. `url` is the target repository web
-  URL and is an empty string if forge.nvim cannot resolve it.
+  `kind` identifies the forge buffer kind. `url` is the target page when
+  forge.nvim can resolve one and is an empty string otherwise.
 
-  `FileType forgecompose` is the supported hook for compose-buffer
-  customization. `kind` distinguishes PR compose buffers from issue compose
-  buffers.
+  `FileType forgecompose` is the supported hook for authored compose buffers.
+  `FileType forgelist` is the hook for structured read-only viewers
+  (`ci_history`, `pr_checks`, `ci_summary`). `FileType forgelog` is the hook
+  for streamed run/job log buffers.
 
   Completion or integration plugins can use this table to enable
-  forge-specific behavior only inside compose buffers.
+  forge-specific behavior only inside forge-owned buffers.
 
 Template discovery: ~
   forge.nvim searches forge-specific template paths. A single discovered

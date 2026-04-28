@@ -57,6 +57,17 @@ local function set_data(buf, fields)
   return d
 end
 
+---@param buf integer
+---@param kind forge.BufferKind
+---@param url string?
+local function set_public_buffer_state(buf, kind, url)
+  vim.b[buf].forge = {
+    version = 1,
+    kind = kind,
+    url = type(url) == 'string' and url or '',
+  }
+end
+
 local function stop_procs(buf)
   local d = buf_data[buf]
   if d and d.procs then
@@ -871,7 +882,6 @@ function M.open(cmd, opts, reuse_buf)
       vim.bo[buf].bufhidden = 'wipe'
       vim.bo[buf].swapfile = false
       vim.bo[buf].modifiable = false
-      vim.bo[buf].filetype = 'forge_log'
       if bufname then
         vim.api.nvim_buf_set_name(buf, bufname)
       end
@@ -886,6 +896,8 @@ function M.open(cmd, opts, reuse_buf)
       })
     end
   end
+  vim.bo[buf].filetype = 'forgelog'
+  set_public_buffer_state(buf, 'ci_log', opts.url)
   if not reusing then
     vim.bo[buf].modifiable = true
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'Loading...' })
@@ -1171,7 +1183,6 @@ function M.open_summary(cmd, opts, reuse_buf)
       vim.bo[buf].bufhidden = 'wipe'
       vim.bo[buf].swapfile = false
       vim.bo[buf].modifiable = false
-      vim.bo[buf].filetype = 'forge_log'
       if bufname then
         vim.api.nvim_buf_set_name(buf, bufname)
       end
@@ -1185,6 +1196,8 @@ function M.open_summary(cmd, opts, reuse_buf)
       })
     end
   end
+  vim.bo[buf].filetype = 'forgelist'
+  set_public_buffer_state(buf, 'ci_summary', opts.url)
 
   if not reusing then
     vim.bo[buf].modifiable = true

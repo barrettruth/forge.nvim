@@ -845,6 +845,91 @@ describe('summary job mappings', function()
   end)
 end)
 
+describe('public buffer identity', function()
+  local original_system
+
+  before_each(function()
+    original_system = vim.system
+  end)
+
+  after_each(function()
+    vim.system = original_system
+
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(buf) then
+        local name = vim.api.nvim_buf_get_name(buf)
+        if name:match('^forge://') then
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end
+      end
+    end
+    vim.cmd('silent! %bwipeout!')
+    vim.cmd('enew!')
+  end)
+
+  it('marks log buffers as forgelog with ci_log public state', function()
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = 'build\tstep\t2024-01-01T00:00:00Z hello',
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    log_mod.open({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      scope = test_scope,
+      run_id = '77',
+      url = 'https://example.com/runs/77',
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
+    end)
+
+    assert.equals('forgelog', vim.bo[buf].filetype)
+    assert.same({
+      version = 1,
+      kind = 'ci_log',
+      url = 'https://example.com/runs/77',
+    }, vim.b[buf].forge)
+  end)
+
+  it('marks summary buffers as forgelist with ci_summary public state', function()
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = '✓ lint (ID 12345)',
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      scope = test_scope,
+      run_id = '12345',
+      url = 'https://example.com/runs/12345',
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
+    end)
+
+    assert.equals('forgelist', vim.bo[buf].filetype)
+    assert.same({
+      version = 1,
+      kind = 'ci_summary',
+      url = 'https://example.com/runs/12345',
+    }, vim.b[buf].forge)
+  end)
+end)
+
 describe('log folds', function()
   local original_system
 

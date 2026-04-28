@@ -53,6 +53,17 @@ local function set_data(buf, fields)
   return data
 end
 
+---@param buf integer
+---@param kind forge.BufferKind
+---@param url string?
+local function set_public_buffer_state(buf, kind, url)
+  vim.b[buf].forge = {
+    version = 1,
+    kind = kind,
+    url = type(url) == 'string' and url or '',
+  }
+end
+
 local function stop_proc(buf)
   local proc = data_for(buf).proc
   if proc and type(proc.kill) == 'function' then
@@ -292,7 +303,6 @@ local function prepare_buf(head, reuse_buf)
       vim.bo[buf].bufhidden = 'wipe'
       vim.bo[buf].swapfile = false
       vim.bo[buf].modifiable = false
-      vim.bo[buf].filetype = 'forge_log'
       if name then
         vim.api.nvim_buf_set_name(buf, name)
       end
@@ -305,6 +315,8 @@ local function prepare_buf(head, reuse_buf)
       })
     end
   end
+  vim.bo[buf].filetype = 'forgelist'
+  set_public_buffer_state(buf, 'ci_history', scope_mod.branch_web_url(head.scope, head.branch))
   if not reusing then
     render(buf, render_placeholder('Loading...', 'ForgeDim'))
   end
