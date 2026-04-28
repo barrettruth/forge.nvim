@@ -89,7 +89,7 @@ jobs:
           git push origin :refs/tags/nightly || true
           GIT_COMMITTER_NAME='github-actions[bot]' \
           GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
-          git tag -a nightly "${{ steps.run.outputs.head_sha }}" -m nightly
+          git tag -fa nightly "${{ steps.run.outputs.head_sha }}" -m nightly
           git push --force origin refs/tags/nightly
           gh release create nightly \
             --repo "$GITHUB_REPOSITORY" \
