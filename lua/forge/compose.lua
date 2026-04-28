@@ -356,6 +356,13 @@ local function apply_diff_stat_marks(builder, buf, stat_start, stat_end)
   end
 end
 
+---@param base_ref string
+---@param head_ref string
+---@return string
+local function diff_stat_output(base_ref, head_ref)
+  return vim.fn.system('git diff --stat ' .. base_ref .. '..' .. head_ref):gsub('%s+$', '')
+end
+
 ---@param f forge.Forge
 ---@param branch string
 ---@param metadata forge.CommentMetadata?
@@ -743,8 +750,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
 
   table.insert(b.lines, '')
   local pr_kind = f.labels.pr_full:gsub('s$', '')
-  local diff_stat =
-    vim.fn.system('git diff --stat ' .. base_ref .. '..' .. head_ref):gsub('%s+$', '')
+  local diff_stat = diff_stat_output(base_ref, head_ref)
 
   b:add_line('<!--')
 
@@ -905,7 +911,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   local base = details.base_branch ~= '' and details.base_branch or 'main'
   local diff_stat = ''
   if current_branch ~= '' and branch == current_branch then
-    diff_stat = vim.fn.system('git diff --stat origin/' .. base .. '..HEAD'):gsub('%s+$', '')
+    diff_stat = diff_stat_output('origin/' .. base, 'HEAD')
   end
 
   b:add_line('<!--')
