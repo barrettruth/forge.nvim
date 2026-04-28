@@ -1,6 +1,7 @@
 local M = {}
 local scope = require('forge.scope')
 local submission = require('forge.submission')
+local system_mod = require('forge.system')
 local template = require('forge.template')
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
@@ -431,10 +432,7 @@ local function push_and_create(
     { text = true },
     function(push_result)
       if push_result.code ~= 0 then
-        local msg = vim.trim(push_result.stderr or '')
-        if msg == '' then
-          msg = 'push failed'
-        end
+        local msg = system_mod.cmd_error(push_result, 'push failed')
         vim.schedule(function()
           log.error(msg)
         end)
@@ -471,14 +469,7 @@ local function push_and_create(
                 end
               )
             else
-              local msg = vim.trim(create_result.stderr or '')
-              if msg == '' then
-                msg = vim.trim(create_result.stdout or '')
-              end
-              if msg == '' then
-                msg = 'creation failed'
-              end
-              log.error(msg)
+              log.error(system_mod.cmd_error(create_result, 'creation failed'))
             end
           end)
         end
@@ -507,14 +498,7 @@ local function submit_issue(f, title, body, labels, buf, ref, metadata)
             close_compose_buf(buf)
           end
         else
-          local msg = vim.trim(result.stderr or '')
-          if msg == '' then
-            msg = vim.trim(result.stdout or '')
-          end
-          if msg == '' then
-            msg = 'creation failed'
-          end
-          log.error(msg)
+          log.error(system_mod.cmd_error(result, 'creation failed'))
         end
       end)
     end
@@ -537,14 +521,7 @@ local function update_issue(f, num, title, body, buf, ref, metadata, previous)
             close_compose_buf(buf)
           end
         else
-          local msg = vim.trim(result.stderr or '')
-          if msg == '' then
-            msg = vim.trim(result.stdout or '')
-          end
-          if msg == '' then
-            msg = 'update failed'
-          end
-          log.error(msg)
+          log.error(system_mod.cmd_error(result, 'update failed'))
         end
       end)
     end
@@ -858,14 +835,7 @@ local function update_pr(f, num, title, body, buf, ref, metadata, previous)
     function(result)
       vim.schedule(function()
         if result.code ~= 0 then
-          local msg = vim.trim(result.stderr or '')
-          if msg == '' then
-            msg = vim.trim(result.stdout or '')
-          end
-          if msg == '' then
-            msg = 'update failed'
-          end
-          log.error(msg)
+          log.error(system_mod.cmd_error(result, 'update failed'))
           return
         end
         if
@@ -879,14 +849,7 @@ local function update_pr(f, num, title, body, buf, ref, metadata, previous)
             vim.system(draft_cmd, { text = true }, function(draft_result)
               vim.schedule(function()
                 if draft_result.code ~= 0 then
-                  local msg = vim.trim(draft_result.stderr or '')
-                  if msg == '' then
-                    msg = vim.trim(draft_result.stdout or '')
-                  end
-                  if msg == '' then
-                    msg = 'draft toggle failed'
-                  end
-                  log.error(msg)
+                  log.error(system_mod.cmd_error(draft_result, 'draft toggle failed'))
                 end
               end)
             end)
