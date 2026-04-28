@@ -17,7 +17,7 @@ local ns = vim.api.nvim_create_namespace('forge_ci_history')
 ---@field highlights forge.CIHistoryHighlight[]
 ---@field run forge.CIRun?
 
----@type table<integer, { proc?: table, request_id?: integer, lines?: forge.CIHistoryLine[] }>
+---@type table<integer, { proc?: table, request_id?: integer, lines?: forge.CIHistoryLine[], limit?: integer, limit_step?: integer, has_more?: boolean }>
 local buf_data = {}
 
 ---@param f forge.Forge
@@ -83,6 +83,23 @@ end
 
 local function request_current(buf, request_id)
   return data_for(buf).request_id == request_id
+end
+
+local function limit_settings(buf, opts)
+  local cfg = require('forge').config()
+  local step = cfg.display and cfg.display.limits and cfg.display.limits.runs or 30
+  if type(step) ~= 'number' or step < 1 then
+    step = 30
+  end
+  local limit = type(opts) == 'table' and opts.limit or nil
+  if type(limit) ~= 'number' or limit < 1 then
+    limit = data_for(buf).limit
+  end
+  if type(limit) ~= 'number' or limit < 1 then
+    limit = step
+  end
+  limit = math.max(step, math.floor(limit))
+  return step, limit
 end
 
 local function line_positions(buf)
@@ -240,6 +257,11 @@ local function setup_keymaps(buf, f, head, opts)
   local cfg = require('forge').config()
   local ci_keys = type(cfg.keys) == 'table' and cfg.keys.ci or {}
   local log_keys = type(cfg.keys) == 'table' and cfg.keys.log or {}
+  local function reopen(limit)
+    local next_opts = vim.tbl_extend('force', {}, opts or {})
+    next_opts.limit = limit
+    M.open(f, head, next_opts, buf)
+  end
   local function map(key, fn, desc)
     if key and key ~= false then
       vim.keymap.set('n', key, fn, { buffer = buf, desc = desc })
@@ -269,6 +291,17 @@ local function setup_keymaps(buf, f, head, opts)
   map(log_keys.prev_step, function()
     jump(buf, -1)
   end, 'Previous run')
+  vim.keymap.set('n', ']c', function()
+    local step, limit = limit_settings(buf)
+    reopen(limit + step)
+  end, { buffer = buf, desc = 'Older runs' })
+  vim.keymap.set('n', '[c', function()
+    local step, limit = limit_settings(buf)
+    if limit <= step then
+      return
+    end
+    reopen(math.max(step, limit - step))
+  end, { buffer = buf, desc = 'Newer runs' })
 end
 
 ---@param head forge.HeadRef
@@ -330,12 +363,23 @@ end
 function M.open(f, head, opts, reuse_buf)
   opts = opts or {}
   local buf, reusing = prepare_buf(head, reuse_buf)
+  local saved_cursor
+  local limit_step, limit = limit_settings(buf, opts)
+  if reusing then
+    local wins = vim.fn.win_findbuf(buf)
+    if #wins > 0 then
+      saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
+    end
+  end
   if not reusing then
     setup_keymaps(buf, f, head, opts)
   end
+  set_data(buf, {
+    limit = limit,
+    limit_step = limit_step,
+  })
   local request_id = begin_request(buf)
-  local limit = require('forge').config().display.limits.runs
-  local cmd = f:list_runs_json_cmd(head.branch, head.scope, limit)
+  local cmd = f:list_runs_json_cmd(head.branch, head.scope, limit + 1)
   log.debug(('fetching %s for %s...'):format(ci_inline_label(f), head.branch))
   local proc = vim.system(cmd, { text = true }, function(result)
     vim.schedule(function()
@@ -364,7 +408,21 @@ function M.open(f, head, opts, reuse_buf)
         )
         return
       end
+      local has_more = #runs > limit
+      if has_more then
+        runs = vim.list_slice(runs, 1, limit)
+      end
       render(buf, render_rows(runs))
+      set_data(buf, {
+        has_more = has_more,
+      })
+      if saved_cursor then
+        local wins = vim.fn.win_findbuf(buf)
+        if #wins > 0 then
+          saved_cursor[1] = math.min(saved_cursor[1], vim.api.nvim_buf_line_count(buf))
+          vim.api.nvim_win_set_cursor(wins[1], saved_cursor)
+        end
+      end
     end)
   end)
   set_data(buf, { proc = proc })

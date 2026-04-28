@@ -299,6 +299,8 @@ Top-level keys: ~
   log                      `]d`       Next error
   log                      `[d`       Previous error
   summary                  `<cr>`     Open job under cursor
+  ci history               `]c`       Expand to older runs
+  ci history               `[c`       Shrink back to newer runs
   CI terminal              `q`        Close terminal
   CI terminal              `gx`       Browse current URL/job URL
   CI terminal              `<cr>`     Open job under cursor when available
@@ -644,6 +646,7 @@ CI COMMANDS                                                *forge-ci-commands*
     `repo=`            Override the repo scope for the resolved branch head.
     `head=`            Override the head used for current-branch history.
     Use `<cr>` to inspect the highlighted run and `gx` to open its URL.
+    Use `]c` to fetch older runs and `[c` to shrink back to the newer window.
 
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
     Open the primary local run view for CI run `{run-id}`. Active runs
