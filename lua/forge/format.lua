@@ -167,21 +167,19 @@ local function mapped_icon(icons, value, map, default_icon, default_group)
   return icons[default_icon], default_group
 end
 
-local function pr_state_icon(icons, state)
-  return mapped_icon(icons, state, pr_state_icons, 'closed', 'ForgeClosed')
+local function make_icon_mapper(map, default_icon, default_group, default_value)
+  return function(icons, value)
+    if value == nil then
+      value = default_value
+    end
+    return mapped_icon(icons, value, map, default_icon, default_group)
+  end
 end
 
-local function issue_state_icon(icons, state)
-  return mapped_icon(icons, state, issue_state_icons, 'closed', 'ForgeClosed')
-end
-
-local function check_bucket_icon(icons, bucket)
-  return mapped_icon(icons, bucket or 'pending', check_bucket_icons, 'unknown', 'ForgeSkip')
-end
-
-local function run_status_icon(icons, status)
-  return mapped_icon(icons, status, run_status_icons, 'unknown', 'ForgeSkip')
-end
+local pr_state_icon = make_icon_mapper(pr_state_icons, 'closed', 'ForgeClosed')
+local issue_state_icon = make_icon_mapper(issue_state_icons, 'closed', 'ForgeClosed')
+local check_bucket_icon = make_icon_mapper(check_bucket_icons, 'unknown', 'ForgeSkip', 'pending')
+local run_status_icon = make_icon_mapper(run_status_icons, 'unknown', 'ForgeSkip')
 
 local function release_state_icon(icons, is_draft, is_pre, is_latest)
   if is_draft then
