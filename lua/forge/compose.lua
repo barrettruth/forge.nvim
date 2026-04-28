@@ -630,9 +630,6 @@ function M.open_issue(f, result, ref)
       submit_issue(f, issue_title, issue_body, template_labels, buf, ref, submission_data.metadata)
     end,
   })
-
-  vim.api.nvim_win_set_cursor(0, { 1, 2 })
-  vim.cmd.startinsert({ bang = true })
 end
 
 function M.open_issue_edit(f, num, details, ref)
