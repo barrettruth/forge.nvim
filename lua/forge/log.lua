@@ -12,9 +12,9 @@ local function log_bufname(opts)
     return nil
   end
   if opts.job_id and opts.job_id ~= '' then
-    return ('forge://%s/ci/%s/job/%s'):format(prefix, opts.run_id, opts.job_id)
+    return ('forge://%s/ci/run/%s/job/%s'):format(prefix, opts.run_id, opts.job_id)
   end
-  return ('forge://%s/ci/%s/log'):format(prefix, opts.run_id)
+  return ('forge://%s/ci/run/%s/log'):format(prefix, opts.run_id)
 end
 
 ---@param opts forge.SummaryOpts
@@ -24,7 +24,7 @@ local function summary_bufname(opts)
   if not prefix or not opts.run_id or opts.run_id == '' then
     return nil
   end
-  return ('forge://%s/ci/%s'):format(prefix, opts.run_id)
+  return ('forge://%s/ci/run/%s'):format(prefix, opts.run_id)
 end
 
 ---@param name string?

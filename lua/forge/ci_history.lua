@@ -33,7 +33,7 @@ local function bufname(head)
   if not prefix or not head.branch or head.branch == '' then
     return nil
   end
-  return ('forge://%s/ci/%s'):format(prefix, head.branch)
+  return ('forge://%s/ci/branch/%s'):format(prefix, head.branch)
 end
 
 local function data_for(buf)

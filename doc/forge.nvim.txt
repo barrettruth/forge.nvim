@@ -1299,6 +1299,11 @@ For the implicit-ref rollout:
   checks buffers.
 - bare `:Forge ci` and `require('forge').ci()` now open deterministic
   current-branch CI history buffers.
+- CI buffer names now use explicit namespaces:
+  `forge://.../ci/branch/{branch}` for current-branch CI history,
+  `forge://.../ci/run/{run_id}` for run summaries,
+  `forge://.../ci/run/{run_id}/log` for run logs, and
+  `forge://.../ci/run/{run_id}/job/{job_id}` for job logs.
 - `:Forge pr create` and `require('forge').create_pr()` are create-only.
 - `edit_pr()` is removed; use `pr({ num = '42' })` instead.
 - Prefer `require('forge').pr()`, `review()`, `pr_ci()`, `ci()`, and

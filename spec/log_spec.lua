@@ -838,6 +838,10 @@ describe('summary job mappings', function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
     end)
 
+    assert.equals(
+      'forge://github.com/owner/repo/ci/run/77/job/12345',
+      vim.api.nvim_buf_get_name(buf)
+    )
     local browse = vim.fn.maparg('gx', 'n', false, true).callback
     browse()
 
@@ -890,6 +894,7 @@ describe('public buffer identity', function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
     end)
 
+    assert.equals('forge://github.com/owner/repo/ci/run/77/log', vim.api.nvim_buf_get_name(buf))
     assert.equals('forgelog', vim.bo[buf].filetype)
     assert.same({
       version = 1,
@@ -921,6 +926,7 @@ describe('public buffer identity', function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
     end)
 
+    assert.equals('forge://github.com/owner/repo/ci/run/12345', vim.api.nvim_buf_get_name(buf))
     assert.equals('forgelist', vim.bo[buf].filetype)
     assert.same({
       version = 1,
