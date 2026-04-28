@@ -111,6 +111,7 @@ describe('ci history buffer', function()
     package.loaded['forge'] = nil
     package.loaded['forge.ci_history'] = nil
     package.loaded['forge.layout'] = nil
+    package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.scope'] = nil
@@ -124,6 +125,7 @@ describe('ci history buffer', function()
     package.loaded['forge'] = nil
     package.loaded['forge.ci_history'] = nil
     package.loaded['forge.layout'] = nil
+    package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.scope'] = nil
@@ -176,7 +178,7 @@ describe('ci history buffer', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    assert.equals('forge://github.com/owner/repo/ci/main', vim.api.nvim_buf_get_name(buf))
+    assert.equals('forge://github.com/owner/repo/ci/branch/main', vim.api.nvim_buf_get_name(buf))
     assert.equals('forgelist', vim.bo[buf].filetype)
     assert.same({
       version = 1,
@@ -245,5 +247,149 @@ describe('ci history buffer', function()
       status = 'failure',
       url = 'https://example.com/runs/456',
     }, captured.browsed[1])
+  end)
+
+  it('keeps branch history distinct from same-id run summary buffers', function()
+    vim.system = function(cmd, _, cb)
+      if cmd[1] == 'runs' then
+        cb({
+          code = 0,
+          stdout = vim.json.encode({
+            {
+              id = '123',
+              name = 'Branch CI',
+              branch = '123',
+              status = 'success',
+              url = 'https://example.com/runs/123',
+            },
+          }),
+        })
+      else
+        cb({
+          code = 0,
+          stdout = '✓ summary job (ID 1)',
+        })
+      end
+      return {
+        kill = function() end,
+      }
+    end
+
+    local ci_history = require('forge.ci_history')
+    local log_mod = require('forge.log')
+
+    ci_history.open({
+      name = 'github',
+      labels = { ci_inline = 'runs' },
+      list_runs_json_cmd = function(_, branch, _, limit)
+        return { 'runs', branch, tostring(limit) }
+      end,
+      normalize_run = function(_, run)
+        return run
+      end,
+    }, {
+      branch = '123',
+      scope = scope,
+    })
+
+    local branch_buf = vim.api.nvim_get_current_buf()
+    assert.equals(
+      'forge://github.com/owner/repo/ci/branch/123',
+      vim.api.nvim_buf_get_name(branch_buf)
+    )
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(branch_buf, 0, -1, false)[1] == 'Branch CI'
+    end)
+
+    log_mod.open_summary({ 'summary', '123' }, {
+      forge_name = 'github',
+      scope = scope,
+      run_id = '123',
+      url = 'https://example.com/runs/123',
+    })
+
+    local summary_buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(summary_buf, 0, -1, false)[1] == '✓ summary job (ID 1)'
+    end)
+    assert.equals(
+      'forge://github.com/owner/repo/ci/run/123',
+      vim.api.nvim_buf_get_name(summary_buf)
+    )
+    assert.is_not.equals(branch_buf, summary_buf)
+    assert.same({ 'Branch CI' }, vim.api.nvim_buf_get_lines(branch_buf, 0, -1, false))
+    assert.same({ '✓ summary job (ID 1)' }, vim.api.nvim_buf_get_lines(summary_buf, 0, -1, false))
+  end)
+
+  it('keeps branch history distinct from same-id run log buffers', function()
+    vim.system = function(cmd, _, cb)
+      if cmd[1] == 'runs' then
+        cb({
+          code = 0,
+          stdout = vim.json.encode({
+            {
+              id = '321',
+              name = 'Slash Branch',
+              branch = '123/log',
+              status = 'success',
+              url = 'https://example.com/runs/321',
+            },
+          }),
+        })
+      else
+        cb({
+          code = 0,
+          stdout = 'build\tstep\t2024-01-01T00:00:00Z hello',
+        })
+      end
+      return {
+        kill = function() end,
+      }
+    end
+
+    local ci_history = require('forge.ci_history')
+    local log_mod = require('forge.log')
+
+    ci_history.open({
+      name = 'github',
+      labels = { ci_inline = 'runs' },
+      list_runs_json_cmd = function(_, branch, _, limit)
+        return { 'runs', branch, tostring(limit) }
+      end,
+      normalize_run = function(_, run)
+        return run
+      end,
+    }, {
+      branch = '123/log',
+      scope = scope,
+    })
+
+    local branch_buf = vim.api.nvim_get_current_buf()
+    assert.equals(
+      'forge://github.com/owner/repo/ci/branch/123/log',
+      vim.api.nvim_buf_get_name(branch_buf)
+    )
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(branch_buf, 0, -1, false)[1] == 'Slash Branch'
+    end)
+
+    log_mod.open({ 'log', '123' }, {
+      forge_name = 'github',
+      scope = scope,
+      run_id = '123',
+      url = 'https://example.com/runs/123',
+    })
+
+    local log_buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(log_buf, 0, -1, false)[1] == 'build'
+    end)
+    assert.equals(
+      'forge://github.com/owner/repo/ci/run/123/log',
+      vim.api.nvim_buf_get_name(log_buf)
+    )
+    assert.is_not.equals(branch_buf, log_buf)
+    assert.same({ 'Slash Branch' }, vim.api.nvim_buf_get_lines(branch_buf, 0, -1, false))
+    assert.same({ 'build' }, vim.api.nvim_buf_get_lines(log_buf, 0, 1, false))
   end)
 end)
