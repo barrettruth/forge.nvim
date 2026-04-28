@@ -856,7 +856,7 @@ block on `:w`; unsupported fields are omitted from the scaffold for the current
 forge and operation.
 
 Creating a PR (without `fill` or `web`) opens a compose buffer at
-`forge://{host}/{slug}/pr/new` with filetype `markdown` and buftype `acwrite`.
+`forge://{host}/{slug}/pr/new` with filetype `forgecompose` and buftype `acwrite`.
 
 Layout: ~
   Line 1      PR title (pre-filled from single commit subject or branch)
@@ -885,7 +885,7 @@ includes a diff stat against `origin/{base}`. Writing (`:w`) updates the PR.
 Editing is aborted if the title or body is empty.
 
 Creating an issue (without `web`) opens a compose buffer at
-`forge://{host}/{slug}/issue/new` with filetype `markdown` and buftype
+`forge://{host}/{slug}/issue/new` with filetype `forgecompose` and buftype
 `acwrite`.
 
 Layout: ~
@@ -923,6 +923,10 @@ Integration: ~                                     *forge-compose-integration*
 <
   `kind` identifies the compose target. `url` is the target repository web
   URL and is an empty string if forge.nvim cannot resolve it.
+
+  `FileType forgecompose` is the supported hook for compose-buffer
+  customization. `kind` distinguishes PR compose buffers from issue compose
+  buffers.
 
   Completion or integration plugins can use this table to enable
   forge-specific behavior only inside compose buffers.

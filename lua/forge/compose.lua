@@ -83,6 +83,15 @@ local function set_public_buffer_state(buf, forge_name, kind, ref)
   }
 end
 
+---@param win integer
+local function pin_compose_window(win)
+  if not (win and vim.api.nvim_win_is_valid(win)) then
+    return
+  end
+  vim.wo[win].wrap = false
+  vim.wo[win].conceallevel = 0
+end
+
 ---@return integer
 local function create_compose_buf(name)
   local prev_win = vim.api.nvim_get_current_win()
@@ -103,8 +112,28 @@ local function create_compose_buf(name)
   vim.api.nvim_buf_set_name(buf, name)
   vim.bo[buf].buftype = 'acwrite'
   vim.bo[buf].bufhidden = 'wipe'
-  vim.bo[buf].filetype = 'markdown'
+  vim.bo[buf].filetype = 'forgecompose'
   vim.bo[buf].swapfile = false
+  pin_compose_window(win)
+  pcall(function()
+    vim.treesitter.start(buf, 'markdown')
+  end)
+  local repin_autocmd = vim.api.nvim_create_autocmd('BufWinEnter', {
+    buffer = buf,
+    callback = function()
+      local current_win = vim.api.nvim_get_current_win()
+      if vim.api.nvim_win_get_buf(current_win) == buf then
+        pin_compose_window(current_win)
+      end
+    end,
+  })
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    buffer = buf,
+    once = true,
+    callback = function()
+      pcall(vim.api.nvim_del_autocmd, repin_autocmd)
+    end,
+  })
   vim.b[buf].forge_compose_prev_win = prev_win
   vim.b[buf].forge_compose_win = win
   return buf
