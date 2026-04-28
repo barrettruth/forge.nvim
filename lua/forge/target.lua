@@ -184,6 +184,89 @@ local function parse_range(fragment)
   return nil, 'invalid range: ' .. fragment
 end
 
+---@param path string?
+---@param start_line string?
+---@param end_line string?
+---@return forge.LocationTarget?
+local function shorthand_location(path, start_line, end_line)
+  local value = trim(path)
+  if not value then
+    return nil
+  end
+  local range = nil
+  if start_line then
+    local start_num = tonumber(start_line)
+    local end_num = tonumber(end_line or start_line)
+    range = {
+      start_line = start_num,
+      end_line = end_num,
+    }
+  end
+  return {
+    kind = 'location',
+    text = value,
+    rev = nil,
+    path = value,
+    range = range,
+  }
+end
+
+---@param text string
+---@return forge.LocationTarget?, string?
+local function parse_browse_shorthand(text)
+  local value = trim(text)
+  if not value then
+    return nil, 'empty location address'
+  end
+
+  local body = value
+  local fragment = nil
+  local hash = value:find('#', 1, true)
+  if hash then
+    body = value:sub(1, hash - 1)
+    fragment = value:sub(hash + 1)
+    local range, err = parse_range(fragment)
+    if not range then
+      return nil, err
+    end
+    local location = shorthand_location(body)
+    if not location then
+      return nil, 'invalid location address: ' .. value
+    end
+    location.text = value
+    location.range = range
+    return location
+  end
+
+  local path, start_line, end_line = value:match('^(.-):(%d+)%-(%d+)$')
+  if path and path ~= '' then
+    local location = shorthand_location(path, start_line, end_line)
+    if location then
+      location.text = value
+      return location
+    end
+  end
+
+  path, start_line = value:match('^(.-):(%d+)$')
+  if path and path ~= '' then
+    local location = shorthand_location(path, start_line)
+    if location then
+      location.text = value
+      return location
+    end
+  end
+
+  if not value:find('@', 1, true) and not value:find(':', 1, true) then
+    local location = shorthand_location(value)
+    if location then
+      location.text = value
+      return location
+    end
+  end
+
+  return nil
+end
+
 ---@param text string
 ---@return forge.RepoTarget?, string?
 function M.parse_repo(text)
@@ -626,6 +709,21 @@ function M.parse_location(text, opts)
     path = path,
     range = range,
   }
+end
+
+---@param text string
+---@param opts forge.TargetParseOpts?
+---@return forge.LocationTarget?, string?
+function M.parse_browse_target(text, opts)
+  local location, err = M.parse_location(text, opts)
+  if location then
+    return location
+  end
+  local shorthand, shorthand_err = parse_browse_shorthand(text)
+  if shorthand then
+    return shorthand
+  end
+  return nil, shorthand_err or err
 end
 
 ---@param repo forge.RepoTarget?

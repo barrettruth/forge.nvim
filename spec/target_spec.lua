@@ -58,6 +58,23 @@ describe('target parsing', function()
     assert.same({ start_line = 10, end_line = 40 }, location.range)
   end)
 
+  it('parses shorthand browse targets without an explicit revision', function()
+    local target = require('forge.target')
+    local line_range = assert(target.parse_browse_target('README.md:10-40'))
+    local fragment_range = assert(target.parse_browse_target('doc/forge.nvim.txt#L300-L340'))
+    local path_only = assert(target.parse_browse_target('lua/forge/init.lua'))
+
+    assert.is_nil(line_range.rev)
+    assert.equals('README.md', line_range.path)
+    assert.same({ start_line = 10, end_line = 40 }, line_range.range)
+    assert.is_nil(fragment_range.rev)
+    assert.equals('doc/forge.nvim.txt', fragment_range.path)
+    assert.same({ start_line = 300, end_line = 340 }, fragment_range.range)
+    assert.is_nil(path_only.rev)
+    assert.equals('lua/forge/init.lua', path_only.path)
+    assert.is_nil(path_only.range)
+  end)
+
   it('resolves aliases before remotes', function()
     vim.system = function(cmd)
       if table.concat(cmd, ' ') == 'git remote get-url upstream' then

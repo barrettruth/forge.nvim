@@ -221,6 +221,10 @@ describe('command schema', function()
       'browse',
       'target=upstream@main:lua/forge/init.lua#L10-L20',
     }))
+    local browse_target_shorthand = assert(cmd.parse({
+      'browse',
+      'target=README.md:10-20',
+    }))
 
     assert.equals('main', create.parsed_modifiers.base.rev)
     assert.equals('topic', create.parsed_modifiers.head.rev)
@@ -231,6 +235,12 @@ describe('command schema', function()
     assert.equals('owner/upstream', browse_target.parsed_modifiers.target.rev.repo.slug)
     assert.equals('lua/forge/init.lua', browse_target.parsed_modifiers.target.path)
     assert.same({ start_line = 10, end_line = 20 }, browse_target.parsed_modifiers.target.range)
+    assert.is_nil(browse_target_shorthand.parsed_modifiers.target.rev)
+    assert.equals('README.md', browse_target_shorthand.parsed_modifiers.target.path)
+    assert.same(
+      { start_line = 10, end_line = 20 },
+      browse_target_shorthand.parsed_modifiers.target.range
+    )
   end)
 
   it('attaches implicit current-PR disambiguation modifiers to normalized commands', function()
@@ -423,12 +433,12 @@ describe('command schema', function()
   end)
 
   it('rejects obsolete browse modifiers and malformed browse target syntax', function()
-    local _, target_err = cmd.parse({ 'browse', 'target=README.md#L10' })
+    local _, target_err = cmd.parse({ 'browse', 'target=README.md#oops' })
     local _, rev_err = cmd.parse({ 'browse', 'rev=main' })
     local _, branch_err = cmd.parse({ 'browse', 'branch=@main' })
     local _, commit_err = cmd.parse({ 'browse', 'commit=abc:def' })
 
-    assert.equals('invalid location address: README.md#L10', target_err.message)
+    assert.equals('invalid range: oops', target_err.message)
     assert.equals('unknown modifier: rev', rev_err.message)
     assert.equals('invalid branch: @main', branch_err.message)
     assert.equals('invalid commit: abc:def', commit_err.message)

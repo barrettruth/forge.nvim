@@ -717,9 +717,11 @@ BROWSE COMMANDS                                        *forge-browse-commands*
                        anchored to that branch instead; otherwise the
                        branch landing page is opened.
     `commit=<sha>`     Open the given commit on the forge.
-    `target=<addr>`    Open an explicit location address on the forge, such
-                       as `@main:README.md#L10` or
-                       `upstream@release:doc/forge.nvim.txt#L300-L340`.
+    `target=<addr>`    Open an explicit location address on the forge. Full
+                       addresses such as `@main:README.md#L10` and
+                       `upstream@release:doc/forge.nvim.txt#L300-L340` pin an
+                       explicit revision. Bare paths such as `README.md` or
+                       `README.md:10-20` use the current branch.
 
 REVIEW COMMANDS                                        *forge-review-commands*
 
