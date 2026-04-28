@@ -1,4 +1,5 @@
 local M = {}
+local collections = require('forge.collections')
 
 local detect = require('forge.detect')
 local ops = require('forge.ops')
@@ -241,19 +242,6 @@ local function token_is_modifier_like(token)
     return false
   end
   return token:find('=', 1, true) ~= nil
-end
-
-local function list_contains(items, value)
-  for _, item in ipairs(items) do
-    if item == value then
-      return true
-    end
-  end
-  return false
-end
-
-local function set_contains(items, value)
-  return type(items) == 'table' and list_contains(items, value)
 end
 
 local function subject_error(family, verb, missing)
@@ -1037,7 +1025,7 @@ function M.parse(args, opts)
     local allowed_values = spec and spec.values or nil
     local verb_values = command.modifier_values and command.modifier_values[name] or nil
     local values = verb_values or allowed_values
-    if type(value) == 'string' and values and not set_contains(values, value) then
+    if type(value) == 'string' and values and not collections.set_contains(values, value) then
       return error_result(('invalid value for %s: %s'):format(name, value))
     end
   end
@@ -1119,7 +1107,7 @@ local function completion_state(command, args)
       name = token:sub(1, eq - 1)
       value = token:sub(eq + 1)
     end
-    if name and list_contains(command.declared_modifiers or {}, name) then
+    if name and collections.list_contains(command.declared_modifiers or {}, name) then
       if state.modifiers[name] == nil then
         state.modifiers[name] = value
       end
