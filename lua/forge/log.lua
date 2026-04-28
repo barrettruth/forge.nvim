@@ -1001,8 +1001,77 @@ end
 ---@field in_progress boolean?
 ---@field status_cmd string[]?
 ---@field json boolean?
+---@field job_filter string?
 ---@field browse_url_fn fun(job_id: string): string?
 ---@field log_cmd_fn fun(job_id: string, failed: boolean): string[], forge.LogOpts
+
+local function normalize_job_filter_input(text)
+  if text == nil then
+    return nil, true
+  end
+  local trimmed = vim.trim(text)
+  if trimmed == '' then
+    return nil, false
+  end
+  return trimmed, false
+end
+
+local function matches_job_filter(name, job_filter)
+  if type(job_filter) ~= 'string' or job_filter == '' then
+    return true
+  end
+  local candidate = type(name) == 'string' and strip_ansi(name):lower() or ''
+  return candidate:find(job_filter:lower(), 1, true) ~= nil
+end
+
+local function filter_summary(parsed, job_filter)
+  if type(job_filter) ~= 'string' or job_filter == '' then
+    return parsed
+  end
+  local matched_ids = {}
+  local header_rows = {}
+  for _, lnum in ipairs(parsed.job_lnums or {}) do
+    header_rows[lnum] = true
+    local job = parsed.jobs and parsed.jobs[lnum] or nil
+    if job and job.id and matches_job_filter(parsed.lines[lnum], job_filter) then
+      matched_ids[job.id] = true
+    end
+  end
+  local lines = {}
+  local hls = {}
+  local jobs = {}
+  local job_lnums = {}
+  local first_job = parsed.job_lnums and parsed.job_lnums[1] or nil
+  local header_limit = first_job and (first_job - 1) or 0
+  for lnum = 1, header_limit do
+    lines[#lines + 1] = parsed.lines[lnum]
+    hls[#lines] = parsed.hls[lnum] or {}
+  end
+  if next(matched_ids) == nil then
+    local text = ('No jobs matching "%s"'):format(job_filter)
+    lines[#lines + 1] = text
+    hls[#lines] = {
+      {
+        col = 0,
+        end_col = #text,
+        group = 'ForgeDim',
+      },
+    }
+    return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
+  end
+  for lnum, line in ipairs(parsed.lines or {}) do
+    local job = parsed.jobs and parsed.jobs[lnum] or nil
+    if job and matched_ids[job.id] then
+      lines[#lines + 1] = line
+      hls[#lines] = parsed.hls[lnum] or {}
+      jobs[#lines] = job
+      if header_rows[lnum] then
+        job_lnums[#job_lnums + 1] = #lines
+      end
+    end
+  end
+  return { lines = lines, hls = hls, jobs = jobs, job_lnums = job_lnums }
+end
 
 local function parse_summary(raw_lines)
   local lines = {}
@@ -1241,6 +1310,7 @@ function M.open_summary(cmd, opts, reuse_buf)
         end
         parsed = parse_summary(raw_lines)
       end
+      parsed = filter_summary(parsed, opts.job_filter)
 
       vim.bo[buf].modifiable = true
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, parsed.lines)
@@ -1290,6 +1360,24 @@ function M.open_summary(cmd, opts, reuse_buf)
           map(keys.refresh, function()
             M.open_summary(cmd, opts, buf)
           end, 'Refresh')
+          map(keys.filter, function()
+            vim.ui.input(
+              { prompt = 'Filter jobs: ', default = opts.job_filter or '' },
+              function(input)
+                local next_filter, cancelled = normalize_job_filter_input(input)
+                if cancelled then
+                  return
+                end
+                vim.schedule(function()
+                  if not vim.api.nvim_buf_is_valid(buf) then
+                    return
+                  end
+                  opts.job_filter = next_filter
+                  M.open_summary(cmd, opts, buf)
+                end)
+              end
+            )
+          end, 'Filter jobs')
           map(keys.next_step, function()
             jump(buf, 'header', 1)
           end, 'Next job')

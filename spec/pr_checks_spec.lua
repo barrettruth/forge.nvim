@@ -5,6 +5,7 @@ local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 describe('pr checks buffer', function()
   local old_system
   local old_ui_open
+  local old_ui_input
   local old_preload
   local captured
 
@@ -23,6 +24,7 @@ describe('pr checks buffer', function()
     }
     old_system = vim.system
     old_ui_open = vim.ui.open
+    old_ui_input = vim.ui.input
     old_preload = helpers.capture_preload({
       'forge',
       'forge.layout',
@@ -41,6 +43,7 @@ describe('pr checks buffer', function()
             ci = { refresh = 5 },
             keys = {
               log = {
+                filter = '<tab>',
                 next_step = ']]',
                 prev_step = '[[',
                 refresh = '<c-r>',
@@ -130,6 +133,7 @@ describe('pr checks buffer', function()
   after_each(function()
     vim.system = old_system
     vim.ui.open = old_ui_open
+    vim.ui.input = old_ui_input
 
     helpers.restore_preload(old_preload)
     package.loaded['forge'] = nil
@@ -217,6 +221,65 @@ describe('pr checks buffer', function()
         replace_win = win,
       },
     }, captured.logs[1])
+  end)
+
+  it('filters checks by name from the deterministic checks buffer', function()
+    local prompts = {}
+    vim.ui.input = function(opts, cb)
+      prompts[#prompts + 1] = opts
+      cb('lint')
+    end
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            name = 'lint',
+            bucket = 'fail',
+            link = 'https://example.com/actions/runs/123/job/456',
+          },
+          {
+            name = 'test',
+            bucket = 'pass',
+            link = 'https://example.com/actions/runs/123/job/789',
+          },
+        }),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    local mod = require('forge.pr_checks')
+    mod.open({
+      name = 'github',
+      labels = { pr_one = 'PR' },
+      capabilities = { per_pr_checks = true },
+      checks_json_cmd = function()
+        return { 'checks', '42' }
+      end,
+      check_log_cmd = function(_, run_id, failed, job_id)
+        return { 'log', run_id, tostring(failed), job_id or '' }
+      end,
+    }, {
+      num = '42',
+      scope = scope,
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      return #lines == 2 and lines[2] == 'test'
+    end)
+
+    vim.fn.maparg('<tab>', 'n', false, true).callback()
+    vim.wait(100, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      return #lines == 1 and lines[1] == 'lint'
+    end)
+
+    assert.equals('Filter jobs: ', prompts[1].prompt)
+    assert.equals('', prompts[1].default)
   end)
 
   it('trims trailing padding from rendered check rows before writing the buffer', function()

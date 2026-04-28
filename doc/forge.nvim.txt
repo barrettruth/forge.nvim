@@ -229,6 +229,7 @@ Top-level keys: ~
           refresh = '<c-r>',
         },
         log = {
+          filter = '<tab>',
           next_step = ']]',
           prev_step = '[[',
           refresh = '<c-r>',
@@ -283,6 +284,7 @@ Top-level keys: ~
 
   `keys.log`: ~
     Action           Default Key      Meaning ~
+    `filter`         `<tab>`          Filter checks/summary jobs by name
     `next_step`      `]]`             Next step/job
     `prev_step`      `[[`             Previous step/job
     `refresh`        `<c-r>`          Refresh log/summary

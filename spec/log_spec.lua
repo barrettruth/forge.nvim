@@ -679,17 +679,20 @@ describe('summary job mappings', function()
   local original_system
   local original_open
   local original_ui_open
+  local original_ui_input
 
   before_each(function()
     original_system = vim.system
     original_open = log_mod.open
     original_ui_open = vim.ui.open
+    original_ui_input = vim.ui.input
   end)
 
   after_each(function()
     vim.system = original_system
     log_mod.open = original_open
     vim.ui.open = original_ui_open
+    vim.ui.input = original_ui_input
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_valid(buf) then
@@ -846,6 +849,74 @@ describe('summary job mappings', function()
     browse()
 
     assert.same({ 'https://example.com/runs/77/job/12345' }, opened)
+  end)
+
+  it('filters summary jobs by name and preserves filtered job actions', function()
+    local opened = {}
+    local prompts = {}
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          name = 'quality',
+          status = 'completed',
+          conclusion = 'success',
+          jobs = {
+            {
+              databaseId = 12345,
+              name = 'lint',
+              status = 'completed',
+              conclusion = 'success',
+            },
+            {
+              databaseId = 67890,
+              name = 'test',
+              status = 'completed',
+              conclusion = 'failure',
+            },
+          },
+        }),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+    vim.ui.input = function(opts, cb)
+      prompts[#prompts + 1] = opts
+      cb('test')
+    end
+    log_mod.open = function(cmd, opts)
+      opened[#opened + 1] = { cmd = cmd, opts = opts }
+    end
+
+    log_mod.open_summary({ 'gh', 'run', 'view' }, {
+      forge_name = 'github',
+      scope = test_scope,
+      run_id = '12345',
+      json = true,
+      log_cmd_fn = function(job_id, failed)
+        return { 'log', job_id, tostring(failed) }, { job_id = job_id }
+      end,
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      return lines[1] == 'p  quality' and lines[4] == 'f  test'
+    end)
+
+    vim.fn.maparg('<tab>', 'n', false, true).callback()
+    vim.wait(100, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      return #lines == 3 and lines[1] == 'p  quality' and lines[3] == 'f  test'
+    end)
+
+    vim.api.nvim_win_set_cursor(0, { 3, 0 })
+    vim.fn.maparg('<cr>', 'n', false, true).callback()
+
+    assert.equals('Filter jobs: ', prompts[1].prompt)
+    assert.same({ 'log', '67890', 'true' }, opened[1].cmd)
+    assert.same({ job_id = '67890', replace_win = vim.api.nvim_get_current_win() }, opened[1].opts)
   end)
 end)
 

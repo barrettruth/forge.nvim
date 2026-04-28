@@ -103,6 +103,7 @@ describe('config validation', function()
           edit = '<c-e>',
         },
         log = {
+          filter = '<tab>',
           refresh = '<leader>r',
         },
       },
@@ -111,6 +112,7 @@ describe('config validation', function()
     local cfg = config.config()
 
     assert.equals('<c-e>', cfg.keys.pr.edit)
+    assert.equals('<tab>', cfg.keys.log.filter)
     assert.equals('<leader>r', cfg.keys.log.refresh)
   end)
 
