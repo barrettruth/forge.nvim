@@ -1,18 +1,9 @@
 local M = {}
+local picker_entry = require('forge.picker.entry')
 local surface_policy = require('forge.surface_policy')
 
-local function entry_value(entry)
-  if type(entry) ~= 'table' or type(entry.value) ~= 'table' then
-    return nil
-  end
-  if entry.placeholder or entry.load_more then
-    return nil
-  end
-  return entry.value
-end
-
 local function pr_state(f, entry)
-  local value = entry_value(entry)
+  local value = picker_entry.value(entry)
   if not value then
     return nil
   end
@@ -52,7 +43,7 @@ function M.pr_merge_methods(f, entry)
   if state and state.is_draft then
     return {}
   end
-  local value = entry_value(entry)
+  local value = picker_entry.value(entry)
   local info = require('forge').repo_info(f, value and value.scope or nil)
   if not merge_permission(info) or type((info or {}).merge_methods) ~= 'table' then
     return {}

@@ -1,16 +1,7 @@
 local ci = require('forge.ci')
+local picker_entry = require('forge.picker.entry')
 
 local M = {}
-
-local function entry_value(entry)
-  if not entry or rawget(entry, 'placeholder') or rawget(entry, 'load_more') then
-    return nil
-  end
-  if type(entry.value) ~= 'table' then
-    return nil
-  end
-  return entry.value
-end
 
 function M.selected(entry)
   if entry and rawget(entry, 'placeholder') then
@@ -77,7 +68,7 @@ function M.has_dynamic_label(def)
 end
 
 function M.issue_toggle_verb(entry)
-  local value = entry_value(entry)
+  local value = picker_entry.value(entry)
   if not value then
     return nil
   end
@@ -92,7 +83,7 @@ function M.issue_toggle_verb(entry)
 end
 
 function M.pr_toggle_verb(entry)
-  local value = entry_value(entry)
+  local value = picker_entry.value(entry)
   if not value then
     return nil
   end
@@ -107,7 +98,7 @@ function M.pr_toggle_verb(entry)
 end
 
 function M.ci_toggle_verb(entry)
-  local value = entry_value(entry)
+  local value = picker_entry.value(entry)
   if not value then
     return nil
   end
