@@ -29,6 +29,27 @@ local function split_url(url)
   return host, path
 end
 
+local SUBJECT_PATHS = {
+  github = {
+    pr = '/pull/',
+    issue = '/issues/',
+  },
+  gitlab = {
+    pr = '/-/merge_requests/',
+    issue = '/-/issues/',
+  },
+  codeberg = {
+    pr = '/pulls/',
+    issue = '/issues/',
+  },
+}
+
+local BRANCH_PATHS = {
+  github = '/tree/',
+  gitlab = '/-/tree/',
+  codeberg = '/src/branch/',
+}
+
 ---@param url string
 ---@return forge.Scope?
 local function github_scope(url)
@@ -172,9 +193,65 @@ function M.web_url(scope)
 end
 
 ---@param scope forge.Scope?
+---@return string
+function M.resolved_web_url(scope)
+  local url = M.web_url(scope)
+  if url ~= '' then
+    return url
+  end
+  if type(scope) ~= 'table' then
+    return ''
+  end
+  local host = scope.host
+  local slug = scope.slug
+  if type(host) ~= 'string' or host == '' or type(slug) ~= 'string' or slug == '' then
+    return ''
+  end
+  return ('https://%s/%s'):format(host, slug)
+end
+
+---@param scope forge.Scope?
+---@param branch string?
+---@return string
+function M.branch_web_url(scope, branch)
+  if type(branch) ~= 'string' or branch == '' or type(scope) ~= 'table' then
+    return ''
+  end
+  local base = M.resolved_web_url(scope)
+  if base == '' then
+    return ''
+  end
+  local path = BRANCH_PATHS[scope.kind]
+  if not path then
+    return ''
+  end
+  return base .. path .. branch
+end
+
+---@param kind forge.SubjectKind
+---@param num string?
+---@param scope forge.Scope?
+---@return string
+function M.subject_web_url(kind, num, scope)
+  if type(num) ~= 'string' or num == '' or type(scope) ~= 'table' then
+    return ''
+  end
+  local base = M.resolved_web_url(scope)
+  if base == '' then
+    return ''
+  end
+  local paths = SUBJECT_PATHS[scope.kind]
+  local path = paths and paths[kind]
+  if not path then
+    return ''
+  end
+  return base .. path .. num
+end
+
+---@param scope forge.Scope?
 ---@return string?
 function M.git_url(scope)
-  local url = M.web_url(scope)
+  local url = M.resolved_web_url(scope)
   if url == '' then
     return nil
   end

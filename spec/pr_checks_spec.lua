@@ -12,6 +12,7 @@ describe('pr checks buffer', function()
     kind = 'github',
     host = 'github.com',
     slug = 'owner/repo',
+    web_url = 'https://github.com/owner/repo',
   }
 
   before_each(function()
@@ -89,6 +90,9 @@ describe('pr checks buffer', function()
       return {
         bufpath = function()
           return 'github.com/owner/repo'
+        end,
+        subject_web_url = function(_, num)
+          return 'https://github.com/owner/repo/pull/' .. num
         end,
       }
     end
@@ -184,6 +188,12 @@ describe('pr checks buffer', function()
 
     local buf = vim.api.nvim_get_current_buf()
     assert.equals('forge://github.com/owner/repo/pr/42/checks', vim.api.nvim_buf_get_name(buf))
+    assert.equals('forgelist', vim.bo[buf].filetype)
+    assert.same({
+      version = 1,
+      kind = 'pr_checks',
+      url = 'https://github.com/owner/repo/pull/42',
+    }, vim.b[buf].forge)
     vim.wait(100, function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'lint'
     end)

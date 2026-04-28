@@ -94,6 +94,9 @@ describe('ci history buffer', function()
         bufpath = function()
           return 'github.com/owner/repo'
         end,
+        branch_web_url = function(_, branch)
+          return 'https://github.com/owner/repo/tree/' .. branch
+        end,
       }
     end
 
@@ -174,6 +177,12 @@ describe('ci history buffer', function()
 
     local buf = vim.api.nvim_get_current_buf()
     assert.equals('forge://github.com/owner/repo/ci/main', vim.api.nvim_buf_get_name(buf))
+    assert.equals('forgelist', vim.bo[buf].filetype)
+    assert.same({
+      version = 1,
+      kind = 'ci_history',
+      url = 'https://github.com/owner/repo/tree/main',
+    }, vim.b[buf].forge)
     vim.wait(100, function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'CI'
     end)

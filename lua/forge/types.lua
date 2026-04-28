@@ -3,6 +3,8 @@
 ---@alias forge.ScopeKind 'github'|'gitlab'|'codeberg'
 
 ---@alias forge.WebKind 'pr'|'issue'|'ci'|'release'
+---@alias forge.SubjectKind 'pr'|'issue'
+---@alias forge.BufferKind 'pr'|'issue'|'ci_history'|'pr_checks'|'ci_summary'|'ci_log'
 ---@alias forge.CommandFamily 'pr'|'review'|'issue'|'ci'|'release'|'browse'|'clear'
 ---@alias forge.SectionName 'prs'|'issues'|'ci'|'browse'|'releases'
 ---@alias forge.RouteName
@@ -34,6 +36,11 @@
 ---@class forge.LineRange
 ---@field start_line integer
 ---@field end_line integer
+
+---@class forge.BufferState
+---@field version integer
+---@field kind forge.BufferKind
+---@field url string
 
 ---@class forge.RepoTarget
 ---@field kind 'repo'
