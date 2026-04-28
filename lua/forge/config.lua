@@ -68,6 +68,7 @@ local surface = require('forge.surface')
 ---@field refresh string|false
 
 ---@class forge.LogViewerKeys
+---@field filter string|false
 ---@field next_step string|false
 ---@field prev_step string|false
 ---@field refresh string|false
@@ -155,6 +156,7 @@ local DEFAULTS = {
       refresh = '<c-r>',
     },
     log = {
+      filter = '<tab>',
       next_step = ']]',
       prev_step = '[[',
       refresh = '<c-r>',
@@ -388,6 +390,7 @@ function M.config()
     if keys.pr ~= nil then
       vim.validate('forge.keys.pr', keys.pr, 'table')
       for _, k in ipairs({
+        'filter',
         'ci',
         'edit',
         'approve',

@@ -243,6 +243,25 @@ local function render(buf, lines)
   set_data(buf, { lines = lines })
 end
 
+local function normalize_job_filter_input(text)
+  if text == nil then
+    return nil, true
+  end
+  local trimmed = vim.trim(text)
+  if trimmed == '' then
+    return nil, false
+  end
+  return trimmed, false
+end
+
+local function matches_job_filter(name, job_filter)
+  if type(job_filter) ~= 'string' or job_filter == '' then
+    return true
+  end
+  local candidate = type(name) == 'string' and name:lower() or ''
+  return candidate:find(job_filter:lower(), 1, true) ~= nil
+end
+
 ---@param check forge.Check?
 ---@return boolean
 openable_check = function(check)
@@ -299,6 +318,7 @@ end
 ---@param pr forge.PRRef
 ---@param opts table?
 local function setup_keymaps(buf, f, pr, opts)
+  opts = opts or {}
   local cfg = require('forge').config()
   local keys = type(cfg.keys) == 'table' and cfg.keys.log or {}
   local function map(key, fn, desc)
@@ -321,6 +341,21 @@ local function setup_keymaps(buf, f, pr, opts)
       open_check(f, check, pr.scope)
     end
   end, { buffer = buf, desc = 'Open' })
+  map(keys.filter, function()
+    vim.ui.input({ prompt = 'Filter jobs: ', default = opts.job_filter or '' }, function(input)
+      local next_filter, cancelled = normalize_job_filter_input(input)
+      if cancelled then
+        return
+      end
+      vim.schedule(function()
+        if not vim.api.nvim_buf_is_valid(buf) then
+          return
+        end
+        opts.job_filter = next_filter
+        M.open(f, pr, opts, buf)
+      end)
+    end)
+  end, 'Filter jobs')
   map(keys.refresh, function()
     M.open(f, pr, opts, buf)
   end, 'Refresh')
@@ -386,14 +421,21 @@ end
 
 ---@param checks forge.Check[]
 ---@param scope forge.Scope?
+---@param job_filter string?
 ---@return forge.Check[]
-local function normalize_checks(checks, scope)
+local function normalize_checks(checks, scope, job_filter)
   local forge = require('forge')
   local normalized = vim.deepcopy(checks)
   for _, check in ipairs(normalized) do
     check.scope = check.scope or scope
   end
-  return forge.filter_checks(normalized, 'all')
+  local filtered = forge.filter_checks(normalized, 'all')
+  if type(job_filter) ~= 'string' or job_filter == '' then
+    return filtered
+  end
+  return vim.tbl_filter(function(check)
+    return matches_job_filter(check.name, job_filter)
+  end, filtered)
 end
 
 ---@param f forge.Forge
@@ -431,9 +473,12 @@ function M.open(f, pr, opts, reuse_buf)
         log.error(msg)
         return
       end
-      local checks = normalize_checks(decoded, pr.scope)
+      local checks = normalize_checks(decoded, pr.scope, opts.job_filter)
       if #checks == 0 then
-        render(buf, render_placeholder(('No checks for #%s'):format(pr.num), 'ForgeDim'))
+        local msg = opts.job_filter
+            and ('No jobs matching "%s" for #%s'):format(opts.job_filter, pr.num)
+          or ('No checks for #%s'):format(pr.num)
+        render(buf, render_placeholder(msg, 'ForgeDim'))
         return
       end
       render(buf, render_rows(checks))
