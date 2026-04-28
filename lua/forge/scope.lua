@@ -1,33 +1,5 @@
 local M = {}
-
-local function normalize_url(url)
-  if type(url) ~= 'string' then
-    return nil
-  end
-  local normalized = vim.trim(url)
-  if normalized == '' then
-    return nil
-  end
-  normalized = normalized:gsub('%.git$', '')
-  normalized = normalized:gsub('^ssh://git@', 'https://')
-  normalized = normalized:gsub('^git@([^:]+):', 'https://%1/')
-  normalized = normalized:gsub('/+$', '')
-  normalized = normalized:gsub('#.*$', '')
-  normalized = normalized:gsub('%?.*$', '')
-  return normalized
-end
-
-local function split_url(url)
-  local normalized = normalize_url(url)
-  if not normalized then
-    return nil
-  end
-  local host, path = normalized:match('^https?://([^/]+)/(.+)$')
-  if not host or not path then
-    return nil
-  end
-  return host, path
-end
+local url_mod = require('forge.url')
 
 local SUBJECT_PATHS = {
   github = {
@@ -53,7 +25,7 @@ local BRANCH_PATHS = {
 ---@param url string
 ---@return forge.Scope?
 local function github_scope(url)
-  local host, path = split_url(url)
+  local host, path = url_mod.split(url)
   if not host or not path then
     return nil
   end
@@ -77,12 +49,11 @@ end
 ---@param url string
 ---@return forge.Scope?
 local function gitlab_scope(url)
-  local host, path = split_url(url)
+  local host, path = url_mod.split(url)
   if not host or not path then
     return nil
   end
-  local slug = path:match('^(.-)/%-/') or path
-  slug = slug and slug:gsub('/+$', '') or nil
+  local slug = path
   if not slug or slug == '' then
     return nil
   end
@@ -105,7 +76,7 @@ end
 ---@param url string
 ---@return forge.Scope?
 local function codeberg_scope(url)
-  local host, path = split_url(url)
+  local host, path = url_mod.split(url)
   if not host or not path then
     return nil
   end
