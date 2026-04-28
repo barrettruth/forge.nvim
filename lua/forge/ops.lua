@@ -706,13 +706,18 @@ end
 ---@param f forge.Forge
 ---@param location table
 ---@param scope? forge.Scope
+---@param branch? string
 ---@return boolean
-function M.browse_location(f, location, scope)
+function M.browse_location(f, location, scope, branch)
   local loc = location_arg(location)
   if not loc then
     return false
   end
-  f:browse(loc, location.rev.rev, scope)
+  local rev = location.rev and location.rev.rev or trim(branch)
+  if rev == '' then
+    return false
+  end
+  f:browse(loc, rev, scope)
   return true
 end
 

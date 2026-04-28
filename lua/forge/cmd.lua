@@ -27,7 +27,7 @@ local target_modifier_parsers = {
   repo = 'resolve_repo',
   branch = 'parse_branch',
   commit = 'parse_commit',
-  target = 'parse_location',
+  target = 'parse_browse_target',
   head = 'parse_rev',
   base = 'parse_rev',
 }
@@ -742,7 +742,19 @@ local function dispatch_browse(command)
   end
   local location = command.parsed_modifiers.target
   if location then
-    ops.browse_location(f, location, scope)
+    local branch = location.rev and location.rev.rev or nil
+    if not branch then
+      local explicit_branch = command.parsed_modifiers.branch
+      branch = explicit_branch and explicit_branch.branch or nil
+    end
+    if not branch then
+      local ctx = forge_mod.current_context()
+      branch = type(ctx) == 'table' and ctx.branch or nil
+    end
+    if ops.browse_location(f, location, scope, branch) then
+      return
+    end
+    require('forge.logger').warn('detached HEAD')
     return
   end
   local commit = command.parsed_modifiers.commit

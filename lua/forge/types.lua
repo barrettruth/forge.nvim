@@ -73,7 +73,7 @@
 ---@class forge.LocationTarget
 ---@field kind 'location'
 ---@field text string
----@field rev forge.RevTarget
+---@field rev forge.RevTarget?
 ---@field path string
 ---@field range forge.LineRange?
 

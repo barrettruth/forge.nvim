@@ -510,12 +510,20 @@ describe(':Forge command', function()
           vim.ui.open(require('forge').remote_web_url(opts and opts.scope or nil))
           return true
         end,
-        browse_location = function(f, location, scope)
+        browse_location = function(f, location, scope, branch)
           table.insert(
             captured.ops_calls,
             { name = 'browse_location', location = location, scope = scope }
           )
-          f:browse(location.path .. ':10-20', location.rev.rev, scope)
+          local loc = location.path
+          if location.range then
+            if location.range.start_line == location.range.end_line then
+              loc = ('%s:%d'):format(loc, location.range.start_line)
+            else
+              loc = ('%s:%d-%d'):format(loc, location.range.start_line, location.range.end_line)
+            end
+          end
+          f:browse(loc, location.rev and location.rev.rev or branch, scope)
           return true
         end,
         browse_file = function(f, file_loc, branch, scope)
@@ -1100,6 +1108,21 @@ describe(':Forge command', function()
       loc = 'lua/forge/init.lua:10-20',
       branch = 'main',
       scope = repo_scope('upstream'),
+    }, captured.browse_calls[1])
+  end)
+
+  it('dispatches shorthand target browsing against the current branch', function()
+    vim.cmd('Forge browse target=README.md:10-20')
+
+    assert.equals('browse_location', captured.ops_calls[1].name)
+    assert.equals('README.md', captured.ops_calls[1].location.path)
+    assert.same({ start_line = 10, end_line = 20 }, captured.ops_calls[1].location.range)
+    assert.is_nil(captured.ops_calls[1].location.rev)
+    assert.same(repo_scope('current'), captured.ops_calls[1].scope)
+    assert.same({
+      loc = 'README.md:10-20',
+      branch = 'main',
+      scope = repo_scope('current'),
     }, captured.browse_calls[1])
   end)
 
