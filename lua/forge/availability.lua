@@ -1,4 +1,5 @@
 local M = {}
+local surface_policy = require('forge.surface_policy')
 
 local function entry_value(entry)
   if type(entry) ~= 'table' or type(entry.value) ~= 'table' then
@@ -27,7 +28,7 @@ local function pr_state(f, entry)
 end
 
 local function pr_open(entry)
-  return require('forge.picker').pr_toggle_verb(entry) == 'close'
+  return surface_policy.pr_toggle_verb(entry) == 'close'
 end
 
 local function merge_permission(info)

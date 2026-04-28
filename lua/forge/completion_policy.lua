@@ -1,7 +1,7 @@
 local M = {}
 
 local availability = require('forge.availability')
-local picker = require('forge.picker')
+local surface_policy = require('forge.surface_policy')
 
 local implicit_pr_completion_verbs = {
   approve = true,
@@ -26,20 +26,20 @@ local function pr_completion_available(verb, f, entry)
     return availability.pr_can_mark_ready(f, entry)
   end
   if verb == 'close' then
-    return picker.pr_toggle_verb(entry) == 'close'
+    return surface_policy.pr_toggle_verb(entry) == 'close'
   end
   if verb == 'reopen' then
-    return picker.pr_toggle_verb(entry) == 'reopen'
+    return surface_policy.pr_toggle_verb(entry) == 'reopen'
   end
   return true
 end
 
 local function issue_completion_available(verb, _, entry)
   if verb == 'close' then
-    return picker.issue_toggle_verb(entry) == 'close'
+    return surface_policy.issue_toggle_verb(entry) == 'close'
   end
   if verb == 'reopen' then
-    return picker.issue_toggle_verb(entry) == 'reopen'
+    return surface_policy.issue_toggle_verb(entry) == 'reopen'
   end
   return true
 end

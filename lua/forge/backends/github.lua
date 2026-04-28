@@ -480,7 +480,7 @@ function M:list_runs_json_cmd(branch, scope, limit)
     'run',
     'list',
     '--json',
-    'databaseId,name,headBranch,status,conclusion,event,url,createdAt',
+    'databaseId,displayTitle,workflowName,name,headBranch,status,conclusion,event,url,createdAt',
     '--limit',
     tostring(limit or forge.config().display.limits.runs),
   }
@@ -503,9 +503,11 @@ function M:normalize_run(entry)
   if status == 'completed' then
     status = entry.conclusion or 'unknown'
   end
+  local workflow = entry.workflowName or entry.name or ''
   return {
     id = tostring(entry.databaseId or ''),
-    name = entry.displayTitle or entry.name or '',
+    name = entry.displayTitle or workflow or '',
+    context = workflow,
     branch = entry.headBranch or '',
     status = status,
     event = entry.event or '',

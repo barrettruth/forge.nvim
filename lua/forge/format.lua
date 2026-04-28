@@ -337,17 +337,31 @@ function M.format_runs(runs, opts)
   local display = require('forge.config').config().display
   local icons = display.icons
   local names = {}
+  local contexts = {}
   local branches = {}
   local events = {}
   local ages = {}
   for _, run in ipairs(runs) do
-    names[#names + 1] = run.name or ''
-    branches[#branches + 1] = run.branch or ''
+    local name = run.name or ''
+    local context = run.context or ''
+    if context == name then
+      context = ''
+    end
+    local branch = run.branch or ''
+    if branch == '' or branch == context or branch == name then
+      branch = ''
+    end
+    names[#names + 1] = name
+    contexts[#contexts + 1] = context
+    branches[#branches + 1] = branch
     events[#events + 1] = M.abbreviate_event(run.event)
     ages[#ages + 1] = M.relative_time(run.created_at)
   end
   local name_pref, name_max = elastic_width(35, names, 10)
+  local context_pref, context_max = elastic_width(18, contexts, 4)
   local branch_pref, branch_max = elastic_width(25, branches, 8)
+  local context_min = context_max > 0 and 4 or 0
+  local branch_min = branch_max > 0 and 8 or 0
   local plan = layout.plan({
     width = opts and opts.width or layout.picker_width(),
     columns = {
@@ -364,9 +378,22 @@ function M.format_runs(runs, opts)
         pack_on = 'compact',
       },
       {
+        key = 'context',
+        gap = ' ',
+        min = context_min,
+        preferred = context_pref,
+        max = context_max,
+        optional = true,
+        drop = 4,
+        shrink = 2,
+        overflow = 'tail',
+        pack_on = 'compact',
+        hide_if_empty = true,
+      },
+      {
         key = 'branch',
         gap = ' ',
-        min = 8,
+        min = branch_min,
         preferred = branch_pref,
         max = branch_max,
         optional = true,
@@ -401,6 +428,7 @@ function M.format_runs(runs, opts)
     rows[i] = layout.render(plan, {
       state = { icon, group },
       name = names[i],
+      context = { contexts[i], 'ForgeDim' },
       branch = { branches[i], 'ForgeBranch' },
       event = { events[i], 'ForgeDim' },
       age = { ages[i], 'ForgeTime' },

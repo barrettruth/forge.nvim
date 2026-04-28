@@ -6,85 +6,101 @@ local function names(items)
   end, items)
 end
 
-describe('forge.picker.pr_toggle_verb', function()
-  local picker
+describe('forge.surface_policy.pr_toggle_verb', function()
+  local surface_policy
 
   before_each(function()
-    package.loaded['forge.picker'] = nil
-    picker = require('forge.picker')
+    package.loaded['forge.surface_policy'] = nil
+    surface_policy = require('forge.surface_policy')
   end)
 
   it('returns close for open prs', function()
-    assert.equals('close', picker.pr_toggle_verb({ value = { num = '1', state = 'OPEN' } }))
+    assert.equals('close', surface_policy.pr_toggle_verb({ value = { num = '1', state = 'OPEN' } }))
   end)
 
   it('returns close for lowercase opened state (gitlab)', function()
-    assert.equals('close', picker.pr_toggle_verb({ value = { num = '1', state = 'opened' } }))
+    assert.equals(
+      'close',
+      surface_policy.pr_toggle_verb({ value = { num = '1', state = 'opened' } })
+    )
   end)
 
   it('returns reopen for closed (non-merged) prs', function()
-    assert.equals('reopen', picker.pr_toggle_verb({ value = { num = '1', state = 'CLOSED' } }))
+    assert.equals(
+      'reopen',
+      surface_policy.pr_toggle_verb({ value = { num = '1', state = 'CLOSED' } })
+    )
   end)
 
   it('returns nil for merged prs because merged is a terminal state', function()
-    assert.is_nil(picker.pr_toggle_verb({ value = { num = '1', state = 'MERGED' } }))
+    assert.is_nil(surface_policy.pr_toggle_verb({ value = { num = '1', state = 'MERGED' } }))
   end)
 
   it('returns nil for placeholder or load_more rows', function()
-    assert.is_nil(picker.pr_toggle_verb({ placeholder = true, value = { state = 'OPEN' } }))
-    assert.is_nil(picker.pr_toggle_verb({ load_more = true, value = { state = 'OPEN' } }))
+    assert.is_nil(surface_policy.pr_toggle_verb({ placeholder = true, value = { state = 'OPEN' } }))
+    assert.is_nil(surface_policy.pr_toggle_verb({ load_more = true, value = { state = 'OPEN' } }))
   end)
 
   it('returns nil when the entry has no value table', function()
-    assert.is_nil(picker.pr_toggle_verb(nil))
-    assert.is_nil(picker.pr_toggle_verb({ value = 'not-a-table' }))
+    assert.is_nil(surface_policy.pr_toggle_verb(nil))
+    assert.is_nil(surface_policy.pr_toggle_verb({ value = 'not-a-table' }))
   end)
 end)
 
-describe('forge.picker.issue_toggle_verb', function()
-  local picker
+describe('forge.surface_policy.issue_toggle_verb', function()
+  local surface_policy
 
   before_each(function()
-    package.loaded['forge.picker'] = nil
-    picker = require('forge.picker')
+    package.loaded['forge.surface_policy'] = nil
+    surface_policy = require('forge.surface_policy')
   end)
 
   it('returns close for open issues', function()
-    assert.equals('close', picker.issue_toggle_verb({ value = { num = '1', state = 'opened' } }))
+    assert.equals(
+      'close',
+      surface_policy.issue_toggle_verb({ value = { num = '1', state = 'opened' } })
+    )
   end)
 
   it('returns reopen for closed issues', function()
-    assert.equals('reopen', picker.issue_toggle_verb({ value = { num = '1', state = 'closed' } }))
+    assert.equals(
+      'reopen',
+      surface_policy.issue_toggle_verb({ value = { num = '1', state = 'closed' } })
+    )
   end)
 
   it('does not treat merged as a valid issue state', function()
-    assert.is_nil(picker.issue_toggle_verb({ value = { num = '1', state = 'merged' } }))
+    assert.is_nil(surface_policy.issue_toggle_verb({ value = { num = '1', state = 'merged' } }))
   end)
 
   it('returns nil for placeholder or load_more rows', function()
-    assert.is_nil(picker.issue_toggle_verb({ placeholder = true, value = { state = 'OPEN' } }))
-    assert.is_nil(picker.issue_toggle_verb({ load_more = true, value = { state = 'OPEN' } }))
+    assert.is_nil(
+      surface_policy.issue_toggle_verb({ placeholder = true, value = { state = 'OPEN' } })
+    )
+    assert.is_nil(
+      surface_policy.issue_toggle_verb({ load_more = true, value = { state = 'OPEN' } })
+    )
   end)
 
   it('returns nil when the entry has no value table', function()
-    assert.is_nil(picker.issue_toggle_verb(nil))
-    assert.is_nil(picker.issue_toggle_verb({ value = 'not-a-table' }))
+    assert.is_nil(surface_policy.issue_toggle_verb(nil))
+    assert.is_nil(surface_policy.issue_toggle_verb({ value = 'not-a-table' }))
   end)
 end)
 
-describe('forge.picker.ci_toggle_verb', function()
-  local picker
+describe('forge.surface_policy.ci_toggle_verb', function()
+  local surface_policy
 
   before_each(function()
-    package.loaded['forge.picker'] = nil
-    picker = require('forge.picker')
+    package.loaded['forge.surface_policy'] = nil
+    surface_policy = require('forge.surface_policy')
   end)
 
   it('returns cancel for in-progress runs', function()
     for _, status in ipairs({ 'in_progress', 'queued', 'pending', 'running' }) do
       assert.equals(
         'cancel',
-        picker.ci_toggle_verb({ value = { id = '1', status = status } }),
+        surface_policy.ci_toggle_verb({ value = { id = '1', status = status } }),
         'status=' .. status
       )
     end
@@ -94,41 +110,45 @@ describe('forge.picker.ci_toggle_verb', function()
     for _, status in ipairs({ 'success', 'failure', 'cancelled', 'timed_out' }) do
       assert.equals(
         'rerun',
-        picker.ci_toggle_verb({ value = { id = '1', status = status } }),
+        surface_policy.ci_toggle_verb({ value = { id = '1', status = status } }),
         'status=' .. status
       )
     end
   end)
 
   it('returns rerun when a run status is missing', function()
-    assert.equals('rerun', picker.ci_toggle_verb({ value = { id = '1' } }))
+    assert.equals('rerun', surface_policy.ci_toggle_verb({ value = { id = '1' } }))
   end)
 
   it('returns nil for skipped runs', function()
-    assert.is_nil(picker.ci_toggle_verb({ value = { id = '1', status = 'skipped' } }))
+    assert.is_nil(surface_policy.ci_toggle_verb({ value = { id = '1', status = 'skipped' } }))
   end)
 
   it('returns nil for placeholder or load_more rows', function()
-    assert.is_nil(picker.ci_toggle_verb({ placeholder = true, value = { status = 'running' } }))
-    assert.is_nil(picker.ci_toggle_verb({ load_more = true, value = { status = 'running' } }))
+    assert.is_nil(
+      surface_policy.ci_toggle_verb({ placeholder = true, value = { status = 'running' } })
+    )
+    assert.is_nil(
+      surface_policy.ci_toggle_verb({ load_more = true, value = { status = 'running' } })
+    )
   end)
 
   it('returns nil when the entry has no value table', function()
-    assert.is_nil(picker.ci_toggle_verb(nil))
-    assert.is_nil(picker.ci_toggle_verb({ value = 'not-a-table' }))
+    assert.is_nil(surface_policy.ci_toggle_verb(nil))
+    assert.is_nil(surface_policy.ci_toggle_verb({ value = 'not-a-table' }))
   end)
 end)
 
-describe('forge.picker.resolve_label', function()
-  local picker
+describe('forge.surface_policy.resolve_label', function()
+  local surface_policy
 
   before_each(function()
-    package.loaded['forge.picker'] = nil
-    picker = require('forge.picker')
+    package.loaded['forge.surface_policy'] = nil
+    surface_policy = require('forge.surface_policy')
   end)
 
   it('returns string labels verbatim', function()
-    assert.equals('merge', picker.resolve_label({ name = 'merge', label = 'merge' }))
+    assert.equals('merge', surface_policy.resolve_label({ name = 'merge', label = 'merge' }))
   end)
 
   it('hides labels when the action is unavailable', function()
@@ -140,7 +160,7 @@ describe('forge.picker.resolve_label', function()
       end,
     }
 
-    assert.is_nil(picker.resolve_label(def, { value = { state = 'OPEN' } }))
+    assert.is_nil(surface_policy.resolve_label(def, { value = { state = 'OPEN' } }))
   end)
 
   it('invokes function labels with the entry', function()
@@ -152,7 +172,7 @@ describe('forge.picker.resolve_label', function()
         return 'close'
       end,
     }
-    local label = picker.resolve_label(def, { value = { state = 'OPEN' } })
+    local label = surface_policy.resolve_label(def, { value = { state = 'OPEN' } })
     assert.equals('close', label)
     assert.same({ value = { state = 'OPEN' } }, captured)
   end)
@@ -164,7 +184,7 @@ describe('forge.picker.resolve_label', function()
         error('boom')
       end,
     }
-    assert.is_nil(picker.resolve_label(def, nil))
+    assert.is_nil(surface_policy.resolve_label(def, nil))
   end)
 
   it('treats availability function failures as unavailable', function()
@@ -176,20 +196,20 @@ describe('forge.picker.resolve_label', function()
       end,
     }
 
-    assert.is_nil(picker.resolve_label(def, nil))
-    assert.is_false(picker.available(def, nil))
+    assert.is_nil(surface_policy.resolve_label(def, nil))
+    assert.is_false(surface_policy.available(def, nil))
   end)
 
   it('resolves static and dynamic availability', function()
-    assert.is_true(picker.available({ name = 'a' }, nil))
-    assert.is_false(picker.available({ name = 'b', available = false }, nil))
-    assert.is_true(picker.available({
+    assert.is_true(surface_policy.available({ name = 'a' }, nil))
+    assert.is_false(surface_policy.available({ name = 'b', available = false }, nil))
+    assert.is_true(surface_policy.available({
       name = 'c',
       available = function(entry)
         return entry ~= nil
       end,
     }, { value = 1 }))
-    assert.is_false(picker.available({
+    assert.is_false(surface_policy.available({
       name = 'd',
       available = function(entry)
         return entry ~= nil
@@ -198,10 +218,10 @@ describe('forge.picker.resolve_label', function()
   end)
 
   it('reports dynamic labels', function()
-    assert.is_true(picker.has_dynamic_label({ name = 'a', label = function() end }))
-    assert.is_false(picker.has_dynamic_label({ name = 'b', label = 'static' }))
-    assert.is_true(picker.has_dynamic_label({ name = 'c', available = function() end }))
-    assert.is_false(picker.has_dynamic_label({ name = 'd' }))
+    assert.is_true(surface_policy.has_dynamic_label({ name = 'a', label = function() end }))
+    assert.is_false(surface_policy.has_dynamic_label({ name = 'b', label = 'static' }))
+    assert.is_true(surface_policy.has_dynamic_label({ name = 'c', available = function() end }))
+    assert.is_false(surface_policy.has_dynamic_label({ name = 'd' }))
   end)
 end)
 
@@ -245,6 +265,27 @@ describe('forge.picker.order_hints', function()
     })
 
     assert.same({ 'default', 'create', 'filter', 'refresh', 'mystery_a' }, names(ordered))
+  end)
+end)
+
+describe('forge.picker.search_key', function()
+  local picker
+
+  before_each(function()
+    package.loaded['forge.picker'] = nil
+    picker = require('forge.picker')
+  end)
+
+  it('includes CI context alongside the run name and branch', function()
+    local key = picker.search_key('ci', {
+      value = {
+        name = 'feat(browse): accept shorthand target paths (#486)',
+        context = 'quality',
+        branch = 'main',
+      },
+    })
+
+    assert.equals('feat(browse): accept shorthand target paths (#486) quality main', key)
   end)
 end)
 

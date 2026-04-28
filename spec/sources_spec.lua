@@ -301,6 +301,19 @@ describe('github', function()
     assert.equals('createdAt', f.created_at)
   end)
 
+  it('requests displayTitle and workflowName in GitHub run list queries', function()
+    local cmd = gh:list_runs_json_cmd('main', { repo_arg = 'owner/repo' }, 55)
+    assert.truthy(vim.tbl_contains(cmd, '--json'))
+    assert.truthy(
+      vim.tbl_contains(
+        cmd,
+        'databaseId,displayTitle,workflowName,name,headBranch,status,conclusion,event,url,createdAt'
+      )
+    )
+    assert.truthy(vim.tbl_contains(cmd, '--branch'))
+    assert.truthy(vim.tbl_contains(cmd, 'main'))
+  end)
+
   it('normalizes completed run to conclusion', function()
     local run = gh:normalize_run({
       databaseId = 123,
@@ -334,6 +347,7 @@ describe('github', function()
       conclusion = 'success',
     })
     assert.equals('fix(ci): add load more for repo runs (#196)', run.name)
+    assert.equals('quality', run.context)
   end)
 
   it('builds list_web_url for each kind', function()
@@ -778,9 +792,10 @@ describe('gitlab', function()
     assert.equals('created_at', f.created_at)
   end)
 
-  it('extracts MR number from ref in normalize_run', function()
+  it('keeps GitLab MR context separate from the normalized run name', function()
     local run = gl:normalize_run({
       id = 456,
+      name = 'merge request pipeline',
       ref = 'refs/merge-requests/10/head',
       status = 'success',
       source = 'push',
@@ -788,11 +803,16 @@ describe('gitlab', function()
       created_at = '2025-01-01T00:00:00Z',
     })
     assert.equals('456', run.id)
-    assert.equals('!10', run.name)
+    assert.equals('merge request pipeline', run.name)
+    assert.equals('!10', run.context)
+    assert.equals('', run.branch)
   end)
 
-  it('uses ref as name for non-MR refs', function()
-    assert.equals('main', gl:normalize_run({ id = 1, ref = 'main', status = 'running' }).name)
+  it('uses ref as name and branch for non-MR refs', function()
+    local run = gl:normalize_run({ id = 1, ref = 'main', status = 'running' })
+    assert.equals('main', run.name)
+    assert.equals('', run.context)
+    assert.equals('main', run.branch)
   end)
 
   it('builds list_web_url for each kind', function()
@@ -1118,6 +1138,33 @@ describe('codeberg', function()
     assert.equals('index', f.number)
     assert.equals('head', f.branch)
     assert.equals('poster', f.author)
+  end)
+
+  it('prefers a Codeberg display title while keeping workflow identity as context', function()
+    local run = cb:normalize_run({
+      id = 789,
+      name = 'quality',
+      display_title = 'feat(browse): accept shorthand target paths (#486)',
+      head_branch = 'main',
+      status = 'completed',
+      conclusion = 'success',
+      event = 'push',
+      html_url = 'https://example.com',
+      created_at = '2025-01-01T00:00:00Z',
+    })
+    assert.equals('789', run.id)
+    assert.equals('feat(browse): accept shorthand target paths (#486)', run.name)
+    assert.equals('quality', run.context)
+    assert.equals('main', run.branch)
+    assert.equals('success', run.status)
+  end)
+
+  it('falls back to the Codeberg run name when no display title is present', function()
+    local run =
+      cb:normalize_run({ id = 1, name = 'quality', status = 'running', head_branch = 'main' })
+    assert.equals('quality', run.name)
+    assert.equals('quality', run.context)
+    assert.equals('main', run.branch)
   end)
 
   it('returns nil from draft_toggle_cmd', function()

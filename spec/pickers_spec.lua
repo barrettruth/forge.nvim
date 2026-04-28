@@ -21,6 +21,7 @@ local preload_modules = {
   'forge.logger',
   'forge.ops',
   'forge.picker',
+  'forge.surface_policy',
 }
 local loaded_modules = {
   'forge',
@@ -31,6 +32,7 @@ local loaded_modules = {
   'forge.picker.session',
   'forge.pickers',
   'forge.review',
+  'forge.surface_policy',
 }
 
 local function fake_forge(opts)
@@ -238,16 +240,6 @@ describe('pickers', function()
       }
     end
     package.preload['forge.picker'] = function()
-      local function available(def, entry)
-        local fn = rawget(def, 'available')
-        if type(fn) == 'function' then
-          return fn(entry) ~= false
-        end
-        if fn ~= nil then
-          return fn ~= false
-        end
-        return true
-      end
       return {
         backends = { ['fzf-lua'] = 'forge.picker.fzf' },
         backend = function()
@@ -280,6 +272,32 @@ describe('pickers', function()
               return true
             end,
           }
+        end,
+      }
+    end
+    package.preload['forge.surface_policy'] = function()
+      local function available(def, entry)
+        local fn = rawget(def, 'available')
+        if type(fn) == 'function' then
+          return fn(entry) ~= false
+        end
+        if fn ~= nil then
+          return fn ~= false
+        end
+        return true
+      end
+      return {
+        row_kind = function(entry)
+          if entry == nil then
+            return 'none'
+          end
+          if entry.load_more then
+            return 'load_more'
+          end
+          if entry.placeholder then
+            return entry.placeholder_kind == 'error' and 'error' or 'empty'
+          end
+          return 'entity'
         end,
         available = available,
         resolve_label = function(def, entry)
@@ -2514,6 +2532,50 @@ describe('pickers', function()
         scope = nil,
       },
     }, op_calls[2])
+  end)
+
+  it('includes CI context in picker ordinals', function()
+    local old_system = vim.system
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            id = '1',
+            name = 'feat(browse): accept shorthand target paths (#486)',
+            context = 'quality',
+            branch = 'main',
+            status = 'success',
+            url = 'https://example.com',
+          },
+        }),
+      })
+      return {
+        wait = function()
+          return { code = 0 }
+        end,
+      }
+    end
+
+    local pickers = require('forge.pickers')
+    pickers.ci(fake_ci_forge(), 'main', 'all')
+    local streamed = {}
+    captured.stream(function(entry)
+      if entry == nil then
+        streamed.done = true
+        return
+      end
+      streamed[#streamed + 1] = entry
+    end)
+    vim.wait(100, function()
+      return streamed.done == true
+    end)
+    vim.system = old_system
+
+    assert.equals(
+      'feat(browse): accept shorthand target paths (#486) quality main',
+      streamed[1].ordinal
+    )
   end)
 
   it('routes the CI toggle action through forge.ops.ci_toggle', function()

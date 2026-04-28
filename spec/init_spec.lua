@@ -617,6 +617,42 @@ describe('format_runs', function()
     assert.equals('ForgeBranch', rows[2][3][2])
     assert.equals(3, #rows[2])
   end)
+
+  it('renders CI context before branch metadata when both are present', function()
+    local rows = forge.format_runs({
+      {
+        name = 'feat(browse): accept shorthand target paths (#486)',
+        context = 'quality',
+        branch = 'main',
+        status = 'success',
+        event = 'push',
+        created_at = '',
+      },
+    }, { width = 96 })
+
+    local result = flatten(rows[1])
+    assert.truthy(result:find('quality', 1, true))
+    assert.truthy(result:find('main', 1, true))
+    assert.equals('ForgeDim', rows[1][3][2])
+    assert.equals('ForgeBranch', rows[1][4][2])
+  end)
+
+  it('hides duplicate CI context and branch metadata', function()
+    local rows = forge.format_runs({
+      {
+        name = 'main',
+        context = 'main',
+        branch = 'main',
+        status = 'success',
+        event = 'push',
+        created_at = '',
+      },
+    }, { width = 64 })
+
+    assert.equals(3, #rows[1])
+    assert.equals('ForgeDim', rows[1][3][2])
+    assert.truthy(flatten(rows[1]):find('push', 1, true))
+  end)
 end)
 
 describe('format_checks', function()

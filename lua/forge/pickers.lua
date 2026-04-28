@@ -7,6 +7,7 @@ local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
 local picker_session = require('forge.picker.session')
+local surface_policy = require('forge.surface_policy')
 
 local next_ci_filter = {
   all = 'fail',
@@ -306,19 +307,7 @@ local function actionable_entry(entry)
 end
 
 local function picker_row_kind(entry)
-  if type(picker.row_kind) ~= 'function' then
-    if entry == nil then
-      return 'none'
-    end
-    if entry.load_more then
-      return 'load_more'
-    end
-    if entry.placeholder then
-      return entry.placeholder_kind == 'error' and 'error' or 'empty'
-    end
-    return 'entity'
-  end
-  return picker.row_kind(entry)
+  return surface_policy.row_kind(entry)
 end
 
 local function entity_row(entry)
@@ -330,11 +319,11 @@ local function load_more_row(entry)
 end
 
 local function pr_toggle_entry(entry)
-  return actionable_entry(entry) and picker.pr_toggle_verb(entry) ~= nil
+  return actionable_entry(entry) and surface_policy.pr_toggle_verb(entry) ~= nil
 end
 
 local function issue_toggle_entry(entry)
-  return actionable_entry(entry) and picker.issue_toggle_verb(entry) ~= nil
+  return actionable_entry(entry) and surface_policy.issue_toggle_verb(entry) ~= nil
 end
 
 local function check_openable(entry)
@@ -668,13 +657,19 @@ function M.ci(f, branch, filter, opts)
 
     local entries = {}
     for i, run in ipairs(filtered) do
+      local ordinal = table.concat(
+        vim.tbl_filter(function(part)
+          return type(part) == 'string' and vim.trim(part) ~= ''
+        end, { run.name or '', run.context or '', run.branch or '' }),
+        ' '
+      )
       table.insert(entries, {
         display = displays[i],
         render_display = function(width)
           return rows_for(width)[i]
         end,
         value = run,
-        ordinal = run.name .. ' ' .. run.branch,
+        ordinal = ordinal,
       })
     end
     if has_more then
@@ -884,7 +879,7 @@ function M.ci(f, branch, filter, opts)
         if entry == nil then
           return 'cancel/rerun'
         end
-        return picker.ci_toggle_verb(entry)
+        return surface_policy.ci_toggle_verb(entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
@@ -1420,13 +1415,13 @@ function M.pr(state, f, opts)
         if entry == nil then
           return 'close/reopen'
         end
-        return picker.pr_toggle_verb(entry)
+        return surface_policy.pr_toggle_verb(entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
           return
         end
-        local verb = picker.pr_toggle_verb(entry)
+        local verb = surface_policy.pr_toggle_verb(entry)
         local callbacks = {
           on_success = function()
             locally_toggle_pr(entry, verb)
@@ -1806,13 +1801,13 @@ function M.issue(state, f, opts)
         if entry == nil then
           return 'close/reopen'
         end
-        return picker.issue_toggle_verb(entry)
+        return surface_policy.issue_toggle_verb(entry)
       end,
       fn = function(entry)
         if not entry or entry.load_more then
           return
         end
-        local verb = picker.issue_toggle_verb(entry)
+        local verb = surface_policy.issue_toggle_verb(entry)
         local callbacks = {
           on_success = function()
             locally_toggle_issue(entry, verb)

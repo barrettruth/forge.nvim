@@ -180,6 +180,7 @@ describe('routes', function()
           captured.issue_scope = opts and opts.scope or nil
         end,
         ci = function(_, branch, _, opts)
+          captured.ci_called = true
           captured.ci = branch
           captured.ci_back = opts and opts.back or nil
           captured.ci_scope = opts and opts.scope or nil
@@ -256,6 +257,14 @@ describe('routes', function()
 
     assert.same(scope, captured.pr_scope)
     assert.same(scope, captured.ci_scope)
+  end)
+
+  it('keeps repo-wide ci on the interactive picker surface', function()
+    require('forge.routes').open('ci.all')
+
+    assert.is_true(captured.ci_called)
+    assert.is_nil(captured.ci)
+    assert.is_nil(captured.warn)
   end)
 
   it('opens the configured root sections through the picker client', function()

@@ -1,5 +1,7 @@
 local M = {}
 
+local surface_policy = require('forge.surface_policy')
+
 local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
   :gsub('%-%-bind=[^%s]+', '')
   :gsub('%-%-color=[^%s]+', '')
@@ -163,7 +165,7 @@ local function render_header_for(actions, bindings, entry, header_order)
   for index, def in ipairs(actions) do
     local key = def.name == 'default' and '<cr>' or bindings[def.name]
     local header_key = key and to_header_key(key) or nil
-    local label = header_key and picker_mod.resolve_label(def, entry) or nil
+    local label = header_key and surface_policy.resolve_label(def, entry) or nil
     if header_key and label then
       hints[#hints + 1] = {
         name = def.name,
@@ -205,9 +207,8 @@ end
 ---@param actions forge.PickerActionDef[]
 ---@return boolean
 local function has_dynamic_label(actions)
-  local picker_mod = require('forge.picker')
   for _, def in ipairs(actions) do
-    if picker_mod.has_dynamic_label(def) then
+    if surface_policy.has_dynamic_label(def) then
       return true
     end
   end
@@ -246,7 +247,6 @@ function M.pick(opts)
   if keys == false then
     keys = {}
   end
-  local picker_mod = require('forge.picker')
   local bindings = keys[opts.picker_name] or {}
   local entries = opts.entries or {}
   local stream = rawget(opts, 'stream')
@@ -266,11 +266,11 @@ function M.pick(opts)
     if stream then
       return true
     end
-    if not picker_mod.closes(def) then
+    if not surface_policy.closes(def) then
       return true
     end
     for _, entry in ipairs(seed_entries) do
-      if not picker_mod.closes(def, entry) then
+      if not surface_policy.closes(def, entry) then
         return true
       end
     end
@@ -373,10 +373,10 @@ function M.pick(opts)
       local reloads = action_reloads(def)
       local action_fn = function(selected)
         if not selected[1] then
-          if not picker_mod.available(def, nil) then
+          if not surface_policy.available(def, nil) then
             return
           end
-          if reloads and picker_mod.closes(def) then
+          if reloads and surface_policy.closes(def) then
             local utils = require('fzf-lua.utils')
             local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
             if win and type(win.close) == 'function' then
@@ -394,8 +394,8 @@ function M.pick(opts)
           return
         end
         local idx = selected_index(selected[1])
-        local entry = picker_mod.selected(idx and entries[idx] or nil)
-        if not picker_mod.available(def, entry) then
+        local entry = surface_policy.selected(idx and entries[idx] or nil)
+        if not surface_policy.available(def, entry) then
           return
         end
         if reloads and entry and rawget(entry, 'load_more') and tracked and idx then
@@ -406,7 +406,7 @@ function M.pick(opts)
         else
           track_redirect = nil
         end
-        if reloads and picker_mod.closes(def, entry) then
+        if reloads and surface_policy.closes(def, entry) then
           local utils = require('fzf-lua.utils')
           local win = type(utils.fzf_winobj) == 'function' and utils.fzf_winobj() or nil
           if win and type(win.close) == 'function' then
