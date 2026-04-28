@@ -128,6 +128,8 @@
 ---@alias forge.PRLookupPass forge.PRLookupState[]
 ---@alias forge.RepoLike forge.Scope|forge.RepoTarget|string
 ---@alias forge.HeadLike forge.HeadInput|forge.HeadRef|forge.RevTarget|string
+---@alias forge.PickerRowKind 'none'|'load_more'|'error'|'empty'|'entity'
+---@alias forge.ToggleVerb 'close'|'reopen'|'cancel'|'rerun'
 
 ---@class forge.BranchPRPolicy
 ---@field searches forge.PRLookupPass[]
