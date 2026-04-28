@@ -1,4 +1,5 @@
 local M = {}
+local url_mod = require('forge.url')
 
 local default_hosts = {
   github = 'github.com',
@@ -17,42 +18,6 @@ local function trim(text)
     return nil
   end
   return value
-end
-
----@param url any
----@return string?
-local function normalize_url(url)
-  local value = trim(url)
-  if not value then
-    return nil
-  end
-  local normalized = tostring(value)
-  normalized = normalized:gsub('%.git$', '')
-  normalized = normalized:gsub('^ssh://git@', 'https://')
-  normalized = normalized:gsub('^git@([^:]+):', 'https://%1/')
-  normalized = normalized:gsub('/+$', '')
-  normalized = normalized:gsub('#.*$', '')
-  normalized = normalized:gsub('%?.*$', '')
-  return normalized
-end
-
----@param url any
----@return string?, string?
-local function split_url(url)
-  local normalized = normalize_url(url)
-  if not normalized then
-    return nil
-  end
-  local host, path = normalized:match('^https?://([^/]+)/(.+)$')
-  if not host or not path then
-    return nil
-  end
-  path = path:match('^(.-)/%-/') or path
-  path = path:gsub('/+$', '')
-  if path == '' then
-    return nil
-  end
-  return host, path
 end
 
 ---@param opts table?
@@ -282,7 +247,7 @@ function M.parse_repo(text)
   if value:match('^[^/]+%.[^/]+/.+$') then
     hosted = 'https://' .. value
   end
-  local host, slug = split_url(hosted)
+  local host, slug = url_mod.split(hosted)
   if host and slug then
     return {
       kind = 'repo',
@@ -351,7 +316,7 @@ function M.resolve_repo(text, opts)
 
   local remote = remote_url(value, cwd)
   if remote then
-    local host, slug = split_url(remote)
+    local host, slug = url_mod.split(remote)
     if not host or not slug then
       return nil, 'invalid remote address: ' .. value
     end
