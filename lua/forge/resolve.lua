@@ -1,5 +1,6 @@
 local M = {}
 
+local detect_mod = require('forge.detect')
 local scope_mod = require('forge.scope')
 local system_mod = require('forge.system')
 local target_mod = require('forge.target')
@@ -57,11 +58,7 @@ local function current_forge(opts)
   if type(opts) == 'table' and type(opts.forge) == 'table' then
     return opts.forge
   end
-  local ok, forge = pcall(require, 'forge')
-  if not ok or type(forge) ~= 'table' or type(forge.detect) ~= 'function' then
-    return nil
-  end
-  return forge.detect()
+  return detect_mod.detect()
 end
 
 ---@param value any

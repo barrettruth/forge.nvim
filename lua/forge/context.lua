@@ -1,5 +1,7 @@
 local M = {}
 
+local detect_mod = require('forge.detect')
+
 local providers = {}
 
 local function git_output(cmd)
@@ -42,7 +44,7 @@ providers.current = function()
     root = root,
     branch = git_output({ 'git', 'branch', '--show-current' }) or '',
     head = git_output({ 'git', 'rev-parse', 'HEAD' }) or '',
-    forge = forge_mod.detect(),
+    forge = detect_mod.detect(),
     has_file = has_file,
     loc = has_file and forge_mod.file_loc() or nil,
   }

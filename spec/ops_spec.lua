@@ -26,6 +26,7 @@ describe('shared operations', function()
     old_ui_select = vim.ui.select
     old_ui_open = vim.ui.open
     old_preload = {
+      ['forge.detect'] = package.preload['forge.detect'],
       ['forge'] = package.preload['forge'],
       ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
@@ -168,7 +169,15 @@ describe('shared operations', function()
         open = function() end,
       }
     end
+    package.preload['forge.detect'] = function()
+      return {
+        detect = function()
+          return nil
+        end,
+      }
+    end
 
+    package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
@@ -185,6 +194,8 @@ describe('shared operations', function()
     vim.ui.select = old_ui_select
     vim.ui.open = old_ui_open
 
+    package.loaded['forge.detect'] = nil
+    package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
