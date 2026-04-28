@@ -136,11 +136,32 @@ local function check_job_id(check)
   return check.job_id or (check.link or ''):match('/job/(%d+)')
 end
 
+local function browseable_check(check)
+  return type(check) == 'table' and type(check.link) == 'string' and check.link ~= ''
+end
+
+local openable_check
+local inspect_check
+
 ---@param checks forge.Check[]
 ---@return forge.PRChecksLine[]
 local function render_rows(checks)
   local forge = require('forge')
-  local rows = forge.format_checks(checks, { width = layout.picker_width() })
+  local display_checks = {}
+  for _, check in ipairs(checks) do
+    local label = check.name or ''
+    if not openable_check(check) then
+      if browseable_check(check) then
+        label = label .. ' [web]'
+      else
+        label = label .. ' [unavailable]'
+      end
+    end
+    display_checks[#display_checks + 1] = vim.tbl_extend('force', {}, check, {
+      name = label,
+    })
+  end
+  local rows = forge.format_checks(display_checks, { width = layout.picker_width() })
   local lines = {}
   for index, row in ipairs(rows) do
     local text = {}
@@ -158,8 +179,18 @@ local function render_rows(checks)
       end
       col = col + #part
     end
+    local line_text = table.concat(text):gsub('%s+$', '')
+    local end_col = #line_text
+    for i = #highlights, 1, -1 do
+      local hl = highlights[i]
+      if hl.col >= end_col then
+        table.remove(highlights, i)
+      elseif hl.end_col > end_col then
+        hl.end_col = end_col
+      end
+    end
     lines[#lines + 1] = {
-      text = table.concat(text),
+      text = line_text,
       highlights = highlights,
       check = checks[index],
     }
@@ -214,7 +245,7 @@ end
 
 ---@param check forge.Check?
 ---@return boolean
-local function openable_check(check)
+openable_check = function(check)
   if type(check) ~= 'table' then
     return false
   end
@@ -224,10 +255,17 @@ local function openable_check(check)
   return check_run_id(check) ~= nil
 end
 
----@param f forge.Forge
----@param check forge.Check
----@param scope forge.Scope?
-local function inspect_check(f, check, scope)
+local function open_check(f, check, scope)
+  if openable_check(check) then
+    inspect_check(f, check, scope)
+    return
+  end
+  if browseable_check(check) then
+    vim.ui.open(check.link)
+  end
+end
+
+inspect_check = function(f, check, scope)
   if not openable_check(check) then
     return
   end
@@ -280,7 +318,7 @@ local function setup_keymaps(buf, f, pr, opts)
   vim.keymap.set('n', '<cr>', function()
     local check = current_check(buf)
     if check then
-      inspect_check(f, check, pr.scope)
+      open_check(f, check, pr.scope)
     end
   end, { buffer = buf, desc = 'Open' })
   map(keys.refresh, function()

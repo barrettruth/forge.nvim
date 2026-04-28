@@ -3,15 +3,15 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 describe('forge.completion_policy', function()
   local policy
   local old_availability
-  local old_picker
+  local old_surface_policy
 
   before_each(function()
     old_availability = package.preload['forge.availability']
-    old_picker = package.preload['forge.picker']
+    old_surface_policy = package.preload['forge.surface_policy']
 
     package.loaded['forge.completion_policy'] = nil
     package.loaded['forge.availability'] = nil
-    package.loaded['forge.picker'] = nil
+    package.loaded['forge.surface_policy'] = nil
 
     package.preload['forge.availability'] = function()
       return {
@@ -30,7 +30,7 @@ describe('forge.completion_policy', function()
       }
     end
 
-    package.preload['forge.picker'] = function()
+    package.preload['forge.surface_policy'] = function()
       return {
         pr_toggle_verb = function(entry)
           return entry and entry.value and entry.value.pr_toggle or nil
@@ -46,11 +46,11 @@ describe('forge.completion_policy', function()
 
   after_each(function()
     package.preload['forge.availability'] = old_availability
-    package.preload['forge.picker'] = old_picker
+    package.preload['forge.surface_policy'] = old_surface_policy
 
     package.loaded['forge.completion_policy'] = nil
     package.loaded['forge.availability'] = nil
-    package.loaded['forge.picker'] = nil
+    package.loaded['forge.surface_policy'] = nil
   end)
 
   it('returns slot-composition policies for family and argument slots', function()

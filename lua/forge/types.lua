@@ -371,6 +371,7 @@
 ---@class forge.CIRun
 ---@field id string
 ---@field name string
+---@field context string?
 ---@field branch string
 ---@field status string
 ---@field event string

@@ -201,6 +201,82 @@ describe('ci history buffer', function()
     }, captured.opened[1])
   end)
 
+  it('trims trailing padding from rendered run rows before writing the buffer', function()
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return {
+            split = 'horizontal',
+            ci = { refresh = 5 },
+            display = { limits = { runs = 30 } },
+            keys = {
+              ci = {
+                refresh = '<c-r>',
+              },
+              log = {
+                next_step = ']]',
+                prev_step = '[[',
+              },
+            },
+          }
+        end,
+        filter_runs = function(runs)
+          return runs
+        end,
+        format_runs = function()
+          return {
+            {
+              { 'CI', 'ForgePass' },
+              { ' main   ', 'ForgeBranch' },
+            },
+          }
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+    package.loaded['forge.ci_history'] = nil
+
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            id = '123',
+            name = 'CI',
+            branch = 'main',
+            status = 'success',
+            url = 'https://example.com/runs/123',
+          },
+        }),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    local mod = require('forge.ci_history')
+    mod.open({
+      name = 'github',
+      labels = { ci_inline = 'runs' },
+      list_runs_json_cmd = function(_, branch, _, limit)
+        return { 'runs', branch, tostring(limit) }
+      end,
+      normalize_run = function(_, run)
+        return run
+      end,
+    }, {
+      branch = 'main',
+      scope = scope,
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'CI main'
+    end)
+
+    assert.same({ 'CI main' }, vim.api.nvim_buf_get_lines(buf, 0, 1, false))
+  end)
+
   it('routes gx through ops.ci_browse for the highlighted run', function()
     vim.system = function(_, _, cb)
       cb({
@@ -337,6 +413,10 @@ describe('ci history buffer', function()
     end)
     assert.same({ 'runs', 'main', '3' }, calls[1])
     assert.same({ 'Newest', 'Middle' }, vim.api.nvim_buf_get_lines(buf, 0, 2, false))
+    assert.equals(
+      'Showing newest 2 runs · ]c older runs',
+      vim.api.nvim_buf_get_lines(buf, 2, 3, false)[1]
+    )
 
     local older = vim.fn.maparg(']c', 'n', false, true).callback
     older()
@@ -346,6 +426,10 @@ describe('ci history buffer', function()
     end)
     assert.same({ 'runs', 'main', '5' }, calls[2])
     assert.same({ 'Newest', 'Middle', 'Oldest' }, vim.api.nvim_buf_get_lines(buf, 0, 3, false))
+    assert.equals(
+      'Showing 3 runs · [c fewer runs',
+      vim.api.nvim_buf_get_lines(buf, 3, 4, false)[1]
+    )
   end)
 
   it('shrinks the current-branch history window with [c after loading more', function()
@@ -442,10 +526,16 @@ describe('ci history buffer', function()
 
     vim.fn.maparg('[c', 'n', false, true).callback()
     vim.wait(100, function()
-      return #calls == 3 and vim.api.nvim_buf_get_lines(buf, 0, -1, false)[3] == nil
+      return #calls == 3
+        and vim.api.nvim_buf_get_lines(buf, 0, -1, false)[3]
+          == 'Showing newest 2 runs · ]c older runs'
     end)
     assert.same({ 'runs', 'main', '3' }, calls[3])
     assert.same({ 'Newest', 'Middle' }, vim.api.nvim_buf_get_lines(buf, 0, 2, false))
+    assert.equals(
+      'Showing newest 2 runs · ]c older runs',
+      vim.api.nvim_buf_get_lines(buf, 2, 3, false)[1]
+    )
   end)
 
   it('keeps branch history distinct from same-id run summary buffers', function()

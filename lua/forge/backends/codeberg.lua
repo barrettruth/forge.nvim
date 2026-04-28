@@ -410,14 +410,17 @@ function M:normalize_run(entry)
   if status == 'completed' then
     status = entry.conclusion or 'unknown'
   end
+  local name = entry.display_title or entry.displayTitle or entry.name or ''
+  local context = entry.workflow_name or entry.workflowName or entry.name or ''
   return {
     id = tostring(entry.id or ''),
-    name = entry.name or '',
-    branch = entry.head_branch or '',
+    name = name,
+    context = context,
+    branch = entry.head_branch or entry.headBranch or '',
     status = status,
     event = entry.event or '',
     url = entry.html_url or '',
-    created_at = entry.created_at or '',
+    created_at = entry.created_at or entry.createdAt or '',
   }
 end
 

@@ -219,6 +219,78 @@ describe('pr checks buffer', function()
     }, captured.logs[1])
   end)
 
+  it('trims trailing padding from rendered check rows before writing the buffer', function()
+    package.preload['forge'] = function()
+      return {
+        config = function()
+          return {
+            split = 'horizontal',
+            ci = { refresh = 5 },
+            keys = {
+              log = {
+                next_step = ']]',
+                prev_step = '[[',
+                refresh = '<c-r>',
+              },
+            },
+          }
+        end,
+        filter_checks = function(checks)
+          return checks
+        end,
+        format_checks = function()
+          return {
+            {
+              { 'lint', 'ForgeFail' },
+              { ' [web]   ', 'ForgeDim' },
+            },
+          }
+        end,
+      }
+    end
+    package.loaded['forge'] = nil
+    package.loaded['forge.pr_checks'] = nil
+
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            name = 'lint',
+            bucket = 'fail',
+            link = 'https://example.com/actions/runs/123/job/456',
+          },
+        }),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    local mod = require('forge.pr_checks')
+    mod.open({
+      name = 'github',
+      labels = { pr_one = 'PR' },
+      capabilities = { per_pr_checks = true },
+      checks_json_cmd = function()
+        return { 'checks', '42' }
+      end,
+      check_log_cmd = function(_, run_id, failed, job_id)
+        return { 'log', run_id, tostring(failed), job_id or '' }
+      end,
+    }, {
+      num = '42',
+      scope = scope,
+    })
+
+    local buf = vim.api.nvim_get_current_buf()
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'lint [web]'
+    end)
+
+    assert.same({ 'lint [web]' }, vim.api.nvim_buf_get_lines(buf, 0, 1, false))
+  end)
+
   it('routes pending checks through live tail when available', function()
     vim.system = function(_, _, cb)
       cb({
@@ -270,5 +342,90 @@ describe('pr checks buffer', function()
       },
     }, captured.terms[1])
     assert.same({}, captured.logs)
+  end)
+
+  it('renders browse-only checks explicitly and opens them in the browser on enter', function()
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            name = 'skipped',
+            bucket = 'skipping',
+            link = 'https://example.com/actions/runs/123/job/456',
+          },
+        }),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    local mod = require('forge.pr_checks')
+    mod.open({
+      name = 'github',
+      labels = { pr_one = 'PR' },
+      capabilities = { per_pr_checks = true },
+      checks_json_cmd = function()
+        return { 'checks', '42' }
+      end,
+      check_log_cmd = function()
+        return { 'log' }
+      end,
+    }, {
+      num = '42',
+      scope = scope,
+    })
+
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'skipped [web]'
+    end)
+    vim.fn.maparg('<cr>', 'n', false, true).callback()
+
+    assert.same({ 'https://example.com/actions/runs/123/job/456' }, captured.urls)
+    assert.same({}, captured.logs)
+    assert.same({}, captured.terms)
+  end)
+
+  it('renders unavailable checks explicitly and leaves enter inert', function()
+    vim.system = function(_, _, cb)
+      cb({
+        code = 0,
+        stdout = vim.json.encode({
+          {
+            name = 'waiting',
+            bucket = 'skipping',
+          },
+        }),
+      })
+      return {
+        kill = function() end,
+      }
+    end
+
+    local mod = require('forge.pr_checks')
+    mod.open({
+      name = 'github',
+      labels = { pr_one = 'PR' },
+      capabilities = { per_pr_checks = true },
+      checks_json_cmd = function()
+        return { 'checks', '42' }
+      end,
+      check_log_cmd = function()
+        return { 'log' }
+      end,
+    }, {
+      num = '42',
+      scope = scope,
+    })
+
+    vim.wait(100, function()
+      return vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'waiting [unavailable]'
+    end)
+    vim.fn.maparg('<cr>', 'n', false, true).callback()
+
+    assert.same({}, captured.urls)
+    assert.same({}, captured.logs)
+    assert.same({}, captured.terms)
   end)
 end)

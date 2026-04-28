@@ -476,10 +476,12 @@ end
 function M:normalize_run(entry)
   local ref = entry.ref or ''
   local mr_num = ref:match('^refs/merge%-requests/(%d+)/head$')
+  local context = mr_num and ('!%s'):format(mr_num) or ''
   return {
     id = tostring(entry.id or ''),
-    name = mr_num and ('!%s'):format(mr_num) or ref,
-    branch = '',
+    name = entry.name or (context ~= '' and context or ref),
+    context = context,
+    branch = context ~= '' and '' or ref,
     status = entry.status or '',
     event = entry.source or '',
     url = entry.web_url or '',

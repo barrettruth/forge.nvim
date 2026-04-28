@@ -180,8 +180,18 @@ local function render_rows(runs)
       end
       col = col + #part
     end
+    local line_text = table.concat(text):gsub('%s+$', '')
+    local end_col = #line_text
+    for i = #highlights, 1, -1 do
+      local hl = highlights[i]
+      if hl.col >= end_col then
+        table.remove(highlights, i)
+      elseif hl.end_col > end_col then
+        hl.end_col = end_col
+      end
+    end
     lines[#lines + 1] = {
-      text = table.concat(text),
+      text = line_text,
       highlights = highlights,
       run = runs[index],
     }
@@ -205,6 +215,37 @@ local function render_placeholder(text, group)
       } or {},
       run = nil,
     },
+  }
+end
+
+local function pager_line(label, visible_count, limit_step, limit, has_more)
+  local actions = {}
+  if has_more then
+    actions[#actions + 1] = ']c older ' .. label
+  end
+  if limit > limit_step then
+    actions[#actions + 1] = '[c fewer ' .. label
+  end
+  if #actions == 0 then
+    return nil
+  end
+  local prefix
+  if has_more then
+    prefix = ('Showing newest %d %s'):format(visible_count, label)
+  else
+    prefix = ('Showing %d %s'):format(visible_count, label)
+  end
+  local text = prefix .. ' · ' .. table.concat(actions, ' · ')
+  return {
+    text = text,
+    highlights = {
+      {
+        col = 0,
+        end_col = #text,
+        group = 'ForgeDim',
+      },
+    },
+    run = nil,
   }
 end
 
@@ -412,7 +453,12 @@ function M.open(f, head, opts, reuse_buf)
       if has_more then
         runs = vim.list_slice(runs, 1, limit)
       end
-      render(buf, render_rows(runs))
+      local lines = render_rows(runs)
+      local pager = pager_line(ci_inline_label(f), #runs, limit_step, limit, has_more)
+      if pager then
+        lines[#lines + 1] = pager
+      end
+      render(buf, lines)
       set_data(buf, {
         has_more = has_more,
       })

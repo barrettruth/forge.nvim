@@ -305,6 +305,9 @@ Top-level keys: ~
   CI terminal              `gx`       Browse current URL/job URL
   CI terminal              `<cr>`     Open job under cursor when available
 
+    When the current-branch CI history buffer can page, Forge renders the
+    `]c` / `[c` affordance directly in the buffer instead of leaving it hidden.
+
 `display`                                               *forge-config-display*
   Controls status icons and fetch limits used in picker formatting. Picker
   column widths are derived automatically from content and window width.
@@ -458,6 +461,7 @@ PR COMMANDS                                                *forge-pr-commands*
     `head=`            Override the head used for implicit branch-relative
                        lookup. Only used when `{num}` is omitted.
     Use `<cr>` to inspect the highlighted check and `gx` to open its URL.
+    Browse-only and unavailable rows are labeled directly in the buffer.
 
 `:Forge review` [repo=...] [head=...] [adapter=...]              *:Forge-review*
 `:Forge review` {num} [repo=...] [adapter=...]
@@ -647,6 +651,7 @@ CI COMMANDS                                                *forge-ci-commands*
     `head=`            Override the head used for current-branch history.
     Use `<cr>` to inspect the highlighted run and `gx` to open its URL.
     Use `]c` to fetch older runs and `[c` to shrink back to the newer window.
+    Repo-wide CI browsing stays on the interactive route surface.
 
 `:Forge ci open` {run-id} [repo=...]                          *:Forge-ci-open*
     Open the primary local run view for CI run `{run-id}`. Active runs
@@ -846,6 +851,9 @@ deterministic Lua helpers such as `require('forge').pr()`, `review()`,
 The picker surface covers workflows that do not fit cleanly in a single
 command, such as list navigation, row-scoped actions, filters, refresh,
 load-more rows, nested per-PR/MR checks, and copy helpers.
+Repo-wide CI browsing stays here through `require('forge').open('ci.all')`,
+while bare `:Forge ci` and `require('forge').ci()` intentionally remain narrow
+current-branch history surfaces.
 
 ==============================================================================
 COMPOSE BUFFER                                                 *forge-compose*

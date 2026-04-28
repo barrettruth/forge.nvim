@@ -1,6 +1,5 @@
 local M = {}
 
-local ci = require('forge.ci')
 local detect = require('forge.detect')
 local surface = require('forge.surface')
 
@@ -129,7 +128,7 @@ M.search_keys = {
   ci = function(entry)
     local value = entry.value
     if type(value) == 'table' then
-      return join_search_terms({ value.name or '', value.branch or '' })
+      return join_search_terms({ value.name or '', value.context or '', value.branch or '' })
     end
     return M.ordinal(entry)
   end,
@@ -163,85 +162,6 @@ function M.search_key(picker_name, entry)
     return builder(entry)
   end
   return M.ordinal(entry)
-end
-
----@param entry forge.PickerEntry?
----@return forge.PickerEntry?
-function M.selected(entry)
-  if entry and entry.placeholder then
-    return nil
-  end
-  return entry
-end
-
----@param entry forge.PickerEntry?
----@return 'none'|'entity'|'load_more'|'empty'|'error'
-function M.row_kind(entry)
-  if entry == nil then
-    return 'none'
-  end
-  if rawget(entry, 'load_more') then
-    return 'load_more'
-  end
-  if rawget(entry, 'placeholder') then
-    return rawget(entry, 'placeholder_kind') == 'error' and 'error' or 'empty'
-  end
-  return 'entity'
-end
-
----@param def forge.PickerActionDef
----@param entry forge.PickerEntry?
----@return boolean
-function M.closes(def, entry)
-  if entry and entry.keep_open then
-    return false
-  end
-  if entry and entry.force_close then
-    return true
-  end
-  return rawget(def, 'close') ~= false
-end
-
----@param def forge.PickerActionDef
----@param entry forge.PickerEntry?
----@return boolean
-function M.available(def, entry)
-  local available = rawget(def, 'available')
-  if type(available) == 'function' then
-    local ok, result = pcall(available, entry)
-    return ok and result ~= false
-  end
-  if available ~= nil then
-    return available ~= false
-  end
-  return true
-end
-
----@param def forge.PickerActionDef
----@param entry forge.PickerEntry?
----@return string?
-function M.resolve_label(def, entry)
-  if not M.available(def, entry) then
-    return nil
-  end
-  local label = rawget(def, 'label')
-  if type(label) == 'function' then
-    local ok, result = pcall(label, entry)
-    if ok and type(result) == 'string' then
-      return result
-    end
-    return nil
-  end
-  if type(label) == 'string' then
-    return label
-  end
-  return nil
-end
-
----@param def forge.PickerActionDef
----@return boolean
-function M.has_dynamic_label(def)
-  return type(rawget(def, 'label')) == 'function' or type(rawget(def, 'available')) == 'function'
 end
 
 ---@param hints forge.PickerHint[]
@@ -280,78 +200,6 @@ function M.order_hints(hints, order)
     end
   end
   return ordered
-end
-
----@param entry forge.PickerEntry?
----@return table?
-local function entry_value(entry)
-  if not entry or rawget(entry, 'placeholder') or rawget(entry, 'load_more') then
-    return nil
-  end
-  if type(entry.value) ~= 'table' then
-    return nil
-  end
-  return entry.value
-end
-
----@alias forge.IssueToggleVerb 'close'|'reopen'
-
----Verb that the issue toggle action will execute on `entry`, or `nil` when no
----valid transition exists (missing/unknown state, placeholder, or load_more
----row).
----@param entry forge.PickerEntry?
----@return forge.IssueToggleVerb?
-function M.issue_toggle_verb(entry)
-  local value = entry_value(entry)
-  if not value then
-    return nil
-  end
-  local state = (value.state or ''):lower()
-  if state == 'open' or state == 'opened' then
-    return 'close'
-  end
-  if state == 'closed' then
-    return 'reopen'
-  end
-  return nil
-end
-
----@alias forge.PRToggleVerb 'close'|'reopen'
-
----Verb that the PR toggle action will execute on `entry`, or `nil` when no
----valid transition exists. Merged PRs return `nil` because merged is a
----terminal state (`gh pr reopen` and its GitLab/Codeberg analogues all
----refuse a merged PR).
----@param entry forge.PickerEntry?
----@return forge.PRToggleVerb?
-function M.pr_toggle_verb(entry)
-  local value = entry_value(entry)
-  if not value then
-    return nil
-  end
-  local state = (value.state or ''):lower()
-  if state == 'open' or state == 'opened' then
-    return 'close'
-  end
-  if state == 'closed' then
-    return 'reopen'
-  end
-  return nil
-end
-
----@alias forge.CIToggleVerb 'cancel'|'rerun'
-
----Verb that the CI toggle action will execute on `entry`, or `nil` when no
----valid transition exists. `skipped` runs return `nil` because neither
----cancel nor rerun makes sense for a workflow that never started.
----@param entry forge.PickerEntry?
----@return forge.CIToggleVerb?
-function M.ci_toggle_verb(entry)
-  local value = entry_value(entry)
-  if not value then
-    return nil
-  end
-  return ci.toggle_verb(value)
 end
 
 ---@return boolean
