@@ -1,6 +1,7 @@
 local M = {}
 
 local availability = require('forge.availability')
+local collections = require('forge.collections')
 local surface_policy = require('forge.surface_policy')
 
 local implicit_pr_completion_verbs = {
@@ -44,20 +45,11 @@ local function issue_completion_available(verb, _, entry)
   return true
 end
 
-local function list_contains(items, value)
-  for _, item in ipairs(items or {}) do
-    if item == value then
-      return true
-    end
-  end
-  return false
-end
-
 local function declares_modifier(command, flag_name)
   if type(command) ~= 'table' then
     return false
   end
-  return list_contains(command.declared_modifiers or command.modifiers, flag_name)
+  return collections.list_contains(command.declared_modifiers or command.modifiers, flag_name)
 end
 
 function M.family_slot(command)
