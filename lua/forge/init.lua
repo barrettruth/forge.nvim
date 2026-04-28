@@ -5,6 +5,7 @@ local cache_mod = require('forge.cache')
 local compose_mod = require('forge.compose')
 local config_mod = require('forge.config')
 local context_mod = require('forge.context')
+local detect_mod = require('forge.detect')
 local format_mod = require('forge.format')
 local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
@@ -13,35 +14,18 @@ local system_mod = require('forge.system')
 local target_mod = require('forge.target')
 local template_mod = require('forge.template')
 
----@type table<string, forge.Forge>
-local sources = {}
-
----@param name string
----@param source forge.Forge
-function M.register(name, source)
-  sources[name] = source
-end
-
+M.register = detect_mod.register
 M.register_source = M.register
 M.register_context_provider = context_mod.register
 M.register_action = action_mod.register
 M.register_review_adapter = review_mod.register
 M.run_action = action_mod.run
-
----@return table<string, forge.Forge>
-function M.registered_sources()
-  return sources
-end
+M.registered_sources = detect_mod.registered_sources
+M.detect = detect_mod.detect
 
 function M.review_adapter_names()
   return review_mod.names()
 end
-
----@type table<string, forge.Forge>
-local forge_cache = {}
-
----@type table<string, string>
-local root_cache = {}
 
 local repo_info_cache = cache_mod.new(30 * 60)
 local pr_state_cache = cache_mod.new(60)
@@ -66,33 +50,7 @@ local function fn_system_text(cmd)
   return text
 end
 
----@param cmd string[]
----@return string?
-local function system_text(cmd)
-  local result = vim.system(cmd, { text = true }):wait()
-  if result.code ~= 0 then
-    return nil
-  end
-  local text = vim.trim(result.stdout or '')
-  if text == '' then
-    return nil
-  end
-  return text
-end
-
----@return string?
-local function git_root()
-  local cwd = vim.fn.getcwd()
-  if root_cache[cwd] then
-    return root_cache[cwd]
-  end
-  local root = fn_system_text('git rev-parse --show-toplevel')
-  if not root then
-    return nil
-  end
-  root_cache[cwd] = root
-  return root
-end
+local git_root = detect_mod.git_root
 
 ---@param num string
 ---@param scope? forge.Scope
@@ -152,78 +110,6 @@ local function open_web_create(label, cmd, url)
     return
   end
   log.info(success_msg)
-end
-
-local builtin_hosts = {
-  github = { 'github' },
-  gitlab = { 'gitlab' },
-  codeberg = { 'codeberg', 'gitea', 'forgejo' },
-}
-
-local function resolve_source(name)
-  if sources[name] then
-    return sources[name]
-  end
-  local ok, mod = pcall(require, 'forge.backends.' .. name)
-  if ok then
-    sources[name] = mod
-    return mod
-  end
-  return nil
-end
-
----@param remote string
----@return string? forge_name
-local function detect_from_remote(remote)
-  local cfg = M.config().sources
-
-  for name, opts in pairs(cfg) do
-    for _, host in ipairs(opts.hosts or {}) do
-      if remote:find(host, 1, true) then
-        return name
-      end
-    end
-  end
-
-  for name, patterns in pairs(builtin_hosts) do
-    for _, pattern in ipairs(patterns) do
-      if remote:find(pattern, 1, true) then
-        return name
-      end
-    end
-  end
-
-  return nil
-end
-
----@param root string
----@return forge.Forge?
-local function detect_at_root(root)
-  local log = require('forge.logger')
-  if forge_cache[root] then
-    return forge_cache[root]
-  end
-  local remote = system_text({ 'git', '-C', root, 'remote', 'get-url', 'origin' })
-  if not remote then
-    log.debug('detect: no origin remote')
-    return nil
-  end
-  local name = detect_from_remote(remote)
-  if not name then
-    log.debug('detect: no forge matched remote ' .. remote)
-    return nil
-  end
-  local source = resolve_source(name)
-  if not source then
-    log.debug('detect: failed to load source module ' .. name)
-    return nil
-  end
-  if vim.fn.executable(source.cli) ~= 1 then
-    log.debug('detect: CLI ' .. source.cli .. ' not found')
-    return nil
-  end
-  forge_cache[root] = source
-  return source
 end
 
 local function emit_status_update()
@@ -289,7 +175,7 @@ local function refresh_status(root)
     if not current or current.request_id ~= request_id then
       return
     end
-    local forge = detect_at_root(root)
+    local forge = detect_mod.detect_at_root(root)
     if not forge then
       local branch = target_mod.current_branch({ cwd = root })
       if branch then
@@ -332,40 +218,6 @@ local function refresh_status(root)
       set_status_value(root, request_id, status)
     end)
   end)
-end
-
----@return forge.Forge?
-function M.detect()
-  local log = require('forge.logger')
-  local root = git_root()
-  if not root then
-    log.debug('detect: not a git repository')
-    return nil
-  end
-  if forge_cache[root] then
-    return forge_cache[root]
-  end
-  local remote = fn_system_text('git remote get-url origin')
-  if not remote then
-    log.debug('detect: no origin remote')
-    return nil
-  end
-  local name = detect_from_remote(remote)
-  if not name then
-    log.debug('detect: no forge matched remote ' .. remote)
-    return nil
-  end
-  local source = resolve_source(name)
-  if not source then
-    log.debug('detect: failed to load source module ' .. name)
-    return nil
-  end
-  if vim.fn.executable(source.cli) ~= 1 then
-    log.debug('detect: CLI ' .. source.cli .. ' not found')
-    return nil
-  end
-  forge_cache[root] = source
-  return source
 end
 
 ---@param f forge.Forge
@@ -478,10 +330,9 @@ function M.clear_list_kind(kind)
 end
 
 function M.clear_cache()
-  forge_cache = {}
+  detect_mod.clear_cache()
   repo_info_cache.clear()
   pr_state_cache.clear()
-  root_cache = {}
   list_cache.clear()
   clear_status_cache()
 end
