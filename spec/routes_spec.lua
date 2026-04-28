@@ -37,7 +37,6 @@ local function fake_forge(opts)
     end,
   }
 end
-
 local function fake_gitlab_forge()
   return fake_forge({
     name = 'gitlab',
@@ -113,6 +112,7 @@ describe('routes', function()
     end
 
     old_preload = {
+      ['forge.detect'] = package.preload['forge.detect'],
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
@@ -120,13 +120,21 @@ describe('routes', function()
       ['fzf-lua'] = package.preload['fzf-lua'],
     }
 
+    package.preload['forge.detect'] = function()
+      return {
+        detect = function()
+          return detected_forge
+        end,
+        forge_name = function()
+          return detected_forge and detected_forge.name or nil
+        end,
+      }
+    end
+
     package.preload['forge'] = function()
       return {
         config = function()
           return current_config
-        end,
-        detect = function()
-          return detected_forge
         end,
         file_loc = function()
           local name = vim.api.nvim_buf_get_name(0)
@@ -154,6 +162,7 @@ describe('routes', function()
       }
     end
 
+    package.loaded['forge.detect'] = nil
     package.preload['forge.picker'] = function()
       local picker = dofile(vim.fn.getcwd() .. '/lua/forge/picker/init.lua')
       return vim.tbl_extend('force', picker, {
@@ -204,12 +213,14 @@ describe('routes', function()
     vim.system = old_system
     vim.ui.open = old_ui_open
 
+    package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
     package.preload['fzf-lua'] = old_preload['fzf-lua']
 
+    package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil

@@ -1,6 +1,7 @@
 local M = {}
 
 local ci = require('forge.ci')
+local detect_mod = require('forge.detect')
 local log = require('forge.logger')
 local system_mod = require('forge.system')
 
@@ -87,7 +88,7 @@ local function detect_or_warn(f)
   if f then
     return f
   end
-  f = require('forge').detect()
+  f = detect_mod.detect()
   if not f then
     log.warn('no forge detected')
     return nil

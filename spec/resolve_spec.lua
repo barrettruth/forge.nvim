@@ -4,10 +4,12 @@ local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 
 local preload_modules = {
   'forge',
+  'forge.detect',
 }
 
 local loaded_modules = {
   'forge',
+  'forge.detect',
   'forge.resolve',
   'forge.scope',
   'forge.target',
@@ -60,6 +62,13 @@ describe('current_pr resolver', function()
           return {
             targets = {},
           }
+        end,
+      }
+    end
+    package.preload['forge.detect'] = function()
+      return {
+        detect = function()
+          return github
         end,
       }
     end
