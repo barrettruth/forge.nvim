@@ -69,6 +69,37 @@ local function completion(cmdline)
   return vim.fn.getcompletion(cmdline, 'cmdline')
 end
 
+local function with_picker_traps(fn)
+  local old_preload = {
+    ['forge.picker'] = package.preload['forge.picker'],
+    ['forge.pickers'] = package.preload['forge.pickers'],
+  }
+  local old_loaded = {
+    ['forge.picker'] = package.loaded['forge.picker'],
+    ['forge.pickers'] = package.loaded['forge.pickers'],
+  }
+
+  package.preload['forge.picker'] = function()
+    error('unexpected picker module load: forge.picker')
+  end
+  package.preload['forge.pickers'] = function()
+    error('unexpected picker module load: forge.pickers')
+  end
+  package.loaded['forge.picker'] = nil
+  package.loaded['forge.pickers'] = nil
+
+  local ok, result = xpcall(fn, debug.traceback)
+
+  package.preload['forge.picker'] = old_preload['forge.picker']
+  package.preload['forge.pickers'] = old_preload['forge.pickers']
+  package.loaded['forge.picker'] = old_loaded['forge.picker']
+  package.loaded['forge.pickers'] = old_loaded['forge.pickers']
+
+  if not ok then
+    error(result)
+  end
+end
+
 describe(':Forge command', function()
   local captured
   local detected_forge_name
@@ -595,6 +626,55 @@ describe(':Forge command', function()
     assert.equals('owner/current', captured.ci_calls[1].head.repo.slug)
     assert.same({}, captured.warnings)
     assert.same({}, captured.ops_calls)
+  end)
+
+  it('keeps deterministic :Forge commands out of picker modules', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+    captured.branch_pr_result = {
+      num = '43',
+      scope = repo_scope('upstream'),
+    }
+
+    with_picker_traps(function()
+      vim.cmd('Forge pr')
+      vim.cmd('Forge review 57 repo=upstream adapter=worktree')
+      vim.cmd('Forge pr ci')
+      vim.cmd('Forge ci')
+      vim.cmd('Forge issue browse 24')
+      vim.cmd('Forge release browse v1.0.0')
+      vim.cmd('Forge clear')
+    end)
+
+    assert.same({}, captured.opens)
+    assert.same({}, captured.warnings)
+    assert.is_true(captured.cleared)
+    assert.same({
+      {
+        name = 'pr_edit',
+        pr = { num = '42', scope = repo_scope('upstream') },
+      },
+      {
+        name = 'pr_review',
+        pr = { num = '57', scope = repo_scope('upstream') },
+        opts = { adapter = 'worktree' },
+      },
+      {
+        name = 'pr_ci',
+        pr = { num = '43', scope = repo_scope('upstream') },
+      },
+      {
+        name = 'issue_browse',
+        issue = { num = '24', scope = nil },
+      },
+      {
+        name = 'release_browse',
+        release = { tag = 'v1.0.0', scope = nil },
+      },
+    }, captured.ops_calls)
+    assert.same({ {} }, captured.ci_calls)
   end)
 
   it('dispatches implicit current-PR commands through forge.current_pr', function()

@@ -34,6 +34,37 @@ local function repo_scope(repo)
   }
 end
 
+local function with_picker_traps(fn)
+  local old_preload = {
+    ['forge.picker'] = package.preload['forge.picker'],
+    ['forge.pickers'] = package.preload['forge.pickers'],
+  }
+  local old_loaded = {
+    ['forge.picker'] = package.loaded['forge.picker'],
+    ['forge.pickers'] = package.loaded['forge.pickers'],
+  }
+
+  package.preload['forge.picker'] = function()
+    error('unexpected picker module load: forge.picker')
+  end
+  package.preload['forge.pickers'] = function()
+    error('unexpected picker module load: forge.pickers')
+  end
+  package.loaded['forge.picker'] = nil
+  package.loaded['forge.pickers'] = nil
+
+  local ok, result = xpcall(fn, debug.traceback)
+
+  package.preload['forge.picker'] = old_preload['forge.picker']
+  package.preload['forge.pickers'] = old_preload['forge.pickers']
+  package.loaded['forge.picker'] = old_loaded['forge.picker']
+  package.loaded['forge.pickers'] = old_loaded['forge.pickers']
+
+  if not ok then
+    error(result)
+  end
+end
+
 describe('high-level implicit-ref API', function()
   local captured
   local old_fn_system
@@ -445,6 +476,55 @@ describe('high-level implicit-ref API', function()
       head = { branch = 'feature', scope = repo_scope('upstream') },
     }, captured.ops_calls[1])
     assert.same({}, captured.opens)
+  end)
+
+  it('keeps deterministic top-level helpers out of picker modules', function()
+    captured.current_pr_result = {
+      num = '42',
+      scope = repo_scope('upstream'),
+    }
+    captured.repo_result = repo_scope('upstream')
+    captured.branch_pr_result = {
+      num = '43',
+      scope = repo_scope('upstream'),
+    }
+    captured.head_result = {
+      branch = 'feature',
+      scope = repo_scope('current'),
+    }
+
+    with_picker_traps(function()
+      local forge = require('forge')
+      forge.pr()
+      forge.review({ num = '57', repo = 'upstream', adapter = 'worktree' })
+      forge.pr_ci()
+      forge.ci()
+    end)
+
+    assert.same({}, captured.opens)
+    assert.same({}, captured.warnings)
+    assert.same({
+      {
+        name = 'pr_edit',
+        pr = { num = '42', scope = repo_scope('upstream') },
+      },
+      {
+        name = 'pr_review',
+        f = { name = 'github', cli = 'gh', labels = { ci = 'CI', pr_one = 'PR' } },
+        pr = { num = '57', scope = repo_scope('upstream') },
+        opts = { adapter = 'worktree' },
+      },
+      {
+        name = 'pr_ci',
+        f = { name = 'github', cli = 'gh', labels = { ci = 'CI', pr_one = 'PR' } },
+        pr = { num = '43', scope = repo_scope('upstream') },
+      },
+      {
+        name = 'ci',
+        f = { name = 'github', cli = 'gh', labels = { ci = 'CI', pr_one = 'PR' } },
+        head = { branch = 'feature', scope = repo_scope('current') },
+      },
+    }, captured.ops_calls)
   end)
 
   it('warns cleanly when no current PR matches the high-level current-ref entrypoints', function()
