@@ -5,6 +5,9 @@ describe('compose split session', function()
   local old_system
   local old_feedkeys
   local old_preload
+  local old_wrap
+  local old_conceallevel
+  local hostile_group
 
   local function issue_forge()
     return {
@@ -39,14 +42,23 @@ describe('compose split session', function()
     }
   end
 
+  local function assert_compose_surface(buf, win)
+    assert.equals('forgecompose', vim.bo[buf].filetype)
+    assert.is_false(vim.wo[win].wrap)
+    assert.equals(0, vim.wo[win].conceallevel)
+  end
+
   before_each(function()
     captured = {
       cleared = 0,
       split = 'horizontal',
     }
+    hostile_group = nil
 
     old_system = vim.system
     old_feedkeys = vim.api.nvim_feedkeys
+    old_wrap = vim.o.wrap
+    old_conceallevel = vim.o.conceallevel
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.config'] = package.preload['forge.config'],
@@ -128,6 +140,11 @@ describe('compose split session', function()
   after_each(function()
     vim.system = old_system
     vim.api.nvim_feedkeys = old_feedkeys
+    vim.o.wrap = old_wrap
+    vim.o.conceallevel = old_conceallevel
+    if hostile_group then
+      pcall(vim.api.nvim_del_augroup_by_id, hostile_group)
+    end
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.config'] = old_preload['forge.config']
@@ -187,6 +204,34 @@ describe('compose split session', function()
     assert.equals(2, #vim.api.nvim_tabpage_list_wins(0))
     assert.equals(base_pos[1], compose_pos[1])
     assert.is_not.equals(base_pos[2], compose_pos[2])
+  end)
+
+  it('re-pins compose window options after BufWinEnter resets them', function()
+    vim.o.wrap = true
+    vim.o.conceallevel = 3
+    hostile_group = vim.api.nvim_create_augroup('forge_compose_test_bufwinenter', { clear = true })
+    vim.api.nvim_create_autocmd('BufWinEnter', {
+      group = hostile_group,
+      callback = function()
+        vim.wo.wrap = true
+        vim.wo.conceallevel = 3
+      end,
+    })
+
+    local compose = require('forge.compose')
+    local base_win = vim.api.nvim_get_current_win()
+
+    compose.open_issue(issue_forge())
+
+    local compose_win = vim.api.nvim_get_current_win()
+    local compose_buf = vim.api.nvim_get_current_buf()
+
+    assert_compose_surface(compose_buf, compose_win)
+
+    vim.api.nvim_set_current_win(base_win)
+    vim.api.nvim_set_current_win(compose_win)
+
+    assert_compose_surface(compose_buf, compose_win)
   end)
 
   it('closes the issue compose split and returns focus to the prior buffer on success', function()

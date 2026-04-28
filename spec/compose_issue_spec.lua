@@ -30,6 +30,8 @@ describe('compose issue create', function()
   local captured
   local old_system
   local old_preload
+  local old_wrap
+  local old_conceallevel
 
   before_each(function()
     captured = {
@@ -40,6 +42,8 @@ describe('compose issue create', function()
     }
 
     old_system = vim.system
+    old_wrap = vim.o.wrap
+    old_conceallevel = vim.o.conceallevel
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
@@ -109,6 +113,8 @@ describe('compose issue create', function()
 
   after_each(function()
     vim.system = old_system
+    vim.o.wrap = old_wrap
+    vim.o.conceallevel = old_conceallevel
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
@@ -305,6 +311,23 @@ describe('compose issue create', function()
     assert.same({ 'ForgeComposeForge' }, extmark_groups_for_line(0, '  Creating issue via github.'))
   end)
 
+  it('uses forgecompose and pinned compose window options for issue create', function()
+    vim.o.wrap = true
+    vim.o.conceallevel = 3
+
+    local compose = require('forge.compose')
+    compose.open_issue({
+      name = 'github',
+      create_issue_cmd = function()
+        return { 'create-issue' }
+      end,
+    })
+
+    assert.equals('forgecompose', vim.bo[0].filetype)
+    assert.is_false(vim.wo[0].wrap)
+    assert.equals(0, vim.wo[0].conceallevel)
+  end)
+
   it('keeps template labels without rendering editable metadata', function()
     local compose = require('forge.compose')
     local f = {
@@ -445,6 +468,8 @@ describe('compose issue edit', function()
   local captured
   local old_system
   local old_preload
+  local old_wrap
+  local old_conceallevel
 
   before_each(function()
     captured = {
@@ -455,6 +480,8 @@ describe('compose issue edit', function()
     }
 
     old_system = vim.system
+    old_wrap = vim.o.wrap
+    old_conceallevel = vim.o.conceallevel
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
@@ -524,6 +551,8 @@ describe('compose issue edit', function()
 
   after_each(function()
     vim.system = old_system
+    vim.o.wrap = old_wrap
+    vim.o.conceallevel = old_conceallevel
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
@@ -622,6 +651,33 @@ describe('compose issue edit', function()
       { 'ForgeComposeForge' },
       extmark_groups_for_line(0, '  Editing issue #42 via github.')
     )
+  end)
+
+  it('uses forgecompose and pinned compose window options for issue edit', function()
+    vim.o.wrap = true
+    vim.o.conceallevel = 3
+
+    local compose = require('forge.compose')
+    compose.open_issue_edit(
+      {
+        name = 'github',
+        update_issue_cmd = function()
+          return { 'update-issue' }
+        end,
+      },
+      '42',
+      {
+        title = 'existing issue',
+        body = 'body',
+        labels = {},
+        assignees = {},
+        milestone = '',
+      }
+    )
+
+    assert.equals('forgecompose', vim.bo[0].filetype)
+    assert.is_false(vim.wo[0].wrap)
+    assert.equals(0, vim.wo[0].conceallevel)
   end)
 
   it('extracts issue metadata from the comment block on write', function()

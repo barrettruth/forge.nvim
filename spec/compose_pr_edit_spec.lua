@@ -6,6 +6,8 @@ describe('compose pr edit', function()
   local old_system
   local old_feedkeys
   local old_preload
+  local old_wrap
+  local old_conceallevel
 
   local function line_index(lines, target)
     for i, line in ipairs(lines) do
@@ -36,6 +38,12 @@ describe('compose pr edit', function()
     return groups
   end
 
+  local function assert_compose_surface(buf, win)
+    assert.equals('forgecompose', vim.bo[buf].filetype)
+    assert.is_false(vim.wo[win].wrap)
+    assert.equals(0, vim.wo[win].conceallevel)
+  end
+
   before_each(function()
     captured = {
       infos = {},
@@ -48,6 +56,8 @@ describe('compose pr edit', function()
     old_fn_system = vim.fn.system
     old_system = vim.system
     old_feedkeys = vim.api.nvim_feedkeys
+    old_wrap = vim.o.wrap
+    old_conceallevel = vim.o.conceallevel
     old_preload = {
       ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
@@ -116,6 +126,8 @@ describe('compose pr edit', function()
     vim.fn.system = old_fn_system
     vim.system = old_system
     vim.api.nvim_feedkeys = old_feedkeys
+    vim.o.wrap = old_wrap
+    vim.o.conceallevel = old_conceallevel
 
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
@@ -342,6 +354,35 @@ describe('compose pr edit', function()
       extmark_groups_for_line(0, '   lua/forge/init.lua | 2 +-')
     )
     assert.same({}, extmark_groups_for_line(0, '   1 file changed, 1 insertion(+), 1 deletion(-)'))
+  end)
+
+  it('uses forgecompose and pinned compose window options for PR edit', function()
+    vim.o.wrap = true
+    vim.o.conceallevel = 3
+
+    local compose = require('forge.compose')
+    compose.open_pr_edit(
+      {
+        labels = { pr_full = 'Pull Requests', pr_one = 'PR' },
+        capabilities = { draft = true, reviewers = true },
+        name = 'github',
+      },
+      '23',
+      {
+        title = 'PR title',
+        body = 'PR body',
+        draft = false,
+        head_branch = 'feature',
+        base_branch = 'main',
+        reviewers = {},
+        labels = {},
+        assignees = {},
+        milestone = '',
+      },
+      'feature'
+    )
+
+    assert_compose_surface(vim.api.nvim_get_current_buf(), vim.api.nvim_get_current_win())
   end)
 
   it('extracts PR metadata from the comment block on write', function()
