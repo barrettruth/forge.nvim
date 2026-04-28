@@ -136,7 +136,7 @@ describe('compose issue create', function()
     vim.cmd('enew!')
   end)
 
-  it('places the cursor on the title and enters insert mode for issue create', function()
+  it('leaves issue create buffers at the default cursor and mode state', function()
     local compose = require('forge.compose')
     local old_set_cursor = vim.api.nvim_win_set_cursor
     local old_startinsert = vim.cmd.startinsert
@@ -167,8 +167,9 @@ describe('compose issue create', function()
       error(err)
     end
 
-    assert.same({ { win = 0, pos = { 1, 2 } } }, cursor_calls)
-    assert.same({ { bang = true } }, startinsert_calls)
+    assert.same({}, cursor_calls)
+    assert.same({}, startinsert_calls)
+    assert.same({ 1, 0 }, vim.api.nvim_win_get_cursor(0))
   end)
 
   it('submits issues with an empty body', function()
