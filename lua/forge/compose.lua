@@ -330,6 +330,32 @@ local function mark_diff_stat_runs(builder, line_num, line, pipe)
   end
 end
 
+---@param builder forge.ComposeBuilder
+---@param buf integer
+---@param stat_start integer?
+---@param stat_end integer?
+local function apply_diff_stat_marks(builder, buf, stat_start, stat_end)
+  if not (stat_start and stat_end) then
+    return
+  end
+  for i = stat_start, stat_end do
+    local line = builder.lines[i]
+    local pipe = line:find('|')
+    if pipe then
+      mark_diff_stat_runs(builder, i, line, pipe)
+    end
+  end
+  for _, m in ipairs(builder.marks) do
+    if m.line >= stat_start then
+      vim.api.nvim_buf_set_extmark(buf, compose_ns, m.line - 1, m.col, {
+        end_col = m.end_col,
+        hl_group = m.hl,
+        priority = 200,
+      })
+    end
+  end
+end
+
 ---@param f forge.Forge
 ---@param branch string
 ---@param metadata forge.CommentMetadata?
@@ -745,25 +771,7 @@ function M.open_pr(f, branch, base, draft, tmpl, ref, push_target, base_ref, hea
   b:add_line('-->')
 
   b:apply(buf)
-
-  if stat_start and stat_end then
-    for i = stat_start, stat_end do
-      local line = b.lines[i]
-      local pipe = line:find('|')
-      if pipe then
-        mark_diff_stat_runs(b, i, line, pipe)
-      end
-    end
-    for _, m in ipairs(b.marks) do
-      if m.line >= stat_start then
-        vim.api.nvim_buf_set_extmark(buf, compose_ns, m.line - 1, m.col, {
-          end_col = m.end_col,
-          hl_group = m.hl,
-          priority = 200,
-        })
-      end
-    end
-  end
+  apply_diff_stat_marks(b, buf, stat_start, stat_end)
 
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
@@ -925,25 +933,7 @@ function M.open_pr_edit(f, num, details, current_branch, ref)
   b:add_line('-->')
 
   b:apply(buf)
-
-  if stat_start and stat_end then
-    for i = stat_start, stat_end do
-      local line = b.lines[i]
-      local pipe = line:find('|')
-      if pipe then
-        mark_diff_stat_runs(b, i, line, pipe)
-      end
-    end
-    for _, m in ipairs(b.marks) do
-      if m.line >= stat_start then
-        vim.api.nvim_buf_set_extmark(buf, compose_ns, m.line - 1, m.col, {
-          end_col = m.end_col,
-          hl_group = m.hl,
-          priority = 200,
-        })
-      end
-    end
-  end
+  apply_diff_stat_marks(b, buf, stat_start, stat_end)
 
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
