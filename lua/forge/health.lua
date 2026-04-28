@@ -55,13 +55,13 @@ function M.check()
   end
 
   vim.health.start('Interactive picker UI')
-  local ok = pcall(require, 'fzf-lua')
-  if ok then
-    vim.health.ok('fzf-lua found (interactive picker UI enabled)')
-  else
-    vim.health.info(
-      'fzf-lua not found (interactive picker UI disabled; direct :Forge commands still available)'
+  local picker = require('forge.picker')
+  if picker.ui_available() then
+    vim.health.ok(
+      "fzf-lua found (require('forge').open() and require('forge.picker').pick() enabled)"
     )
+  else
+    vim.health.info(picker.unavailable_message())
   end
 
   vim.health.start('Tree-sitter')
