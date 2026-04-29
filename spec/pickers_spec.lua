@@ -22,8 +22,10 @@ local preload_modules = {
   'forge.ops',
   'forge.picker',
   'forge.surface_policy',
+  'forge.state',
 }
 local loaded_modules = {
+  'forge.availability',
   'forge',
   'forge.config',
   'forge.logger',
@@ -32,6 +34,7 @@ local loaded_modules = {
   'forge.picker.session',
   'forge.pickers',
   'forge.review',
+  'forge.state',
   'forge.surface_policy',
 }
 
@@ -236,6 +239,57 @@ describe('pickers', function()
         end,
         warn = function(msg)
           table.insert(logger_messages.warn, msg)
+        end,
+      }
+    end
+    package.preload['forge.state'] = function()
+      return {
+        list_key = function(kind, state)
+          return kind .. ':' .. state
+        end,
+        get_list = function(key)
+          return cache[key]
+        end,
+        set_list = function(key, value)
+          cache[key] = value
+        end,
+        clear_list = function(key)
+          if key then
+            cache[key] = nil
+          end
+        end,
+        repo_info = function(f)
+          return f:repo_info()
+        end,
+        pr_state = function(f, num, scope)
+          local key = pr_state_key(scope, num)
+          local cached = pr_state_cache[key]
+          if cached ~= nil then
+            return cached
+          end
+          local state = f:pr_state(num, scope)
+          pr_state_cache[key] = state
+          return state
+        end,
+        set_pr_state = function(num, state, scope)
+          pr_state_cache[pr_state_key(scope, num)] = state
+          return state
+        end,
+        clear_pr_state = function(num, scope)
+          if num ~= nil then
+            pr_state_cache[pr_state_key(scope, num)] = nil
+            return
+          end
+          if scope ~= nil then
+            local prefix = pr_state_scope_key(scope)
+            for key in pairs(pr_state_cache) do
+              if key:sub(1, #prefix) == prefix then
+                pr_state_cache[key] = nil
+              end
+            end
+            return
+          end
+          pr_state_cache = {}
         end,
       }
     end
@@ -538,39 +592,10 @@ describe('pickers', function()
         remote_web_url = function()
           return 'https://example.com/repo'
         end,
-        repo_info = function(f)
-          return f:repo_info()
-        end,
-        pr_state = function(f, num, scope)
-          local key = pr_state_key(scope, num)
-          local cached = pr_state_cache[key]
-          if cached ~= nil then
-            return cached
-          end
-          local state = f:pr_state(num, scope)
-          pr_state_cache[key] = state
-          return state
-        end,
-        set_pr_state = function(num, state, scope)
-          pr_state_cache[pr_state_key(scope, num)] = state
-          return state
-        end,
-        clear_pr_state = function(num, scope)
-          if num ~= nil then
-            pr_state_cache[pr_state_key(scope, num)] = nil
-            return
-          end
-          if scope ~= nil then
-            local prefix = pr_state_scope_key(scope)
-            for key in pairs(pr_state_cache) do
-              if key:sub(1, #prefix) == prefix then
-                pr_state_cache[key] = nil
-              end
-            end
-            return
-          end
-          pr_state_cache = {}
-        end,
+        repo_info = require('forge.state').repo_info,
+        pr_state = require('forge.state').pr_state,
+        set_pr_state = require('forge.state').set_pr_state,
+        clear_pr_state = require('forge.state').clear_pr_state,
         create_issue = function(...)
           issue_create_calls = issue_create_calls + 1
           issue_create_opts = select(1, ...)

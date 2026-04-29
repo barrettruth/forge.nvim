@@ -3,6 +3,7 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 
 local preload_modules = {
+  'forge.state',
   'forge',
   'forge.logger',
   'forge.ops',
@@ -11,12 +12,15 @@ local preload_modules = {
 }
 
 local loaded_modules = {
+  'forge.availability',
+  'forge.completion_policy',
   'forge',
   'forge.cmd',
   'forge.logger',
   'forge.ops',
   'forge.pickers',
   'forge.resolve',
+  'forge.state',
 }
 
 local function repo_scope(repo)
@@ -186,6 +190,34 @@ describe(':Forge command', function()
             return nil, captured.branch_pr_error(opts, policy)
           end
           return captured.branch_pr_result, captured.branch_pr_error
+        end,
+      }
+    end
+    package.preload['forge.state'] = function()
+      return {
+        clear_cache = function()
+          captured.cleared = true
+        end,
+        clear_list_kind = function(kind)
+          captured.cleared_kinds = captured.cleared_kinds or {}
+          table.insert(captured.cleared_kinds, kind)
+        end,
+        list_key = function(kind, state)
+          return kind .. ':' .. state
+        end,
+        get_list = function(key)
+          table.insert(captured.get_list_calls, key)
+          return captured.lists[key]
+        end,
+        set_list = function(key, value)
+          captured.lists[key] = value
+        end,
+        pr_state = function(_, num, scope)
+          return captured.pr_states[(scope and scope.slug or 'owner/current') .. '#' .. num] or {}
+        end,
+        repo_info = function(_, scope)
+          return captured.repo_infos[scope and scope.slug or 'owner/current']
+            or { permission = 'WRITE', merge_methods = { 'merge', 'squash', 'rebase' } }
         end,
       }
     end
@@ -371,31 +403,14 @@ describe(':Forge command', function()
         create_issue = function(opts)
           captured.create_issue = opts
         end,
-        clear_cache = function()
-          captured.cleared = true
-        end,
-        clear_list_kind = function(kind)
-          captured.cleared_kinds = captured.cleared_kinds or {}
-          table.insert(captured.cleared_kinds, kind)
-        end,
+        clear_cache = require('forge.state').clear_cache,
+        clear_list_kind = require('forge.state').clear_list_kind,
         scope_key = scope_key,
-        list_key = function(kind, state)
-          return kind .. ':' .. state
-        end,
-        get_list = function(key)
-          table.insert(captured.get_list_calls, key)
-          return captured.lists[key]
-        end,
-        set_list = function(key, value)
-          captured.lists[key] = value
-        end,
-        pr_state = function(_, num, scope)
-          return captured.pr_states[(scope and scope.slug or 'owner/current') .. '#' .. num] or {}
-        end,
-        repo_info = function(_, scope)
-          return captured.repo_infos[scope and scope.slug or 'owner/current']
-            or { permission = 'WRITE', merge_methods = { 'merge', 'squash', 'rebase' } }
-        end,
+        list_key = require('forge.state').list_key,
+        get_list = require('forge.state').get_list,
+        set_list = require('forge.state').set_list,
+        pr_state = require('forge.state').pr_state,
+        repo_info = require('forge.state').repo_info,
         file_loc = function(range)
           local name = vim.api.nvim_buf_get_name(0)
           if name:match('^%w[%w+.-]*://') then

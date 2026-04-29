@@ -7,6 +7,7 @@ local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
 local picker_session = require('forge.picker.session')
+local state_mod = require('forge.state')
 local surface_policy = require('forge.surface_policy')
 
 local next_ci_filter = {
@@ -347,7 +348,7 @@ local function pr_toggle_draft_action(f, pr, opts)
   opts = opts or {}
   local is_draft = rawget(pr, 'is_draft')
   if is_draft == nil then
-    local pr_state = require('forge').pr_state(f, pr.num, pr.scope)
+    local pr_state = state_mod.pr_state(f, pr.num, pr.scope)
     is_draft = pr_state.is_draft == true
   end
   ops.pr_toggle_draft(f, pr, is_draft, opts)
