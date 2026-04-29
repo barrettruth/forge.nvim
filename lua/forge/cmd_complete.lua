@@ -2,11 +2,11 @@ local M = {}
 
 local collections = require('forge.collections')
 local detect = require('forge.detect')
-local source_mod = require('forge.cmd_complete_source')
 local issue_mod = require('forge.issue')
 local pr_mod = require('forge.pr')
 local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
+local source_mod = require('forge.cmd_complete_source')
 local state_mod = require('forge.state')
 
 ---@param command forge.Command
@@ -318,7 +318,8 @@ local function complete_release_subjects(state, prefix, policy)
   if not f then
     return {}
   end
-  local releases = source_mod.list(f, 'release', policy.states_to_consult, policy.fetch_state, scope)
+  local releases =
+    source_mod.list(f, 'release', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.release_fields or {}
   local items = {}
   local seen = {}
