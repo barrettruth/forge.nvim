@@ -1,5 +1,6 @@
-local forge = require('forge')
+local config_mod = require('forge.config')
 local log = require('forge.logger')
+local repo_mod = require('forge.repo')
 local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
 
@@ -70,8 +71,8 @@ local M = {
 }
 
 local function nwo(scope)
-  local current = scope or forge.current_scope(M.name)
-  return forge.scope_repo_arg(current) or ''
+  local current = scope or repo_mod.current_scope(M.name)
+  return repo_mod.scope_repo_arg(current) or ''
 end
 
 local function tty_env()
@@ -114,7 +115,7 @@ function M:list_pr_json_cmd(state, limit, scope)
     'pr',
     'list',
     '--limit',
-    tostring(limit or forge.config().display.limits.pulls),
+    tostring(limit or config_mod.config().display.limits.pulls),
     '--state',
     state,
     '--json',
@@ -138,7 +139,7 @@ function M:list_issue_json_cmd(state, limit, scope)
     'issue',
     'list',
     '--limit',
-    tostring(limit or forge.config().display.limits.issues),
+    tostring(limit or config_mod.config().display.limits.issues),
     '--state',
     state,
     '--json',
@@ -225,7 +226,7 @@ local LIST_PATHS = {
 ---@param scope forge.Scope?
 ---@return string?
 function M:list_web_url(kind, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -253,14 +254,14 @@ end
 ---@param scope forge.Scope?
 ---@return string[]
 function M:fetch_pr(num, scope)
-  local current = forge.current_scope(M.name)
+  local current = repo_mod.current_scope(M.name)
   local remote = 'origin'
   if
     scope
-    and forge.scope_key(scope) ~= ''
-    and forge.scope_key(scope) ~= forge.scope_key(current)
+    and repo_mod.scope_key(scope) ~= ''
+    and repo_mod.scope_key(scope) ~= repo_mod.scope_key(current)
   then
-    remote = forge.remote_web_url(scope) .. '.git'
+    remote = repo_mod.remote_web_url(scope) .. '.git'
   end
   return { 'git', 'fetch', remote, ('pull/%s/head:pr-%s'):format(num, num) }
 end
@@ -337,7 +338,7 @@ end
 ---@param scope forge.Scope?
 ---@return string[]
 function M:check_log_cmd(run_id, failed_only, job_id, scope)
-  local lines = forge.config().ci.lines
+  local lines = config_mod.config().ci.lines
   local flag = failed_only and '--log-failed' or '--log'
   local job_flag = job_id and (' --job %s'):format(job_id) or ''
   return {
@@ -375,7 +376,7 @@ end
 ---@param scope forge.Scope?
 ---@return string?
 function M:run_web_url(id, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -461,7 +462,7 @@ end
 ---@param scope forge.Scope?
 ---@return string[]
 function M:run_log_cmd(id, failed_only, scope)
-  local lines = forge.config().ci.lines
+  local lines = config_mod.config().ci.lines
   local flag = failed_only and '--log-failed' or '--log'
   return {
     'sh',
@@ -482,7 +483,7 @@ function M:list_runs_json_cmd(branch, scope, limit)
     '--json',
     'databaseId,displayTitle,workflowName,name,headBranch,status,conclusion,event,url,createdAt',
     '--limit',
-    tostring(limit or forge.config().display.limits.runs),
+    tostring(limit or config_mod.config().display.limits.runs),
   }
   local repo = nwo(scope)
   if repo ~= '' then
@@ -844,8 +845,8 @@ function M:create_pr_web_cmd(scope, head_scope, head_branch, base_branch)
     and head ~= ''
     and head_scope
     and scope
-    and forge.scope_key(head_scope) ~= ''
-    and forge.scope_key(head_scope) ~= forge.scope_key(scope)
+    and repo_mod.scope_key(head_scope) ~= ''
+    and repo_mod.scope_key(head_scope) ~= repo_mod.scope_key(scope)
     and head_scope.owner
     and head_scope.owner ~= ''
   then
@@ -885,7 +886,7 @@ end
 ---@param scope forge.Scope?
 ---@return string?
 function M:create_issue_web_url(scope)
-  local url = forge.remote_web_url(scope)
+  local url = repo_mod.remote_web_url(scope)
   if url == '' then
     return nil
   end
@@ -1010,7 +1011,7 @@ function M:list_releases_json_cmd(scope, limit)
     '--json',
     'tagName,name,isDraft,isPrerelease,isLatest,publishedAt',
     '--limit',
-    tostring(limit or forge.config().display.limits.releases),
+    tostring(limit or config_mod.config().display.limits.releases),
   }
   local repo = nwo(scope)
   if repo ~= '' then

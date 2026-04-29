@@ -1,4 +1,5 @@
 local M = {}
+local repo_mod = require('forge.repo')
 local scope = require('forge.scope')
 local state_mod = require('forge.state')
 local submission = require('forge.submission')
@@ -15,11 +16,7 @@ local function resolve_bufpath(ref, forge_name)
   if path then
     return path
   end
-  local ok, forge = pcall(require, 'forge')
-  if not ok or type(forge) ~= 'table' or type(forge.current_scope) ~= 'function' then
-    return nil
-  end
-  return scope.bufpath(forge.current_scope(forge_name))
+  return scope.bufpath(repo_mod.current_scope(forge_name))
 end
 
 ---@class forge.ComposeBuilder
@@ -65,12 +62,11 @@ function ComposeBuilder:apply(buf)
 end
 
 local function current_repo_web_url(forge_name)
-  local remote = vim.trim(vim.fn.system('git remote get-url origin'))
-  if vim.v.shell_error ~= 0 or remote == '' then
+  local ref = repo_mod.current_scope(forge_name)
+  if not ref then
     return ''
   end
-  local ref = scope.from_url(forge_name, remote)
-  return scope.web_url(ref)
+  return repo_mod.remote_web_url(ref)
 end
 
 local function set_public_buffer_state(buf, forge_name, kind, ref)

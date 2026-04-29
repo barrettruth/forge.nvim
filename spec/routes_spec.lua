@@ -114,6 +114,7 @@ describe('routes', function()
     old_preload = {
       ['forge.detect'] = package.preload['forge.detect'],
       ['forge'] = package.preload['forge'],
+      ['forge.repo'] = package.preload['forge.repo'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
       ['forge.pickers'] = package.preload['forge.pickers'],
@@ -136,6 +137,11 @@ describe('routes', function()
         config = function()
           return current_config
         end,
+      }
+    end
+
+    package.preload['forge.repo'] = function()
+      return {
         file_loc = function()
           local name = vim.api.nvim_buf_get_name(0)
           if name:match('^%w[%w+.-]*://') then
@@ -203,6 +209,7 @@ describe('routes', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.pickers'] = nil
@@ -215,6 +222,7 @@ describe('routes', function()
 
     package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge'] = old_preload['forge']
+    package.preload['forge.repo'] = old_preload['forge.repo']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
@@ -222,6 +230,7 @@ describe('routes', function()
 
     package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['forge.pickers'] = nil

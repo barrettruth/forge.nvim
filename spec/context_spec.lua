@@ -37,6 +37,7 @@ describe('context', function()
     old_preload = {
       ['forge.detect'] = package.preload['forge.detect'],
       ['forge'] = package.preload['forge'],
+      ['forge.repo'] = package.preload['forge.repo'],
     }
 
     package.preload['forge.detect'] = function()
@@ -51,6 +52,11 @@ describe('context', function()
         config = function()
           return current_config
         end,
+      }
+    end
+
+    package.preload['forge.repo'] = function()
+      return {
         file_loc = function()
           return 'lua/forge/init.lua:10'
         end,
@@ -59,6 +65,7 @@ describe('context', function()
 
     package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.context'] = nil
   end)
 
@@ -66,8 +73,10 @@ describe('context', function()
     vim.system = old_system
     package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge'] = old_preload['forge']
+    package.preload['forge.repo'] = old_preload['forge.repo']
     package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.context'] = nil
   end)
 

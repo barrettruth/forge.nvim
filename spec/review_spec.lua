@@ -19,7 +19,7 @@ describe('review adapters', function()
       infos = {},
       errors = {},
     }
-    old_preload = helpers.capture_preload({ 'forge', 'forge.logger' })
+    old_preload = helpers.capture_preload({ 'forge', 'forge.logger', 'forge.repo' })
     old_system = vim.system
     old_exists = vim.fn.exists
     old_nvim_cmd = vim.api.nvim_cmd
@@ -60,6 +60,11 @@ describe('review adapters', function()
         config = function()
           return { review = { adapter = 'checkout' } }
         end,
+      }
+    end
+
+    package.preload['forge.repo'] = function()
+      return {
         remote_ref = function(_, branch)
           return 'origin/' .. branch
         end,
@@ -83,6 +88,7 @@ describe('review adapters', function()
 
     package.loaded['forge'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.review'] = nil
   end)
 
@@ -97,6 +103,7 @@ describe('review adapters', function()
 
     package.loaded['forge'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.review'] = nil
   end)
 

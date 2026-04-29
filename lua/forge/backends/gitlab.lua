@@ -1,5 +1,6 @@
-local forge = require('forge')
+local config_mod = require('forge.config')
 local log = require('forge.logger')
+local repo_mod = require('forge.repo')
 local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
 
@@ -69,16 +70,16 @@ local M = {
 }
 
 local function repo_arg(scope)
-  return forge.scope_repo_arg(scope) or forge.remote_web_url()
+  return repo_mod.scope_repo_arg(scope) or repo_mod.remote_web_url()
 end
 
 local function project(scope)
-  local current = scope or forge.current_scope(M.name)
+  local current = scope or repo_mod.current_scope(M.name)
   return scope_mod.encode_project(current) or ''
 end
 
 local function hostname(scope)
-  local current = scope or forge.current_scope(M.name)
+  local current = scope or repo_mod.current_scope(M.name)
   return current and current.host or nil
 end
 
@@ -99,7 +100,7 @@ function M:list_pr_json_cmd(state, limit, scope)
     'mr',
     'list',
     '--per-page',
-    tostring(limit or forge.config().display.limits.pulls),
+    tostring(limit or config_mod.config().display.limits.pulls),
     '--output',
     'json',
   }
@@ -126,7 +127,7 @@ function M:list_issue_json_cmd(state, limit, scope)
     'issue',
     'list',
     '--per-page',
-    tostring(limit or forge.config().display.limits.issues),
+    tostring(limit or config_mod.config().display.limits.issues),
     '--output',
     'json',
   }
@@ -153,7 +154,7 @@ end
 ---@param num string
 ---@param scope forge.Scope?
 function M:browse_subject(num, scope)
-  local current = scope or forge.current_scope(M.name)
+  local current = scope or repo_mod.current_scope(M.name)
   local pid = project(current)
   local host = hostname(current) or 'gitlab.com'
   if pid == '' then
@@ -225,7 +226,7 @@ end
 ---@param branch string
 ---@param scope forge.Scope?
 function M:browse(loc, branch, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/-/blob/%s/%s#L%s'):format(base, branch, file, lines))
 end
@@ -233,14 +234,14 @@ end
 ---@param branch string
 ---@param scope forge.Scope?
 function M:browse_branch(branch, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(base .. '/-/tree/' .. branch)
 end
 
 ---@param commit string
 ---@param scope forge.Scope?
 function M:browse_commit(commit, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(base .. '/-/commit/' .. commit)
 end
 
@@ -255,7 +256,7 @@ local LIST_PATHS = {
 ---@param scope forge.Scope?
 ---@return string?
 function M:list_web_url(kind, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -278,13 +279,13 @@ end
 ---@return string[]
 function M:fetch_pr(num, scope)
   local remote = 'origin'
-  local current = forge.current_scope(M.name)
+  local current = repo_mod.current_scope(M.name)
   if
     scope
-    and forge.scope_key(scope) ~= ''
-    and forge.scope_key(scope) ~= forge.scope_key(current)
+    and repo_mod.scope_key(scope) ~= ''
+    and repo_mod.scope_key(scope) ~= repo_mod.scope_key(current)
   then
-    remote = forge.remote_web_url(scope) .. '.git'
+    remote = repo_mod.remote_web_url(scope) .. '.git'
   end
   return {
     'git',
@@ -375,7 +376,7 @@ end
 ---@return string[]
 function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local _ = failed_only
-  local lines = forge.config().ci.lines
+  local lines = config_mod.config().ci.lines
   local id = job_id or run_id
   return {
     'sh',
@@ -431,7 +432,7 @@ end
 ---@param scope forge.Scope?
 ---@return string?
 function M:run_web_url(id, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -460,7 +461,7 @@ function M:list_runs_json_cmd(branch, scope, limit)
     '--output',
     'json',
     '--per-page',
-    tostring(limit or forge.config().display.limits.runs),
+    tostring(limit or config_mod.config().display.limits.runs),
     '-R',
     repo_arg(scope),
   }
@@ -494,7 +495,7 @@ end
 ---@param scope forge.Scope?
 ---@return string[]
 function M:run_log_cmd(id, failed_only, scope)
-  local lines = forge.config().ci.lines
+  local lines = config_mod.config().ci.lines
   local jq_filter = failed_only and '[.[] | select(.status=="failed")][0].id // .[0].id'
     or '.[0].id'
   return {
@@ -832,8 +833,8 @@ function M:create_pr_web_cmd(scope, head_scope, head_branch, base_branch)
   local cmd = { 'glab', 'mr', 'create', '--web', '-R', repo_arg(scope) }
   if
     head_scope
-    and forge.scope_key(head_scope) ~= ''
-    and forge.scope_key(head_scope) ~= forge.scope_key(scope)
+    and repo_mod.scope_key(head_scope) ~= ''
+    and repo_mod.scope_key(head_scope) ~= repo_mod.scope_key(scope)
   then
     table.insert(cmd, '--head')
     table.insert(cmd, repo_arg(head_scope))
@@ -993,7 +994,7 @@ function M:list_releases_json_cmd(scope, limit)
     '--output',
     'json',
     '--per-page',
-    tostring(limit or forge.config().display.limits.releases),
+    tostring(limit or config_mod.config().display.limits.releases),
     '-R',
     repo_arg(scope),
   }
@@ -1002,7 +1003,7 @@ end
 ---@param tag string
 ---@param scope forge.Scope?
 function M:browse_release(tag, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(base .. '/-/releases/' .. tag)
 end
 

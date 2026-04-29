@@ -1,6 +1,7 @@
 local M = {}
 
 local detect_mod = require('forge.detect')
+local repo_mod = require('forge.repo')
 
 local providers = {}
 
@@ -36,7 +37,6 @@ providers.current = function()
     return nil, 'not a git repository'
   end
 
-  local forge_mod = require('forge')
   local has_file = in_repo_file(root)
 
   return {
@@ -46,7 +46,7 @@ providers.current = function()
     head = git_output({ 'git', 'rev-parse', 'HEAD' }) or '',
     forge = detect_mod.detect(),
     has_file = has_file,
-    loc = has_file and forge_mod.file_loc() or nil,
+    loc = has_file and repo_mod.file_loc() or nil,
   }
 end
 

@@ -44,6 +44,16 @@ describe('compose pr edit', function()
     assert.equals(0, vim.wo[win].conceallevel)
   end
 
+  local function current_scope()
+    return {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/repo',
+      repo_arg = 'owner/repo',
+      web_url = 'https://github.com/owner/repo',
+    }
+  end
+
   before_each(function()
     captured = {
       infos = {},
@@ -59,7 +69,7 @@ describe('compose pr edit', function()
     old_wrap = vim.o.wrap
     old_conceallevel = vim.o.conceallevel
     old_preload = {
-      ['forge'] = package.preload['forge'],
+      ['forge.repo'] = package.preload['forge.repo'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.state'] = package.preload['forge.state'],
     }
@@ -88,14 +98,11 @@ describe('compose pr edit', function()
       }
     end
 
-    package.preload['forge'] = function()
+    package.preload['forge.repo'] = function()
       return {
-        current_scope = function()
-          return {
-            kind = 'github',
-            host = 'github.com',
-            slug = 'owner/repo',
-          }
+        current_scope = current_scope,
+        remote_web_url = function(scope)
+          return (scope and scope.web_url) or current_scope().web_url
         end,
       }
     end
@@ -122,10 +129,13 @@ describe('compose pr edit', function()
       }
     end
 
-    package.loaded['forge'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.state'] = nil
+
+    vim.cmd('silent! only')
+    vim.cmd('enew!')
   end)
 
   after_each(function()
@@ -135,11 +145,11 @@ describe('compose pr edit', function()
     vim.o.wrap = old_wrap
     vim.o.conceallevel = old_conceallevel
 
-    package.preload['forge'] = old_preload['forge']
+    package.preload['forge.repo'] = old_preload['forge.repo']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.state'] = old_preload['forge.state']
 
-    package.loaded['forge'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.state'] = nil
@@ -152,6 +162,7 @@ describe('compose pr edit', function()
         vim.api.nvim_buf_delete(buf, { force = true })
       end
     end
+    vim.cmd('silent! only')
     vim.cmd('enew!')
   end)
 

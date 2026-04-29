@@ -100,7 +100,11 @@ describe('compose pr create', function()
     end
 
     package.loaded['forge.compose'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.template'] = nil
+
+    vim.cmd('silent! only')
+    vim.cmd('enew!')
   end)
 
   after_each(function()
@@ -113,6 +117,7 @@ describe('compose pr create', function()
     package.preload['forge.template'] = old_preload['forge.template']
 
     package.loaded['forge.compose'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.template'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
@@ -123,6 +128,7 @@ describe('compose pr create', function()
         vim.api.nvim_buf_delete(buf, { force = true })
       end
     end
+    vim.cmd('silent! only')
     vim.cmd('enew!')
   end)
 

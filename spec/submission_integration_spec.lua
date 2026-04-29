@@ -8,6 +8,42 @@ describe('submission integration', function()
   local old_schedule
   local old_preload
 
+  local function scope_for(name)
+    if name == 'gitlab' then
+      return {
+        kind = 'gitlab',
+        host = 'gitlab.com',
+        slug = 'group/repo',
+        repo_arg = 'group/repo',
+        web_url = 'https://gitlab.com/group/repo',
+      }
+    end
+    if name == 'codeberg' then
+      return {
+        kind = 'codeberg',
+        host = 'codeberg.org',
+        slug = 'forgejo/tea-test',
+        repo_arg = 'forgejo/tea-test',
+        web_url = 'https://codeberg.org/forgejo/tea-test',
+      }
+    end
+    return {
+      kind = 'github',
+      host = 'github.com',
+      slug = 'owner/repo',
+      repo_arg = 'owner/repo',
+      web_url = 'https://github.com/owner/repo',
+    }
+  end
+
+  local function scope_key(scope)
+    return table.concat({
+      scope and scope.kind or '',
+      scope and scope.host or '',
+      scope and scope.slug or '',
+    }, '|')
+  end
+
   before_each(function()
     captured = {
       calls = {},
@@ -22,9 +58,10 @@ describe('submission integration', function()
     old_feedkeys = vim.api.nvim_feedkeys
     old_schedule = vim.schedule
     old_preload = {
-      ['forge'] = package.preload['forge'],
       ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.repo'] = package.preload['forge.repo'],
       ['forge.resolve'] = package.preload['forge.resolve'],
+      ['forge.state'] = package.preload['forge.state'],
       ['forge.template'] = package.preload['forge.template'],
     }
 
@@ -57,26 +94,27 @@ describe('submission integration', function()
       }
     end
 
-    package.preload['forge'] = function()
+    package.preload['forge.repo'] = function()
       return {
-        clear_list = function()
-          captured.cleared = captured.cleared + 1
+        current_scope = function(name)
+          return scope_for(name)
         end,
         scope_repo_arg = function(scope)
           return scope and scope.repo_arg or ''
         end,
-        remote_web_url = function()
-          return ''
+        remote_web_url = function(scope)
+          return scope and scope.web_url or ''
         end,
         scope_key = function(scope)
-          return scope and scope.repo_arg or ''
+          return scope_key(scope)
         end,
-        current_scope = function()
-          return {
-            kind = 'github',
-            host = 'github.com',
-            slug = 'owner/repo',
-          }
+      }
+    end
+
+    package.preload['forge.state'] = function()
+      return {
+        clear_list = function()
+          captured.cleared = captured.cleared + 1
         end,
       }
     end
@@ -116,15 +154,19 @@ describe('submission integration', function()
       }
     end
 
-    package.loaded['forge'] = nil
     package.loaded['forge.backends.codeberg'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.backends.gitlab'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.resolve'] = nil
+    package.loaded['forge.state'] = nil
     package.loaded['forge.submission'] = nil
     package.loaded['forge.template'] = nil
+
+    vim.cmd('silent! only')
+    vim.cmd('enew!')
   end)
 
   after_each(function()
@@ -133,18 +175,20 @@ describe('submission integration', function()
     vim.api.nvim_feedkeys = old_feedkeys
     vim.schedule = old_schedule
 
-    package.preload['forge'] = old_preload['forge']
     package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.repo'] = old_preload['forge.repo']
     package.preload['forge.resolve'] = old_preload['forge.resolve']
+    package.preload['forge.state'] = old_preload['forge.state']
     package.preload['forge.template'] = old_preload['forge.template']
 
-    package.loaded['forge'] = nil
     package.loaded['forge.backends.codeberg'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.backends.gitlab'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.repo'] = nil
     package.loaded['forge.resolve'] = nil
+    package.loaded['forge.state'] = nil
     package.loaded['forge.submission'] = nil
     package.loaded['forge.template'] = nil
 
@@ -156,6 +200,7 @@ describe('submission integration', function()
         end
       end
     end
+    vim.cmd('silent! only')
     vim.cmd('enew!')
   end)
 

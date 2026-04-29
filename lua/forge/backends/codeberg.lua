@@ -1,5 +1,6 @@
-local forge = require('forge')
+local config_mod = require('forge.config')
 local log = require('forge.logger')
+local repo_mod = require('forge.repo')
 local scope_mod = require('forge.scope')
 local submission = require('forge.submission')
 
@@ -79,8 +80,8 @@ local M = {
 }
 
 local function repo_arg(scope)
-  local current = scope or forge.current_scope(M.name)
-  return forge.scope_repo_arg(current) or ''
+  local current = scope or repo_mod.current_scope(M.name)
+  return repo_mod.scope_repo_arg(current) or ''
 end
 
 local function append_csv(cmd, flag, values)
@@ -102,7 +103,7 @@ function M:list_pr_json_cmd(state, limit, scope)
     '--state',
     state,
     '--limit',
-    tostring(limit or forge.config().display.limits.pulls),
+    tostring(limit or config_mod.config().display.limits.pulls),
     '--output',
     'json',
     '--fields',
@@ -124,7 +125,7 @@ function M:list_issue_json_cmd(state, limit, scope)
     '--state',
     state,
     '--limit',
-    tostring(limit or forge.config().display.limits.issues),
+    tostring(limit or config_mod.config().display.limits.issues),
     '--output',
     'json',
     '--fields',
@@ -138,7 +139,7 @@ end
 ---@param num string
 ---@param scope forge.Scope?
 function M:view_web(kind, num, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(('%s/%s/%s'):format(base, kind, num))
 end
 
@@ -188,7 +189,7 @@ end
 ---@param branch string
 ---@param scope forge.Scope?
 function M:browse(loc, branch, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   local file, lines = loc:match('^(.+):(.+)$')
   vim.ui.open(('%s/src/branch/%s/%s#L%s'):format(base, branch, file, lines))
 end
@@ -196,14 +197,14 @@ end
 ---@param branch string
 ---@param scope forge.Scope?
 function M:browse_branch(branch, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(base .. '/src/branch/' .. branch)
 end
 
 ---@param commit string
 ---@param scope forge.Scope?
 function M:browse_commit(commit, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(base .. '/commit/' .. commit)
 end
 
@@ -218,7 +219,7 @@ local LIST_PATHS = {
 ---@param scope forge.Scope?
 ---@return string?
 function M:list_web_url(kind, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -308,7 +309,7 @@ end
 ---@return string[]
 function M:check_log_cmd(run_id, failed_only, job_id, scope)
   local _ = failed_only
-  local lines = forge.config().ci.lines
+  local lines = config_mod.config().ci.lines
   local job_flag = job_id and (' --job %s'):format(job_id) or ''
   return {
     'sh',
@@ -340,7 +341,7 @@ end
 ---@param limit integer?
 ---@return string[]
 function M:list_runs_json_cmd(branch, scope, limit)
-  local limit_arg = tostring(limit or forge.config().display.limits.runs)
+  local limit_arg = tostring(limit or config_mod.config().display.limits.runs)
   local cmd = 'tea api --repo '
     .. repo_arg(scope)
     .. ' "/repos/{owner}/{repo}/actions/runs?limit='
@@ -386,7 +387,7 @@ end
 ---@param scope forge.Scope?
 ---@return string?
 function M:run_web_url(id, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   if not base or base == '' then
     return nil
   end
@@ -430,7 +431,7 @@ end
 ---@return string[]
 function M:run_log_cmd(id, failed_only, scope)
   local _ = failed_only
-  local lines = forge.config().ci.lines
+  local lines = config_mod.config().ci.lines
   return {
     'sh',
     '-c',
@@ -702,7 +703,7 @@ end
 ---@return string
 function M:create_pr_web_url(scope, _, head_branch, base_branch)
   local branch = head_branch or vim.trim(vim.fn.system('git branch --show-current'))
-  local base_url = forge.remote_web_url(scope)
+  local base_url = repo_mod.remote_web_url(scope)
   local default = base_branch
   if not default or default == '' then
     default = vim.trim(
@@ -854,7 +855,7 @@ end
 ---@param limit integer?
 ---@return string[]
 function M:list_releases_json_cmd(scope, limit)
-  local limit_arg = tostring(limit or forge.config().display.limits.releases)
+  local limit_arg = tostring(limit or config_mod.config().display.limits.releases)
   return {
     'sh',
     '-c',
@@ -865,7 +866,7 @@ end
 ---@param tag string
 ---@param scope forge.Scope?
 function M:browse_release(tag, scope)
-  local base = forge.remote_web_url(scope)
+  local base = repo_mod.remote_web_url(scope)
   vim.ui.open(base .. '/releases/tag/' .. tag)
 end
 
