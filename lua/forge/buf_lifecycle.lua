@@ -1,7 +1,7 @@
 local M = {}
 
 ---@generic T: table
----@param init T|fun(): T|nil
+---@param init? T|fun(): T|nil
 ---@return T
 local function init_data(init)
   if type(init) == 'function' then
@@ -13,7 +13,7 @@ end
 ---@generic T: table
 ---@param buf_data table<integer, T>
 ---@param buf integer
----@param init T|fun(): T|nil
+---@param init? T|fun(): T|nil
 ---@return T
 function M.data_for(buf_data, buf, init)
   local data = buf_data[buf]
@@ -28,7 +28,7 @@ end
 ---@param buf_data table<integer, T>
 ---@param buf integer
 ---@param fields table
----@param init T|fun(): T|nil
+---@param init? T|fun(): T|nil
 ---@return T
 function M.set_data(buf_data, buf, fields, init)
   local data = M.data_for(buf_data, buf, init)
@@ -52,7 +52,7 @@ end
 ---@param buf_data table<integer, table>
 ---@param buf integer
 ---@param field string?
----@param init table|fun(): table|nil
+---@param init? table|fun(): table|nil
 function M.stop_proc(buf_data, buf, field, init)
   local data = M.data_for(buf_data, buf, init)
   field = field or 'proc'
@@ -68,7 +68,7 @@ end
 ---@param buf_data table<integer, table>
 ---@param buf integer
 ---@param field string?
----@param init table|fun(): table|nil
+---@param init? table|fun(): table|nil
 function M.stop_procs(buf_data, buf, field, init)
   local data = M.data_for(buf_data, buf, init)
   field = field or 'procs'
@@ -87,7 +87,7 @@ end
 ---@param buf_data table<integer, table>
 ---@param buf integer
 ---@param stop fun(buf: integer)
----@param init table|fun(): table|nil
+---@param init? table|fun(): table|nil
 ---@return integer
 function M.begin_request(buf_data, buf, stop, init)
   local data = M.data_for(buf_data, buf, init)
@@ -170,6 +170,7 @@ function M.prepare_buf(opts)
       })
     end
   end
+  ---@cast buf integer
   vim.bo[buf].filetype = opts.filetype
   M.set_public_buffer_state(buf, opts.kind, opts.url)
   return buf, reusing
