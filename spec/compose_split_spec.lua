@@ -63,6 +63,7 @@ describe('compose split session', function()
       ['forge'] = package.preload['forge'],
       ['forge.config'] = package.preload['forge.config'],
       ['forge.logger'] = package.preload['forge.logger'],
+      ['forge.state'] = package.preload['forge.state'],
       ['forge.template'] = package.preload['forge.template'],
     }
 
@@ -86,15 +87,19 @@ describe('compose split session', function()
 
     package.preload['forge'] = function()
       return {
-        clear_list = function()
-          captured.cleared = captured.cleared + 1
-        end,
         current_scope = function()
           return {
             kind = 'github',
             host = 'github.com',
             slug = 'owner/repo',
           }
+        end,
+      }
+    end
+    package.preload['forge.state'] = function()
+      return {
+        clear_list = function()
+          captured.cleared = captured.cleared + 1
         end,
       }
     end
@@ -131,6 +136,7 @@ describe('compose split session', function()
     package.loaded['forge.compose'] = nil
     package.loaded['forge.config'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.state'] = nil
     package.loaded['forge.template'] = nil
 
     vim.cmd('silent! only')
@@ -149,12 +155,14 @@ describe('compose split session', function()
     package.preload['forge'] = old_preload['forge']
     package.preload['forge.config'] = old_preload['forge.config']
     package.preload['forge.logger'] = old_preload['forge.logger']
+    package.preload['forge.state'] = old_preload['forge.state']
     package.preload['forge.template'] = old_preload['forge.template']
 
     package.loaded['forge'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.config'] = nil
     package.loaded['forge.logger'] = nil
+    package.loaded['forge.state'] = nil
     package.loaded['forge.template'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
