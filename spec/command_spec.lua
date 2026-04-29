@@ -475,6 +475,10 @@ describe(':Forge command', function()
     package.preload['forge.detect'] = function()
       return {
         detect = require('forge').detect,
+        forge_name = function()
+          local detected = require('forge').detect()
+          return type(detected) == 'table' and detected.name or nil
+        end,
       }
     end
     package.preload['forge.issue'] = function()

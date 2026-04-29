@@ -1,13 +1,16 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 describe('command schema', function()
-  local cmd = require('forge.cmd')
+  local cmd
   local old_system
   local old_preload
 
   before_each(function()
     old_system = vim.system
-    old_preload = package.preload['forge']
+    old_preload = {
+      ['forge'] = package.preload['forge'],
+      ['forge.detect'] = package.preload['forge.detect'],
+    }
 
     vim.system = function(cmdline)
       local key = table.concat(cmdline, ' ')
@@ -57,15 +60,34 @@ describe('command schema', function()
         end,
       }
     end
+    package.preload['forge.detect'] = function()
+      return {
+        detect = function()
+          local forge = require('forge')
+          return forge.detect and forge.detect() or nil
+        end,
+        forge_name = function()
+          local forge = require('forge')
+          local detected = forge.detect and forge.detect() or nil
+          return type(detected) == 'table' and detected.name or nil
+        end,
+      }
+    end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.detect'] = nil
+    package.loaded['forge.cmd'] = nil
     package.loaded['forge.target'] = nil
+    cmd = require('forge.cmd')
   end)
 
   after_each(function()
     vim.system = old_system
-    package.preload['forge'] = old_preload
+    package.preload['forge'] = old_preload['forge']
+    package.preload['forge.detect'] = old_preload['forge.detect']
     package.loaded['forge'] = nil
+    package.loaded['forge.detect'] = nil
+    package.loaded['forge.cmd'] = nil
     package.loaded['forge.target'] = nil
   end)
 
