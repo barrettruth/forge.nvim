@@ -16,6 +16,8 @@ local loaded_modules = {
   'forge.completion_policy',
   'forge',
   'forge.cmd',
+  'forge.cmd_dispatch',
+  'forge.cmd_resolve',
   'forge.logger',
   'forge.ops',
   'forge.pickers',
