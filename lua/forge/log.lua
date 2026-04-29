@@ -1,5 +1,6 @@
 local M = {}
 
+local config_mod = require('forge.config')
 local scope_mod = require('forge.scope')
 local ns = vim.api.nvim_create_namespace('forge_log')
 local buf_data = {}
@@ -200,7 +201,7 @@ local function summary_status_group(status)
 end
 
 local function summary_status_icon(status)
-  local icons = require('forge').config().display.icons
+  local icons = config_mod.config().display.icons
   status = (status or ''):lower()
   if status == 'success' then
     return icons.pass
@@ -710,7 +711,7 @@ local function jump(buf, kind, dir)
 end
 
 local function setup_keymaps(buf, url, cmd, opts)
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   if cfg.keys == false then
     return
   end
@@ -956,7 +957,7 @@ function M.open(cmd, opts, reuse_buf)
       end
 
       if opts.in_progress then
-        local cfg = require('forge').config()
+        local cfg = config_mod.config()
         start_auto_refresh(buf, request_id, cfg.ci.refresh, opts.status_cmd, function(completed)
           if completed then
             opts = vim.tbl_extend('force', opts, { in_progress = false })
@@ -1237,13 +1238,13 @@ function M.open_summary(cmd, opts, reuse_buf)
       if #wins > 0 then
         saved_cursor = vim.api.nvim_win_get_cursor(wins[1])
       else
-        local cfg = require('forge').config()
+        local cfg = config_mod.config()
         local split = cfg.ci.split or cfg.split
         local prefix = split == 'vertical' and 'vertical' or 'botright'
         vim.cmd('noautocmd ' .. prefix .. ' sbuffer ' .. buf)
       end
     else
-      local cfg = require('forge').config()
+      local cfg = config_mod.config()
       local split = cfg.ci.split or cfg.split
       local prefix = split == 'vertical' and 'vertical' or 'botright'
       vim.cmd('noautocmd ' .. prefix .. ' new')
@@ -1333,7 +1334,7 @@ function M.open_summary(cmd, opts, reuse_buf)
       })
 
       if not reusing then
-        local cfg = require('forge').config()
+        local cfg = config_mod.config()
         if cfg.keys ~= false then
           local keys = cfg.keys.log or {}
           local function map(key, fn, desc)
@@ -1418,7 +1419,7 @@ function M.open_summary(cmd, opts, reuse_buf)
       end
 
       if opts.in_progress then
-        local cfg = require('forge').config()
+        local cfg = config_mod.config()
         start_auto_refresh(buf, request_id, cfg.ci.refresh, opts.status_cmd, function(completed)
           if completed then
             opts = vim.tbl_extend('force', opts, { in_progress = false })

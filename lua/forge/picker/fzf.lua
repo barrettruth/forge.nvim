@@ -1,5 +1,6 @@
 local M = {}
 
+local config_mod = require('forge.config')
 local surface_policy = require('forge.surface_policy')
 
 local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
@@ -242,7 +243,7 @@ end
 ---@param opts forge.PickerOpts
 ---@return forge.PickerHandle?
 function M.pick(opts)
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local keys = cfg.keys
   if keys == false then
     keys = {}

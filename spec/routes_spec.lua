@@ -114,6 +114,7 @@ describe('routes', function()
     old_preload = {
       ['forge.detect'] = package.preload['forge.detect'],
       ['forge'] = package.preload['forge'],
+      ['forge.config'] = package.preload['forge.config'],
       ['forge.repo'] = package.preload['forge.repo'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
@@ -133,6 +134,13 @@ describe('routes', function()
     end
 
     package.preload['forge'] = function()
+      return {
+        config = function()
+          return current_config
+        end,
+      }
+    end
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return current_config
@@ -209,6 +217,7 @@ describe('routes', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.repo'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
@@ -222,6 +231,7 @@ describe('routes', function()
 
     package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge'] = old_preload['forge']
+    package.preload['forge.config'] = old_preload['forge.config']
     package.preload['forge.repo'] = old_preload['forge.repo']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
@@ -230,6 +240,7 @@ describe('routes', function()
 
     package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.repo'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil

@@ -1,5 +1,7 @@
 local M = {}
 
+local config_mod = require('forge.config')
+local format_mod = require('forge.format')
 local layout = require('forge.layout')
 local log = require('forge.logger')
 local scope_mod = require('forge.scope')
@@ -86,7 +88,7 @@ local function request_current(buf, request_id)
 end
 
 local function limit_settings(buf, opts)
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local step = cfg.display and cfg.display.limits and cfg.display.limits.runs or 30
   if type(step) ~= 'number' or step < 1 then
     step = 30
@@ -161,8 +163,7 @@ end
 ---@param runs forge.CIRun[]
 ---@return forge.CIHistoryLine[]
 local function render_rows(runs)
-  local forge = require('forge')
-  local rows = forge.format_runs(runs, { width = layout.picker_width() })
+  local rows = format_mod.format_runs(runs, { width = layout.picker_width() })
   local lines = {}
   for index, row in ipairs(rows) do
     local text = {}
@@ -280,14 +281,13 @@ end
 ---@param scope forge.Scope?
 ---@return forge.CIRun[]
 local function normalize_runs(f, runs, scope)
-  local forge = require('forge')
   local normalized = {}
   for _, entry in ipairs(runs) do
     local run = f:normalize_run(entry)
     run.scope = run.scope or scope
     normalized[#normalized + 1] = run
   end
-  return forge.filter_runs(normalized, 'all')
+  return format_mod.filter_runs(normalized, 'all')
 end
 
 ---@param buf integer
@@ -295,7 +295,7 @@ end
 ---@param head forge.HeadRef
 ---@param opts table?
 local function setup_keymaps(buf, f, head, opts)
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local ci_keys = type(cfg.keys) == 'table' and cfg.keys.ci or {}
   local log_keys = type(cfg.keys) == 'table' and cfg.keys.log or {}
   local function reopen(limit)
@@ -362,13 +362,13 @@ local function prepare_buf(head, reuse_buf)
       reusing = true
       local wins = vim.fn.win_findbuf(buf)
       if #wins == 0 then
-        local cfg = require('forge').config()
+        local cfg = config_mod.config()
         local split = cfg.ci.split or cfg.split
         local prefix = split == 'vertical' and 'vertical' or 'botright'
         vim.cmd('noautocmd ' .. prefix .. ' sbuffer ' .. buf)
       end
     else
-      local cfg = require('forge').config()
+      local cfg = config_mod.config()
       local split = cfg.ci.split or cfg.split
       local prefix = split == 'vertical' and 'vertical' or 'botright'
       vim.cmd('noautocmd ' .. prefix .. ' new')
