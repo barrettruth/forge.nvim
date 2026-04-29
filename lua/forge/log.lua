@@ -1,5 +1,6 @@
 local M = {}
 
+local buf_lifecycle = require('forge.buf_lifecycle')
 local config_mod = require('forge.config')
 local log_render = require('forge.log_render')
 local log_summary = require('forge.log_summary')
@@ -30,69 +31,31 @@ local function summary_bufname(opts)
   return ('forge://%s/ci/run/%s'):format(prefix, opts.run_id)
 end
 
----@param name string?
----@return integer?
-local function find_buf_by_name(name)
-  if not name or name == '' then
-    return nil
-  end
-  local bn = vim.fn.bufnr(name)
-  if bn ~= -1 and vim.api.nvim_buf_is_valid(bn) then
-    return bn
-  end
-  return nil
+local function new_data()
+  return { headers = {}, errors = {} }
 end
 
+local find_buf_by_name = buf_lifecycle.find_buf_by_name
+local set_public_buffer_state = buf_lifecycle.set_public_buffer_state
+
 local function data_for(buf)
-  local d = buf_data[buf]
-  if not d then
-    d = { headers = {}, errors = {} }
-    buf_data[buf] = d
-  end
-  return d
+  return buf_lifecycle.data_for(buf_data, buf, new_data)
 end
 
 local function set_data(buf, fields)
-  local d = data_for(buf)
-  for k, v in pairs(fields) do
-    d[k] = v
-  end
-  return d
-end
-
----@param buf integer
----@param kind forge.BufferKind
----@param url string?
-local function set_public_buffer_state(buf, kind, url)
-  vim.b[buf].forge = {
-    version = 1,
-    kind = kind,
-    url = type(url) == 'string' and url or '',
-  }
+  return buf_lifecycle.set_data(buf_data, buf, fields, new_data)
 end
 
 local function stop_procs(buf)
-  local d = buf_data[buf]
-  if d and d.procs then
-    for _, p in ipairs(d.procs) do
-      pcall(function()
-        p:kill()
-      end)
-    end
-    d.procs = nil
-  end
+  buf_lifecycle.stop_procs(buf_data, buf, 'procs', new_data)
 end
 
 local function begin_request(buf)
-  local d = data_for(buf)
-  d.request_id = (d.request_id or 0) + 1
-  stop_procs(buf)
-  return d.request_id
+  return buf_lifecycle.begin_request(buf_data, buf, stop_procs, new_data)
 end
 
 local function request_current(buf, request_id)
-  local d = buf_data[buf]
-  return d and d.request_id == request_id
+  return buf_lifecycle.request_current(buf_data, buf, request_id)
 end
 
 local strip_ansi = log_render.strip_ansi
@@ -108,22 +71,7 @@ local function jump(buf, kind, dir)
     return
   end
   local list = kind == 'header' and d.headers or d.errors
-  local cursor = vim.api.nvim_win_get_cursor(0)[1]
-  if dir > 0 then
-    for _, ln in ipairs(list) do
-      if ln > cursor then
-        vim.api.nvim_win_set_cursor(0, { ln, 0 })
-        return
-      end
-    end
-  else
-    for i = #list, 1, -1 do
-      if list[i] < cursor then
-        vim.api.nvim_win_set_cursor(0, { list[i], 0 })
-        return
-      end
-    end
-  end
+  buf_lifecycle.jump_positions(list, dir, false)
 end
 
 local function setup_keymaps(buf, url, cmd, opts)
