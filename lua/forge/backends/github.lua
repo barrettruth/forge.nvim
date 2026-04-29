@@ -2,7 +2,7 @@ local config_mod = require('forge.config')
 local log = require('forge.logger')
 local repo_mod = require('forge.repo')
 local scope_mod = require('forge.scope')
-local submission = require('forge.submission')
+local submission = require('forge.compose.submission')
 
 ---@param value any
 ---@return string?

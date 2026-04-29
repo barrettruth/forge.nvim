@@ -1,13 +1,13 @@
-local availability = require('forge.availability')
+local availability = require('forge.surface.availability')
 local config_mod = require('forge.config')
 local format_mod = require('forge.format')
-local ops = require('forge.ops')
+local ops = require('forge.action.ops')
 local picker = require('forge.picker')
 local picker_entity = require('forge.picker.entity')
 local picker_shared = require('forge.picker.shared')
 local pr_mod = require('forge.pr')
 local state_mod = require('forge.state')
-local surface_policy = require('forge.surface_policy')
+local surface_policy = require('forge.surface.policy')
 
 local M = {}
 

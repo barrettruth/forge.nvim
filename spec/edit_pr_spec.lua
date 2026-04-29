@@ -20,7 +20,7 @@ describe('forge.pr explicit PR targeting', function()
     old_executable = vim.fn.executable
     old_preload = {
       ['forge.action'] = package.preload['forge.action'],
-      ['forge.action_target'] = package.preload['forge.action_target'],
+      ['forge.action.target'] = package.preload['forge.action.target'],
       ['forge.ci'] = package.preload['forge.ci'],
       ['forge.client'] = package.preload['forge.client'],
       ['forge.compose'] = package.preload['forge.compose'],
@@ -29,7 +29,7 @@ describe('forge.pr explicit PR targeting', function()
       ['forge.format'] = package.preload['forge.format'],
       ['forge.backends.github'] = package.preload['forge.backends.github'],
       ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.template'] = package.preload['forge.template'],
+      ['forge.compose.template'] = package.preload['forge.compose.template'],
     }
 
     vim.fn.executable = function(bin)
@@ -185,14 +185,14 @@ describe('forge.pr explicit PR targeting', function()
       }
     end
 
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {}
     end
 
     package.loaded['forge'] = nil
-    package.loaded['forge.action_target'] = nil
+    package.loaded['forge.action.target'] = nil
     package.loaded['forge.ci'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
@@ -201,7 +201,7 @@ describe('forge.pr explicit PR targeting', function()
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
   end)
 
   after_each(function()
@@ -210,7 +210,7 @@ describe('forge.pr explicit PR targeting', function()
     vim.fn.executable = old_executable
 
     package.preload['forge.action'] = old_preload['forge.action']
-    package.preload['forge.action_target'] = old_preload['forge.action_target']
+    package.preload['forge.action.target'] = old_preload['forge.action.target']
     package.preload['forge.ci'] = old_preload['forge.ci']
     package.preload['forge.client'] = old_preload['forge.client']
     package.preload['forge.compose'] = old_preload['forge.compose']
@@ -219,12 +219,12 @@ describe('forge.pr explicit PR targeting', function()
     package.preload['forge.format'] = old_preload['forge.format']
     package.preload['forge.backends.github'] = old_preload['forge.backends.github']
     package.preload['forge.logger'] = old_preload['forge.logger']
-    package.preload['forge.template'] = old_preload['forge.template']
+    package.preload['forge.compose.template'] = old_preload['forge.compose.template']
 
     package.loaded['forge'] = nil
-    package.loaded['forge.action_target'] = nil
+    package.loaded['forge.action.target'] = nil
     package.loaded['forge.ci'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
@@ -233,7 +233,7 @@ describe('forge.pr explicit PR targeting', function()
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
   end)
 
   it('uses fetched PR head/base metadata instead of the current local branch', function()

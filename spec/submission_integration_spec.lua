@@ -62,7 +62,7 @@ describe('submission integration', function()
       ['forge.repo'] = package.preload['forge.repo'],
       ['forge.resolve'] = package.preload['forge.resolve'],
       ['forge.state'] = package.preload['forge.state'],
-      ['forge.template'] = package.preload['forge.template'],
+      ['forge.compose.template'] = package.preload['forge.compose.template'],
     }
 
     vim.fn.system = function(cmd)
@@ -143,7 +143,7 @@ describe('submission integration', function()
       }
     end
 
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {
         normalize_body = function(s)
           return vim.trim(s):gsub('%s+', ' ')
@@ -162,8 +162,8 @@ describe('submission integration', function()
     package.loaded['forge.repo'] = nil
     package.loaded['forge.resolve'] = nil
     package.loaded['forge.state'] = nil
-    package.loaded['forge.submission'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.submission'] = nil
+    package.loaded['forge.compose.template'] = nil
 
     vim.cmd('silent! only')
     vim.cmd('enew!')
@@ -179,7 +179,7 @@ describe('submission integration', function()
     package.preload['forge.repo'] = old_preload['forge.repo']
     package.preload['forge.resolve'] = old_preload['forge.resolve']
     package.preload['forge.state'] = old_preload['forge.state']
-    package.preload['forge.template'] = old_preload['forge.template']
+    package.preload['forge.compose.template'] = old_preload['forge.compose.template']
 
     package.loaded['forge.backends.codeberg'] = nil
     package.loaded['forge.compose'] = nil
@@ -189,8 +189,8 @@ describe('submission integration', function()
     package.loaded['forge.repo'] = nil
     package.loaded['forge.resolve'] = nil
     package.loaded['forge.state'] = nil
-    package.loaded['forge.submission'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.submission'] = nil
+    package.loaded['forge.compose.template'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_valid(buf) then

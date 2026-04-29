@@ -1,6 +1,6 @@
 local M = {}
 
-local cache_mod = require('forge.cache')
+local cache_mod = require('forge.state.cache')
 local detect_mod = require('forge.detect')
 local resolve_mod = require('forge.resolve')
 local scope_mod = require('forge.scope')

@@ -10,8 +10,8 @@ describe('forge.surface_policy.pr_toggle_verb', function()
   local surface_policy
 
   before_each(function()
-    package.loaded['forge.surface_policy'] = nil
-    surface_policy = require('forge.surface_policy')
+    package.loaded['forge.surface.policy'] = nil
+    surface_policy = require('forge.surface.policy')
   end)
 
   it('returns close for open prs', function()
@@ -51,8 +51,8 @@ describe('forge.surface_policy.issue_toggle_verb', function()
   local surface_policy
 
   before_each(function()
-    package.loaded['forge.surface_policy'] = nil
-    surface_policy = require('forge.surface_policy')
+    package.loaded['forge.surface.policy'] = nil
+    surface_policy = require('forge.surface.policy')
   end)
 
   it('returns close for open issues', function()
@@ -92,8 +92,8 @@ describe('forge.surface_policy.ci_toggle_verb', function()
   local surface_policy
 
   before_each(function()
-    package.loaded['forge.surface_policy'] = nil
-    surface_policy = require('forge.surface_policy')
+    package.loaded['forge.surface.policy'] = nil
+    surface_policy = require('forge.surface.policy')
   end)
 
   it('returns cancel for in-progress runs', function()
@@ -143,8 +143,8 @@ describe('forge.surface_policy.resolve_label', function()
   local surface_policy
 
   before_each(function()
-    package.loaded['forge.surface_policy'] = nil
-    surface_policy = require('forge.surface_policy')
+    package.loaded['forge.surface.policy'] = nil
+    surface_policy = require('forge.surface.policy')
   end)
 
   it('returns string labels verbatim', function()

@@ -1,7 +1,7 @@
 local M = {}
 
 local action_mod = require('forge.action')
-local action_target_mod = require('forge.action_target')
+local action_target_mod = require('forge.action.target')
 local config_mod = require('forge.config')
 local context_mod = require('forge.context')
 local detect_mod = require('forge.detect')
@@ -12,7 +12,7 @@ local repo_mod = require('forge.repo')
 local review_mod = require('forge.review')
 local routes_mod = require('forge.routes')
 local state_mod = require('forge.state')
-local template_mod = require('forge.template')
+local template_mod = require('forge.compose.template')
 
 M.register = detect_mod.register
 M.register_source = M.register

@@ -4,21 +4,21 @@ local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 
 local preload_modules = {
   'forge.action',
-  'forge.action_target',
+  'forge.action.target',
   'forge.backends.github',
-  'forge.cache',
+  'forge.state.cache',
   'forge.compose',
   'forge.config',
   'forge.context',
   'forge.format',
   'forge.logger',
-  'forge.ops',
+  'forge.action.ops',
   'forge.resolve',
   'forge.review',
   'forge.routes',
   'forge.scope',
   'forge.target',
-  'forge.template',
+  'forge.compose.template',
 }
 
 local loaded_modules = vim.list_extend({ 'forge' }, preload_modules)
@@ -135,7 +135,7 @@ describe('high-level implicit-ref API', function()
       }
     end
 
-    package.preload['forge.cache'] = function()
+    package.preload['forge.state.cache'] = function()
       return {
         new = function()
           return {
@@ -193,7 +193,7 @@ describe('high-level implicit-ref API', function()
       }
     end
 
-    package.preload['forge.ops'] = function()
+    package.preload['forge.action.ops'] = function()
       return {
         ci = function(f, head, opts)
           table.insert(captured.ops_calls, { name = 'ci', f = f, head = head, opts = opts })
@@ -299,7 +299,7 @@ describe('high-level implicit-ref API', function()
       return {}
     end
 
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {}
     end
 

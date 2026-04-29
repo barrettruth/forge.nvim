@@ -1,10 +1,10 @@
-local layout = require('forge.layout')
+local layout = require('forge.format.layout')
 local log = require('forge.logger')
-local ops = require('forge.ops')
+local ops = require('forge.action.ops')
 local picker_session = require('forge.picker.session')
 local repo_mod = require('forge.repo')
 local state_mod = require('forge.state')
-local surface_policy = require('forge.surface_policy')
+local surface_policy = require('forge.surface.policy')
 
 local M = {}
 

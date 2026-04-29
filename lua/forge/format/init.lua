@@ -1,5 +1,5 @@
 local M = {}
-local layout = require('forge.layout')
+local layout = require('forge.format.layout')
 
 ---@param s string
 ---@param width integer

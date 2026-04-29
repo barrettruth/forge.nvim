@@ -33,7 +33,7 @@ end
 
 function M.action_labels(actions, entry)
   local labels = {}
-  local ok, surface_policy = pcall(require, 'forge.surface_policy')
+  local ok, surface_policy = pcall(require, 'forge.surface.policy')
   for _, def in ipairs(actions or {}) do
     local label
     if ok and type(surface_policy.resolve_label) == 'function' then

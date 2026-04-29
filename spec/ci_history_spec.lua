@@ -25,9 +25,9 @@ describe('ci history buffer', function()
       'forge',
       'forge.config',
       'forge.format',
-      'forge.layout',
+      'forge.format.layout',
       'forge.logger',
-      'forge.ops',
+      'forge.action.ops',
       'forge.scope',
       'forge.system',
     })
@@ -103,7 +103,7 @@ describe('ci history buffer', function()
       }
     end
 
-    package.preload['forge.layout'] = function()
+    package.preload['forge.format.layout'] = function()
       return {
         picker_width = function()
           return 80
@@ -118,7 +118,7 @@ describe('ci history buffer', function()
       }
     end
 
-    package.preload['forge.ops'] = function()
+    package.preload['forge.action.ops'] = function()
       return {
         ci_open = function(_, run)
           captured.opened[#captured.opened + 1] = run
@@ -150,12 +150,12 @@ describe('ci history buffer', function()
 
     package.loaded['forge'] = nil
     package.loaded['forge.config'] = nil
-    package.loaded['forge.ci_history'] = nil
+    package.loaded['forge.ci.history'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.layout'] = nil
+    package.loaded['forge.format.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.scope'] = nil
     package.loaded['forge.system'] = nil
   end)
@@ -166,12 +166,12 @@ describe('ci history buffer', function()
     helpers.restore_preload(old_preload)
     package.loaded['forge'] = nil
     package.loaded['forge.config'] = nil
-    package.loaded['forge.ci_history'] = nil
+    package.loaded['forge.ci.history'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.layout'] = nil
+    package.loaded['forge.format.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.scope'] = nil
     package.loaded['forge.system'] = nil
 
@@ -206,7 +206,7 @@ describe('ci history buffer', function()
       }
     end
 
-    local mod = require('forge.ci_history')
+    local mod = require('forge.ci.history')
     mod.open({
       name = 'github',
       labels = { ci_inline = 'runs' },
@@ -262,7 +262,7 @@ describe('ci history buffer', function()
       }
     end
     package.loaded['forge.format'] = nil
-    package.loaded['forge.ci_history'] = nil
+    package.loaded['forge.ci.history'] = nil
 
     vim.system = function(_, _, cb)
       cb({
@@ -282,7 +282,7 @@ describe('ci history buffer', function()
       }
     end
 
-    local mod = require('forge.ci_history')
+    local mod = require('forge.ci.history')
     mod.open({
       name = 'github',
       labels = { ci_inline = 'runs' },
@@ -324,7 +324,7 @@ describe('ci history buffer', function()
       }
     end
 
-    local mod = require('forge.ci_history')
+    local mod = require('forge.ci.history')
     mod.open({
       name = 'github',
       labels = { ci_inline = 'runs' },
@@ -425,7 +425,7 @@ describe('ci history buffer', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.format'] = nil
 
-    local mod = require('forge.ci_history')
+    local mod = require('forge.ci.history')
     mod.open({
       name = 'github',
       labels = { ci_inline = 'runs' },
@@ -537,7 +537,7 @@ describe('ci history buffer', function()
     package.loaded['forge.config'] = nil
     package.loaded['forge.format'] = nil
 
-    local mod = require('forge.ci_history')
+    local mod = require('forge.ci.history')
     mod.open({
       name = 'github',
       labels = { ci_inline = 'runs' },
@@ -602,7 +602,7 @@ describe('ci history buffer', function()
       }
     end
 
-    local ci_history = require('forge.ci_history')
+    local ci_history = require('forge.ci.history')
     local log_mod = require('forge.log')
 
     ci_history.open({
@@ -674,7 +674,7 @@ describe('ci history buffer', function()
       }
     end
 
-    local ci_history = require('forge.ci_history')
+    local ci_history = require('forge.ci.history')
     local log_mod = require('forge.log')
 
     ci_history.open({

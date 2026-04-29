@@ -28,7 +28,7 @@ describe('edit_issue', function()
       ['forge.format'] = package.preload['forge.format'],
       ['forge.backends.github'] = package.preload['forge.backends.github'],
       ['forge.logger'] = package.preload['forge.logger'],
-      ['forge.template'] = package.preload['forge.template'],
+      ['forge.compose.template'] = package.preload['forge.compose.template'],
     }
 
     vim.fn.executable = function(bin)
@@ -165,13 +165,13 @@ describe('edit_issue', function()
       }
     end
 
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {}
     end
 
     package.loaded['forge'] = nil
     package.loaded['forge.ci'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
@@ -180,7 +180,7 @@ describe('edit_issue', function()
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
   end)
 
   after_each(function()
@@ -197,11 +197,11 @@ describe('edit_issue', function()
     package.preload['forge.format'] = old_preload['forge.format']
     package.preload['forge.backends.github'] = old_preload['forge.backends.github']
     package.preload['forge.logger'] = old_preload['forge.logger']
-    package.preload['forge.template'] = old_preload['forge.template']
+    package.preload['forge.compose.template'] = old_preload['forge.compose.template']
 
     package.loaded['forge'] = nil
     package.loaded['forge.ci'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
@@ -210,7 +210,7 @@ describe('edit_issue', function()
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
   end)
 
   it('fetches issue details and opens the issue edit compose flow', function()

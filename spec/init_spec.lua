@@ -455,7 +455,7 @@ describe('format_prs', function()
       { number = 1, title = 'short', state = 'OPEN', author = 'alice', created_at = '' },
     }, fields, false, { width = 80 })[1]
 
-    assert.equals(80, require('forge.layout').display_width(flatten(row)))
+    assert.equals(80, require('forge.format.layout').display_width(flatten(row)))
   end)
 end)
 
@@ -473,7 +473,7 @@ describe('format_issues', function()
       { number = 10, title = 'bug report', state = 'open', author = 'alice', created_at = '' },
     }, fields, false, { width = 80 })[1]
 
-    assert.equals(80, require('forge.layout').display_width(flatten(row)))
+    assert.equals(80, require('forge.format.layout').display_width(flatten(row)))
   end)
 end)
 

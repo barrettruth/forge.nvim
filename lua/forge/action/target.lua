@@ -200,7 +200,7 @@ function M.pr(opts)
   if not pr then
     return
   end
-  require('forge.ops').pr_edit(pr, forge)
+  require('forge.action.ops').pr_edit(pr, forge)
 end
 
 ---@param opts forge.ReviewOpts?
@@ -209,7 +209,7 @@ function M.review(opts)
   if not forge or not pr then
     return
   end
-  require('forge.ops').pr_review(forge, pr, review_action_opts(opts))
+  require('forge.action.ops').pr_review(forge, pr, review_action_opts(opts))
 end
 
 ---@param opts forge.PRActionOpts?
@@ -218,7 +218,7 @@ function M.pr_ci(opts)
   if not forge or not pr then
     return
   end
-  require('forge.ops').pr_ci(forge, pr)
+  require('forge.action.ops').pr_ci(forge, pr)
 end
 
 ---@param opts forge.BranchCIOpts?
@@ -227,7 +227,7 @@ function M.ci(opts)
   if not forge or not head then
     return
   end
-  require('forge.ops').ci(forge, head)
+  require('forge.action.ops').ci(forge, head)
 end
 
 return M

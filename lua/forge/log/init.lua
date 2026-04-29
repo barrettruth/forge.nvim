@@ -2,8 +2,8 @@ local M = {}
 
 local buf_lifecycle = require('forge.buf_lifecycle')
 local config_mod = require('forge.config')
-local log_render = require('forge.log_render')
-local log_summary = require('forge.log_summary')
+local log_render = require('forge.log.render')
+local log_summary = require('forge.log.summary')
 local scope_mod = require('forge.scope')
 local ns = vim.api.nvim_create_namespace('forge_log')
 local buf_data = {}

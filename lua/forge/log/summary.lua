@@ -1,6 +1,6 @@
 local M = {}
 
-local log_render = require('forge.log_render')
+local log_render = require('forge.log.render')
 
 local strip_ansi = log_render.strip_ansi
 local summary_status = log_render.summary_status

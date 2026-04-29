@@ -1201,7 +1201,7 @@ mirror the Ex surface and reuse the shared resolver layer. >lua
 `pr_ci()` now opens the deterministic PR checks buffer. `ci()` now opens the
 deterministic current-branch CI history buffer.
 
-Internal layers such as `lua/forge/ops.lua` and `lua/forge/pickers.lua`
+Internal layers such as `lua/forge/action/ops.lua` and `lua/forge/pickers.lua`
 power the built-in commands and pickers, but they are not the public
 integration surface.
 
@@ -1276,13 +1276,13 @@ contracts live in the source:
   `require('forge')`         `lua/forge/init.lua`            deterministic helpers,
                                                             built-in routes,
                                                             and extension hooks
-  `require('forge.pr')`      `lua/forge/pr.lua`              PR workflows and
+  `require('forge.pr')`      `lua/forge/pr/init.lua`              PR workflows and
                                                             PR state helpers
   `require('forge.issue')`   `lua/forge/issue.lua`           issue workflows and
                                                             template helpers
   `require('forge.repo')`    `lua/forge/repo.lua`            repo, scope, and
                                                             remote helpers
-  `require('forge.format')`  `lua/forge/format.lua`          formatting and
+  `require('forge.format')`  `lua/forge/format/init.lua`          formatting and
                                                             filter helpers
   `require('forge.review')`  `lua/forge/review.lua`          review adapter
                                                             helpers

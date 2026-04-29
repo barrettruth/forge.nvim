@@ -1,6 +1,6 @@
 local M = {}
 
-local ops = require('forge.ops')
+local ops = require('forge.action.ops')
 local picker_shared = require('forge.picker.shared')
 local routes_mod = require('forge.routes')
 

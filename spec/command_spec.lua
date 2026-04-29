@@ -3,7 +3,7 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 
 local preload_modules = {
-  'forge.action_target',
+  'forge.action.target',
   'forge.config',
   'forge.detect',
   'forge.issue',
@@ -14,15 +14,15 @@ local preload_modules = {
   'forge.state',
   'forge',
   'forge.logger',
-  'forge.ops',
+  'forge.action.ops',
   'forge.pickers',
   'forge.resolve',
 }
 
 local loaded_modules = {
-  'forge.action_target',
-  'forge.availability',
-  'forge.completion_policy',
+  'forge.action.target',
+  'forge.surface.availability',
+  'forge.surface.completion',
   'forge',
   'forge.config',
   'forge.cmd',
@@ -33,7 +33,7 @@ local loaded_modules = {
   'forge.detect',
   'forge.issue',
   'forge.logger',
-  'forge.ops',
+  'forge.action.ops',
   'forge.pickers',
   'forge.pr',
   'forge.repo',
@@ -462,7 +462,7 @@ describe(':Forge command', function()
         end,
       }
     end
-    package.preload['forge.action_target'] = function()
+    package.preload['forge.action.target'] = function()
       return {
         ci = require('forge').ci,
       }
@@ -513,7 +513,7 @@ describe(':Forge command', function()
       }
     end
 
-    package.preload['forge.ops'] = function()
+    package.preload['forge.action.ops'] = function()
       return {
         pr_edit = function(pr)
           table.insert(captured.ops_calls, { name = 'pr_edit', pr = pr })

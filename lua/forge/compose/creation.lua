@@ -8,7 +8,7 @@ local resolve_mod = require('forge.resolve')
 local scope_mod = require('forge.scope')
 local system_mod = require('forge.system')
 local target_mod = require('forge.target')
-local template_mod = require('forge.template')
+local template_mod = require('forge.compose.template')
 
 local git_root = detect_mod.git_root
 

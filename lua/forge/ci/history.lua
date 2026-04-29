@@ -3,7 +3,7 @@ local M = {}
 local buf_lifecycle = require('forge.buf_lifecycle')
 local config_mod = require('forge.config')
 local format_mod = require('forge.format')
-local layout = require('forge.layout')
+local layout = require('forge.format.layout')
 local log = require('forge.logger')
 local scope_mod = require('forge.scope')
 local system_mod = require('forge.system')
@@ -233,13 +233,13 @@ local function setup_keymaps(buf, f, head, opts)
   vim.keymap.set('n', 'gx', function()
     local run = current_run(buf)
     if run then
-      require('forge.ops').ci_browse(f, run_ref(run))
+      require('forge.action.ops').ci_browse(f, run_ref(run))
     end
   end, { buffer = buf, desc = 'Browse' })
   vim.keymap.set('n', '<cr>', function()
     local run = current_run(buf)
     if run then
-      require('forge.ops').ci_open(f, run_ref(run))
+      require('forge.action.ops').ci_open(f, run_ref(run))
     end
   end, { buffer = buf, desc = 'Open' })
   map(ci_keys.refresh, function()
