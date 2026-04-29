@@ -21,6 +21,7 @@ local preload_modules = {
   'forge.logger',
   'forge.ops',
   'forge.picker',
+  'forge.picker.shared',
   'forge.surface_policy',
   'forge.state',
 }
@@ -31,6 +32,7 @@ local loaded_modules = {
   'forge.logger',
   'forge.ops',
   'forge.picker',
+  'forge.picker.shared',
   'forge.picker.session',
   'forge.pickers',
   'forge.review',
