@@ -1,5 +1,6 @@
 local M = {}
 local scope = require('forge.scope')
+local state_mod = require('forge.state')
 local submission = require('forge.submission')
 local system_mod = require('forge.system')
 local template = require('forge.template')
@@ -494,7 +495,7 @@ local function push_and_create(
                   if err then
                     log.error(err)
                   end
-                  require('forge').clear_list()
+                  state_mod.clear_list()
                   if buf and vim.api.nvim_buf_is_valid(buf) then
                     vim.bo[buf].modified = false
                     close_compose_buf(buf)
@@ -525,7 +526,7 @@ local function submit_issue(f, title, body, labels, buf, ref, metadata)
             set_clipboard(url)
           end
           log.info(('created issue -> %s'):format(url))
-          require('forge').clear_list()
+          state_mod.clear_list()
           if buf and vim.api.nvim_buf_is_valid(buf) then
             vim.bo[buf].modified = false
             close_compose_buf(buf)
@@ -548,7 +549,7 @@ local function update_issue(f, num, title, body, buf, ref, metadata, previous)
       vim.schedule(function()
         if result.code == 0 then
           log.info(('updated issue #%s'):format(num))
-          require('forge').clear_list()
+          state_mod.clear_list()
           if buf and vim.api.nvim_buf_is_valid(buf) then
             vim.bo[buf].modified = false
             close_compose_buf(buf)
@@ -870,7 +871,7 @@ local function update_pr(f, num, title, body, buf, ref, metadata, previous)
           end
         end
         log.info(('updated %s #%s'):format(f.labels.pr_one, num))
-        require('forge').clear_list()
+        state_mod.clear_list()
         if buf and vim.api.nvim_buf_is_valid(buf) then
           vim.bo[buf].modified = false
           close_compose_buf(buf)
