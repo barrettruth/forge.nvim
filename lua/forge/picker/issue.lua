@@ -1,7 +1,6 @@
-local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
-local picker_session = require('forge.picker.session')
+local picker_entity = require('forge.picker.entity')
 local picker_shared = require('forge.picker.shared')
 local state_mod = require('forge.state')
 local surface_policy = require('forge.surface_policy')
@@ -18,18 +17,12 @@ local issue_header_order = {
   'refresh',
 }
 
-local cached_rows = picker_shared.cached_rows
-local picker_failure_text = picker_shared.picker_failure_text
-local picker_failure_entry = picker_shared.picker_failure_entry
-local load_more_entry = picker_shared.load_more_entry
-local with_placeholder = picker_shared.with_placeholder
 local scoped_forge_ref = picker_shared.scoped_forge_ref
 local scoped_key = picker_shared.scoped_key
 local scoped_list_key = picker_shared.scoped_list_key
 local clear_state_caches = picker_shared.clear_state_caches
 local refresh_picker = picker_shared.refresh_picker
 local limit_settings = picker_shared.limit_settings
-local expanded_limit = picker_shared.expanded_limit
 local maybe_prefetch_list = picker_shared.maybe_prefetch_list
 local list_row = picker_shared.list_row
 local remove_list_row = picker_shared.remove_list_row
@@ -62,50 +55,10 @@ function M.pick(state, f, opts)
   local current_issues
   local issues_stale = true
   local picker_handle
+  local issue_entries
 
   local function build_issue_entries(issues, limit)
-    limit = limit or current_limit
-
-    table.sort(issues, function(a, b)
-      return (a[num_field] or 0) > (b[num_field] or 0)
-    end)
-    local has_more = #issues > limit
-    if has_more then
-      issues = vim.list_slice(issues, 1, limit)
-    end
-    local state_field = issue_fields.state
-    local entries = {}
-    local rows_for = cached_rows(function(width)
-      return forge_mod.format_issues(issues, issue_fields, issue_show_state, { width = width })
-    end)
-    local displays = rows_for()
-    for i, issue in ipairs(issues) do
-      local n = tostring(issue[num_field] or '')
-      table.insert(entries, {
-        display = displays[i],
-        render_display = function(width)
-          return rows_for(width)[i]
-        end,
-        value = { num = n, scope = ref, state = issue[state_field] },
-        ordinal = (issue[issue_fields.title] or '') .. ' #' .. n,
-      })
-    end
-    local count = #entries
-    if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
-    end
-    local empty_text = state == 'all' and ('No %s'):format(f.labels.issue)
-      or ('No %s %s'):format(state, f.labels.issue)
-    return with_placeholder(entries, empty_text), count
-  end
-
-  ---@param emit fun(entry: forge.PickerEntry?)
-  local function emit_cached_issues(emit)
-    local entries = build_issue_entries(current_issues, current_limit)
-    for _, entry in ipairs(entries) do
-      emit(entry)
-    end
-    emit(nil)
+    return picker_entity.build_entries(issue_entries, issues, limit)
   end
 
   local function maybe_prefetch_next()
@@ -123,34 +76,7 @@ function M.pick(state, f, opts)
 
   ---@param emit fun(entry: forge.PickerEntry?)
   local function stream_issues(emit)
-    if current_issues and not issues_stale then
-      emit_cached_issues(emit)
-      return
-    end
-    log.debug('fetching issue list (' .. state .. ')...')
-    picker_session.request_json(
-      cache_key,
-      f:list_issue_json_cmd(state, current_limit + 1, ref),
-      function(ok, issues, failure, stale)
-        if stale then
-          emit(nil)
-          return
-        end
-        if not ok then
-          log.error(picker_failure_text(failure, 'failed to fetch issues'))
-          emit(picker_failure_entry(failure, 'Failed to fetch issues'))
-          emit(nil)
-          return
-        end
-        current_issues = issues
-        issues_stale = false
-        if use_cache then
-          state_mod.set_list(cache_key, issues)
-        end
-        emit_cached_issues(emit)
-        maybe_prefetch_next()
-      end
-    )
+    picker_entity.stream(issue_entries)(emit)
   end
 
   local function rerender_issue_list()
@@ -164,6 +90,64 @@ function M.pick(state, f, opts)
     issues_stale = true
     rerender_issue_list()
   end
+
+  issue_entries = {
+    limit_step = limit_step,
+    cache_key = cache_key,
+    fetch_log = 'fetching issue list (' .. state .. ')...',
+    failure_log = 'failed to fetch issues',
+    failure_entry = 'Failed to fetch issues',
+    get_limit = function()
+      return current_limit
+    end,
+    get_rows = function()
+      return current_issues
+    end,
+    set_rows = function(issues)
+      current_issues = issues
+    end,
+    is_stale = function()
+      return issues_stale
+    end,
+    set_stale = function(stale)
+      issues_stale = stale
+    end,
+    request_cmd = function(requested_limit)
+      return f:list_issue_json_cmd(state, requested_limit, ref)
+    end,
+    store_rows = function(issues)
+      if use_cache then
+        state_mod.set_list(cache_key, issues)
+      end
+    end,
+    after_stream = maybe_prefetch_next,
+    after_revalidate = function()
+      rerender_issue_list()
+      maybe_prefetch_next()
+    end,
+    empty_text = function()
+      return state == 'all' and ('No %s'):format(f.labels.issue)
+        or ('No %s %s'):format(state, f.labels.issue)
+    end,
+    display_rows = function(issues)
+      local rows = vim.list_slice(issues, 1, #issues)
+      table.sort(rows, function(a, b)
+        return (a[num_field] or 0) > (b[num_field] or 0)
+      end)
+      return rows
+    end,
+    format_rows = function(issues, width)
+      return forge_mod.format_issues(issues, issue_fields, issue_show_state, { width = width })
+    end,
+    value = function(issue)
+      local n = tostring(issue[num_field] or '')
+      return { num = n, scope = ref, state = issue[issue_fields.state] }
+    end,
+    ordinal = function(issue)
+      local n = tostring(issue[num_field] or '')
+      return (issue[issue_fields.title] or '') .. ' #' .. n
+    end,
+  }
 
   local function issue_cache_key(list_state)
     return scoped_list_key('issue', list_state, scope_suffix)
@@ -219,26 +203,7 @@ function M.pick(state, f, opts)
   end
 
   local function revalidate_current_issues()
-    picker_session.request_json(
-      cache_key,
-      f:list_issue_json_cmd(state, current_limit + 1, ref),
-      function(ok, issues, failure, stale)
-        if stale then
-          return
-        end
-        if not ok then
-          log.error(picker_failure_text(failure, 'failed to fetch issues'))
-          return
-        end
-        current_issues = issues
-        issues_stale = false
-        if use_cache then
-          state_mod.set_list(cache_key, issues)
-        end
-        rerender_issue_list()
-        maybe_prefetch_next()
-      end
-    )
+    picker_entity.revalidate(issue_entries)
   end
 
   local function locally_toggle_issue(entry, verb)

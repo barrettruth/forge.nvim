@@ -1,7 +1,7 @@
 local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
-local picker_session = require('forge.picker.session')
+local picker_entity = require('forge.picker.entity')
 local picker_shared = require('forge.picker.shared')
 local state_mod = require('forge.state')
 
@@ -15,19 +15,13 @@ local release_header_order = {
   'refresh',
 }
 
-local picker_failure_text = picker_shared.picker_failure_text
-local picker_failure_entry = picker_shared.picker_failure_entry
-local load_more_entry = picker_shared.load_more_entry
-local with_placeholder = picker_shared.with_placeholder
 local set_clipboard = picker_shared.set_clipboard
-local cached_rows = picker_shared.cached_rows
 local scoped_forge_ref = picker_shared.scoped_forge_ref
 local scoped_key = picker_shared.scoped_key
 local scoped_id = picker_shared.scoped_id
 local clear_list_cache = picker_shared.clear_list_cache
 local refresh_picker = picker_shared.refresh_picker
 local limit_settings = picker_shared.limit_settings
-local expanded_limit = picker_shared.expanded_limit
 local remove_list_row = picker_shared.remove_list_row
 
 ---@param state 'all'|'draft'|'prerelease'
@@ -83,94 +77,6 @@ function M.pick(state, f, opts)
     return title .. '> '
   end
 
-  local function build_release_entries(releases, limit)
-    limit = limit or current_limit
-    local filtered = releases
-    if state == 'draft' and rel_fields.is_draft then
-      filtered = {}
-      for _, release in ipairs(releases) do
-        if release[rel_fields.is_draft] == true then
-          filtered[#filtered + 1] = release
-        end
-      end
-    elseif state == 'prerelease' and rel_fields.is_prerelease then
-      filtered = {}
-      for _, release in ipairs(releases) do
-        if release[rel_fields.is_prerelease] == true then
-          filtered[#filtered + 1] = release
-        end
-      end
-    end
-
-    local has_more = #releases > limit
-    if #filtered > limit then
-      filtered = vim.list_slice(filtered, 1, limit)
-    end
-    local entries = {}
-    local rows_for = cached_rows(function(width)
-      return forge_mod.format_releases(filtered, rel_fields, { width = width })
-    end)
-    local displays = rows_for()
-    for i, rel in ipairs(filtered) do
-      local tag = tostring(rel[rel_fields.tag] or '')
-      table.insert(entries, {
-        display = displays[i],
-        render_display = function(width)
-          return rows_for(width)[i]
-        end,
-        value = { tag = tag, rel = rel, scope = ref },
-        ordinal = tag .. ' ' .. (rel[rel_fields.title] or ''),
-      })
-    end
-    local count = #entries
-    if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
-    end
-    local empty_text = state == 'all' and 'No releases'
-      or state == 'draft' and 'No draft releases'
-      or 'No prerelease releases'
-    return with_placeholder(entries, empty_text), count
-  end
-
-  ---@param emit fun(entry: forge.PickerEntry?)
-  local function emit_cached_releases(emit)
-    local entries = build_release_entries(current_releases, current_limit)
-    for _, entry in ipairs(entries) do
-      emit(entry)
-    end
-    emit(nil)
-  end
-
-  ---@param emit fun(entry: forge.PickerEntry?)
-  local function stream_releases(emit)
-    if current_releases and not releases_stale then
-      emit_cached_releases(emit)
-      return
-    end
-    log.debug('fetching releases...')
-    local requested = current_limit + 1
-    picker_session.request_json(
-      cache_key,
-      f:list_releases_json_cmd(ref, requested),
-      function(ok, releases, failure, stale)
-        if stale then
-          emit(nil)
-          return
-        end
-        if not ok then
-          log.error(picker_failure_text(failure, 'failed to fetch releases'))
-          emit(picker_failure_entry(failure, 'Failed to fetch releases'))
-          emit(nil)
-          return
-        end
-        current_releases = remember_release_fetch(releases, requested)
-        releases_stale = false
-        state_mod.set_list(cache_key, current_releases)
-        emit_cached_releases(emit)
-      end
-    )
-  end
-
   local function rerender_release_list()
     if refresh_picker(picker_handle) then
       return
@@ -178,25 +84,88 @@ function M.pick(state, f, opts)
     M.pick(state, f, { limit = current_limit, back = opts.back, scope = ref })
   end
 
-  local function revalidate_current_releases()
-    local requested = current_limit + 1
-    picker_session.request_json(
-      cache_key,
-      f:list_releases_json_cmd(ref, requested),
-      function(ok, releases, failure, stale)
-        if stale then
-          return
+  local release_entries = {
+    limit_step = limit_step,
+    cache_key = cache_key,
+    fetch_log = 'fetching releases...',
+    failure_log = 'failed to fetch releases',
+    failure_entry = 'Failed to fetch releases',
+    get_limit = function()
+      return current_limit
+    end,
+    get_rows = function()
+      return current_releases
+    end,
+    set_rows = function(releases)
+      current_releases = releases
+    end,
+    is_stale = function()
+      return releases_stale
+    end,
+    set_stale = function(stale)
+      releases_stale = stale
+    end,
+    request_cmd = function(requested_limit)
+      return f:list_releases_json_cmd(ref, requested_limit)
+    end,
+    transform_rows = remember_release_fetch,
+    store_rows = function(releases)
+      state_mod.set_list(cache_key, releases)
+    end,
+    after_revalidate = function()
+      rerender_release_list()
+    end,
+    empty_text = function()
+      return state == 'all' and 'No releases'
+        or state == 'draft' and 'No draft releases'
+        or 'No prerelease releases'
+    end,
+    display_rows = function(releases)
+      local filtered = releases
+      if state == 'draft' and rel_fields.is_draft then
+        filtered = {}
+        for _, release in ipairs(releases) do
+          if release[rel_fields.is_draft] == true then
+            filtered[#filtered + 1] = release
+          end
         end
-        if not ok then
-          log.error(picker_failure_text(failure, 'failed to fetch releases'))
-          return
+      elseif state == 'prerelease' and rel_fields.is_prerelease then
+        filtered = {}
+        for _, release in ipairs(releases) do
+          if release[rel_fields.is_prerelease] == true then
+            filtered[#filtered + 1] = release
+          end
         end
-        current_releases = remember_release_fetch(releases, requested)
-        releases_stale = false
-        state_mod.set_list(cache_key, current_releases)
-        rerender_release_list()
       end
-    )
+      return filtered
+    end,
+    has_more = function(releases, _, limit)
+      return #releases > limit
+    end,
+    format_rows = function(releases, width)
+      return forge_mod.format_releases(releases, rel_fields, { width = width })
+    end,
+    value = function(rel)
+      local tag = tostring(rel[rel_fields.tag] or '')
+      return { tag = tag, rel = rel, scope = ref }
+    end,
+    ordinal = function(rel)
+      local tag = tostring(rel[rel_fields.tag] or '')
+      return tag .. ' ' .. (rel[rel_fields.title] or '')
+    end,
+  }
+
+  local function build_release_entries(releases, limit)
+    return picker_entity.build_entries(release_entries, releases, limit)
+  end
+
+  ---@param emit fun(entry: forge.PickerEntry?)
+  local function stream_releases(emit)
+    picker_entity.stream(release_entries)(emit)
+  end
+
+  local function revalidate_current_releases()
+    picker_entity.revalidate(release_entries)
   end
 
   ---@param entry forge.PickerEntry
