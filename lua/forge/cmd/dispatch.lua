@@ -6,7 +6,7 @@ local log = require('forge.logger')
 local ops = require('forge.ops')
 local pr_mod = require('forge.pr')
 local repo_mod = require('forge.repo')
-local resolve_mod = require('forge.cmd_resolve')
+local resolve_mod = require('forge.cmd.resolve')
 local routes_mod = require('forge.routes')
 local state_mod = require('forge.state')
 

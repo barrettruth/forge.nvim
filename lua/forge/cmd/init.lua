@@ -627,7 +627,7 @@ function M.parse(args, opts)
 end
 
 function M.dispatch(command)
-  return require('forge.cmd_dispatch').dispatch(command)
+  return require('forge.cmd.dispatch').dispatch(command)
 end
 
 function M.run(opts)
@@ -658,7 +658,7 @@ function M.run(opts)
 end
 
 function M.complete(arglead, cmdline, _)
-  return require('forge.cmd_complete').complete(M, arglead, cmdline, split_words)
+  return require('forge.cmd.complete').complete(M, arglead, cmdline, split_words)
 end
 
 return M

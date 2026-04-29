@@ -6,7 +6,7 @@ local issue_mod = require('forge.issue')
 local pr_mod = require('forge.pr')
 local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
-local source_mod = require('forge.cmd_complete_source')
+local source_mod = require('forge.cmd.complete_source')
 local state_mod = require('forge.state')
 
 ---@param command forge.Command
