@@ -6,7 +6,6 @@ local context_mod = require('forge.context')
 local detect_mod = require('forge.detect')
 local format_mod = require('forge.format')
 local repo_mod = require('forge.repo')
-local resolve_mod = require('forge.resolve')
 local review_mod = require('forge.review')
 local state_mod = require('forge.state')
 local template_mod = require('forge.template')
@@ -36,7 +35,7 @@ end
 ---@param scope? forge.Scope
 ---@return forge.PRState
 function M.pr_state(f, num, scope)
-  return state_mod.pr_state(f, num, scope)
+  return require('forge.pr').pr_state(f, num, scope)
 end
 
 ---@param num string
@@ -44,13 +43,13 @@ end
 ---@param scope? forge.Scope
 ---@return forge.PRState
 function M.set_pr_state(num, state, scope)
-  return state_mod.set_pr_state(num, state, scope)
+  return require('forge.pr').set_pr_state(num, state, scope)
 end
 
 ---@param num? string
 ---@param scope? forge.Scope
 function M.clear_pr_state(num, scope)
-  state_mod.clear_pr_state(num, scope)
+  require('forge.pr').clear_pr_state(num, scope)
 end
 
 ---@param kind string
@@ -159,17 +158,17 @@ M.filter_runs = format_mod.filter_runs
 
 ---@param opts forge.PRActionOpts?
 function M.pr(opts)
-  require('forge.action_target').pr(opts)
+  require('forge.pr').pr(opts)
 end
 
 ---@param opts forge.ReviewOpts?
 function M.review(opts)
-  require('forge.action_target').review(opts)
+  require('forge.pr').review(opts)
 end
 
 ---@param opts forge.PRActionOpts?
 function M.pr_ci(opts)
-  require('forge.action_target').pr_ci(opts)
+  require('forge.pr').pr_ci(opts)
 end
 
 ---@param opts forge.BranchCIOpts?
@@ -179,32 +178,32 @@ end
 
 ---@param opts forge.CreatePROpts?
 function M.create_pr(opts)
-  require('forge.creation').create_pr(opts)
+  require('forge.pr').create_pr(opts)
+end
+
+---@param opts forge.CreateIssueOpts?
+function M.create_issue(opts)
+  require('forge.issue').create_issue(opts)
 end
 
 ---@param num string
 ---@param ref? forge.Scope
 function M.edit_issue(num, ref)
-  require('forge.ops').issue_edit({
-    num = num,
-    scope = ref,
-  })
-end
-
----@param opts forge.CreateIssueOpts?
-function M.create_issue(opts)
-  require('forge.creation').create_issue(opts)
+  require('forge.issue').edit_issue(num, ref)
 end
 
 ---@return string[]
 function M.template_slugs()
-  return require('forge.creation').template_slugs()
+  return require('forge.issue').template_slugs()
 end
 
 M._discover_templates = template_mod.discover
 M._load_template = template_mod.load
 M._normalize_body = template_mod.normalize_body
-M.current_pr = resolve_mod.current_pr
+
+function M.current_pr(opts)
+  return require('forge.pr').current_pr(opts)
+end
 
 local routes_mod = require('forge.routes')
 M.current_context = routes_mod.current_context
