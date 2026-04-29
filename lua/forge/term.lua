@@ -1,5 +1,7 @@
 local M = {}
 
+local config_mod = require('forge.config')
+
 ---@class forge.TermOpts
 ---@field split? forge.Split
 ---@field url? string
@@ -11,7 +13,7 @@ local M = {}
 ---@param opts? forge.TermOpts
 function M.open(cmd, opts)
   opts = opts or {}
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local split = opts.split or cfg.ci.split or cfg.split
   local prefix = split == 'vertical' and 'vertical' or 'botright'
   vim.cmd(prefix .. ' new')

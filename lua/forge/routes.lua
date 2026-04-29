@@ -1,6 +1,7 @@
 local M = {}
 
 local action = require('forge.action')
+local config_mod = require('forge.config')
 local context = require('forge.context')
 local log = require('forge.logger')
 local repo_mod = require('forge.repo')
@@ -270,7 +271,7 @@ function M.resolve(name, opts)
     return nil
   end
   opts = opts or {}
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local routes = rawget(cfg, 'routes') or {}
   local resolved_section = surface.resolve_section(name, opts.forge_name)
   local lookup = resolved_section and resolved_section.canonical or name
@@ -288,7 +289,7 @@ local function open_root(ctx, opts)
   if not picker.ui_available() then
     return false, picker.unavailable_message()
   end
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local sections = rawget(cfg, 'sections') or {}
   local routes = rawget(cfg, 'routes') or {}
   local handlers = route_handlers()

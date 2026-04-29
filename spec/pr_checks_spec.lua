@@ -27,6 +27,8 @@ describe('pr checks buffer', function()
     old_ui_input = vim.ui.input
     old_preload = helpers.capture_preload({
       'forge',
+      'forge.config',
+      'forge.format',
       'forge.layout',
       'forge.log',
       'forge.logger',
@@ -51,6 +53,42 @@ describe('pr checks buffer', function()
             },
           }
         end,
+        filter_checks = function(checks)
+          return checks
+        end,
+        format_checks = function(checks)
+          local rows = {}
+          for _, check in ipairs(checks) do
+            rows[#rows + 1] = {
+              { check.name, check.bucket == 'fail' and 'ForgeFail' or 'ForgePass' },
+            }
+          end
+          return rows
+        end,
+      }
+    end
+
+    package.preload['forge.config'] = function()
+      return {
+        config = function()
+          return {
+            split = 'horizontal',
+            ci = { refresh = 5 },
+            keys = {
+              log = {
+                filter = '<tab>',
+                next_step = ']]',
+                prev_step = '[[',
+                refresh = '<c-r>',
+              },
+            },
+          }
+        end,
+      }
+    end
+
+    package.preload['forge.format'] = function()
+      return {
         filter_checks = function(checks)
           return checks
         end,
@@ -121,6 +159,8 @@ describe('pr checks buffer', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
+    package.loaded['forge.format'] = nil
     package.loaded['forge.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
@@ -137,6 +177,8 @@ describe('pr checks buffer', function()
 
     helpers.restore_preload(old_preload)
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
+    package.loaded['forge.format'] = nil
     package.loaded['forge.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
@@ -283,21 +325,8 @@ describe('pr checks buffer', function()
   end)
 
   it('trims trailing padding from rendered check rows before writing the buffer', function()
-    package.preload['forge'] = function()
+    package.preload['forge.format'] = function()
       return {
-        config = function()
-          return {
-            split = 'horizontal',
-            ci = { refresh = 5 },
-            keys = {
-              log = {
-                next_step = ']]',
-                prev_step = '[[',
-                refresh = '<c-r>',
-              },
-            },
-          }
-        end,
         filter_checks = function(checks)
           return checks
         end,
@@ -311,7 +340,7 @@ describe('pr checks buffer', function()
         end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.format'] = nil
     package.loaded['forge.pr_checks'] = nil
 
     vim.system = function(_, _, cb)

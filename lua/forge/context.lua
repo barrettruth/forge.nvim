@@ -1,5 +1,6 @@
 local M = {}
 
+local config_mod = require('forge.config')
 local detect_mod = require('forge.detect')
 local repo_mod = require('forge.repo')
 
@@ -59,7 +60,7 @@ function M.get(name)
 end
 
 function M.resolve(name)
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local id = name or rawget(cfg, 'context') or 'current'
   local contexts = rawget(cfg, 'contexts') or {}
 

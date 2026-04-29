@@ -1,5 +1,6 @@
 local M = {}
 
+local config_mod = require('forge.config')
 local log = require('forge.logger')
 local repo_mod = require('forge.repo')
 local system_mod = require('forge.system')
@@ -111,7 +112,7 @@ local function adapter_name(opts)
   if explicit ~= '' then
     return explicit
   end
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local configured = trim((cfg.review or {}).adapter)
   if configured ~= '' then
     return configured

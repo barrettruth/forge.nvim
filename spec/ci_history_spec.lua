@@ -23,6 +23,8 @@ describe('ci history buffer', function()
     old_system = vim.system
     old_preload = helpers.capture_preload({
       'forge',
+      'forge.config',
+      'forge.format',
       'forge.layout',
       'forge.logger',
       'forge.ops',
@@ -48,6 +50,44 @@ describe('ci history buffer', function()
             },
           }
         end,
+        filter_runs = function(runs)
+          return runs
+        end,
+        format_runs = function(runs)
+          local rows = {}
+          for _, run in ipairs(runs) do
+            rows[#rows + 1] = {
+              { run.name, run.status == 'failure' and 'ForgeFail' or 'ForgePass' },
+            }
+          end
+          return rows
+        end,
+      }
+    end
+
+    package.preload['forge.config'] = function()
+      return {
+        config = function()
+          return {
+            split = 'horizontal',
+            ci = { refresh = 5 },
+            display = { limits = { runs = 30 } },
+            keys = {
+              ci = {
+                refresh = '<c-r>',
+              },
+              log = {
+                next_step = ']]',
+                prev_step = '[[',
+              },
+            },
+          }
+        end,
+      }
+    end
+
+    package.preload['forge.format'] = function()
+      return {
         filter_runs = function(runs)
           return runs
         end,
@@ -109,7 +149,9 @@ describe('ci history buffer', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.ci_history'] = nil
+    package.loaded['forge.format'] = nil
     package.loaded['forge.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
@@ -123,7 +165,9 @@ describe('ci history buffer', function()
 
     helpers.restore_preload(old_preload)
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.ci_history'] = nil
+    package.loaded['forge.format'] = nil
     package.loaded['forge.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
@@ -202,24 +246,8 @@ describe('ci history buffer', function()
   end)
 
   it('trims trailing padding from rendered run rows before writing the buffer', function()
-    package.preload['forge'] = function()
+    package.preload['forge.format'] = function()
       return {
-        config = function()
-          return {
-            split = 'horizontal',
-            ci = { refresh = 5 },
-            display = { limits = { runs = 30 } },
-            keys = {
-              ci = {
-                refresh = '<c-r>',
-              },
-              log = {
-                next_step = ']]',
-                prev_step = '[[',
-              },
-            },
-          }
-        end,
         filter_runs = function(runs)
           return runs
         end,
@@ -233,7 +261,7 @@ describe('ci history buffer', function()
         end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.format'] = nil
     package.loaded['forge.ci_history'] = nil
 
     vim.system = function(_, _, cb)
@@ -360,7 +388,7 @@ describe('ci history buffer', function()
       }
     end
 
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -378,6 +406,10 @@ describe('ci history buffer', function()
             },
           }
         end,
+      }
+    end
+    package.preload['forge.format'] = function()
+      return {
         filter_runs = function(runs)
           return runs
         end,
@@ -390,7 +422,8 @@ describe('ci history buffer', function()
         end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
+    package.loaded['forge.format'] = nil
 
     local mod = require('forge.ci_history')
     mod.open({
@@ -467,7 +500,7 @@ describe('ci history buffer', function()
       }
     end
 
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -485,6 +518,10 @@ describe('ci history buffer', function()
             },
           }
         end,
+      }
+    end
+    package.preload['forge.format'] = function()
+      return {
         filter_runs = function(runs)
           return runs
         end,
@@ -497,7 +534,8 @@ describe('ci history buffer', function()
         end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
+    package.loaded['forge.format'] = nil
 
     local mod = require('forge.ci_history')
     mod.open({

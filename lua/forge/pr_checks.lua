@@ -1,5 +1,7 @@
 local M = {}
 
+local config_mod = require('forge.config')
+local format_mod = require('forge.format')
 local layout = require('forge.layout')
 local log = require('forge.logger')
 local scope_mod = require('forge.scope')
@@ -146,7 +148,6 @@ local inspect_check
 ---@param checks forge.Check[]
 ---@return forge.PRChecksLine[]
 local function render_rows(checks)
-  local forge = require('forge')
   local display_checks = {}
   for _, check in ipairs(checks) do
     local label = check.name or ''
@@ -161,7 +162,7 @@ local function render_rows(checks)
       name = label,
     })
   end
-  local rows = forge.format_checks(display_checks, { width = layout.picker_width() })
+  local rows = format_mod.format_checks(display_checks, { width = layout.picker_width() })
   local lines = {}
   for index, row in ipairs(rows) do
     local text = {}
@@ -319,7 +320,7 @@ end
 ---@param opts table?
 local function setup_keymaps(buf, f, pr, opts)
   opts = opts or {}
-  local cfg = require('forge').config()
+  local cfg = config_mod.config()
   local keys = type(cfg.keys) == 'table' and cfg.keys.log or {}
   local function map(key, fn, desc)
     if key and key ~= false then
@@ -384,13 +385,13 @@ local function prepare_buf(pr, reuse_buf)
       reusing = true
       local wins = vim.fn.win_findbuf(buf)
       if #wins == 0 then
-        local cfg = require('forge').config()
+        local cfg = config_mod.config()
         local split = cfg.ci.split or cfg.split
         local prefix = split == 'vertical' and 'vertical' or 'botright'
         vim.cmd('noautocmd ' .. prefix .. ' sbuffer ' .. buf)
       end
     else
-      local cfg = require('forge').config()
+      local cfg = config_mod.config()
       local split = cfg.ci.split or cfg.split
       local prefix = split == 'vertical' and 'vertical' or 'botright'
       vim.cmd('noautocmd ' .. prefix .. ' new')
@@ -424,12 +425,11 @@ end
 ---@param job_filter string?
 ---@return forge.Check[]
 local function normalize_checks(checks, scope, job_filter)
-  local forge = require('forge')
   local normalized = vim.deepcopy(checks)
   for _, check in ipairs(normalized) do
     check.scope = check.scope or scope
   end
-  local filtered = forge.filter_checks(normalized, 'all')
+  local filtered = format_mod.filter_checks(normalized, 'all')
   if type(job_filter) ~= 'string' or job_filter == '' then
     return filtered
   end

@@ -37,6 +37,7 @@ describe('context', function()
     old_preload = {
       ['forge.detect'] = package.preload['forge.detect'],
       ['forge'] = package.preload['forge'],
+      ['forge.config'] = package.preload['forge.config'],
       ['forge.repo'] = package.preload['forge.repo'],
     }
 
@@ -54,6 +55,13 @@ describe('context', function()
         end,
       }
     end
+    package.preload['forge.config'] = function()
+      return {
+        config = function()
+          return current_config
+        end,
+      }
+    end
 
     package.preload['forge.repo'] = function()
       return {
@@ -65,6 +73,7 @@ describe('context', function()
 
     package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.repo'] = nil
     package.loaded['forge.context'] = nil
   end)
@@ -73,9 +82,11 @@ describe('context', function()
     vim.system = old_system
     package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge'] = old_preload['forge']
+    package.preload['forge.config'] = old_preload['forge.config']
     package.preload['forge.repo'] = old_preload['forge.repo']
     package.loaded['forge.detect'] = nil
     package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.repo'] = nil
     package.loaded['forge.context'] = nil
   end)
