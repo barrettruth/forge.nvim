@@ -174,23 +174,23 @@ end
 
 local list_states = { 'open', 'closed', 'all' }
 
-local function scoped_list_key(forge_mod, kind, state, suffix)
+local function scoped_list_key(kind, state, suffix)
   if suffix ~= nil and suffix ~= '' then
-    return forge_mod.list_key(kind, state .. '|' .. suffix)
+    return state_mod.list_key(kind, state .. '|' .. suffix)
   end
-  return forge_mod.list_key(kind, state)
+  return state_mod.list_key(kind, state)
 end
 
-local function clear_state_caches(forge_mod, kind, suffix)
+local function clear_state_caches(kind, suffix)
   for _, state in ipairs(list_states) do
-    local key = scoped_list_key(forge_mod, kind, state, suffix)
-    forge_mod.clear_list(key)
+    local key = scoped_list_key(kind, state, suffix)
+    state_mod.clear_list(key)
     picker_session.invalidate(key)
   end
 end
 
-local function clear_list_cache(forge_mod, key)
-  forge_mod.clear_list(key)
+local function clear_list_cache(key)
+  state_mod.clear_list(key)
   picker_session.invalidate(key)
 end
 
@@ -218,16 +218,16 @@ local function expanded_limit(limit, step)
   return limit + step
 end
 
-local function maybe_prefetch_list(forge_mod, kind, state, label, cmd, suffix)
-  local key = scoped_list_key(forge_mod, kind, state, suffix)
+local function maybe_prefetch_list(kind, state, label, cmd, suffix)
+  local key = scoped_list_key(kind, state, suffix)
   local started = picker_session.prefetch_json({
     key = key,
     cmd = cmd,
     skip_if = function()
-      return forge_mod.get_list(key) ~= nil
+      return state_mod.get_list(key) ~= nil
     end,
     on_success = function(data)
-      forge_mod.set_list(key, data)
+      state_mod.set_list(key, data)
     end,
   })
   if started then
@@ -365,7 +365,7 @@ function M.checks(f, num, filter, cached_checks, opts)
   local forge_mod = require('forge')
   local ref = scoped_forge_ref(f, opts.scope)
   local current_checks = cached_checks
-  local request_key = forge_mod.list_key('check', scoped_id(num, scoped_key(forge_mod, ref)))
+  local request_key = state_mod.list_key('check', scoped_id(num, scoped_key(forge_mod, ref)))
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -596,7 +596,7 @@ function M.ci(f, branch, filter, opts)
   local visible_limit = limits.visible
   local ref = scoped_forge_ref(f, opts.scope)
   local request_key =
-    forge_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
+    state_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -944,7 +944,7 @@ function M.pr(state, f, opts)
   local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
   local scope_suffix = scoped_key(forge_mod, ref)
-  local cache_key = scoped_list_key(forge_mod, 'pr', state, scope_suffix)
+  local cache_key = scoped_list_key('pr', state, scope_suffix)
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
   local pr_state_field = pr_fields.state
@@ -1009,7 +1009,6 @@ function M.pr(state, f, opts)
       return
     end
     maybe_prefetch_list(
-      forge_mod,
       'pr',
       next_state,
       f.labels.pr,
@@ -1042,7 +1041,7 @@ function M.pr(state, f, opts)
         current_prs = prs
         prs_stale = false
         if use_cache then
-          forge_mod.set_list(cache_key, prs)
+          state_mod.set_list(cache_key, prs)
         end
         emit_cached_prs(emit)
         maybe_prefetch_next()
@@ -1063,13 +1062,13 @@ function M.pr(state, f, opts)
   end
 
   local function reopen_list()
-    clear_state_caches(forge_mod, 'pr', scope_suffix)
+    clear_state_caches('pr', scope_suffix)
     forge_mod.clear_pr_state(nil, ref)
     refresh_pr_list()
   end
 
   local function pr_cache_key(list_state)
-    return scoped_list_key(forge_mod, 'pr', list_state, scope_suffix)
+    return scoped_list_key('pr', list_state, scope_suffix)
   end
 
   local function observed_open_pr_state(rows)
@@ -1116,8 +1115,8 @@ function M.pr(state, f, opts)
     end
     local open_state = observed_open_pr_state(state == 'open' and current_prs or nil)
       or observed_open_pr_state(state == 'all' and current_prs or nil)
-      or observed_open_pr_state(forge_mod.get_list(pr_cache_key('open')))
-      or observed_open_pr_state(forge_mod.get_list(pr_cache_key('all')))
+      or observed_open_pr_state(state_mod.get_list(pr_cache_key('open')))
+      or observed_open_pr_state(state_mod.get_list(pr_cache_key('all')))
     if open_state then
       return open_state
     end
@@ -1129,7 +1128,7 @@ function M.pr(state, f, opts)
 
   local function merged_pr_state(current_pr)
     local merged_state = observed_merged_pr_state(state == 'all' and current_prs or nil)
-      or observed_merged_pr_state(forge_mod.get_list(pr_cache_key('all')))
+      or observed_merged_pr_state(state_mod.get_list(pr_cache_key('all')))
     if merged_state then
       return merged_state
     end
@@ -1143,12 +1142,12 @@ function M.pr(state, f, opts)
 
   local function patch_pr_cache(list_state, mutate)
     local key = pr_cache_key(list_state)
-    local prs = forge_mod.get_list(key)
+    local prs = state_mod.get_list(key)
     if type(prs) ~= 'table' then
       return
     end
     mutate(prs)
-    forge_mod.set_list(key, prs)
+    state_mod.set_list(key, prs)
   end
 
   local function revalidate_current_prs()
@@ -1166,7 +1165,7 @@ function M.pr(state, f, opts)
         current_prs = prs
         prs_stale = false
         if use_cache then
-          forge_mod.set_list(cache_key, prs)
+          state_mod.set_list(cache_key, prs)
         end
         rerender_pr_list()
         maybe_prefetch_next()
@@ -1206,7 +1205,7 @@ function M.pr(state, f, opts)
       table.remove(current_prs, current_index)
     end
     if use_cache then
-      forge_mod.set_list(cache_key, current_prs)
+      state_mod.set_list(cache_key, current_prs)
     end
 
     ---@type forge.PRState
@@ -1222,7 +1221,7 @@ function M.pr(state, f, opts)
 
     for _, list_state in ipairs(list_states) do
       if list_state ~= state then
-        clear_list_cache(forge_mod, pr_cache_key(list_state))
+        clear_list_cache(pr_cache_key(list_state))
       end
     end
 
@@ -1261,7 +1260,7 @@ function M.pr(state, f, opts)
       table.remove(current_prs, current_index)
     end
     if use_cache then
-      forge_mod.set_list(cache_key, current_prs)
+      state_mod.set_list(cache_key, current_prs)
     end
 
     if verb == 'close' then
@@ -1470,14 +1469,14 @@ function M.pr(state, f, opts)
       reload = false,
       available = pr_refresh_visible,
       fn = function()
-        clear_state_caches(forge_mod, 'pr', scope_suffix)
+        clear_state_caches('pr', scope_suffix)
         forge_mod.clear_pr_state(nil, ref)
         refresh_pr_list()
       end,
     },
   }
 
-  local cached = use_cache and forge_mod.get_list(cache_key) or nil
+  local cached = use_cache and state_mod.get_list(cache_key) or nil
   if cached then
     current_prs = cached
     prs_stale = false
@@ -1522,7 +1521,7 @@ function M.issue(state, f, opts)
   local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
   local scope_suffix = scoped_key(forge_mod, ref)
-  local cache_key = scoped_list_key(forge_mod, 'issue', state, scope_suffix)
+  local cache_key = scoped_list_key('issue', state, scope_suffix)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
   local issue_state_field = issue_fields.state
@@ -1582,7 +1581,6 @@ function M.issue(state, f, opts)
       return
     end
     maybe_prefetch_list(
-      forge_mod,
       'issue',
       next_state,
       f.labels.issue,
@@ -1615,7 +1613,7 @@ function M.issue(state, f, opts)
         current_issues = issues
         issues_stale = false
         if use_cache then
-          forge_mod.set_list(cache_key, issues)
+          state_mod.set_list(cache_key, issues)
         end
         emit_cached_issues(emit)
         maybe_prefetch_next()
@@ -1636,7 +1634,7 @@ function M.issue(state, f, opts)
   end
 
   local function issue_cache_key(list_state)
-    return scoped_list_key(forge_mod, 'issue', list_state, scope_suffix)
+    return scoped_list_key('issue', list_state, scope_suffix)
   end
 
   local function observed_open_issue_state(rows)
@@ -1667,8 +1665,8 @@ function M.issue(state, f, opts)
     end
     local open_state = observed_open_issue_state(state == 'open' and current_issues or nil)
       or observed_open_issue_state(state == 'all' and current_issues or nil)
-      or observed_open_issue_state(forge_mod.get_list(issue_cache_key('open')))
-      or observed_open_issue_state(forge_mod.get_list(issue_cache_key('all')))
+      or observed_open_issue_state(state_mod.get_list(issue_cache_key('open')))
+      or observed_open_issue_state(state_mod.get_list(issue_cache_key('all')))
     if open_state then
       return open_state
     end
@@ -1680,12 +1678,12 @@ function M.issue(state, f, opts)
 
   local function patch_issue_cache(list_state, mutate)
     local key = issue_cache_key(list_state)
-    local issues = forge_mod.get_list(key)
+    local issues = state_mod.get_list(key)
     if type(issues) ~= 'table' then
       return
     end
     mutate(issues)
-    forge_mod.set_list(key, issues)
+    state_mod.set_list(key, issues)
   end
 
   local function revalidate_current_issues()
@@ -1703,7 +1701,7 @@ function M.issue(state, f, opts)
         current_issues = issues
         issues_stale = false
         if use_cache then
-          forge_mod.set_list(cache_key, issues)
+          state_mod.set_list(cache_key, issues)
         end
         rerender_issue_list()
         maybe_prefetch_next()
@@ -1726,7 +1724,7 @@ function M.issue(state, f, opts)
       table.remove(current_issues, current_index)
     end
     if use_cache then
-      forge_mod.set_list(cache_key, current_issues)
+      state_mod.set_list(cache_key, current_issues)
     end
 
     if verb == 'close' then
@@ -1842,13 +1840,13 @@ function M.issue(state, f, opts)
       label = 'refresh',
       reload = false,
       fn = function()
-        clear_state_caches(forge_mod, 'issue', scope_suffix)
+        clear_state_caches('issue', scope_suffix)
         refresh_issue_list()
       end,
     },
   }
 
-  local cached = use_cache and forge_mod.get_list(cache_key) or nil
+  local cached = use_cache and state_mod.get_list(cache_key) or nil
   if cached then
     current_issues = cached
     issues_stale = false
@@ -1923,7 +1921,7 @@ function M.release(state, f, opts)
   local visible_limit = limits.visible
   local fetch_limit = limits.fetch
   local ref = scoped_forge_ref(f, opts.scope)
-  local cache_key = forge_mod.list_key('release', scoped_id('list', scoped_key(forge_mod, ref)))
+  local cache_key = state_mod.list_key('release', scoped_id('list', scoped_key(forge_mod, ref)))
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
   local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
@@ -1941,7 +1939,7 @@ function M.release(state, f, opts)
   end
 
   local function cached_releases()
-    local cached = forge_mod.get_list(cache_key)
+    local cached = state_mod.get_list(cache_key)
     if not cached then
       return nil
     end
@@ -2047,7 +2045,7 @@ function M.release(state, f, opts)
         end
         current_releases = remember_release_fetch(releases, requested)
         releases_stale = false
-        forge_mod.set_list(cache_key, current_releases)
+        state_mod.set_list(cache_key, current_releases)
         emit_cached_releases(emit)
       end
     )
@@ -2075,7 +2073,7 @@ function M.release(state, f, opts)
         end
         current_releases = remember_release_fetch(releases, requested)
         releases_stale = false
-        forge_mod.set_list(cache_key, current_releases)
+        state_mod.set_list(cache_key, current_releases)
         rerender_release_list()
       end
     )
@@ -2086,18 +2084,18 @@ function M.release(state, f, opts)
     local tag_field = rel_fields.tag
     local removed = remove_list_row(current_releases, tag_field, entry.value.tag)
     if removed == nil then
-      clear_list_cache(forge_mod, cache_key)
+      clear_list_cache(cache_key)
       releases_stale = true
       rerender_release_list()
       return
     end
-    forge_mod.set_list(cache_key, current_releases)
+    state_mod.set_list(cache_key, current_releases)
     rerender_release_list()
     revalidate_current_releases()
   end
 
   local function reopen_list()
-    clear_list_cache(forge_mod, cache_key)
+    clear_list_cache(cache_key)
     releases_stale = true
     refresh_picker(picker_handle)
   end
@@ -2158,7 +2156,7 @@ function M.release(state, f, opts)
       label = 'refresh',
       reload = false,
       fn = function()
-        clear_list_cache(forge_mod, cache_key)
+        clear_list_cache(cache_key)
         releases_stale = true
         if refresh_picker(picker_handle) then
           return
