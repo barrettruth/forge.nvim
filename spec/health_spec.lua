@@ -28,8 +28,10 @@ describe('health', function()
     }
     old_inspect = vim.treesitter.language.inspect
     old_preload = {
-      ['forge'] = package.preload['forge'],
+      ['forge.config'] = package.preload['forge.config'],
+      ['forge.detect'] = package.preload['forge.detect'],
       ['forge.picker'] = package.preload['forge.picker'],
+      ['forge.review'] = package.preload['forge.review'],
       ['codediff.core.installer'] = package.preload['codediff.core.installer'],
       ['fzf-lua'] = package.preload['fzf-lua'],
     }
@@ -67,7 +69,7 @@ describe('health', function()
       error('missing parser: ' .. lang)
     end
 
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -76,9 +78,17 @@ describe('health', function()
             },
           }
         end,
-        review_adapter_names = function()
+      }
+    end
+    package.preload['forge.review'] = function()
+      return {
+        names = function()
           return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
         end,
+      }
+    end
+    package.preload['forge.detect'] = function()
+      return {
         registered_sources = function()
           return {}
         end,
@@ -108,8 +118,10 @@ describe('health', function()
       return {}
     end
 
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
+    package.loaded['forge.detect'] = nil
     package.loaded['forge.picker'] = nil
+    package.loaded['forge.review'] = nil
     package.loaded['forge.health'] = nil
     package.loaded['fzf-lua'] = nil
   end)
@@ -124,14 +136,18 @@ describe('health', function()
     vim.health.error = old_health.error
     vim.treesitter.language.inspect = old_inspect
 
-    package.preload['forge'] = old_preload['forge']
+    package.preload['forge.config'] = old_preload['forge.config']
+    package.preload['forge.detect'] = old_preload['forge.detect']
     package.preload['forge.picker'] = old_preload['forge.picker']
+    package.preload['forge.review'] = old_preload['forge.review']
     package.preload['codediff.core.installer'] = old_preload['codediff.core.installer']
     package.preload['fzf-lua'] = old_preload['fzf-lua']
 
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
+    package.loaded['forge.detect'] = nil
     package.loaded['forge.picker'] = nil
     package.loaded['codediff.core.installer'] = nil
+    package.loaded['forge.review'] = nil
     package.loaded['forge.health'] = nil
     package.loaded['fzf-lua'] = nil
   end)
@@ -184,7 +200,7 @@ describe('health', function()
   end)
 
   it('warns when the configured diffview adapter is unavailable', function()
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -193,15 +209,9 @@ describe('health', function()
             },
           }
         end,
-        review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
-        end,
-        registered_sources = function()
-          return {}
-        end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.health'] = nil
 
     require('forge.health').check()
@@ -215,7 +225,7 @@ describe('health', function()
   end)
 
   it('warns when the configured diffs adapter is unavailable', function()
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -224,15 +234,9 @@ describe('health', function()
             },
           }
         end,
-        review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
-        end,
-        registered_sources = function()
-          return {}
-        end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.health'] = nil
 
     require('forge.health').check()
@@ -282,7 +286,7 @@ describe('health', function()
   end)
 
   it('warns when codediff is configured but unavailable', function()
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -291,15 +295,9 @@ describe('health', function()
             },
           }
         end,
-        review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
-        end,
-        registered_sources = function()
-          return {}
-        end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['forge.health'] = nil
 
     require('forge.health').check()
@@ -322,7 +320,7 @@ describe('health', function()
       end
       return old_exists(name)
     end
-    package.preload['forge'] = function()
+    package.preload['forge.config'] = function()
       return {
         config = function()
           return {
@@ -330,12 +328,6 @@ describe('health', function()
               adapter = 'codediff',
             },
           }
-        end,
-        review_adapter_names = function()
-          return { 'browse', 'checkout', 'codediff', 'diffs', 'diffview', 'worktree' }
-        end,
-        registered_sources = function()
-          return {}
         end,
       }
     end
@@ -346,7 +338,7 @@ describe('health', function()
         end,
       }
     end
-    package.loaded['forge'] = nil
+    package.loaded['forge.config'] = nil
     package.loaded['codediff.core.installer'] = nil
     package.loaded['forge.health'] = nil
 

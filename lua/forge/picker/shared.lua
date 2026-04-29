@@ -2,6 +2,7 @@ local layout = require('forge.layout')
 local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker_session = require('forge.picker.session')
+local repo_mod = require('forge.repo')
 local state_mod = require('forge.state')
 local surface_policy = require('forge.surface_policy')
 
@@ -89,18 +90,11 @@ local function scoped_forge_ref(f, ref)
   if ref then
     return ref
   end
-  local forge_mod = require('forge')
-  if forge_mod.current_scope then
-    return forge_mod.current_scope(f.name)
-  end
-  return nil
+  return repo_mod.current_scope(f.name)
 end
 
-local function scoped_key(forge_mod, ref)
-  if forge_mod.scope_key then
-    return forge_mod.scope_key(ref)
-  end
-  return ''
+local function scoped_key(ref)
+  return repo_mod.scope_key(ref)
 end
 
 local function scoped_id(id, suffix)

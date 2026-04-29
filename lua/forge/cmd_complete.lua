@@ -3,6 +3,10 @@ local M = {}
 local collections = require('forge.collections')
 local detect = require('forge.detect')
 local source_mod = require('forge.cmd_complete_source')
+local issue_mod = require('forge.issue')
+local pr_mod = require('forge.pr')
+local resolve_mod = require('forge.resolve')
+local review_mod = require('forge.review')
 local state_mod = require('forge.state')
 
 ---@param command forge.Command
@@ -115,8 +119,7 @@ end
 ---@param state forge.CommandCompletionState
 ---@return forge.PRCompletionTarget?
 local function implicit_pr_completion_target(state)
-  local forge_mod = require('forge')
-  local f = forge_mod.detect()
+  local f = detect.detect()
   if not f then
     return nil
   end
@@ -128,7 +131,7 @@ local function implicit_pr_completion_target(state)
   local pr
   ---@type forge.CmdError?
   local err
-  pr, err = forge_mod.current_pr(opts)
+  pr, err = pr_mod.current_pr(opts)
   if err then
     return nil
   end
@@ -140,7 +143,7 @@ local function implicit_pr_completion_target(state)
       entry = pr_completion_entry(pr, state_name or 'OPEN', pr_state),
     }
   end
-  pr, err = require('forge.resolve').branch_pr(opts, {
+  pr, err = resolve_mod.branch_pr(opts, {
     searches = { { 'closed' } },
   })
   if err then
@@ -152,7 +155,7 @@ local function implicit_pr_completion_target(state)
       entry = pr_completion_entry(pr, 'CLOSED'),
     }
   end
-  pr, err = require('forge.resolve').branch_pr(opts, {
+  pr, err = resolve_mod.branch_pr(opts, {
     searches = { { 'merged' } },
   })
   if err then
@@ -174,8 +177,7 @@ local function merge_method_completion_target(command, state)
   if command.family ~= 'pr' or command.name ~= 'merge' then
     return nil
   end
-  local forge_mod = require('forge')
-  local f = forge_mod.detect()
+  local f = detect.detect()
   if not f then
     return nil
   end
@@ -193,7 +195,7 @@ local function merge_method_completion_target(command, state)
       entry = pr_completion_entry({ num = num, scope = scope }, state_name or 'OPEN', pr_state),
     }
   end
-  local pr, err = forge_mod.current_pr(opts)
+  local pr, err = pr_mod.current_pr(opts)
   if err or not pr then
     return nil
   end
@@ -235,12 +237,11 @@ end
 ---@param policy table
 ---@return string[]
 local function complete_pr_subjects(command, state, prefix, policy)
-  local f, forge_mod, scope = source_mod.forge(state)
-  if not f or not forge_mod then
+  local f, scope = source_mod.forge(state)
+  if not f then
     return {}
   end
-  local prs =
-    source_mod.list(forge_mod, f, 'pr', policy.states_to_consult, policy.fetch_state, scope)
+  local prs = source_mod.list(f, 'pr', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.pr_fields or {}
   local number_field = fields.number
   local state_field = fields.state
@@ -268,12 +269,11 @@ end
 ---@param policy table
 ---@return string[]
 local function complete_issue_subjects(command, state, prefix, policy)
-  local f, forge_mod, scope = source_mod.forge(state)
-  if not f or not forge_mod then
+  local f, scope = source_mod.forge(state)
+  if not f then
     return {}
   end
-  local issues =
-    source_mod.list(forge_mod, f, 'issue', policy.states_to_consult, policy.fetch_state, scope)
+  local issues = source_mod.list(f, 'issue', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.issue_fields or {}
   local items = {}
   local seen = {}
@@ -296,12 +296,11 @@ end
 ---@param policy table
 ---@return string[]
 local function complete_run_subjects(state, prefix, policy)
-  local f, forge_mod, scope = source_mod.forge(state)
-  if not f or not forge_mod then
+  local f, scope = source_mod.forge(state)
+  if not f then
     return {}
   end
-  local runs =
-    source_mod.list(forge_mod, f, 'ci', policy.states_to_consult, policy.fetch_state, scope)
+  local runs = source_mod.list(f, 'ci', policy.states_to_consult, policy.fetch_state, scope)
   local items = {}
   local seen = {}
   for _, run in ipairs(runs or {}) do
@@ -315,12 +314,11 @@ end
 ---@param policy table
 ---@return string[]
 local function complete_release_subjects(state, prefix, policy)
-  local f, forge_mod, scope = source_mod.forge(state)
-  if not f or not forge_mod then
+  local f, scope = source_mod.forge(state)
+  if not f then
     return {}
   end
-  local releases =
-    source_mod.list(forge_mod, f, 'release', policy.states_to_consult, policy.fetch_state, scope)
+  local releases = source_mod.list(f, 'release', policy.states_to_consult, policy.fetch_state, scope)
   local fields = f.release_fields or {}
   local items = {}
   local seen = {}
@@ -355,10 +353,10 @@ local function completion_values(cmd_mod, command, state, flag_name, prefix)
     return source_mod.target_values(prefix or '')
   end
   if policy.source == 'template' then
-    return source_mod.filter(require('forge').template_slugs(), prefix or '')
+    return source_mod.filter(issue_mod.template_slugs(), prefix or '')
   end
   if policy.source == 'adapter' then
-    return source_mod.filter(require('forge').review_adapter_names(), prefix or '')
+    return source_mod.filter(review_mod.names(), prefix or '')
   end
   if policy.source == 'available_merge_methods' then
     local target = merge_method_completion_target(command, state)

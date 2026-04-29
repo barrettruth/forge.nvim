@@ -1,8 +1,13 @@
 local M = {}
 
+local action_target_mod = require('forge.action_target')
+local issue_mod = require('forge.issue')
 local log = require('forge.logger')
 local ops = require('forge.ops')
+local pr_mod = require('forge.pr')
+local repo_mod = require('forge.repo')
 local resolve_mod = require('forge.cmd_resolve')
+local routes_mod = require('forge.routes')
 local state_mod = require('forge.state')
 
 ---@param command forge.Command
@@ -10,13 +15,13 @@ local function dispatch_pr(command)
   if not resolve_mod.require_git_or_warn() then
     return
   end
-  local f, forge_mod = resolve_mod.require_forge_or_warn()
-  if not f or not forge_mod then
+  local f = resolve_mod.require_forge_or_warn()
+  if not f then
     return
   end
   local num = command.subjects[1]
   if command.name == 'create' then
-    forge_mod.create_pr(resolve_mod.create_pr_opts(command, f.name))
+    pr_mod.create_pr(resolve_mod.create_pr_opts(command, f.name))
     return
   end
   if command.name == 'open' then
@@ -160,14 +165,14 @@ local function dispatch_issue(command)
   if not resolve_mod.require_git_or_warn() then
     return
   end
-  local f, forge_mod = resolve_mod.require_forge_or_warn()
-  if not f or not forge_mod then
+  local f = resolve_mod.require_forge_or_warn()
+  if not f then
     return
   end
   local num = command.subjects[1]
   local scope = resolve_mod.resolve_repo_modifier(command, f.name)
   if command.name == 'create' then
-    forge_mod.create_issue(resolve_mod.create_issue_opts(command, f.name))
+    issue_mod.create_issue(resolve_mod.create_issue_opts(command, f.name))
     return
   end
   if command.name == 'browse' then
@@ -204,7 +209,7 @@ local function dispatch_ci(command)
     return
   end
   if command.name == 'open' and command.subjects[1] == nil then
-    require('forge').ci({
+    action_target_mod.ci({
       repo = command.parsed_modifiers.repo,
       head = command.parsed_modifiers.head,
     })
@@ -271,8 +276,8 @@ local function dispatch_browse(command)
   if not resolve_mod.require_git_or_warn() then
     return
   end
-  local f, forge_mod = resolve_mod.require_forge_or_warn()
-  if not f or not forge_mod then
+  local f = resolve_mod.require_forge_or_warn()
+  if not f then
     return
   end
   local scope = resolve_mod.resolve_scope_modifier(command, f.name)
@@ -289,7 +294,7 @@ local function dispatch_browse(command)
       branch = explicit_branch and explicit_branch.branch or nil
     end
     if not branch then
-      local ctx = forge_mod.current_context()
+      local ctx = routes_mod.current_context()
       branch = type(ctx) == 'table' and ctx.branch or nil
     end
     if ops.browse_location(f, location, scope, branch) then
@@ -300,19 +305,19 @@ local function dispatch_browse(command)
   end
   local commit = command.parsed_modifiers.commit
   if commit and commit.commit then
-    forge_mod.open('browse.commit', { commit = commit.commit, scope = scope })
+    routes_mod.open('browse.commit', { commit = commit.commit, scope = scope })
     return
   end
   local branch = command.parsed_modifiers.branch
-  local file_loc = forge_mod.file_loc(command.range)
+  local file_loc = repo_mod.file_loc(command.range)
   if branch and branch.branch then
     if ops.browse_file(f, file_loc, branch.branch, scope) then
       return
     end
-    forge_mod.open('browse.branch', { branch = branch.branch, scope = scope })
+    routes_mod.open('browse.branch', { branch = branch.branch, scope = scope })
     return
   end
-  local ctx = forge_mod.current_context()
+  local ctx = routes_mod.current_context()
   local ctx_branch = type(ctx) == 'table' and ctx.branch or nil
   if ops.browse_file(f, file_loc, ctx_branch, scope) then
     return
