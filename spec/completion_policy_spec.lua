@@ -1,19 +1,19 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-describe('forge.completion_policy', function()
+describe('forge.surface.completion', function()
   local policy
   local old_availability
   local old_surface_policy
 
   before_each(function()
-    old_availability = package.preload['forge.availability']
-    old_surface_policy = package.preload['forge.surface_policy']
+    old_availability = package.preload['forge.surface.availability']
+    old_surface_policy = package.preload['forge.surface.policy']
 
-    package.loaded['forge.completion_policy'] = nil
-    package.loaded['forge.availability'] = nil
-    package.loaded['forge.surface_policy'] = nil
+    package.loaded['forge.surface.completion'] = nil
+    package.loaded['forge.surface.availability'] = nil
+    package.loaded['forge.surface.policy'] = nil
 
-    package.preload['forge.availability'] = function()
+    package.preload['forge.surface.availability'] = function()
       return {
         pr_can_approve = function(_, entry)
           return entry.value.approve == true
@@ -30,7 +30,7 @@ describe('forge.completion_policy', function()
       }
     end
 
-    package.preload['forge.surface_policy'] = function()
+    package.preload['forge.surface.policy'] = function()
       return {
         pr_toggle_verb = function(entry)
           return entry and entry.value and entry.value.pr_toggle or nil
@@ -41,16 +41,16 @@ describe('forge.completion_policy', function()
       }
     end
 
-    policy = require('forge.completion_policy')
+    policy = require('forge.surface.completion')
   end)
 
   after_each(function()
-    package.preload['forge.availability'] = old_availability
-    package.preload['forge.surface_policy'] = old_surface_policy
+    package.preload['forge.surface.availability'] = old_availability
+    package.preload['forge.surface.policy'] = old_surface_policy
 
-    package.loaded['forge.completion_policy'] = nil
-    package.loaded['forge.availability'] = nil
-    package.loaded['forge.surface_policy'] = nil
+    package.loaded['forge.surface.completion'] = nil
+    package.loaded['forge.surface.availability'] = nil
+    package.loaded['forge.surface.policy'] = nil
   end)
 
   it('returns slot-composition policies for family and argument slots', function()

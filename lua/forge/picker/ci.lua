@@ -2,12 +2,12 @@ local ci = require('forge.ci')
 local config_mod = require('forge.config')
 local format_mod = require('forge.format')
 local log = require('forge.logger')
-local ops = require('forge.ops')
+local ops = require('forge.action.ops')
 local picker = require('forge.picker')
 local picker_session = require('forge.picker.session')
 local picker_shared = require('forge.picker.shared')
 local state_mod = require('forge.state')
-local surface_policy = require('forge.surface_policy')
+local surface_policy = require('forge.surface.policy')
 
 local M = {}
 

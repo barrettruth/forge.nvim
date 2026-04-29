@@ -56,7 +56,7 @@ describe('compose pr create', function()
     old_wrap = vim.o.wrap
     old_conceallevel = vim.o.conceallevel
     old_preload = {
-      ['forge.template'] = package.preload['forge.template'],
+      ['forge.compose.template'] = package.preload['forge.compose.template'],
     }
 
     vim.api.nvim_feedkeys = function() end
@@ -88,7 +88,7 @@ describe('compose pr create', function()
       }
     end
 
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {
         fill_from_commits = function()
           return 'test', '## Problem\n\n## Solution'
@@ -101,7 +101,7 @@ describe('compose pr create', function()
 
     package.loaded['forge.compose'] = nil
     package.loaded['forge.repo'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
 
     vim.cmd('silent! only')
     vim.cmd('enew!')
@@ -114,11 +114,11 @@ describe('compose pr create', function()
     vim.o.wrap = old_wrap
     vim.o.conceallevel = old_conceallevel
 
-    package.preload['forge.template'] = old_preload['forge.template']
+    package.preload['forge.compose.template'] = old_preload['forge.compose.template']
 
     package.loaded['forge.compose'] = nil
     package.loaded['forge.repo'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if

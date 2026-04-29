@@ -26,13 +26,13 @@ describe('create_issue', function()
       ['forge.client'] = package.preload['forge.client'],
       ['forge.compose'] = package.preload['forge.compose'],
       ['forge.config'] = package.preload['forge.config'],
-      ['forge.creation'] = package.preload['forge.creation'],
+      ['forge.compose.creation'] = package.preload['forge.compose.creation'],
       ['forge.context'] = package.preload['forge.context'],
       ['forge.format'] = package.preload['forge.format'],
       ['forge.backends.github'] = package.preload['forge.backends.github'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.picker'] = package.preload['forge.picker'],
-      ['forge.template'] = package.preload['forge.template'],
+      ['forge.compose.template'] = package.preload['forge.compose.template'],
     }
 
     vim.fn.executable = function(bin)
@@ -134,7 +134,7 @@ describe('create_issue', function()
       }
     end
     package.loaded['forge'] = nil
-    package.loaded['forge.creation'] = nil
+    package.loaded['forge.compose.creation'] = nil
     package.loaded['forge.backends.github'] = nil
 
     package.preload['forge.logger'] = function()
@@ -165,13 +165,13 @@ describe('create_issue', function()
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.config'] = nil
-    package.loaded['forge.creation'] = nil
+    package.loaded['forge.compose.creation'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
   end)
 
   after_each(function()
@@ -184,30 +184,30 @@ describe('create_issue', function()
     package.preload['forge.client'] = old_preload['forge.client']
     package.preload['forge.compose'] = old_preload['forge.compose']
     package.preload['forge.config'] = old_preload['forge.config']
-    package.preload['forge.creation'] = old_preload['forge.creation']
+    package.preload['forge.compose.creation'] = old_preload['forge.compose.creation']
     package.preload['forge.context'] = old_preload['forge.context']
     package.preload['forge.format'] = old_preload['forge.format']
     package.preload['forge.backends.github'] = old_preload['forge.backends.github']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.picker'] = old_preload['forge.picker']
-    package.preload['forge.template'] = old_preload['forge.template']
+    package.preload['forge.compose.template'] = old_preload['forge.compose.template']
 
     package.loaded['forge'] = nil
     package.loaded['forge.action'] = nil
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.config'] = nil
-    package.loaded['forge.creation'] = nil
+    package.loaded['forge.compose.creation'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.picker'] = nil
-    package.loaded['forge.template'] = nil
+    package.loaded['forge.compose.template'] = nil
   end)
 
   it('opens a blank issue compose instead of prompting when multiple templates exist', function()
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {
         discover = function()
           return nil,
@@ -241,7 +241,7 @@ describe('create_issue', function()
   it(
     'logs an error instead of opening an issue when the discovered template fails to load',
     function()
-      package.preload['forge.template'] = function()
+      package.preload['forge.compose.template'] = function()
         return {
           discover = function()
             return nil,
@@ -263,7 +263,7 @@ describe('create_issue', function()
   )
 
   it('uses an explicit issue template slug without invoking the picker', function()
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {
         entries = function()
           return {

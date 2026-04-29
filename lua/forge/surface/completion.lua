@@ -1,8 +1,8 @@
 local M = {}
 
-local availability = require('forge.availability')
+local availability = require('forge.surface.availability')
 local collections = require('forge.collections')
-local surface_policy = require('forge.surface_policy')
+local surface_policy = require('forge.surface.policy')
 
 local implicit_pr_completion_verbs = {
   approve = true,

@@ -220,7 +220,7 @@ local function filter_family_verb_completion_items(command, state, values)
   if command.family == 'pr' and command.name == 'open' then
     target = implicit_pr_completion_target(state)
   end
-  local policy = require('forge.completion_policy')
+  local policy = require('forge.surface.completion')
   for _, value in ipairs(values) do
     local forge = target and target.forge or nil
     local entry = target and target.entry or nil
@@ -337,7 +337,7 @@ end
 ---@return string[]?
 local function completion_values(cmd_mod, command, state, flag_name, prefix)
   local spec = cmd_mod.modifier(flag_name)
-  local policy = require('forge.completion_policy').modifier_value(command, flag_name, spec)
+  local policy = require('forge.surface.completion').modifier_value(command, flag_name, spec)
   if not policy then
     return nil
   end
@@ -365,7 +365,7 @@ local function completion_values(cmd_mod, command, state, flag_name, prefix)
       return source_mod.filter(spec.values, prefix or '')
     end
     return source_mod.filter(
-      require('forge.availability').pr_merge_methods(target.forge, target.entry),
+      require('forge.surface.availability').pr_merge_methods(target.forge, target.entry),
       prefix or ''
     )
   end
@@ -394,7 +394,7 @@ local function subject_completion_items(command, state, arglead)
   if subject.kind == 'sha' then
     return source_mod.sha_values(arglead)
   end
-  local policy = require('forge.completion_policy').subject(command)
+  local policy = require('forge.surface.completion').subject(command)
   if policy.cmdline_usefulness == 'suppress' then
     return {}
   end
@@ -468,7 +468,7 @@ function M.complete(cmd_mod, arglead, cmdline, split_words)
   if arg_idx == 2 then
     local command = cmd_mod.resolve(family_name, nil, surface_opts)
     local state = command and completion_state(command, {}) or { modifiers = {}, subjects = {} }
-    local slot_policy = require('forge.completion_policy').family_slot(command)
+    local slot_policy = require('forge.surface.completion').family_slot(command)
     local candidates = {}
     if slot_policy.include_verbs then
       for _, verb in
@@ -504,7 +504,7 @@ function M.complete(cmd_mod, arglead, cmdline, split_words)
     consumed[#consumed + 1] = words[i]
   end
   local state = completion_state(command, consumed)
-  local slot_policy = require('forge.completion_policy').argument_slot(command, state)
+  local slot_policy = require('forge.surface.completion').argument_slot(command, state)
   local candidates = {}
   if slot_policy.include_modifiers then
     vim.list_extend(candidates, filtered_modifier_completion_items(cmd_mod, command, state))

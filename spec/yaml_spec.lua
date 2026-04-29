@@ -1,7 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 dofile(vim.fn.getcwd() .. '/spec/yaml_parser.lua')
 
-local yaml = require('forge.yaml')
+local yaml = require('forge.compose.yaml')
 
 local function read_template(name)
   local path = vim.fn.getcwd() .. '/.github/ISSUE_TEMPLATE/' .. name

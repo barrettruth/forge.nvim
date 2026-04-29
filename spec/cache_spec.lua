@@ -1,8 +1,8 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
-local cache_mod = require('forge.cache')
+local cache_mod = require('forge.state.cache')
 
-describe('forge.cache', function()
+describe('forge.state.cache', function()
   it('returns nil for missing keys', function()
     local c = cache_mod.new(60)
     assert.is_nil(c.get('missing'))

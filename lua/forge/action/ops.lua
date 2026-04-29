@@ -226,7 +226,7 @@ end
 function M.pr_ci(f, pr, opts)
   pr = normalize_pr_ref(pr)
   if f.capabilities.per_pr_checks then
-    require('forge.pr_checks').open(f, pr, opts)
+    require('forge.pr.checks').open(f, pr, opts)
     return
   end
   log.warn(('%s does not support %s checks'):format(f.name, f.labels.pr_one))
@@ -240,7 +240,7 @@ function M.ci(f, head, opts)
     log.warn('structured CI data not available for this forge')
     return
   end
-  require('forge.ci_history').open(f, head, opts)
+  require('forge.ci.history').open(f, head, opts)
 end
 
 ---@param f forge.Forge

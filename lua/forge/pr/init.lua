@@ -24,22 +24,22 @@ end
 
 ---@param opts forge.PRActionOpts?
 function M.pr(opts)
-  require('forge.action_target').pr(opts)
+  require('forge.action.target').pr(opts)
 end
 
 ---@param opts forge.ReviewOpts?
 function M.review(opts)
-  require('forge.action_target').review(opts)
+  require('forge.action.target').review(opts)
 end
 
 ---@param opts forge.PRActionOpts?
 function M.pr_ci(opts)
-  require('forge.action_target').pr_ci(opts)
+  require('forge.action.target').pr_ci(opts)
 end
 
 ---@param opts forge.CreatePROpts?
 function M.create_pr(opts)
-  require('forge.creation').create_pr(opts)
+  require('forge.compose.creation').create_pr(opts)
 end
 
 ---@param opts forge.CurrentPROpts?

@@ -84,7 +84,7 @@ function M.make_template_result(content, yaml_file)
     if not pcall(vim.treesitter.language.inspect, 'yaml') then
       return nil, yaml_template_error
     end
-    local yaml = require('forge.yaml')
+    local yaml = require('forge.compose.yaml')
     return yaml.render(yaml.parse(content))
   end
   return { body = vim.trim(content) }

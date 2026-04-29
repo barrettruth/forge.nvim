@@ -21,7 +21,7 @@ local preload_modules = {
   'forge.format',
   'forge.issue',
   'forge.logger',
-  'forge.ops',
+  'forge.action.ops',
   'forge.picker',
   'forge.picker.checks',
   'forge.picker.ci',
@@ -33,17 +33,17 @@ local preload_modules = {
   'forge.picker.shared',
   'forge.repo',
   'forge.routes',
-  'forge.surface_policy',
+  'forge.surface.policy',
   'forge.state',
 }
 local loaded_modules = {
-  'forge.availability',
+  'forge.surface.availability',
   'forge',
   'forge.config',
   'forge.format',
   'forge.issue',
   'forge.logger',
-  'forge.ops',
+  'forge.action.ops',
   'forge.picker',
   'forge.picker.checks',
   'forge.picker.ci',
@@ -59,7 +59,7 @@ local loaded_modules = {
   'forge.review',
   'forge.routes',
   'forge.state',
-  'forge.surface_policy',
+  'forge.surface.policy',
 }
 
 local function fake_forge(opts)
@@ -353,7 +353,7 @@ describe('pickers', function()
         end,
       }
     end
-    package.preload['forge.surface_policy'] = function()
+    package.preload['forge.surface.policy'] = function()
       local function available(def, entry)
         local fn = rawget(def, 'available')
         if type(fn) == 'function' then
@@ -434,7 +434,7 @@ describe('pickers', function()
         end,
       }
     end
-    package.preload['forge.ops'] = function()
+    package.preload['forge.action.ops'] = function()
       return {
         pr_review = function(_, pr, opts)
           table.insert(op_calls, { name = 'pr_review', pr = pr, opts = opts or {} })

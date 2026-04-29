@@ -1,9 +1,9 @@
 local M = {}
 
-local action_target_mod = require('forge.action_target')
+local action_target_mod = require('forge.action.target')
 local issue_mod = require('forge.issue')
 local log = require('forge.logger')
-local ops = require('forge.ops')
+local ops = require('forge.action.ops')
 local pr_mod = require('forge.pr')
 local repo_mod = require('forge.repo')
 local resolve_mod = require('forge.cmd.resolve')

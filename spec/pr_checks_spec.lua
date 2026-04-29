@@ -29,7 +29,7 @@ describe('pr checks buffer', function()
       'forge',
       'forge.config',
       'forge.format',
-      'forge.layout',
+      'forge.format.layout',
       'forge.log',
       'forge.logger',
       'forge.scope',
@@ -104,7 +104,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    package.preload['forge.layout'] = function()
+    package.preload['forge.format.layout'] = function()
       return {
         picker_width = function()
           return 80
@@ -161,10 +161,10 @@ describe('pr checks buffer', function()
     package.loaded['forge'] = nil
     package.loaded['forge.config'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.layout'] = nil
+    package.loaded['forge.format.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.pr_checks'] = nil
+    package.loaded['forge.pr.checks'] = nil
     package.loaded['forge.scope'] = nil
     package.loaded['forge.system'] = nil
     package.loaded['forge.term'] = nil
@@ -179,13 +179,13 @@ describe('pr checks buffer', function()
     package.loaded['forge'] = nil
     package.loaded['forge.config'] = nil
     package.loaded['forge.format'] = nil
-    package.loaded['forge.layout'] = nil
+    package.loaded['forge.format.layout'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
     package.loaded['forge.scope'] = nil
     package.loaded['forge.system'] = nil
     package.loaded['forge.term'] = nil
-    package.loaded['forge.pr_checks'] = nil
+    package.loaded['forge.pr.checks'] = nil
 
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_valid(buf) then
@@ -216,7 +216,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    local mod = require('forge.pr_checks')
+    local mod = require('forge.pr.checks')
     mod.open({
       name = 'github',
       labels = { pr_one = 'PR' },
@@ -292,7 +292,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    local mod = require('forge.pr_checks')
+    local mod = require('forge.pr.checks')
     mod.open({
       name = 'github',
       labels = { pr_one = 'PR' },
@@ -341,7 +341,7 @@ describe('pr checks buffer', function()
       }
     end
     package.loaded['forge.format'] = nil
-    package.loaded['forge.pr_checks'] = nil
+    package.loaded['forge.pr.checks'] = nil
 
     vim.system = function(_, _, cb)
       cb({
@@ -359,7 +359,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    local mod = require('forge.pr_checks')
+    local mod = require('forge.pr.checks')
     mod.open({
       name = 'github',
       labels = { pr_one = 'PR' },
@@ -402,7 +402,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    local mod = require('forge.pr_checks')
+    local mod = require('forge.pr.checks')
     mod.open({
       name = 'github',
       labels = { pr_one = 'PR' },
@@ -453,7 +453,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    local mod = require('forge.pr_checks')
+    local mod = require('forge.pr.checks')
     mod.open({
       name = 'github',
       labels = { pr_one = 'PR' },
@@ -495,7 +495,7 @@ describe('pr checks buffer', function()
       }
     end
 
-    local mod = require('forge.pr_checks')
+    local mod = require('forge.pr.checks')
     mod.open({
       name = 'github',
       labels = { pr_one = 'PR' },

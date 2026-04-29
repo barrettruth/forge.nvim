@@ -2,13 +2,13 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 describe('layout', function()
   before_each(function()
-    package.loaded['forge.layout'] = nil
+    package.loaded['forge.format.layout'] = nil
   end)
 
   it(
     'uses exact maxima for small samples while ignoring isolated outliers in larger ones',
     function()
-      local layout = require('forge.layout')
+      local layout = require('forge.format.layout')
 
       local small = layout.measure({ 'aa', 'bbbbbbbb' })
       assert.equals(8, small.max)
@@ -19,7 +19,7 @@ describe('layout', function()
   )
 
   it('drops optional columns when the budget is too small', function()
-    local layout = require('forge.layout')
+    local layout = require('forge.format.layout')
     local plan = layout.plan({
       width = 8,
       columns = {
@@ -51,7 +51,7 @@ describe('layout', function()
   end)
 
   it('packs compact columns instead of padding them', function()
-    local layout = require('forge.layout')
+    local layout = require('forge.format.layout')
     local columns = {
       {
         key = 'left',
@@ -74,21 +74,21 @@ describe('layout', function()
   end)
 
   it('normalizes control characters in rendered cells', function()
-    local layout = require('forge.layout')
+    local layout = require('forge.format.layout')
 
     assert.equals(5, layout.display_width('a\nb\tc'))
     assert.equals('a b c', layout.fit('a\nb\tc', 5, { pad = false }))
   end)
 
   it('drops a trailing space before tail truncation markers', function()
-    local layout = require('forge.layout')
+    local layout = require('forge.format.layout')
 
     assert.equals('foo...', layout.fit('foo bar baz', 6, { pad = false }))
     assert.equals('foo...', layout.fit('foo bar baz', 7, { pad = false }))
   end)
 
   it('drops a leading space after head truncation markers', function()
-    local layout = require('forge.layout')
+    local layout = require('forge.format.layout')
 
     assert.equals('...baz', layout.fit('foo bar baz', 6, { pad = false, overflow = 'head' }))
     assert.equals('...baz', layout.fit('foo bar baz', 7, { pad = false, overflow = 'head' }))

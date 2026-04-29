@@ -7,13 +7,13 @@ local preload_modules = {
   'forge.client',
   'forge.compose',
   'forge.config',
-  'forge.creation',
+  'forge.compose.creation',
   'forge.context',
   'forge.format',
   'forge.backends.github',
   'forge.logger',
   'forge.picker',
-  'forge.template',
+  'forge.compose.template',
 }
 
 local loaded_modules = vim.list_extend({ 'forge' }, preload_modules)
@@ -286,7 +286,7 @@ describe('create_pr', function()
       }
     end
 
-    package.preload['forge.template'] = function()
+    package.preload['forge.compose.template'] = function()
       return {
         discover = function()
           return nil,

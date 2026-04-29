@@ -31,8 +31,8 @@ describe('shared operations', function()
       ['forge.log'] = package.preload['forge.log'],
       ['forge.logger'] = package.preload['forge.logger'],
       ['forge.pickers'] = package.preload['forge.pickers'],
-      ['forge.ci_history'] = package.preload['forge.ci_history'],
-      ['forge.pr_checks'] = package.preload['forge.pr_checks'],
+      ['forge.ci.history'] = package.preload['forge.ci.history'],
+      ['forge.pr.checks'] = package.preload['forge.pr.checks'],
       ['forge.term'] = package.preload['forge.term'],
     }
 
@@ -129,7 +129,7 @@ describe('shared operations', function()
       }
     end
 
-    package.preload['forge.pr_checks'] = function()
+    package.preload['forge.pr.checks'] = function()
       return {
         open = function(f, pr, opts)
           captured.pr_checks = {
@@ -141,7 +141,7 @@ describe('shared operations', function()
       }
     end
 
-    package.preload['forge.ci_history'] = function()
+    package.preload['forge.ci.history'] = function()
       return {
         open = function(f, head, opts)
           captured.ci_history = {
@@ -181,10 +181,10 @@ describe('shared operations', function()
     package.loaded['forge'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.pickers'] = nil
-    package.loaded['forge.ci_history'] = nil
-    package.loaded['forge.pr_checks'] = nil
+    package.loaded['forge.ci.history'] = nil
+    package.loaded['forge.pr.checks'] = nil
     package.loaded['forge.term'] = nil
   end)
 
@@ -200,22 +200,22 @@ describe('shared operations', function()
     package.preload['forge.log'] = old_preload['forge.log']
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.preload['forge.pickers'] = old_preload['forge.pickers']
-    package.preload['forge.ci_history'] = old_preload['forge.ci_history']
-    package.preload['forge.pr_checks'] = old_preload['forge.pr_checks']
+    package.preload['forge.ci.history'] = old_preload['forge.ci.history']
+    package.preload['forge.pr.checks'] = old_preload['forge.pr.checks']
     package.preload['forge.term'] = old_preload['forge.term']
 
     package.loaded['forge'] = nil
     package.loaded['forge.log'] = nil
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.ops'] = nil
+    package.loaded['forge.action.ops'] = nil
     package.loaded['forge.pickers'] = nil
-    package.loaded['forge.ci_history'] = nil
-    package.loaded['forge.pr_checks'] = nil
+    package.loaded['forge.ci.history'] = nil
+    package.loaded['forge.pr.checks'] = nil
     package.loaded['forge.term'] = nil
   end)
 
   it('opens deterministic current-branch CI history when structured runs are supported', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local f = {
       name = 'github',
       labels = { ci_inline = 'runs' },
@@ -239,7 +239,7 @@ describe('shared operations', function()
   end)
 
   it('warns when structured current-branch CI data is unavailable', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
 
     ops.ci({
       name = 'custom',
@@ -251,7 +251,7 @@ describe('shared operations', function()
   end)
 
   it('opens PR checks when the backend supports per-PR checks', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local f = {
       name = 'github',
       labels = { pr_one = 'PR' },
@@ -276,7 +276,7 @@ describe('shared operations', function()
   end)
 
   it('warns instead of falling back to repo CI when per-PR checks are unsupported', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
 
     ops.pr_ci({
       name = 'codeberg',
@@ -293,7 +293,7 @@ describe('shared operations', function()
 
   it('runs PR close commands and success callbacks through the shared operation', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.pr_close({
       labels = { pr_one = 'PR' },
       close_cmd = function(_, num)
@@ -315,7 +315,7 @@ describe('shared operations', function()
 
   it('runs PR merge commands without requiring a method', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.pr_merge(
       {
         labels = { pr_one = 'PR' },
@@ -342,7 +342,7 @@ describe('shared operations', function()
 
   it('runs the shared delete operation when deleting a release', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.release_delete({
       delete_release_cmd = function(_, tag)
         return { 'delete', tag }
@@ -363,7 +363,7 @@ describe('shared operations', function()
 
   it('invokes the backend command when cancelling a CI run', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_cancel({
       name = 'github',
       cancel_run_cmd = function(_, id, scope)
@@ -385,7 +385,7 @@ describe('shared operations', function()
 
   it('reports when a backend cannot cancel runs', function()
     local failed = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_cancel({ name = 'codeberg' }, { id = '77', status = 'running' }, {
       on_failure = function()
         failed = failed + 1
@@ -405,7 +405,7 @@ describe('shared operations', function()
 
   it('reruns runs without a confirmation prompt', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_rerun({
       name = 'github',
       rerun_run_cmd = function(_, id, scope)
@@ -427,7 +427,7 @@ describe('shared operations', function()
 
   it('reports when a backend cannot rerun runs', function()
     local failed = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_rerun({ name = 'gitlab' }, { id = '77', status = 'failure' }, {
       on_failure = function()
         failed = failed + 1
@@ -440,7 +440,7 @@ describe('shared operations', function()
 
   it('dispatches CI toggle to cancel for in-progress runs', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_toggle({
       name = 'github',
       cancel_run_cmd = function(_, id)
@@ -465,7 +465,7 @@ describe('shared operations', function()
 
   it('dispatches CI toggle to rerun for completed runs', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_toggle({
       name = 'github',
       cancel_run_cmd = function(_, id)
@@ -490,7 +490,7 @@ describe('shared operations', function()
 
   it('dispatches CI toggle to rerun when the run status is missing', function()
     local done = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_toggle({
       name = 'github',
       cancel_run_cmd = function(_, id)
@@ -515,7 +515,7 @@ describe('shared operations', function()
 
   it('no-ops CI toggle for skipped runs', function()
     local failed = 0
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_toggle({
       name = 'github',
       cancel_run_cmd = function() end,
@@ -531,7 +531,7 @@ describe('shared operations', function()
   end)
 
   it('opens GitHub CI run views in a terminal buffer', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_open({
       name = 'github',
       labels = { forge_name = 'GitHub' },
@@ -573,7 +573,7 @@ describe('shared operations', function()
   end)
 
   it('gives GitHub CI watch the same contextual terminal actions', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_open({
       name = 'github',
       labels = { forge_name = 'GitHub' },
@@ -638,7 +638,7 @@ describe('shared operations', function()
   end)
 
   it('opens in-progress CI runs via watch when available', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_open({
       watch_cmd = function(_, run_id, scope)
         return { 'watch', run_id, scope or 'none' }
@@ -657,7 +657,7 @@ describe('shared operations', function()
   end)
 
   it('opens completed CI runs via log', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_open({
       name = 'gitlab',
       run_log_cmd = function(_, run_id, failed, scope)
@@ -679,7 +679,7 @@ describe('shared operations', function()
   end)
 
   it('falls back to JSON CI summaries when no run view is available', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_open({
       name = 'custom',
       summary_json_cmd = function(_, run_id, scope)
@@ -714,7 +714,7 @@ describe('shared operations', function()
   end)
 
   it('opens CI logs and watches through the shared operations', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.ci_open({
       name = 'gitlab',
       run_log_cmd = function(_, run_id, failed, scope)
@@ -766,7 +766,7 @@ describe('shared operations', function()
   end)
 
   it('list_browse opens the forge list landing page', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local f = {
       name = 'github',
       list_web_url = function(_, kind, scope)
@@ -785,7 +785,7 @@ describe('shared operations', function()
   end)
 
   it('list_browse warns when the source has no landing page for the kind', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local f = {
       name = 'codeberg',
       list_web_url = function()
@@ -800,7 +800,7 @@ describe('shared operations', function()
   end)
 
   it('list_browse warns when the source has no list_web_url method at all', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     ops.list_browse({ name = 'custom' }, 'ci', {})
 
     assert.same({}, captured.urls)
@@ -808,7 +808,7 @@ describe('shared operations', function()
   end)
 
   it('ci_browse opens a backend run page', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local f = {
       browse_run = function(_, id, scope)
         table.insert(captured.urls, ('https://example.com/runs/%s/%s'):format(id, scope or 'none'))
@@ -821,7 +821,7 @@ describe('shared operations', function()
   end)
 
   it('ci_browse falls back to run_web_url when browse_run is unavailable', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local f = {
       name = 'custom',
       run_web_url = function(_, id, scope)
@@ -836,7 +836,7 @@ describe('shared operations', function()
   end)
 
   it('ci_browse warns when the source has no run page support', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
 
     ops.ci_browse({ name = 'custom' }, { id = '88' })
 
@@ -845,7 +845,7 @@ describe('shared operations', function()
   end)
 
   it('browse_subject delegates to the backend method when available', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
     local calls = {}
     local f = {
       name = 'github',
@@ -863,7 +863,7 @@ describe('shared operations', function()
   end)
 
   it('browse_subject warns when the source does not implement it', function()
-    local ops = require('forge.ops')
+    local ops = require('forge.action.ops')
 
     ops.browse_subject({ name = 'custom' }, { num = '42' })
 

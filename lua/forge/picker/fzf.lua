@@ -1,7 +1,7 @@
 local M = {}
 
 local config_mod = require('forge.config')
-local surface_policy = require('forge.surface_policy')
+local surface_policy = require('forge.surface.policy')
 
 local fzf_args = (vim.env.FZF_DEFAULT_OPTS or '')
   :gsub('%-%-bind=[^%s]+', '')
@@ -81,7 +81,7 @@ local function picker_width()
       return width
     end
   end
-  return require('forge.layout').picker_width()
+  return require('forge.format.layout').picker_width()
 end
 
 local function entry_display(entry, width)

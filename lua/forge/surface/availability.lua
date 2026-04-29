@@ -1,7 +1,7 @@
 local M = {}
 local picker_entry = require('forge.picker.entry')
 local state_mod = require('forge.state')
-local surface_policy = require('forge.surface_policy')
+local surface_policy = require('forge.surface.policy')
 
 local function pr_state(f, entry)
   local value = picker_entry.value(entry)

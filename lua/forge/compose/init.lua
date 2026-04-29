@@ -2,9 +2,9 @@ local M = {}
 local repo_mod = require('forge.repo')
 local scope = require('forge.scope')
 local state_mod = require('forge.state')
-local submission = require('forge.submission')
+local submission = require('forge.compose.submission')
 local system_mod = require('forge.system')
-local template = require('forge.template')
+local template = require('forge.compose.template')
 
 local compose_ns = vim.api.nvim_create_namespace('forge_compose')
 
