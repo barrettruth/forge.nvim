@@ -1063,7 +1063,7 @@ function M.pr(state, f, opts)
 
   local function reopen_list()
     clear_state_caches('pr', scope_suffix)
-    forge_mod.clear_pr_state(nil, ref)
+    state_mod.clear_pr_state(nil, ref)
     refresh_pr_list()
   end
 
@@ -1182,9 +1182,9 @@ function M.pr(state, f, opts)
       mergeable = 'UNKNOWN',
       review_decision = '',
       is_draft = entry.value.is_draft == true,
-    }, vim.deepcopy(forge_mod.pr_state(f, entry.value.num, scope) or {}))
+    }, vim.deepcopy(state_mod.pr_state(f, entry.value.num, scope) or {}))
     current_pr_state.review_decision = 'APPROVED'
-    forge_mod.set_pr_state(entry.value.num, current_pr_state, scope)
+    state_mod.set_pr_state(entry.value.num, current_pr_state, scope)
     rerender_pr_list()
     revalidate_current_prs()
   end
@@ -1214,10 +1214,10 @@ function M.pr(state, f, opts)
       mergeable = 'UNKNOWN',
       review_decision = '',
       is_draft = entry.value.is_draft == true,
-    }, vim.deepcopy(forge_mod.pr_state(f, entry.value.num, scope) or {}))
+    }, vim.deepcopy(state_mod.pr_state(f, entry.value.num, scope) or {}))
     current_pr_state.state = merged_pr_state(current_pr)
     current_pr_state.is_draft = false
-    forge_mod.set_pr_state(entry.value.num, current_pr_state, scope)
+    state_mod.set_pr_state(entry.value.num, current_pr_state, scope)
 
     for _, list_state in ipairs(list_states) do
       if list_state ~= state then
@@ -1238,9 +1238,9 @@ function M.pr(state, f, opts)
       mergeable = 'UNKNOWN',
       review_decision = '',
       is_draft = entry.value.is_draft == true,
-    }, vim.deepcopy(forge_mod.pr_state(f, entry.value.num, scope) or {}))
+    }, vim.deepcopy(state_mod.pr_state(f, entry.value.num, scope) or {}))
     current_pr_state.is_draft = not current_pr_state.is_draft
-    forge_mod.set_pr_state(entry.value.num, current_pr_state, scope)
+    state_mod.set_pr_state(entry.value.num, current_pr_state, scope)
     rerender_pr_list()
     revalidate_current_prs()
   end
@@ -1470,7 +1470,7 @@ function M.pr(state, f, opts)
       available = pr_refresh_visible,
       fn = function()
         clear_state_caches('pr', scope_suffix)
-        forge_mod.clear_pr_state(nil, ref)
+        state_mod.clear_pr_state(nil, ref)
         refresh_pr_list()
       end,
     },
