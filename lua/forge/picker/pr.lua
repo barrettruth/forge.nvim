@@ -1,10 +1,9 @@
 local availability = require('forge.availability')
 local config_mod = require('forge.config')
 local format_mod = require('forge.format')
-local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
-local picker_session = require('forge.picker.session')
+local picker_entity = require('forge.picker.entity')
 local picker_shared = require('forge.picker.shared')
 local pr_mod = require('forge.pr')
 local state_mod = require('forge.state')
@@ -25,11 +24,6 @@ local pr_header_order = {
   'refresh',
 }
 
-local cached_rows = picker_shared.cached_rows
-local picker_failure_text = picker_shared.picker_failure_text
-local picker_failure_entry = picker_shared.picker_failure_entry
-local load_more_entry = picker_shared.load_more_entry
-local with_placeholder = picker_shared.with_placeholder
 local scoped_forge_ref = picker_shared.scoped_forge_ref
 local scoped_key = picker_shared.scoped_key
 local scoped_list_key = picker_shared.scoped_list_key
@@ -37,7 +31,6 @@ local clear_state_caches = picker_shared.clear_state_caches
 local clear_list_cache = picker_shared.clear_list_cache
 local refresh_picker = picker_shared.refresh_picker
 local limit_settings = picker_shared.limit_settings
-local expanded_limit = picker_shared.expanded_limit
 local maybe_prefetch_list = picker_shared.maybe_prefetch_list
 local list_row = picker_shared.list_row
 local remove_list_row = picker_shared.remove_list_row
@@ -74,55 +67,10 @@ function M.pick(state, f, opts)
   local current_prs
   local prs_stale = true
   local picker_handle
+  local pr_entries
 
   local function build_pr_entries(prs, limit)
-    limit = limit or current_limit
-
-    table.sort(prs, function(a, b)
-      return (a[num_field] or 0) > (b[num_field] or 0)
-    end)
-    local has_more = #prs > limit
-    if has_more then
-      prs = vim.list_slice(prs, 1, limit)
-    end
-    local entries = {}
-    local rows_for = cached_rows(function(width)
-      return format_mod.format_prs(prs, pr_fields, show_state, { width = width })
-    end)
-    local displays = rows_for()
-    for i, pr in ipairs(prs) do
-      local num = tostring(pr[pr_fields.number] or '')
-      local draft_field = rawget(pr_fields, 'is_draft')
-      table.insert(entries, {
-        display = displays[i],
-        render_display = function(width)
-          return rows_for(width)[i]
-        end,
-        value = {
-          num = num,
-          scope = ref,
-          state = pr[pr_fields.state],
-          is_draft = draft_field and pr[draft_field] or nil,
-        },
-        ordinal = (pr[pr_fields.title] or '') .. ' #' .. num,
-      })
-    end
-    local count = #entries
-    if has_more then
-      entries[#entries + 1] = load_more_entry(expanded_limit(limit, limit_step), true)
-    end
-    local empty_text = state == 'all' and ('No %s'):format(f.labels.pr)
-      or ('No %s %s'):format(state, f.labels.pr)
-    return with_placeholder(entries, empty_text), count
-  end
-
-  ---@param emit fun(entry: forge.PickerEntry?)
-  local function emit_cached_prs(emit)
-    local entries = build_pr_entries(current_prs, current_limit)
-    for _, entry in ipairs(entries) do
-      emit(entry)
-    end
-    emit(nil)
+    return picker_entity.build_entries(pr_entries, prs, limit)
   end
 
   local function maybe_prefetch_next()
@@ -140,34 +88,7 @@ function M.pick(state, f, opts)
 
   ---@param emit fun(entry: forge.PickerEntry?)
   local function stream_prs(emit)
-    if current_prs and not prs_stale then
-      emit_cached_prs(emit)
-      return
-    end
-    log.debug(('fetching %s list (%s)...'):format(f.labels.pr, state))
-    picker_session.request_json(
-      cache_key,
-      f:list_pr_json_cmd(state, current_limit + 1, ref),
-      function(ok, prs, failure, stale)
-        if stale then
-          emit(nil)
-          return
-        end
-        if not ok then
-          log.error(picker_failure_text(failure, 'failed to fetch ' .. f.labels.pr))
-          emit(picker_failure_entry(failure, 'Failed to fetch ' .. f.labels.pr))
-          emit(nil)
-          return
-        end
-        current_prs = prs
-        prs_stale = false
-        if use_cache then
-          state_mod.set_list(cache_key, prs)
-        end
-        emit_cached_prs(emit)
-        maybe_prefetch_next()
-      end
-    )
+    picker_entity.stream(pr_entries)(emit)
   end
 
   local function rerender_pr_list()
@@ -187,6 +108,70 @@ function M.pick(state, f, opts)
     state_mod.clear_pr_state(nil, ref)
     refresh_pr_list()
   end
+
+  pr_entries = {
+    limit_step = limit_step,
+    cache_key = cache_key,
+    fetch_log = ('fetching %s list (%s)...'):format(f.labels.pr, state),
+    failure_log = 'failed to fetch ' .. f.labels.pr,
+    failure_entry = 'Failed to fetch ' .. f.labels.pr,
+    get_limit = function()
+      return current_limit
+    end,
+    get_rows = function()
+      return current_prs
+    end,
+    set_rows = function(prs)
+      current_prs = prs
+    end,
+    is_stale = function()
+      return prs_stale
+    end,
+    set_stale = function(stale)
+      prs_stale = stale
+    end,
+    request_cmd = function(requested_limit)
+      return f:list_pr_json_cmd(state, requested_limit, ref)
+    end,
+    store_rows = function(prs)
+      if use_cache then
+        state_mod.set_list(cache_key, prs)
+      end
+    end,
+    after_stream = maybe_prefetch_next,
+    after_revalidate = function()
+      rerender_pr_list()
+      maybe_prefetch_next()
+    end,
+    empty_text = function()
+      return state == 'all' and ('No %s'):format(f.labels.pr)
+        or ('No %s %s'):format(state, f.labels.pr)
+    end,
+    display_rows = function(prs)
+      local rows = vim.list_slice(prs, 1, #prs)
+      table.sort(rows, function(a, b)
+        return (a[num_field] or 0) > (b[num_field] or 0)
+      end)
+      return rows
+    end,
+    format_rows = function(prs, width)
+      return format_mod.format_prs(prs, pr_fields, show_state, { width = width })
+    end,
+    value = function(pr)
+      local num = tostring(pr[pr_fields.number] or '')
+      local draft_field = rawget(pr_fields, 'is_draft')
+      return {
+        num = num,
+        scope = ref,
+        state = pr[pr_fields.state],
+        is_draft = draft_field and pr[draft_field] or nil,
+      }
+    end,
+    ordinal = function(pr)
+      local num = tostring(pr[pr_fields.number] or '')
+      return (pr[pr_fields.title] or '') .. ' #' .. num
+    end,
+  }
 
   local function pr_cache_key(list_state)
     return scoped_list_key('pr', list_state, scope_suffix)
@@ -272,26 +257,7 @@ function M.pick(state, f, opts)
   end
 
   local function revalidate_current_prs()
-    picker_session.request_json(
-      cache_key,
-      f:list_pr_json_cmd(state, current_limit + 1, ref),
-      function(ok, prs, failure, stale)
-        if stale then
-          return
-        end
-        if not ok then
-          log.error(picker_failure_text(failure, 'failed to fetch ' .. f.labels.pr))
-          return
-        end
-        current_prs = prs
-        prs_stale = false
-        if use_cache then
-          state_mod.set_list(cache_key, prs)
-        end
-        rerender_pr_list()
-        maybe_prefetch_next()
-      end
-    )
+    picker_entity.revalidate(pr_entries)
   end
 
   ---@param entry forge.PickerEntry
