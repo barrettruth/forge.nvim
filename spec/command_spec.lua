@@ -3,6 +3,14 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 
 local preload_modules = {
+  'forge.action_target',
+  'forge.config',
+  'forge.detect',
+  'forge.issue',
+  'forge.pr',
+  'forge.repo',
+  'forge.review',
+  'forge.routes',
   'forge.state',
   'forge',
   'forge.logger',
@@ -12,18 +20,26 @@ local preload_modules = {
 }
 
 local loaded_modules = {
+  'forge.action_target',
   'forge.availability',
   'forge.completion_policy',
   'forge',
+  'forge.config',
   'forge.cmd',
   'forge.cmd_complete',
   'forge.cmd_complete_source',
   'forge.cmd_dispatch',
   'forge.cmd_resolve',
+  'forge.detect',
+  'forge.issue',
   'forge.logger',
   'forge.ops',
   'forge.pickers',
+  'forge.pr',
+  'forge.repo',
+  'forge.review',
   'forge.resolve',
+  'forge.routes',
   'forge.state',
 }
 
@@ -444,6 +460,56 @@ describe(':Forge command', function()
           end
           return adapters
         end,
+      }
+    end
+    package.preload['forge.action_target'] = function()
+      return {
+        ci = require('forge').ci,
+      }
+    end
+    package.preload['forge.config'] = function()
+      return {
+        config = require('forge').config,
+      }
+    end
+    package.preload['forge.detect'] = function()
+      return {
+        detect = require('forge').detect,
+        forge_name = function()
+          local detected = require('forge').detect()
+          return type(detected) == 'table' and detected.name or nil
+        end,
+      }
+    end
+    package.preload['forge.issue'] = function()
+      return {
+        create_issue = require('forge').create_issue,
+        template_slugs = require('forge').template_slugs,
+      }
+    end
+    package.preload['forge.pr'] = function()
+      return {
+        create_pr = require('forge').create_pr,
+        current_pr = require('forge').current_pr,
+      }
+    end
+    package.preload['forge.repo'] = function()
+      return {
+        current_scope = require('forge').current_scope,
+        scope_key = require('forge').scope_key,
+        file_loc = require('forge').file_loc,
+        remote_web_url = require('forge').remote_web_url,
+      }
+    end
+    package.preload['forge.review'] = function()
+      return {
+        names = require('forge').review_adapter_names,
+      }
+    end
+    package.preload['forge.routes'] = function()
+      return {
+        current_context = require('forge').current_context,
+        open = require('forge').open,
       }
     end
 

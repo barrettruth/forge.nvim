@@ -1,3 +1,6 @@
+local config_mod = require('forge.config')
+local format_mod = require('forge.format')
+local issue_mod = require('forge.issue')
 local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
@@ -44,15 +47,14 @@ function M.pick(state, f, opts)
   opts = opts or {}
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
-  local forge_mod = require('forge')
-  local cfg = forge_mod.config()
+  local cfg = config_mod.config()
   local limits = limit_settings(cfg.display.limits.issues, opts.limit)
   local limit_step = limits.step
   local visible_limit = limits.visible
   local fetch_limit = limits.fetch
   local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
-  local scope_suffix = scoped_key(forge_mod, ref)
+  local scope_suffix = scoped_key(ref)
   local cache_key = scoped_list_key('issue', state, scope_suffix)
   local issue_fields = f.issue_fields
   local num_field = issue_fields.number
@@ -76,7 +78,7 @@ function M.pick(state, f, opts)
     local state_field = issue_fields.state
     local entries = {}
     local rows_for = cached_rows(function(width)
-      return forge_mod.format_issues(issues, issue_fields, issue_show_state, { width = width })
+      return format_mod.format_issues(issues, issue_fields, issue_show_state, { width = width })
     end)
     local displays = rows_for()
     for i, issue in ipairs(issues) do
@@ -356,7 +358,7 @@ function M.pick(state, f, opts)
       name = 'create',
       label = 'create',
       fn = function()
-        forge_mod.create_issue({ back = opts.back, scope = ref })
+        issue_mod.create_issue({ back = opts.back, scope = ref })
       end,
     },
     {

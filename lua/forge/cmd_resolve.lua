@@ -1,6 +1,9 @@
 local M = {}
 
+local detect_mod = require('forge.detect')
 local log = require('forge.logger')
+local pr_mod = require('forge.pr')
+local resolve_api = require('forge.resolve')
 local target_mod = require('forge.target')
 
 ---@return forge.TargetParseOpts
@@ -24,15 +27,14 @@ function M.require_git_or_warn()
   return true
 end
 
----@return forge.Forge?, table?
+---@return forge.Forge?
 function M.require_forge_or_warn()
-  local forge_mod = require('forge')
-  local f = forge_mod.detect()
+  local f = detect_mod.detect()
   if not f then
     log.warn('no forge detected')
-    return nil, forge_mod
+    return nil
   end
-  return f, forge_mod
+  return f
 end
 
 ---@param command forge.Command
@@ -80,7 +82,7 @@ end
 ---@param f forge.Forge
 ---@return forge.PRRef?
 function M.resolve_current_pr_or_warn(command, f)
-  local pr, err = require('forge').current_pr(M.current_pr_resolution_opts(command, f))
+  local pr, err = pr_mod.current_pr(M.current_pr_resolution_opts(command, f))
   if err then
     log.warn(err.message)
     return nil
@@ -98,8 +100,7 @@ end
 ---@param no_match string
 ---@return forge.PRRef?
 function M.resolve_branch_pr_or_warn(command, f, policy, no_match)
-  local pr, err =
-    require('forge.resolve').branch_pr(M.current_pr_resolution_opts(command, f), policy)
+  local pr, err = resolve_api.branch_pr(M.current_pr_resolution_opts(command, f), policy)
   if err then
     log.warn(err.message)
     return nil

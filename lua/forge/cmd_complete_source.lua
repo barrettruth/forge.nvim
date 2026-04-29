@@ -1,5 +1,8 @@
 local M = {}
 
+local config_mod = require('forge.config')
+local detect_mod = require('forge.detect')
+local repo_mod = require('forge.repo')
 local state_mod = require('forge.state')
 local target_mod = require('forge.target')
 
@@ -71,21 +74,16 @@ local function json_list(cmd)
   return data
 end
 
----@param forge_mod table
 ---@param scope forge.Scope?
 ---@return string
-local function completion_scope_key(forge_mod, scope)
-  if type(forge_mod.scope_key) == 'function' then
-    return forge_mod.scope_key(scope)
-  end
-  return ''
+local function completion_scope_key(scope)
+  return repo_mod.scope_key(scope)
 end
 
----@param forge_mod table
 ---@param kind string
 ---@return integer
-local function completion_limit(forge_mod, kind)
-  local cfg = type(forge_mod.config) == 'function' and forge_mod.config() or nil
+local function completion_limit(kind)
+  local cfg = config_mod.config()
   local display = type(cfg) == 'table' and cfg.display or nil
   local limits = type(display) == 'table' and display.limits or nil
   if kind == 'pr' then
@@ -103,11 +101,10 @@ local function completion_limit(forge_mod, kind)
   return 50
 end
 
----@param forge_mod table
 ---@param f forge.Forge
 ---@param state forge.CommandCompletionState
 ---@return forge.Scope?
-local function completion_scope(forge_mod, f, state)
+local function completion_scope(f, state)
   local repo = state.modifiers.repo
   if type(repo) == 'string' and repo ~= '' then
     local resolved = target_mod.resolve_repo(repo, target_parse_opts())
@@ -115,31 +112,26 @@ local function completion_scope(forge_mod, f, state)
       return target_mod.repo_scope(resolved, f.name)
     end
   end
-  if type(forge_mod.current_scope) == 'function' then
-    return forge_mod.current_scope(f.name)
-  end
-  return nil
+  return repo_mod.current_scope(f.name)
 end
 
----@param forge_mod table
 ---@param kind string
 ---@param state string
 ---@param scope forge.Scope?
 ---@return string
-local function completion_list_key(forge_mod, kind, state, scope)
-  return state_mod.list_key(kind, scoped_id(state, completion_scope_key(forge_mod, scope)))
+local function completion_list_key(kind, state, scope)
+  return state_mod.list_key(kind, scoped_id(state, completion_scope_key(scope)))
 end
 
----@param forge_mod table
 ---@param kind string
 ---@param states string[]
 ---@param scope forge.Scope?
 ---@return table[]?
-local function cached_completion_list(forge_mod, kind, states, scope)
+local function cached_completion_list(kind, states, scope)
   local items = {}
   local found = false
   for _, state in ipairs(states) do
-    local cached = state_mod.get_list(completion_list_key(forge_mod, kind, state, scope))
+    local cached = state_mod.get_list(completion_list_key(kind, state, scope))
     if type(cached) == 'table' then
       found = true
       for _, item in ipairs(cached) do
@@ -153,14 +145,13 @@ local function cached_completion_list(forge_mod, kind, states, scope)
   return nil
 end
 
----@param forge_mod table
 ---@param f forge.Forge
 ---@param kind string
 ---@param state string
 ---@param scope forge.Scope?
 ---@return table[]
-local function fetch_completion_list(forge_mod, f, kind, state, scope)
-  local limit = completion_limit(forge_mod, kind)
+local function fetch_completion_list(f, kind, state, scope)
+  local limit = completion_limit(kind)
   local cmd = nil
   if kind == 'pr' and type(f.list_pr_json_cmd) == 'function' then
     cmd = f:list_pr_json_cmd(state, limit, scope)
@@ -182,7 +173,7 @@ local function fetch_completion_list(forge_mod, f, kind, state, scope)
     end
     data = normalized
   end
-  state_mod.set_list(completion_list_key(forge_mod, kind, state, scope), data)
+  state_mod.set_list(completion_list_key(kind, state, scope), data)
   return data
 end
 
@@ -310,29 +301,24 @@ function M.target_values(prefix)
 end
 
 ---@param state forge.CommandCompletionState
----@return forge.Forge?, table?, forge.Scope?
+---@return forge.Forge?, forge.Scope?
 function M.forge(state)
-  local ok, forge_mod = pcall(require, 'forge')
-  if not ok or type(forge_mod) ~= 'table' or type(forge_mod.detect) ~= 'function' then
-    return nil, nil, nil
-  end
-  local f = forge_mod.detect()
+  local f = detect_mod.detect()
   if not f then
-    return nil, forge_mod, nil
+    return nil, nil
   end
-  return f, forge_mod, completion_scope(forge_mod, f, state)
+  return f, completion_scope(f, state)
 end
 
----@param forge_mod table
 ---@param f forge.Forge
 ---@param kind string
 ---@param states string[]
 ---@param fetch_state string?
 ---@param scope forge.Scope?
 ---@return table[]
-function M.list(forge_mod, f, kind, states, fetch_state, scope)
-  return cached_completion_list(forge_mod, kind, states, scope)
-    or fetch_completion_list(forge_mod, f, kind, fetch_state or states[1], scope)
+function M.list(f, kind, states, fetch_state, scope)
+  return cached_completion_list(kind, states, scope)
+    or fetch_completion_list(f, kind, fetch_state or states[1], scope)
 end
 
 ---@param value string?

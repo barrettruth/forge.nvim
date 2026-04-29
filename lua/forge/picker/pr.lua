@@ -1,9 +1,12 @@
 local availability = require('forge.availability')
+local config_mod = require('forge.config')
+local format_mod = require('forge.format')
 local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
 local picker_session = require('forge.picker.session')
 local picker_shared = require('forge.picker.shared')
+local pr_mod = require('forge.pr')
 local state_mod = require('forge.state')
 local surface_policy = require('forge.surface_policy')
 
@@ -54,15 +57,14 @@ function M.pick(state, f, opts)
   opts = opts or {}
   local next_state = ({ all = 'open', open = 'closed', closed = 'all' })[state]
   local state_label = ({ all = 'All', open = 'Open', closed = 'Closed' })[state] or state
-  local forge_mod = require('forge')
-  local cfg = forge_mod.config()
+  local cfg = config_mod.config()
   local limits = limit_settings(cfg.display.limits.pulls, opts.limit)
   local limit_step = limits.step
   local visible_limit = limits.visible
   local fetch_limit = limits.fetch
   local use_cache = limits.use_cache
   local ref = scoped_forge_ref(f, opts.scope)
-  local scope_suffix = scoped_key(forge_mod, ref)
+  local scope_suffix = scoped_key(ref)
   local cache_key = scoped_list_key('pr', state, scope_suffix)
   local pr_fields = f.pr_fields
   local num_field = pr_fields.number
@@ -85,7 +87,7 @@ function M.pick(state, f, opts)
     end
     local entries = {}
     local rows_for = cached_rows(function(width)
-      return forge_mod.format_prs(prs, pr_fields, show_state, { width = width })
+      return format_mod.format_prs(prs, pr_fields, show_state, { width = width })
     end)
     local displays = rows_for()
     for i, pr in ipairs(prs) do
@@ -524,7 +526,7 @@ function M.pick(state, f, opts)
       label = 'create',
       available = pr_create_visible,
       fn = function()
-        forge_mod.create_pr({ back = opts.back, scope = ref })
+        pr_mod.create_pr({ back = opts.back, scope = ref })
       end,
     },
     {

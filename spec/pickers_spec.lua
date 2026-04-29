@@ -18,6 +18,8 @@ local pr_state_cache
 local preload_modules = {
   'fzf-lua.utils',
   'forge',
+  'forge.format',
+  'forge.issue',
   'forge.logger',
   'forge.ops',
   'forge.picker',
@@ -26,7 +28,10 @@ local preload_modules = {
   'forge.picker.issue',
   'forge.picker.pr',
   'forge.picker.release',
+  'forge.pr',
   'forge.picker.shared',
+  'forge.repo',
+  'forge.routes',
   'forge.surface_policy',
   'forge.state',
 }
@@ -34,6 +39,8 @@ local loaded_modules = {
   'forge.availability',
   'forge',
   'forge.config',
+  'forge.format',
+  'forge.issue',
   'forge.logger',
   'forge.ops',
   'forge.picker',
@@ -42,10 +49,13 @@ local loaded_modules = {
   'forge.picker.issue',
   'forge.picker.pr',
   'forge.picker.release',
+  'forge.pr',
   'forge.picker.shared',
   'forge.picker.session',
   'forge.pickers',
+  'forge.repo',
   'forge.review',
+  'forge.routes',
   'forge.state',
   'forge.surface_policy',
 }
@@ -510,23 +520,8 @@ describe('pickers', function()
         end,
       }
     end
-    package.preload['forge'] = function()
+    package.preload['forge.format'] = function()
       return {
-        config = require('forge.config').config,
-        list_key = function(kind, state)
-          return kind .. ':' .. state
-        end,
-        get_list = function(key)
-          return cache[key]
-        end,
-        set_list = function(key, value)
-          cache[key] = value
-        end,
-        clear_list = function(key)
-          if key then
-            cache[key] = nil
-          end
-        end,
         format_prs = function(prs)
           return vim.tbl_map(function(pr)
             return {
@@ -601,21 +596,85 @@ describe('pickers', function()
             { ' ' .. (rel.title or '') },
           }
         end,
+      }
+    end
+    package.preload['forge.repo'] = function()
+      return {
+        current_scope = function()
+          return nil
+        end,
+        scope_key = function(scope)
+          if type(scope) ~= 'table' then
+            return ''
+          end
+          return table.concat({
+            scope.kind or '',
+            scope.host or '',
+            scope.slug or '',
+          }, '|')
+        end,
         remote_web_url = function()
           return 'https://example.com/repo'
         end,
-        repo_info = require('forge.state').repo_info,
-        pr_state = require('forge.state').pr_state,
-        set_pr_state = require('forge.state').set_pr_state,
-        clear_pr_state = require('forge.state').clear_pr_state,
+      }
+    end
+    package.preload['forge.issue'] = function()
+      return {
         create_issue = function(...)
           issue_create_calls = issue_create_calls + 1
           issue_create_opts = select(1, ...)
         end,
+      }
+    end
+    package.preload['forge.pr'] = function()
+      return {
         create_pr = function(...)
           pr_create_calls = pr_create_calls + 1
           pr_create_opts = select(1, ...)
         end,
+      }
+    end
+    package.preload['forge.routes'] = function()
+      return {
+        open = function() end,
+      }
+    end
+    package.preload['forge'] = function()
+      return {
+        config = require('forge.config').config,
+        list_key = function(kind, state)
+          return kind .. ':' .. state
+        end,
+        get_list = function(key)
+          return cache[key]
+        end,
+        set_list = function(key, value)
+          cache[key] = value
+        end,
+        clear_list = function(key)
+          if key then
+            cache[key] = nil
+          end
+        end,
+        format_prs = require('forge.format').format_prs,
+        format_pr = require('forge.format').format_pr,
+        format_issues = require('forge.format').format_issues,
+        format_issue = require('forge.format').format_issue,
+        format_checks = require('forge.format').format_checks,
+        format_check = require('forge.format').format_check,
+        filter_checks = require('forge.format').filter_checks,
+        format_runs = require('forge.format').format_runs,
+        format_run = require('forge.format').format_run,
+        filter_runs = require('forge.format').filter_runs,
+        format_releases = require('forge.format').format_releases,
+        format_release = require('forge.format').format_release,
+        remote_web_url = require('forge.repo').remote_web_url,
+        repo_info = require('forge.state').repo_info,
+        pr_state = require('forge.state').pr_state,
+        set_pr_state = require('forge.state').set_pr_state,
+        clear_pr_state = require('forge.state').clear_pr_state,
+        create_issue = require('forge.issue').create_issue,
+        create_pr = require('forge.pr').create_pr,
         edit_pr = function() end,
       }
     end
