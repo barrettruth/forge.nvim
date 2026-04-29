@@ -1160,11 +1160,17 @@ Choose the surface by workflow type instead of by call depth:
    `require('forge').open(route?, opts?)`
 3. Custom interactive UIs:
    `require('forge.picker').pick()`
+4. Helper-style owner modules:
+   `require('forge.pr')`, `require('forge.issue')`, `require('forge.repo')`,
+   `require('forge.format')`, and `require('forge.review')`
 
 The top-level current-ref helpers mirror the Ex command semantics, including
 explicit `num=` targeting for PR actions. `require('forge').open()` is the
 entrypoint for built-in interactive routes and picker flows.
 `forge.picker.pick()` is the low-level UI primitive wired to `fzf-lua`.
+Helper-style APIs such as formatting, template lookup, repo scope helpers, PR
+state helpers, and review adapter names live on their owning submodules.
+`require('forge')` keeps compatibility shims for existing integrations.
 On GitLab, route arguments also accept provider-native aliases such as `mrs`,
 `mrs.open`, `pipelines`, and `pipelines.current_branch`.
 
@@ -1270,11 +1276,21 @@ contracts live in the source:
   `require('forge')`         `lua/forge/init.lua`            deterministic helpers,
                                                             built-in routes,
                                                             and extension hooks
+  `require('forge.pr')`      `lua/forge/pr.lua`              PR workflows and
+                                                            PR state helpers
+  `require('forge.issue')`   `lua/forge/issue.lua`           issue workflows and
+                                                            template helpers
+  `require('forge.repo')`    `lua/forge/repo.lua`            repo, scope, and
+                                                            remote helpers
+  `require('forge.format')`  `lua/forge/format.lua`          formatting and
+                                                            filter helpers
+  `require('forge.review')`  `lua/forge/review.lua`          review adapter
+                                                            helpers
   `require('forge.picker')`  `lua/forge/picker/init.lua`     custom picker UI
   `forge.Forge` / shared     `lua/forge/types.lua`           backend and shared
                                                             contracts
 
-Most integrations only need one of these entrypoints:
+Most integrations only need one primary entrypoint:
 - Deterministic helpers:
   `require('forge').pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`, `ci(opts?)`,
   `edit_issue(num, scope?)`, `current_pr(opts?)`, `status()`,
@@ -1285,6 +1301,9 @@ Most integrations only need one of these entrypoints:
   `require('forge.picker').pick(opts)`
 - Extension registration:
   `require('forge').register(name, source)`
+- Helper-style APIs:
+  `require('forge.pr')`, `require('forge.issue')`, `require('forge.repo')`,
+  `require('forge.format')`, `require('forge.review')`
 
 Advanced registration helpers such as `register_context_provider()`,
 `register_action()`, and `register_review_adapter()` live in
@@ -1301,9 +1320,31 @@ Prefer these helpers for normal integrations:
 - `open(route?, opts?)` for built-in interactive routes
 - `pr({ num = '42' })`, `review({ num = '42' })`, and `pr_ci({ num = '42' })`
   for explicit PR targeting
+- `register(name, source)`, `register_context_provider()`, `register_action()`,
+  and `register_review_adapter()` for extension hooks
 
 `create_pr()` is create-only: if the current branch already has an open PR, it
 warns instead of redirecting into edit.
+
+HELPER MODULE OWNERSHIP ~                               *forge-helper-modules*
+
+Prefer the owning submodule for helper-style APIs. `require('forge')` keeps
+compatibility shims for these helpers, but new integrations should target the
+owner directly:
+- `require('forge.pr')`: `pr(opts?)`, `review(opts?)`, `pr_ci(opts?)`,
+  `create_pr(opts?)`, `current_pr(opts?)`, `pr_state(f, num, scope?)`,
+  `set_pr_state(num, state, scope?)`, `clear_pr_state(num?, scope?)`
+- `require('forge.issue')`: `create_issue(opts?)`, `edit_issue(num, scope?)`,
+  `template_slugs()`
+- `require('forge.repo')`: `file_loc(range?)`, `remote_web_url(scope?)`,
+  `scope_from_url(name, url)`, `scope_repo_arg(scope?)`, `scope_key(scope?)`,
+  `current_scope(name?)`, `remote_name(scope?)`, `remote_ref(scope?, branch)`,
+  `repo_info(f, scope?)`
+- `require('forge.format')`: `format_pr()`, `format_prs()`, `format_issue()`,
+  `format_issues()`, `format_run()`, `format_runs()`, `format_check()`,
+  `format_checks()`, `format_release()`, `format_releases()`,
+  `format_log_line()`, `filter_runs()`, `filter_checks()`
+- `require('forge.review')`: `names()` and `register(name, adapter)`
 
 MIGRATION NOTES ~                                         *forge-migration*
 
@@ -1323,6 +1364,9 @@ For the implicit-ref rollout:
 - `edit_pr()` is removed; use `pr({ num = '42' })` instead.
 - Prefer `require('forge').pr()`, `review()`, `pr_ci()`, `ci()`, and
   `current_pr()` over internal modules for common workflows.
+- Prefer `require('forge.pr')`, `require('forge.issue')`, `require('forge.repo')`,
+  `require('forge.format')`, and `require('forge.review')` over root
+  compatibility shims for helper-style APIs.
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 

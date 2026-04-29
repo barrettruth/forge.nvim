@@ -3,6 +3,13 @@ local M = {}
 local detect_mod = require('forge.detect')
 local scope_mod = require('forge.scope')
 
+---@param f forge.Forge
+---@param scope? forge.Scope
+---@return forge.RepoInfo
+function M.repo_info(f, scope)
+  return require('forge.state').repo_info(f, scope)
+end
+
 ---@param cmd string
 ---@return string?
 local function fn_system_text(cmd)
