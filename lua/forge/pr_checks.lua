@@ -1,5 +1,6 @@
 local M = {}
 
+local buf_lifecycle = require('forge.buf_lifecycle')
 local config_mod = require('forge.config')
 local format_mod = require('forge.format')
 local layout = require('forge.layout')
@@ -33,97 +34,34 @@ local function bufname(pr)
 end
 
 local function data_for(buf)
-  local data = buf_data[buf]
-  if not data then
-    data = {}
-    buf_data[buf] = data
-  end
-  return data
+  return buf_lifecycle.data_for(buf_data, buf)
 end
 
 local function set_data(buf, fields)
-  local data = data_for(buf)
-  for key, value in pairs(fields) do
-    data[key] = value
-  end
-  return data
-end
-
----@param buf integer
----@param kind forge.BufferKind
----@param url string?
-local function set_public_buffer_state(buf, kind, url)
-  vim.b[buf].forge = {
-    version = 1,
-    kind = kind,
-    url = type(url) == 'string' and url or '',
-  }
+  return buf_lifecycle.set_data(buf_data, buf, fields)
 end
 
 local function stop_proc(buf)
-  local proc = data_for(buf).proc
-  if proc and type(proc.kill) == 'function' then
-    pcall(function()
-      proc:kill()
-    end)
-  end
-  data_for(buf).proc = nil
+  buf_lifecycle.stop_proc(buf_data, buf)
 end
 
 local function begin_request(buf)
-  local data = data_for(buf)
-  data.request_id = (data.request_id or 0) + 1
-  stop_proc(buf)
-  return data.request_id
+  return buf_lifecycle.begin_request(buf_data, buf, stop_proc)
 end
 
 local function request_current(buf, request_id)
-  return data_for(buf).request_id == request_id
-end
-
-local function line_positions(buf)
-  local lines = data_for(buf).lines or {}
-  local positions = {}
-  for lnum, line in ipairs(lines) do
-    if line.check ~= nil then
-      positions[#positions + 1] = lnum
-    end
-  end
-  return positions
+  return buf_lifecycle.request_current(buf_data, buf, request_id)
 end
 
 local function jump(buf, dir)
-  local positions = line_positions(buf)
-  if #positions == 0 then
-    return
-  end
-  local current = vim.api.nvim_win_get_cursor(0)[1]
-  if dir > 0 then
-    for _, lnum in ipairs(positions) do
-      if lnum > current then
-        vim.api.nvim_win_set_cursor(0, { lnum, 0 })
-        return
-      end
-    end
-    vim.api.nvim_win_set_cursor(0, { positions[1], 0 })
-    return
-  end
-  for i = #positions, 1, -1 do
-    if positions[i] < current then
-      vim.api.nvim_win_set_cursor(0, { positions[i], 0 })
-      return
-    end
-  end
-  vim.api.nvim_win_set_cursor(0, { positions[#positions], 0 })
+  local positions = buf_lifecycle.line_positions(data_for(buf).lines, 'check')
+  buf_lifecycle.jump_positions(positions, dir, true)
 end
 
 ---@param buf integer
 ---@return forge.Check?
 local function current_check(buf)
-  local line = vim.api.nvim_win_get_cursor(0)[1]
-  local lines = data_for(buf).lines or {}
-  local entry = lines[line]
-  return entry and entry.check or nil
+  return buf_lifecycle.current_line_value(data_for(buf).lines, 'check')
 end
 
 ---@param check forge.Check
@@ -221,26 +159,7 @@ end
 ---@param buf integer
 ---@param lines forge.PRChecksLine[]
 local function render(buf, lines)
-  vim.bo[buf].modifiable = true
-  vim.api.nvim_buf_set_lines(
-    buf,
-    0,
-    -1,
-    false,
-    vim.tbl_map(function(line)
-      return line.text
-    end, lines)
-  )
-  vim.bo[buf].modifiable = false
-  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-  for lnum, line in ipairs(lines) do
-    for _, hl in ipairs(line.highlights or {}) do
-      vim.api.nvim_buf_set_extmark(buf, ns, lnum - 1, hl.col, {
-        end_col = hl.end_col,
-        hl_group = hl.group,
-      })
-    end
-  end
+  buf_lifecycle.render_simple(buf, ns, lines)
   set_data(buf, { lines = lines })
 end
 
@@ -372,48 +291,20 @@ end
 ---@param reuse_buf integer?
 ---@return integer, boolean
 local function prepare_buf(pr, reuse_buf)
-  local name = bufname(pr)
-  local buf
-  local reusing = false
-  if reuse_buf and vim.api.nvim_buf_is_valid(reuse_buf) then
-    buf = reuse_buf
-    reusing = true
-  else
-    local existing = name and vim.fn.bufnr(name) or -1
-    if existing ~= -1 and vim.api.nvim_buf_is_valid(existing) then
-      buf = existing
-      reusing = true
-      local wins = vim.fn.win_findbuf(buf)
-      if #wins == 0 then
-        local cfg = config_mod.config()
-        local split = cfg.ci.split or cfg.split
-        local prefix = split == 'vertical' and 'vertical' or 'botright'
-        vim.cmd('noautocmd ' .. prefix .. ' sbuffer ' .. buf)
-      end
-    else
-      local cfg = config_mod.config()
-      local split = cfg.ci.split or cfg.split
-      local prefix = split == 'vertical' and 'vertical' or 'botright'
-      vim.cmd('noautocmd ' .. prefix .. ' new')
-      buf = vim.api.nvim_get_current_buf()
-      vim.bo[buf].buftype = 'nofile'
-      vim.bo[buf].bufhidden = 'wipe'
-      vim.bo[buf].swapfile = false
-      vim.bo[buf].modifiable = false
-      if name then
-        vim.api.nvim_buf_set_name(buf, name)
-      end
-      vim.api.nvim_create_autocmd('BufWipeout', {
-        buffer = buf,
-        callback = function()
-          stop_proc(buf)
-          buf_data[buf] = nil
-        end,
-      })
-    end
-  end
-  vim.bo[buf].filetype = 'forgelist'
-  set_public_buffer_state(buf, 'pr_checks', scope_mod.subject_web_url('pr', pr.num, pr.scope))
+  local cfg = config_mod.config()
+  local split = cfg.ci.split or cfg.split
+  local buf, reusing = buf_lifecycle.prepare_buf({
+    bufname = bufname(pr),
+    reuse_buf = reuse_buf,
+    split = split,
+    filetype = 'forgelist',
+    kind = 'pr_checks',
+    url = scope_mod.subject_web_url('pr', pr.num, pr.scope),
+    on_wipeout = function(wiped)
+      stop_proc(wiped)
+      buf_data[wiped] = nil
+    end,
+  })
   if not reusing then
     render(buf, render_placeholder('Loading...', 'ForgeDim'))
   end
