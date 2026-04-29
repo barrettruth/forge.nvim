@@ -26,6 +26,7 @@ describe('create_issue', function()
       ['forge.client'] = package.preload['forge.client'],
       ['forge.compose'] = package.preload['forge.compose'],
       ['forge.config'] = package.preload['forge.config'],
+      ['forge.creation'] = package.preload['forge.creation'],
       ['forge.context'] = package.preload['forge.context'],
       ['forge.format'] = package.preload['forge.format'],
       ['forge.backends.github'] = package.preload['forge.backends.github'],
@@ -133,6 +134,7 @@ describe('create_issue', function()
       }
     end
     package.loaded['forge'] = nil
+    package.loaded['forge.creation'] = nil
     package.loaded['forge.backends.github'] = nil
 
     package.preload['forge.logger'] = function()
@@ -163,6 +165,7 @@ describe('create_issue', function()
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.config'] = nil
+    package.loaded['forge.creation'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil
@@ -181,6 +184,7 @@ describe('create_issue', function()
     package.preload['forge.client'] = old_preload['forge.client']
     package.preload['forge.compose'] = old_preload['forge.compose']
     package.preload['forge.config'] = old_preload['forge.config']
+    package.preload['forge.creation'] = old_preload['forge.creation']
     package.preload['forge.context'] = old_preload['forge.context']
     package.preload['forge.format'] = old_preload['forge.format']
     package.preload['forge.backends.github'] = old_preload['forge.backends.github']
@@ -193,6 +197,7 @@ describe('create_issue', function()
     package.loaded['forge.client'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.config'] = nil
+    package.loaded['forge.creation'] = nil
     package.loaded['forge.context'] = nil
     package.loaded['forge.format'] = nil
     package.loaded['forge.backends.github'] = nil

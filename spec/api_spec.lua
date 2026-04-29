@@ -4,6 +4,7 @@ local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
 
 local preload_modules = {
   'forge.action',
+  'forge.action_target',
   'forge.backends.github',
   'forge.cache',
   'forge.compose',

@@ -20,6 +20,7 @@ describe('forge.pr explicit PR targeting', function()
     old_executable = vim.fn.executable
     old_preload = {
       ['forge.action'] = package.preload['forge.action'],
+      ['forge.action_target'] = package.preload['forge.action_target'],
       ['forge.ci'] = package.preload['forge.ci'],
       ['forge.client'] = package.preload['forge.client'],
       ['forge.compose'] = package.preload['forge.compose'],
@@ -189,6 +190,7 @@ describe('forge.pr explicit PR targeting', function()
     end
 
     package.loaded['forge'] = nil
+    package.loaded['forge.action_target'] = nil
     package.loaded['forge.ci'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.action'] = nil
@@ -208,6 +210,7 @@ describe('forge.pr explicit PR targeting', function()
     vim.fn.executable = old_executable
 
     package.preload['forge.action'] = old_preload['forge.action']
+    package.preload['forge.action_target'] = old_preload['forge.action_target']
     package.preload['forge.ci'] = old_preload['forge.ci']
     package.preload['forge.client'] = old_preload['forge.client']
     package.preload['forge.compose'] = old_preload['forge.compose']
@@ -219,6 +222,7 @@ describe('forge.pr explicit PR targeting', function()
     package.preload['forge.template'] = old_preload['forge.template']
 
     package.loaded['forge'] = nil
+    package.loaded['forge.action_target'] = nil
     package.loaded['forge.ci'] = nil
     package.loaded['forge.ops'] = nil
     package.loaded['forge.action'] = nil
