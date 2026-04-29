@@ -3,6 +3,7 @@ local M = {}
 local ci = require('forge.ci')
 local detect_mod = require('forge.detect')
 local log = require('forge.logger')
+local repo_mod = require('forge.repo')
 local system_mod = require('forge.system')
 
 local function trim(text)
@@ -194,8 +195,7 @@ function M.pr_edit(pr, f)
   if not f then
     return
   end
-  local forge = require('forge')
-  local ref = pr.scope or forge.current_scope(f.name)
+  local ref = pr.scope or repo_mod.current_scope(f.name)
   local current_branch = trim(vim.fn.system('git branch --show-current'))
 
   log.debug(('fetching %s #%s...'):format(f.labels.pr_one, pr.num))
@@ -344,8 +344,7 @@ function M.issue_edit(issue, f)
   if not f then
     return
   end
-  local forge = require('forge')
-  local ref = issue.scope or forge.current_scope(f.name)
+  local ref = issue.scope or repo_mod.current_scope(f.name)
 
   log.debug(('fetching issue #%s...'):format(issue.num))
   load_details(
@@ -696,7 +695,7 @@ end
 ---@return boolean
 function M.browse_repo(opts)
   local scope = type(opts) == 'table' and opts.scope or nil
-  local url = require('forge').remote_web_url(scope)
+  local url = repo_mod.remote_web_url(scope)
   if trim(url) == '' then
     return false
   end

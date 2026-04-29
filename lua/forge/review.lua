@@ -1,6 +1,7 @@
 local M = {}
 
 local log = require('forge.logger')
+local repo_mod = require('forge.repo')
 local system_mod = require('forge.system')
 
 ---@type table<string, forge.ReviewAdapter>
@@ -71,13 +72,12 @@ local function fetch_head_cmd(f, pr, target)
 end
 
 local function base_ref(ctx, details)
-  local forge = require('forge')
   local branch = trim(details.base_branch)
   if branch == '' then
     return nil
   end
   local scope = ctx.pr.scope
-  local ref = forge.remote_ref(scope, branch)
+  local ref = repo_mod.remote_ref(scope, branch)
   if ref and ref ~= '' then
     return ref
   end

@@ -3,6 +3,7 @@ local M = {}
 local action = require('forge.action')
 local context = require('forge.context')
 local log = require('forge.logger')
+local repo_mod = require('forge.repo')
 local surface = require('forge.surface')
 
 ---@type string[]
@@ -157,7 +158,7 @@ local function route_handlers()
         end
         ctx.forge:browse(ctx.loc, branch, opts.scope)
       else
-        local url = require('forge').remote_web_url(opts.scope)
+        local url = repo_mod.remote_web_url(opts.scope)
         if url == '' then
           return false, 'no remote web url'
         end

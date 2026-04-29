@@ -702,9 +702,9 @@ function M.repo_scope(repo, forge_name)
   local slug = repo.slug
   if repo.form == 'path' then
     local current = nil
-    local ok, forge = pcall(require, 'forge')
-    if ok and type(forge) == 'table' and type(forge.current_scope) == 'function' then
-      current = forge.current_scope(forge_name)
+    local ok, repo_mod = pcall(require, 'forge.repo')
+    if ok and type(repo_mod) == 'table' and type(repo_mod.current_scope) == 'function' then
+      current = repo_mod.current_scope(forge_name)
     end
     host = current and current.host or default_hosts[forge_name]
   end
