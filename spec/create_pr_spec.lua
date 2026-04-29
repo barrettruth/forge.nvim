@@ -7,6 +7,7 @@ local preload_modules = {
   'forge.client',
   'forge.compose',
   'forge.config',
+  'forge.creation',
   'forge.context',
   'forge.format',
   'forge.backends.github',
