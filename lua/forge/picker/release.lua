@@ -1,8 +1,11 @@
+local config_mod = require('forge.config')
+local format_mod = require('forge.format')
 local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
 local picker_entity = require('forge.picker.entity')
 local picker_shared = require('forge.picker.shared')
+local repo_mod = require('forge.repo')
 local state_mod = require('forge.state')
 
 local M = {}
@@ -29,13 +32,12 @@ local remove_list_row = picker_shared.remove_list_row
 ---@param opts? forge.PickerLimitOpts
 function M.pick(state, f, opts)
   opts = opts or {}
-  local forge_mod = require('forge')
-  local limits = limit_settings(forge_mod.config().display.limits.releases, opts.limit)
+  local limits = limit_settings(config_mod.config().display.limits.releases, opts.limit)
   local limit_step = limits.step
   local visible_limit = limits.visible
   local fetch_limit = limits.fetch
   local ref = scoped_forge_ref(f, opts.scope)
-  local cache_key = state_mod.list_key('release', scoped_id('list', scoped_key(forge_mod, ref)))
+  local cache_key = state_mod.list_key('release', scoped_id('list', scoped_key(ref)))
   local rel_fields = f.release_fields
   local next_state = ({ all = 'draft', draft = 'prerelease', prerelease = 'all' })[state]
   local title = ({ all = 'Releases', draft = 'Draft Releases', prerelease = 'Pre-releases' })[state]
@@ -143,7 +145,7 @@ function M.pick(state, f, opts)
       return #releases > limit
     end,
     format_rows = function(releases, width)
-      return forge_mod.format_releases(releases, rel_fields, { width = width })
+      return format_mod.format_releases(releases, rel_fields, { width = width })
     end,
     value = function(rel)
       local tag = tostring(rel[rel_fields.tag] or '')
@@ -209,7 +211,7 @@ function M.pick(state, f, opts)
       close = false,
       fn = function(entry)
         if entry and not entry.load_more then
-          local base = forge_mod.remote_web_url(entry.value.scope)
+          local base = repo_mod.remote_web_url(entry.value.scope)
           local tag = entry.value.tag
           local url = base .. '/releases/tag/' .. tag
           set_clipboard(url)

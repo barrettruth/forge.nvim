@@ -1,12 +1,16 @@
 local M = {}
 
 local action_mod = require('forge.action')
+local action_target_mod = require('forge.action_target')
 local config_mod = require('forge.config')
 local context_mod = require('forge.context')
 local detect_mod = require('forge.detect')
 local format_mod = require('forge.format')
+local issue_mod = require('forge.issue')
+local pr_mod = require('forge.pr')
 local repo_mod = require('forge.repo')
 local review_mod = require('forge.review')
+local routes_mod = require('forge.routes')
 local state_mod = require('forge.state')
 local template_mod = require('forge.template')
 
@@ -19,127 +23,67 @@ M.run_action = action_mod.run
 M.registered_sources = detect_mod.registered_sources
 M.detect = detect_mod.detect
 
-function M.review_adapter_names()
-  return review_mod.names()
-end
+---@type fun(): string[]
+M.review_adapter_names = review_mod.names
 
----@param f forge.Forge
----@param scope? forge.Scope
----@return forge.RepoInfo
-function M.repo_info(f, scope)
-  return state_mod.repo_info(f, scope)
-end
+---@type fun(f: forge.Forge, scope?: forge.Scope): forge.RepoInfo
+M.repo_info = repo_mod.repo_info
 
----@param f forge.Forge
----@param num string
----@param scope? forge.Scope
----@return forge.PRState
-function M.pr_state(f, num, scope)
-  return require('forge.pr').pr_state(f, num, scope)
-end
+---@type fun(f: forge.Forge, num: string, scope?: forge.Scope): forge.PRState
+M.pr_state = pr_mod.pr_state
 
----@param num string
----@param state forge.PRState
----@param scope? forge.Scope
----@return forge.PRState
-function M.set_pr_state(num, state, scope)
-  return require('forge.pr').set_pr_state(num, state, scope)
-end
+---@type fun(num: string, state: forge.PRState, scope?: forge.Scope): forge.PRState
+M.set_pr_state = pr_mod.set_pr_state
 
----@param num? string
----@param scope? forge.Scope
-function M.clear_pr_state(num, scope)
-  require('forge.pr').clear_pr_state(num, scope)
-end
+---@type fun(num?: string, scope?: forge.Scope)
+M.clear_pr_state = pr_mod.clear_pr_state
 
----@param kind string
----@param state string
----@return string
-function M.list_key(kind, state)
-  return state_mod.list_key(kind, state)
-end
+---@type fun(kind: string, state: string): string
+M.list_key = state_mod.list_key
 
----@param key string
----@return table[]?
-function M.get_list(key)
-  return state_mod.get_list(key)
-end
+---@type fun(key: string): table[]?
+M.get_list = state_mod.get_list
 
----@param key string
----@param data table[]
-function M.set_list(key, data)
-  state_mod.set_list(key, data)
-end
+---@type fun(key: string, data: table[])
+M.set_list = state_mod.set_list
 
----@param key string?
-function M.clear_list(key)
-  state_mod.clear_list(key)
-end
+---@type fun(key?: string)
+M.clear_list = state_mod.clear_list
 
----@param kind string
-function M.clear_list_kind(kind)
-  state_mod.clear_list_kind(kind)
-end
+---@type fun(kind: string)
+M.clear_list_kind = state_mod.clear_list_kind
 
 function M.clear_cache()
   detect_mod.clear_cache()
   state_mod.clear_cache()
 end
 
----@return forge.Status?
-function M.status()
-  return state_mod.status()
-end
+---@type fun(): forge.Status?
+M.status = state_mod.status
 
----@param range? { start_line: integer, end_line: integer }
----@return string
-function M.file_loc(range)
-  return repo_mod.file_loc(range)
-end
+---@type fun(range?: { start_line: integer, end_line: integer }): string
+M.file_loc = repo_mod.file_loc
 
----@param scope? forge.Scope
----@return string
-function M.remote_web_url(scope)
-  return repo_mod.remote_web_url(scope)
-end
+---@type fun(scope?: forge.Scope): string
+M.remote_web_url = repo_mod.remote_web_url
 
----@param name forge.ScopeKind
----@param url string
----@return forge.Scope?
-function M.scope_from_url(name, url)
-  return repo_mod.scope_from_url(name, url)
-end
+---@type fun(name: forge.ScopeKind, url: string): forge.Scope?
+M.scope_from_url = repo_mod.scope_from_url
 
----@param scope forge.Scope?
----@return string?
-function M.scope_repo_arg(scope)
-  return repo_mod.scope_repo_arg(scope)
-end
+---@type fun(scope: forge.Scope?): string?
+M.scope_repo_arg = repo_mod.scope_repo_arg
 
----@param scope forge.Scope?
----@return string
-function M.scope_key(scope)
-  return repo_mod.scope_key(scope)
-end
+---@type fun(scope: forge.Scope?): string
+M.scope_key = repo_mod.scope_key
 
----@param name? forge.ScopeKind
----@return forge.Scope?
-function M.current_scope(name)
-  return repo_mod.current_scope(name)
-end
+---@type fun(name?: forge.ScopeKind): forge.Scope?
+M.current_scope = repo_mod.current_scope
 
----@param scope forge.Scope?
----@return string?
-function M.remote_name(scope)
-  return repo_mod.remote_name(scope)
-end
+---@type fun(scope: forge.Scope?): string?
+M.remote_name = repo_mod.remote_name
 
----@param scope forge.Scope?
----@param branch string
----@return string?
-function M.remote_ref(scope, branch)
-  return repo_mod.remote_ref(scope, branch)
-end
+---@type fun(scope: forge.Scope?, branch: string): string?
+M.remote_ref = repo_mod.remote_ref
 
 M.config = config_mod.config
 
@@ -156,56 +100,36 @@ M.format_releases = format_mod.format_releases
 M.filter_checks = format_mod.filter_checks
 M.filter_runs = format_mod.filter_runs
 
----@param opts forge.PRActionOpts?
-function M.pr(opts)
-  require('forge.pr').pr(opts)
-end
+---@type fun(opts?: forge.PRActionOpts)
+M.pr = pr_mod.pr
 
----@param opts forge.ReviewOpts?
-function M.review(opts)
-  require('forge.pr').review(opts)
-end
+---@type fun(opts?: forge.ReviewOpts)
+M.review = pr_mod.review
 
----@param opts forge.PRActionOpts?
-function M.pr_ci(opts)
-  require('forge.pr').pr_ci(opts)
-end
+---@type fun(opts?: forge.PRActionOpts)
+M.pr_ci = pr_mod.pr_ci
 
----@param opts forge.BranchCIOpts?
-function M.ci(opts)
-  require('forge.action_target').ci(opts)
-end
+---@type fun(opts?: forge.BranchCIOpts)
+M.ci = action_target_mod.ci
 
----@param opts forge.CreatePROpts?
-function M.create_pr(opts)
-  require('forge.pr').create_pr(opts)
-end
+---@type fun(opts?: forge.CreatePROpts)
+M.create_pr = pr_mod.create_pr
 
----@param opts forge.CreateIssueOpts?
-function M.create_issue(opts)
-  require('forge.issue').create_issue(opts)
-end
+---@type fun(opts?: forge.CreateIssueOpts)
+M.create_issue = issue_mod.create_issue
 
----@param num string
----@param ref? forge.Scope
-function M.edit_issue(num, ref)
-  require('forge.issue').edit_issue(num, ref)
-end
+---@type fun(num: string, ref?: forge.Scope)
+M.edit_issue = issue_mod.edit_issue
 
----@return string[]
-function M.template_slugs()
-  return require('forge.issue').template_slugs()
-end
+---@type fun(): string[]
+M.template_slugs = issue_mod.template_slugs
 
 M._discover_templates = template_mod.discover
 M._load_template = template_mod.load
 M._normalize_body = template_mod.normalize_body
 
-function M.current_pr(opts)
-  return require('forge.pr').current_pr(opts)
-end
-
-local routes_mod = require('forge.routes')
+---@type fun(opts?: forge.PRActionOpts)
+M.current_pr = pr_mod.current_pr
 M.current_context = routes_mod.current_context
 M.open = routes_mod.open
 

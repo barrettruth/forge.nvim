@@ -246,7 +246,7 @@ end
 local function subject_error(family, verb, missing)
   if family == 'pr' then
     if verb == 'edit' then
-      local f = require('forge').detect()
+      local f = detect.detect()
       return ('missing %s number'):format((f and f.labels and f.labels.pr_one) or 'PR')
     end
     return missing and 'missing argument' or 'too many arguments'
@@ -256,7 +256,7 @@ local function subject_error(family, verb, missing)
   end
   if family == 'review' then
     if missing then
-      local f = require('forge').detect()
+      local f = detect.detect()
       return ('missing %s number'):format((f and f.labels and f.labels.pr_one) or 'PR')
     end
     return 'too many arguments'
@@ -577,7 +577,7 @@ function M.parse(args, opts)
   if subject_pattern then
     local subject_label
     if subject.kind == 'pr' then
-      local f = require('forge').detect()
+      local f = detect.detect()
       subject_label = ((f and f.labels and f.labels.pr_one) or 'PR') .. ' number'
     elseif subject.kind == 'issue' then
       subject_label = 'issue number'
@@ -627,7 +627,7 @@ function M.parse(args, opts)
 end
 
 function M.dispatch(command)
-  return require('forge.cmd_dispatch').dispatch(command)
+  return require('forge.cmd.dispatch').dispatch(command)
 end
 
 function M.run(opts)
@@ -658,7 +658,7 @@ function M.run(opts)
 end
 
 function M.complete(arglead, cmdline, _)
-  return require('forge.cmd_complete').complete(M, arglead, cmdline, split_words)
+  return require('forge.cmd.complete').complete(M, arglead, cmdline, split_words)
 end
 
 return M

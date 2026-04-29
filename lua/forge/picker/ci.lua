@@ -1,4 +1,6 @@
 local ci = require('forge.ci')
+local config_mod = require('forge.config')
+local format_mod = require('forge.format')
 local log = require('forge.logger')
 local ops = require('forge.ops')
 local picker = require('forge.picker')
@@ -48,13 +50,11 @@ local expanded_limit = picker_shared.expanded_limit
 function M.pick(f, branch, filter, opts)
   opts = opts or {}
   filter = filter or 'all'
-  local forge_mod = require('forge')
-  local limits = limit_settings(forge_mod.config().display.limits.runs, opts.limit)
+  local limits = limit_settings(config_mod.config().display.limits.runs, opts.limit)
   local limit_step = limits.step
   local visible_limit = limits.visible
   local ref = scoped_forge_ref(f, opts.scope)
-  local request_key =
-    state_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(forge_mod, ref)))
+  local request_key = state_mod.list_key('ci', scoped_id(branch or 'all', scoped_key(ref)))
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -104,13 +104,13 @@ function M.pick(f, branch, filter, opts)
       table.insert(normalized, run)
     end
     local has_more = #normalized > limit
-    local filtered = forge_mod.filter_runs(normalized, filter)
+    local filtered = format_mod.filter_runs(normalized, filter)
     if #filtered > limit then
       filtered = vim.list_slice(filtered, 1, limit)
     end
     local count = #filtered
     local rows_for = cached_rows(function(width)
-      return forge_mod.format_runs(filtered, { width = width })
+      return format_mod.format_runs(filtered, { width = width })
     end)
     local displays = rows_for()
 

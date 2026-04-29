@@ -1,3 +1,4 @@
+local format_mod = require('forge.format')
 local log = require('forge.logger')
 local picker = require('forge.picker')
 local picker_session = require('forge.picker.session')
@@ -41,10 +42,9 @@ local check_openable = picker_shared.check_openable
 function M.pick(f, num, filter, cached_checks, opts)
   opts = opts or {}
   filter = filter or 'all'
-  local forge_mod = require('forge')
   local ref = scoped_forge_ref(f, opts.scope)
   local current_checks = cached_checks
-  local request_key = state_mod.list_key('check', scoped_id(num, scoped_key(forge_mod, ref)))
+  local request_key = state_mod.list_key('check', scoped_id(num, scoped_key(ref)))
   local labels = {
     all = 'all',
     fail = 'failed',
@@ -69,10 +69,10 @@ function M.pick(f, num, filter, cached_checks, opts)
   end
 
   local function build_check_entries(checks)
-    local filtered = forge_mod.filter_checks(checks, filter)
+    local filtered = format_mod.filter_checks(checks, filter)
     local count = #filtered
     local rows_for = cached_rows(function(width)
-      return forge_mod.format_checks(filtered, { width = width })
+      return format_mod.format_checks(filtered, { width = width })
     end)
     local displays = rows_for()
     local entries = {}

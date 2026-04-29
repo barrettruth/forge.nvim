@@ -1,5 +1,9 @@
 local M = {}
 
+local config_mod = require('forge.config')
+local detect_mod = require('forge.detect')
+local review_mod = require('forge.review')
+
 local function codediff_status()
   if vim.fn.exists(':CodeDiff') ~= 2 then
     return false, false
@@ -72,10 +76,9 @@ function M.check()
     vim.health.error('tree-sitter yaml parser not found (required for YAML issue form templates)')
   end
 
-  local forge_mod = require('forge')
-  local configured_adapter = vim.trim((((forge_mod.config() or {}).review or {}).adapter or ''))
+  local configured_adapter = vim.trim((((config_mod.config() or {}).review or {}).adapter or ''))
   local review_names = {}
-  for _, name in ipairs((forge_mod.review_adapter_names and forge_mod.review_adapter_names()) or {}) do
+  for _, name in ipairs(review_mod.names()) do
     review_names[name] = true
   end
 
@@ -125,7 +128,7 @@ function M.check()
   end
 
   vim.health.start('Registered sources')
-  for name, source in pairs(forge_mod.registered_sources()) do
+  for name, source in pairs(detect_mod.registered_sources()) do
     if name ~= 'github' and name ~= 'gitlab' and name ~= 'codeberg' then
       if vim.fn.executable(source.cli) == 1 then
         vim.health.ok(source.cli .. ' found (custom: ' .. name .. ')')

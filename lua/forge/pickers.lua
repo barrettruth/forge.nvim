@@ -2,6 +2,7 @@ local M = {}
 
 local ops = require('forge.ops')
 local picker_shared = require('forge.picker.shared')
+local routes_mod = require('forge.routes')
 
 local normalize_pr_ref = picker_shared.normalize_pr_ref
 local pr_action_fns = picker_shared.pr_action_fns
@@ -80,7 +81,7 @@ function M.pr_actions(f, pr)
 end
 
 function M.git()
-  require('forge').open()
+  routes_mod.open()
 end
 
 return M
