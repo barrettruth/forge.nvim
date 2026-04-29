@@ -3,6 +3,7 @@ local collections = require('forge.collections')
 
 local detect = require('forge.detect')
 local ops = require('forge.ops')
+local state_mod = require('forge.state')
 local surface = require('forge.surface')
 
 ---@type table<string, forge.ModifierSpec>
@@ -504,7 +505,7 @@ local function dispatch_pr(command)
     return
   end
   if command.name == 'refresh' then
-    require('forge').clear_list_kind('pr')
+    state_mod.clear_list_kind('pr')
     require('forge.logger').info('refreshed ' .. ((f.labels and f.labels.pr) or 'pr') .. ' list')
     return
   end
@@ -640,7 +641,7 @@ local function dispatch_issue(command)
     return
   end
   if command.name == 'refresh' then
-    require('forge').clear_list_kind('issue')
+    state_mod.clear_list_kind('issue')
     require('forge.logger').info('refreshed issue list')
     return
   end
@@ -677,7 +678,7 @@ local function dispatch_ci(command)
     return
   end
   if command.name == 'refresh' then
-    require('forge').clear_list_kind('ci')
+    state_mod.clear_list_kind('ci')
     require('forge.logger').info('refreshed CI run list')
     return
   end
@@ -707,7 +708,7 @@ local function dispatch_release(command)
     return
   end
   if command.name == 'refresh' then
-    require('forge').clear_list_kind('release')
+    state_mod.clear_list_kind('release')
     require('forge.logger').info('refreshed release list')
     return
   end
@@ -775,7 +776,7 @@ local dispatchers = {
   release = dispatch_release,
   browse = dispatch_browse,
   clear = function()
-    require('forge').clear_cache()
+    state_mod.clear_cache()
     require('forge.logger').info('cache cleared')
   end,
 }
@@ -1351,14 +1352,14 @@ local function completion_forge(state)
 end
 
 local function completion_list_key(forge_mod, kind, state, scope)
-  return forge_mod.list_key(kind, scoped_id(state, completion_scope_key(forge_mod, scope)))
+  return state_mod.list_key(kind, scoped_id(state, completion_scope_key(forge_mod, scope)))
 end
 
 local function cached_completion_list(forge_mod, kind, states, scope)
   local items = {}
   local found = false
   for _, state in ipairs(states) do
-    local cached = forge_mod.get_list(completion_list_key(forge_mod, kind, state, scope))
+    local cached = state_mod.get_list(completion_list_key(forge_mod, kind, state, scope))
     if type(cached) == 'table' then
       found = true
       for _, item in ipairs(cached) do
@@ -1395,7 +1396,7 @@ local function fetch_completion_list(forge_mod, f, kind, state, scope)
     end
     data = normalized
   end
-  forge_mod.set_list(completion_list_key(forge_mod, kind, state, scope), data)
+  state_mod.set_list(completion_list_key(forge_mod, kind, state, scope), data)
   return data
 end
 
@@ -1498,7 +1499,7 @@ local function implicit_pr_completion_target(state)
     return nil
   end
   if pr then
-    local pr_state = forge_mod.pr_state(f, pr.num, pr.scope)
+    local pr_state = state_mod.pr_state(f, pr.num, pr.scope)
     local state_name = type(pr_state) == 'table' and pr_state.state or nil
     return {
       forge = f,
@@ -1551,7 +1552,7 @@ local function merge_method_completion_target(command, state)
   local num = state.subjects[1]
   if num then
     local scope = completion_repo_like_scope(opts.repo)
-    local pr_state = forge_mod.pr_state(f, num, scope)
+    local pr_state = state_mod.pr_state(f, num, scope)
     local state_name = type(pr_state) == 'table' and pr_state.state or nil
     return {
       forge = f,
@@ -1562,7 +1563,7 @@ local function merge_method_completion_target(command, state)
   if err or not pr then
     return nil
   end
-  local pr_state = forge_mod.pr_state(f, pr.num, pr.scope)
+  local pr_state = state_mod.pr_state(f, pr.num, pr.scope)
   local state_name = type(pr_state) == 'table' and pr_state.state or nil
   return {
     forge = f,
