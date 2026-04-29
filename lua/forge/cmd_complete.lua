@@ -124,7 +124,11 @@ local function implicit_pr_completion_target(state)
   if not opts then
     return nil
   end
-  local pr, err = forge_mod.current_pr(opts)
+  ---@type forge.PRRef?
+  local pr
+  ---@type forge.CmdError?
+  local err
+  pr, err = forge_mod.current_pr(opts)
   if err then
     return nil
   end
