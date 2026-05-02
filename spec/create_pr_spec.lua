@@ -344,7 +344,7 @@ describe('create_pr', function()
   it('opens PR compose without prompting when multiple templates exist', function()
     require('forge').create_pr()
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.opened_calls ~= nil
     end)
 
@@ -445,7 +445,7 @@ describe('create_pr', function()
 
     require('forge').create_pr({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.warnings > 0
     end)
 
@@ -473,7 +473,7 @@ describe('create_pr', function()
       scope = repo_scope('repo'),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
     end)
 
@@ -492,7 +492,7 @@ describe('create_pr', function()
 
     require('forge').create_pr({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.warnings > 0
     end)
 
@@ -509,7 +509,7 @@ describe('create_pr', function()
 
     require('forge').create_pr()
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.errors > 0
     end)
 
@@ -526,7 +526,7 @@ describe('create_pr', function()
 
     require('forge').create_pr({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.errors > 0
     end)
 
@@ -539,7 +539,7 @@ describe('create_pr', function()
   it('pushes and opens the web flow only when the branch is creatable', function()
     require('forge').create_pr({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
     end)
 
@@ -567,7 +567,7 @@ describe('create_pr', function()
       base_scope = repo_scope('repo'),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
     end)
 
@@ -597,7 +597,7 @@ describe('create_pr', function()
       base_scope = repo_scope('repo'),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.tbl_contains(captured.infos, 'opened PR creation in browser')
     end)
 
@@ -618,7 +618,7 @@ describe('create_pr', function()
 
     require('forge').create_pr({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.errors > 0
     end)
 
@@ -654,7 +654,7 @@ describe('create_pr', function()
 
     require('forge').create_pr({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.errors > 0
     end)
 
@@ -668,7 +668,7 @@ describe('create_pr', function()
 
     require('forge').create_pr()
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.opened_calls ~= nil
     end)
 

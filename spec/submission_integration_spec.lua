@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('submission integration', function()
   local captured
   local old_fn_system
@@ -229,7 +231,7 @@ describe('submission integration', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.calls > 0
     end)
 
@@ -275,7 +277,7 @@ describe('submission integration', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.calls >= 2
     end)
 
@@ -331,7 +333,7 @@ describe('submission integration', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.calls > 0
     end)
 
@@ -412,7 +414,7 @@ describe('submission integration', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.calls >= 3
     end)
 

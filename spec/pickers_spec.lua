@@ -895,7 +895,7 @@ describe('pickers', function()
     local pickers = require('forge.pickers')
     pickers.pr('open', fake_forge())
     captured.stream(function() end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.entries[1] ~= nil
     end)
 
@@ -995,7 +995,7 @@ describe('pickers', function()
       end
       streamed[#streamed + 1] = entry
     end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -1046,7 +1046,7 @@ describe('pickers', function()
       end
       streamed[#streamed + 1] = entry
     end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -1103,7 +1103,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -1209,7 +1209,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true and captured.entries[1] ~= nil
     end)
     vim.system = old_system
@@ -1381,7 +1381,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return cache['pr:closed'] ~= nil
     end)
     vim.system = old_system
@@ -1495,7 +1495,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['pr:open'][1].title == 'Authoritative'
       end)
       vim.system = old_system
@@ -1581,7 +1581,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['pr:open'][1].title == 'Authoritative draft'
       end)
       vim.system = old_system
@@ -1667,7 +1667,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['pr:open'][1].title == 'Authoritative ready'
       end)
       vim.system = old_system
@@ -1735,7 +1735,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return cache['pr:open'][1].title == 'Authoritative'
     end)
     vim.system = old_system
@@ -1821,7 +1821,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return cache['pr:all'][1].title == 'Authoritative merge'
     end)
     vim.system = old_system
@@ -1891,7 +1891,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return cache['pr:open'][1].title == 'Authoritative'
     end)
     vim.system = old_system
@@ -2241,7 +2241,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -2338,7 +2338,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['issue:open'][1].title == 'Authoritative'
       end)
       vim.system = old_system
@@ -2507,7 +2507,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return cache['issue:closed'] ~= nil
     end)
     vim.system = old_system
@@ -2554,7 +2554,7 @@ describe('pickers', function()
     end
 
     pickers.ci(fake_ci_forge(), 'main', 'all')
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured and captured.prompt == 'CI for main (1)> '
     end)
     vim.system = old_system
@@ -2597,7 +2597,7 @@ describe('pickers', function()
       end
       streamed[#streamed + 1] = entry
     end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -2665,7 +2665,7 @@ describe('pickers', function()
       end
       streamed[#streamed + 1] = entry
     end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -2737,14 +2737,14 @@ describe('pickers', function()
     local pickers = require('forge.pickers')
     pickers.ci(fake_ci_forge(), 'main', 'all')
     captured.stream(function() end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.entries[1] ~= nil
     end)
 
     local toggle = action_by_name('toggle')
     assert.is_not_nil(toggle)
     toggle.fn(captured.entries[1])
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return calls[2] ~= nil and captured.entries[1] ~= nil
     end)
 
@@ -2774,7 +2774,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.entries[1].value.name == 'CI authoritative'
     end)
     vim.system = old_system
@@ -2819,14 +2819,14 @@ describe('pickers', function()
       local pickers = require('forge.pickers')
       pickers.ci(fake_ci_forge(), 'main', 'fail')
       captured.stream(function() end)
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return captured.entries[1] ~= nil
       end)
 
       local toggle = action_by_name('toggle')
       assert.is_not_nil(toggle)
       toggle.fn(captured.entries[1])
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return calls[2] ~= nil
       end)
 
@@ -2847,7 +2847,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return captured.entries[1].value and captured.entries[1].value.id == '6'
       end)
       forge_mod.filter_runs = old_filter_runs
@@ -3001,7 +3001,7 @@ describe('pickers', function()
       streamed[#streamed + 1] = entry
     end)
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
 
@@ -3042,7 +3042,7 @@ describe('pickers', function()
       end
       streamed[#streamed + 1] = entry
     end)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -3134,7 +3134,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -3193,7 +3193,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return first_streamed.done == true and second_streamed.done == true
     end)
     vim.system = old_system
@@ -3260,7 +3260,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -3309,7 +3309,7 @@ describe('pickers', function()
       streamed[#streamed + 1] = entry
     end)
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -3381,7 +3381,7 @@ describe('pickers', function()
       streamed[#streamed + 1] = entry
     end)
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -3439,7 +3439,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
 
@@ -3513,7 +3513,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return first_streamed.done == true and second_streamed.done == true
     end)
     vim.system = old_system
@@ -3612,7 +3612,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.entries[4] ~= nil
     end)
     vim.system = old_system
@@ -3686,7 +3686,7 @@ describe('pickers', function()
       }),
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return streamed.done == true
     end)
     vim.system = old_system
@@ -3814,7 +3814,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['release:list'][1].title == 'Authoritative second'
       end)
       vim.system = old_system
@@ -3882,7 +3882,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['release:list'][2].title == 'Authoritative draft older'
       end)
       vim.system = old_system
@@ -3950,7 +3950,7 @@ describe('pickers', function()
         }),
       })
 
-      vim.wait(100, function()
+      helpers.wait_for(function()
         return cache['release:list'][2].title == 'Authoritative RC older'
       end)
       vim.system = old_system

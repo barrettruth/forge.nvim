@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('forge.pr explicit PR targeting', function()
   local captured
   local old_fn_system
@@ -239,7 +241,7 @@ describe('forge.pr explicit PR targeting', function()
   it('uses fetched PR head/base metadata instead of the current local branch', function()
     require('forge').pr({ num = 23 })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.opened ~= nil
     end)
 
@@ -280,7 +282,7 @@ describe('forge.pr explicit PR targeting', function()
 
     require('forge').pr({ num = '23' })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.opened ~= nil
     end)
 

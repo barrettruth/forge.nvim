@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 local close_calls = 0
 local ctx_clears = 0
 local ansi_headers = false
@@ -1046,7 +1048,7 @@ describe('fzf picker', function()
     assert.is_true(captured.opts.actions.enter.reload)
     captured.opts.actions.enter.fn({ '1' })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return selected ~= false
     end)
 

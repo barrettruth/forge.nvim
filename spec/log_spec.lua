@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 local log_mod = require('forge.log')
 local strip_ansi = log_mod._strip_ansi
 local parse_github = log_mod._parse_github
@@ -632,13 +634,13 @@ describe('buffer reuse refreshes', function()
     assert.is_true(calls[1].proc.killed)
 
     calls[2].cb({ code = 0, stdout = 'new log line' })
-    vim.wait(100, function()
+    helpers.wait_for(function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       return lines[1] == 'new log line'
     end)
 
     calls[1].cb({ code = 0, stdout = 'old log line' })
-    vim.wait(20)
+    helpers.pump()
 
     assert.same({ 'new log line' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
@@ -663,13 +665,13 @@ describe('buffer reuse refreshes', function()
     assert.is_true(calls[1].proc.killed)
 
     calls[2].cb({ code = 0, stdout = '✓ new job (ID 2)' })
-    vim.wait(100, function()
+    helpers.wait_for(function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       return lines[1] == '✓ new job (ID 2)'
     end)
 
     calls[1].cb({ code = 0, stdout = '✓ old job (ID 1)' })
-    vim.wait(20)
+    helpers.pump()
 
     assert.same({ '✓ new job (ID 2)' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
@@ -738,7 +740,7 @@ describe('summary job mappings', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
     end)
 
@@ -747,7 +749,7 @@ describe('summary job mappings', function()
 
     vim.api.nvim_win_set_cursor(0, { 2, 0 })
     enter()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #opened == 1
     end)
 
@@ -756,7 +758,7 @@ describe('summary job mappings', function()
 
     vim.api.nvim_win_set_cursor(0, { 6, 0 })
     enter()
-    vim.wait(20)
+    helpers.pump()
 
     assert.equals(1, #opened)
   end)
@@ -794,7 +796,7 @@ describe('summary job mappings', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
     end)
 
@@ -837,7 +839,7 @@ describe('summary job mappings', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
     end)
 
@@ -900,13 +902,13 @@ describe('summary job mappings', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       return lines[1] == 'p  quality' and lines[4] == 'f  test'
     end)
 
     vim.fn.maparg('<tab>', 'n', false, true).callback()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       return #lines == 3 and lines[1] == 'p  quality' and lines[3] == 'f  test'
     end)
@@ -961,7 +963,7 @@ describe('public buffer identity', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
     end)
 
@@ -993,7 +995,7 @@ describe('public buffer identity', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == '✓ lint (ID 12345)'
     end)
 
@@ -1041,7 +1043,7 @@ describe('log folds', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'build'
     end)
 

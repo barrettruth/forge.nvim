@@ -159,9 +159,9 @@ describe('state', function()
     })
 
     assert.is_nil(state.status())
-    assert.is_true(vim.wait(200, function()
+    assert.is_true(helpers.wait_for(function()
       return updates > 0 and state.status() ~= nil
-    end))
+    end, { timeout = 200 }))
     assert.same({
       branch = 'feature',
       scope = github_scope('fork'),

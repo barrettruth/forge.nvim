@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 local function extmark_groups_for_line(buf, target)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local line_num
@@ -206,7 +208,7 @@ describe('compose issue create', function()
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# test issue' })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 
@@ -367,7 +369,7 @@ describe('compose issue create', function()
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# template issue done' })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 
@@ -415,7 +417,7 @@ describe('compose issue create', function()
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# template issue done' })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 
@@ -458,7 +460,7 @@ describe('compose issue create', function()
     vim.api.nvim_buf_set_lines(buf, 0, 1, false, { '# clipboard fallback' })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 
@@ -746,7 +748,7 @@ describe('compose issue edit', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 
@@ -834,7 +836,7 @@ describe('compose issue edit', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 
@@ -889,7 +891,7 @@ describe('compose issue edit', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 

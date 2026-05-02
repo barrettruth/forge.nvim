@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('compose split session', function()
   local captured
   local old_system
@@ -253,7 +255,7 @@ describe('compose split session', function()
     vim.api.nvim_buf_set_lines(compose_buf, 0, 1, false, { '# split issue' })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.issue_args ~= nil and captured.cleared == 1
     end)
 
@@ -292,7 +294,7 @@ describe('compose split session', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.pr_args ~= nil and captured.cleared == 1
     end)
 

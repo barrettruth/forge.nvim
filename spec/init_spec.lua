@@ -303,9 +303,9 @@ describe('status', function()
     })
 
     assert.is_nil(forge.status())
-    assert.is_true(vim.wait(200, function()
+    assert.is_true(helpers.wait_for(function()
       return updates > 0 and forge.status() ~= nil
-    end))
+    end, { timeout = 200 }))
     assert.same({
       branch = 'feature',
       scope = github_scope('fork'),
@@ -346,10 +346,10 @@ describe('status', function()
     })
 
     assert.is_nil(forge.status())
-    assert.is_true(vim.wait(200, function()
+    assert.is_true(helpers.wait_for(function()
       local status = forge.status()
       return status and status.branch == 'feature' and status.scope == nil and status.pr == nil
-    end))
+    end, { timeout = 200 }))
     assert.same({ branch = 'feature' }, forge.status())
   end)
 end)

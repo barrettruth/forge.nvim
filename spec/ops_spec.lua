@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('shared operations', function()
   local captured
   local old_system
@@ -305,7 +307,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -332,7 +334,7 @@ describe('shared operations', function()
       }
     )
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -353,7 +355,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -375,7 +377,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -417,7 +419,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -455,7 +457,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -480,7 +482,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 
@@ -505,7 +507,7 @@ describe('shared operations', function()
       end,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return done == 1
     end)
 

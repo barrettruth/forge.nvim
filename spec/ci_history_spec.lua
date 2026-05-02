@@ -229,7 +229,7 @@ describe('ci history buffer', function()
       kind = 'ci_history',
       url = 'https://github.com/owner/repo/tree/main',
     }, vim.b[buf].forge)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'CI'
     end)
     assert.same({ 'CI' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
@@ -298,7 +298,7 @@ describe('ci history buffer', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'CI main'
     end)
 
@@ -339,7 +339,7 @@ describe('ci history buffer', function()
       scope = scope,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'Lint'
     end)
     local browse = vim.fn.maparg('gx', 'n', false, true).callback
@@ -441,7 +441,7 @@ describe('ci history buffer', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[2] == 'Middle'
     end)
     assert.same({ 'runs', 'main', '3' }, calls[1])
@@ -454,7 +454,7 @@ describe('ci history buffer', function()
     local older = vim.fn.maparg(']c', 'n', false, true).callback
     older()
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #calls == 2 and vim.api.nvim_buf_get_lines(buf, 0, -1, false)[3] == 'Oldest'
     end)
     assert.same({ 'runs', 'main', '5' }, calls[2])
@@ -553,17 +553,17 @@ describe('ci history buffer', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[2] == 'Middle'
     end)
 
     vim.fn.maparg(']c', 'n', false, true).callback()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #calls == 2 and vim.api.nvim_buf_get_lines(buf, 0, -1, false)[3] == 'Oldest'
     end)
 
     vim.fn.maparg('[c', 'n', false, true).callback()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #calls == 3
         and vim.api.nvim_buf_get_lines(buf, 0, -1, false)[3]
           == 'Showing newest 2 runs · ]c older runs'
@@ -624,7 +624,7 @@ describe('ci history buffer', function()
       'forge://github.com/owner/repo/ci/branch/123',
       vim.api.nvim_buf_get_name(branch_buf)
     )
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(branch_buf, 0, -1, false)[1] == 'Branch CI'
     end)
 
@@ -636,7 +636,7 @@ describe('ci history buffer', function()
     })
 
     local summary_buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(summary_buf, 0, -1, false)[1] == '✓ summary job (ID 1)'
     end)
     assert.equals(
@@ -696,7 +696,7 @@ describe('ci history buffer', function()
       'forge://github.com/owner/repo/ci/branch/123/log',
       vim.api.nvim_buf_get_name(branch_buf)
     )
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(branch_buf, 0, -1, false)[1] == 'Slash Branch'
     end)
 
@@ -708,7 +708,7 @@ describe('ci history buffer', function()
     })
 
     local log_buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(log_buf, 0, -1, false)[1] == 'build'
     end)
     assert.equals(

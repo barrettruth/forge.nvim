@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('edit_issue', function()
   local captured
   local old_fn_system
@@ -216,7 +218,7 @@ describe('edit_issue', function()
   it('fetches issue details and opens the issue edit compose flow', function()
     require('forge').edit_issue('23')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.opened ~= nil
     end)
 

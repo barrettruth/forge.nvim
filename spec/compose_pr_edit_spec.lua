@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('compose pr edit', function()
   local captured
   local old_fn_system
@@ -450,7 +452,7 @@ describe('compose pr edit', function()
     })
     vim.cmd('write')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.args ~= nil and captured.cleared == 1
     end)
 

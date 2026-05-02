@@ -240,7 +240,7 @@ describe('pr checks buffer', function()
       kind = 'pr_checks',
       url = 'https://github.com/owner/repo/pull/42',
     }, vim.b[buf].forge)
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'lint'
     end)
     assert.same({ 'lint' }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
@@ -309,13 +309,13 @@ describe('pr checks buffer', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       return #lines == 2 and lines[2] == 'test'
     end)
 
     vim.fn.maparg('<tab>', 'n', false, true).callback()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       return #lines == 1 and lines[1] == 'lint'
     end)
@@ -376,7 +376,7 @@ describe('pr checks buffer', function()
     })
 
     local buf = vim.api.nvim_get_current_buf()
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] == 'lint [web]'
     end)
 
@@ -421,7 +421,7 @@ describe('pr checks buffer', function()
       scope = scope,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'test'
     end)
     local enter = vim.fn.maparg('<cr>', 'n', false, true).callback
@@ -469,7 +469,7 @@ describe('pr checks buffer', function()
       scope = scope,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'skipped [web]'
     end)
     vim.fn.maparg('<cr>', 'n', false, true).callback()
@@ -511,7 +511,7 @@ describe('pr checks buffer', function()
       scope = scope,
     })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'waiting [unavailable]'
     end)
     vim.fn.maparg('<cr>', 'n', false, true).callback()

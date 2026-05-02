@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 describe('create_issue', function()
   local captured
   local old_fn_system
@@ -298,7 +300,7 @@ describe('create_issue', function()
   it('reports success when the web issue command succeeds', function()
     require('forge').create_issue({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.tbl_contains(captured.infos, 'opened issue creation in browser')
     end)
 
@@ -331,7 +333,7 @@ describe('create_issue', function()
 
     require('forge').create_issue({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return #captured.errors > 0
     end)
 
@@ -390,7 +392,7 @@ describe('create_issue', function()
 
     require('forge').create_issue({ web = true })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return vim.tbl_contains(captured.infos, 'opened issue creation in browser')
     end)
 

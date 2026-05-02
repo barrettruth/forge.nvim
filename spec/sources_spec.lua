@@ -1,5 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
+local helpers = dofile(vim.fn.getcwd() .. '/spec/helpers.lua')
+
 package.preload['fzf-lua.utils'] = function()
   return {
     ansi_from_hl = function(_, text)
@@ -447,7 +449,7 @@ describe('github browse', function()
   it('opens GitHub browse targets through vim.ui.open', function()
     gh:browse('lua/forge/init.lua:10', 'main')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -480,7 +482,7 @@ describe('github browse', function()
 
     gh:browse_branch('main')
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.error ~= nil
     end)
 
@@ -510,7 +512,7 @@ describe('github browse', function()
 
     gh:browse_subject('42', { repo_arg = 'owner/repo' })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -539,7 +541,7 @@ describe('github browse', function()
 
     gh:browse_subject('999', { repo_arg = 'owner/repo' })
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.error ~= nil
     end)
 
@@ -932,7 +934,7 @@ describe('gitlab browse_subject', function()
 
     gl:browse_subject('42', gitlab_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -952,7 +954,7 @@ describe('gitlab browse_subject', function()
 
     gl:browse_subject('42', gitlab_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -975,7 +977,7 @@ describe('gitlab browse_subject', function()
 
     gl:browse_subject('5', gitlab_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.warn ~= nil
     end)
 
@@ -994,7 +996,7 @@ describe('gitlab browse_subject', function()
 
     gl:browse_subject('999', gitlab_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.warn ~= nil
     end)
 
@@ -1015,7 +1017,7 @@ describe('gitlab browse_subject', function()
       { kind = 'gitlab', host = 'gitlab.example.com', slug = 'group/sub/repo' }
     )
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -1399,7 +1401,7 @@ describe('codeberg browse_subject', function()
 
     cb:browse_subject('42', codeberg_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -1427,7 +1429,7 @@ describe('codeberg browse_subject', function()
 
     cb:browse_subject('12272', codeberg_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.url ~= nil
     end)
 
@@ -1451,7 +1453,7 @@ describe('codeberg browse_subject', function()
 
     cb:browse_subject('999', codeberg_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.warn ~= nil
     end)
 
@@ -1476,7 +1478,7 @@ describe('codeberg browse_subject', function()
 
     cb:browse_subject('42', codeberg_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.error ~= nil
     end)
 
@@ -1501,7 +1503,7 @@ describe('codeberg browse_subject', function()
 
     cb:browse_subject('42', codeberg_scope())
 
-    vim.wait(100, function()
+    helpers.wait_for(function()
       return captured.error ~= nil
     end)
 

@@ -11,8 +11,8 @@ lint:
     lua-language-server --check lua --configpath "$(pwd)/.luarc.json" --checklevel=Warning
     vimdoc-language-server check doc/
 
-test:
-    busted
+test *files:
+    ./scripts/test.sh {{files}}
 
 ci: format lint test
     @:
