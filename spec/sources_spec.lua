@@ -1084,23 +1084,48 @@ describe('forgejo', function()
     }))
   end)
 
-  it('builds list_pr_json_cmd with --fields', function()
-    local cmd = fj:list_pr_json_cmd('open')
-    assert.equals('tea', cmd[1])
-    assert.truthy(vim.tbl_contains(cmd, '--fields'))
+  it('builds list_pr_json_cmd with valid tea field names', function()
+    assert.same({
+      'tea',
+      'pulls',
+      'list',
+      '--state',
+      'closed',
+      '--limit',
+      '12',
+      '--output',
+      'json',
+      '--fields',
+      'index,title,head,state,author,created,updated',
+      '--repo',
+      'owner/repo',
+    }, fj:list_pr_json_cmd('closed', 12, { repo_arg = 'owner/repo' }))
   end)
 
   it('builds pr_for_branch_cmd with explicit states', function()
     local cmd = fj:pr_for_branch_cmd('topic', { repo_arg = 'owner/repo' }, 'closed')
     assert.equals('sh', cmd[1])
     assert.truthy(cmd[3]:find('--state closed', 1, true))
-    assert.truthy(cmd[3]:find('.head=="topic"', 1, true))
+    assert.truthy(cmd[3]:find('if type=="object" then .name else . end', 1, true))
+    assert.truthy(cmd[3]:find('=="topic"', 1, true))
   end)
 
-  it('respects explicit issue list limits', function()
-    local cmd = fj:list_issue_json_cmd('open', 66)
-    assert.truthy(vim.tbl_contains(cmd, '--limit'))
-    assert.truthy(vim.tbl_contains(cmd, '66'))
+  it('builds list_issue_json_cmd with valid tea field names', function()
+    assert.same({
+      'tea',
+      'issues',
+      'list',
+      '--state',
+      'open',
+      '--limit',
+      '66',
+      '--output',
+      'json',
+      '--fields',
+      'index,title,state,author,created,updated',
+      '--repo',
+      'owner/repo',
+    }, fj:list_issue_json_cmd('open', 66, { repo_arg = 'owner/repo' }))
   end)
 
   it('builds merge_cmd with --style', function()
@@ -1139,26 +1164,35 @@ describe('forgejo', function()
     local f = fj.pr_fields
     assert.equals('index', f.number)
     assert.equals('head', f.branch)
-    assert.equals('poster', f.author)
+    assert.equals('author', f.author)
+    assert.equals('created', f.created_at)
   end)
 
-  it('prefers a Forgejo display title while keeping workflow identity as context', function()
+  it('returns correct issue_json_fields', function()
+    local f = fj.issue_fields
+    assert.equals('index', f.number)
+    assert.equals('state', f.state)
+    assert.equals('author', f.author)
+    assert.equals('created', f.created_at)
+  end)
+
+  it('normalizes Forgejo action API fields', function()
     local run = fj:normalize_run({
       id = 789,
-      name = 'quality',
-      display_title = 'feat(browse): accept shorthand target paths (#486)',
-      head_branch = 'main',
-      status = 'completed',
-      conclusion = 'success',
+      title = 'refactor: make forgejo the tea-backed source (#560)',
+      workflow_id = 'quality.yaml',
+      prettyref = 'main',
+      status = 'success',
       event = 'push',
       html_url = 'https://example.com',
-      created_at = '2025-01-01T00:00:00Z',
+      created = '2025-01-01T00:00:00Z',
     })
     assert.equals('789', run.id)
-    assert.equals('feat(browse): accept shorthand target paths (#486)', run.name)
-    assert.equals('quality', run.context)
+    assert.equals('refactor: make forgejo the tea-backed source (#560)', run.name)
+    assert.equals('quality.yaml', run.context)
     assert.equals('main', run.branch)
     assert.equals('success', run.status)
+    assert.equals('2025-01-01T00:00:00Z', run.created_at)
   end)
 
   it('falls back to the Forgejo run name when no display title is present', function()
@@ -1285,15 +1319,21 @@ describe('forgejo', function()
     )
   end)
 
-  it('uses tea releases commands for release list and delete', function()
-    assert.same(
-      { 'sh', '-c', 'tea releases list --limit 30 --output json --repo forgejo/tea-test' },
-      fj:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' })
-    )
-    assert.same(
-      { 'sh', '-c', 'tea releases list --limit 55 --output json --repo forgejo/tea-test' },
-      fj:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' }, 55)
-    )
+  it('uses Forgejo API releases for release list and tea for delete', function()
+    assert.same({
+      'tea',
+      'api',
+      '--repo',
+      'forgejo/tea-test',
+      '/repos/{owner}/{repo}/releases?limit=30',
+    }, fj:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' }))
+    assert.same({
+      'tea',
+      'api',
+      '--repo',
+      'forgejo/tea-test',
+      '/repos/{owner}/{repo}/releases?limit=55',
+    }, fj:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' }, 55))
     assert.same(
       { 'sh', '-c', 'tea releases delete --confirm --repo forgejo/tea-test v1.2.3' },
       fj:delete_release_cmd('v1.2.3', { repo_arg = 'forgejo/tea-test' })

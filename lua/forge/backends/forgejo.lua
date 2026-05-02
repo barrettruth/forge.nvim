@@ -60,15 +60,15 @@ local M = {
     title = 'title',
     branch = 'head',
     state = 'state',
-    author = 'poster',
-    created_at = 'created_at',
+    author = 'author',
+    created_at = 'created',
   },
   issue_fields = {
     number = 'index',
     title = 'title',
     state = 'state',
-    author = 'poster',
-    created_at = 'created_at',
+    author = 'author',
+    created_at = 'created',
   },
   release_fields = {
     tag = 'tag_name',
@@ -107,7 +107,7 @@ function M:list_pr_json_cmd(state, limit, scope)
     '--output',
     'json',
     '--fields',
-    'index,title,head,state,poster,created_at',
+    'index,title,head,state,author,created,updated',
     '--repo',
     repo_arg(scope),
   }
@@ -129,7 +129,7 @@ function M:list_issue_json_cmd(state, limit, scope)
     '--output',
     'json',
     '--fields',
-    'index,title,state,poster,created_at',
+    'index,title,state,author,created,updated',
     '--repo',
     repo_arg(scope),
   }
@@ -258,10 +258,9 @@ function M:pr_for_branch_cmd(branch, scope, state)
   return {
     'sh',
     '-c',
-    ('tea pr list --state %s --output json --fields index,head --repo %s | jq -r \'.[] | select(.head=="%s" or .head.name=="%s") | .index // empty\''):format(
+    ('tea pr list --state %s --output json --fields index,head --repo %s | jq -r \'.[] | select((.head | if type=="object" then .name else . end)=="%s") | .index // empty\''):format(
       state or 'open',
       repo_arg(scope),
-      branch,
       branch
     ),
   }
@@ -411,17 +410,22 @@ function M:normalize_run(entry)
   if status == 'completed' then
     status = entry.conclusion or 'unknown'
   end
-  local name = entry.display_title or entry.displayTitle or entry.name or ''
-  local context = entry.workflow_name or entry.workflowName or entry.name or ''
+  local name = entry.display_title or entry.displayTitle or entry.title or entry.name or ''
+  local context = entry.workflow_name
+    or entry.workflowName
+    or entry.workflow_id
+    or entry.workflowId
+    or entry.name
+    or ''
   return {
     id = tostring(entry.id or ''),
     name = name,
     context = context,
-    branch = entry.head_branch or entry.headBranch or '',
+    branch = entry.head_branch or entry.headBranch or entry.prettyref or '',
     status = status,
     event = entry.event or '',
     url = entry.html_url or '',
-    created_at = entry.created_at or entry.createdAt or '',
+    created_at = entry.created_at or entry.createdAt or entry.created or '',
   }
 end
 
@@ -857,9 +861,11 @@ end
 function M:list_releases_json_cmd(scope, limit)
   local limit_arg = tostring(limit or config_mod.config().display.limits.releases)
   return {
-    'sh',
-    '-c',
-    'tea releases list --limit ' .. limit_arg .. ' --output json --repo ' .. repo_arg(scope),
+    'tea',
+    'api',
+    '--repo',
+    repo_arg(scope),
+    ('/repos/{owner}/{repo}/releases?limit=%s'):format(limit_arg),
   }
 end
 
