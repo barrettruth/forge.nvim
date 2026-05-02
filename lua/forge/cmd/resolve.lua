@@ -31,7 +31,7 @@ end
 function M.require_forge_or_warn()
   local f = detect_mod.detect()
   if not f then
-    log.warn('no forge detected')
+    detect_mod.warn_no_forge()
     return nil
   end
   return f

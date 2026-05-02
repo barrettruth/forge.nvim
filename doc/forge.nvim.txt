@@ -74,6 +74,13 @@ Top-level keys: ~
     `vim.notify`. When a `string`, messages are written to that file path
     (e.g. `"/tmp/forge.log"`).
 
+`detect`                                                 *forge-config-detect*
+  `detect.unknown`  `"warn"|"silent"`  (default `"warn"`)
+    Controls user-facing warnings when the current git remote does not match
+    a supported source. `"warn"` reports the unsupported host and points at
+    `vim.g.forge.sources`; `"silent"` suppresses that warning. Debug logs still
+    record detection details when `debug` is enabled.
+
 `split`                                                   *forge-config-split*
   `string`  (default `"horizontal"`)
     Default split direction for compose buffers and as the fallback for CI/log
@@ -1055,6 +1062,13 @@ Built-in sources: ~
 
 Sources are lazy-loaded on first matching remote. User-configured host
 patterns for built-in sources are merged with these defaults.
+
+Unknown remotes warn when a command or picker needs a forge: >
+    unsupported host 'git.sr.ht'; configure vim.g.forge.sources or set vim.g.forge.detect.unknown = 'silent'
+<
+Set `vim.g.forge.detect.unknown = "silent"` to suppress this warning for repos
+that intentionally use unsupported hosts. Host overrides only route remotes to
+supported backends; they do not add support for a new forge API.
 
 COMPATIBILITY ~
                                                          *forge-compatibility*

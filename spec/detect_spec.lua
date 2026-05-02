@@ -149,4 +149,69 @@ describe('detect', function()
 
     assert.equals('forgejo', detect.detect().name)
   end)
+
+  it('reports unsupported remote hosts with configuration hints', function()
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'git@git.sr.ht:~owner/current\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+    })
+
+    assert.is_nil(detect.detect())
+    assert.equals(
+      "unsupported host 'git.sr.ht'; configure vim.g.forge.sources or set vim.g.forge.detect.unknown = 'silent'",
+      detect.no_forge_message()
+    )
+  end)
+
+  it('reports unsupported remotes without a parseable host', function()
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'owner/current\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+    })
+
+    assert.is_nil(detect.detect())
+    assert.equals(
+      "unsupported git remote; configure vim.g.forge.sources or set vim.g.forge.detect.unknown = 'silent'",
+      detect.no_forge_message()
+    )
+  end)
+
+  it('can silence unsupported remote warnings', function()
+    vim.g.forge = {
+      detect = {
+        unknown = 'silent',
+      },
+    }
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'https://git.sr.ht/~owner/current\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+    })
+
+    assert.is_nil(detect.detect())
+    assert.is_nil(detect.no_forge_message())
+  end)
 end)

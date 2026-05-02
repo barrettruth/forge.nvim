@@ -8,7 +8,7 @@ local resolve_mod = require('forge.resolve')
 local function detect_or_warn()
   local forge = detect_mod.detect()
   if not forge then
-    log.warn('no forge detected')
+    detect_mod.warn_no_forge()
     return nil
   end
   return forge

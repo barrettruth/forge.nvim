@@ -11,6 +11,15 @@ local forge_cache = {}
 ---@type table<string, string>
 local root_cache = {}
 
+---@class forge.DetectFailure
+---@field reason string
+---@field remote string?
+---@field host string?
+---@field source string?
+
+---@type forge.DetectFailure?
+local last_failure
+
 ---@param cmd string
 ---@return string?
 local function fn_system_text(cmd)
@@ -36,6 +45,30 @@ local function system_text(cmd)
     return nil
   end
   return text
+end
+
+---@param remote string
+---@return string?
+local function remote_host(remote)
+  local protocol_host = remote:match('^[%w+.-]+://([^/]+)')
+  if protocol_host then
+    local host = protocol_host:gsub('^.+@', ''):gsub(':%d+$', '')
+    return host ~= '' and host or nil
+  end
+
+  local scp_host = remote:match('^([^/:]+):')
+  if scp_host then
+    local host = scp_host:gsub('^.+@', '')
+    return host ~= '' and host or nil
+  end
+
+  return nil
+end
+
+---@param reason string
+---@param opts? table<string, string?>
+local function fail(reason, opts)
+  last_failure = vim.tbl_extend('force', opts or {}, { reason = reason })
 end
 
 ---@param name string
@@ -72,12 +105,14 @@ local function cached_source(root)
   local registered = registered_sources[cached.name]
   if registered then
     if registered == cached.source then
+      last_failure = nil
       return cached.source
     end
     forge_cache[root] = nil
     return nil
   end
   if package.loaded['forge.backends.' .. cached.name] == cached.source then
+    last_failure = nil
     return cached.source
   end
   forge_cache[root] = nil
@@ -124,20 +159,24 @@ function M.detect_at_root(root)
   end
   local remote = system_text({ 'git', '-C', root, 'remote', 'get-url', 'origin' })
   if not remote then
+    fail('no_remote')
     log.debug('detect: no origin remote')
     return nil
   end
   local name = detect_from_remote(remote)
   if not name then
+    fail('unsupported_host', { remote = remote, host = remote_host(remote) })
     log.debug('detect: no forge matched remote ' .. remote)
     return nil
   end
   local source = resolve_source(name)
   if not source then
+    fail('missing_backend', { remote = remote, host = remote_host(remote), source = name })
     log.debug('detect: failed to load source module ' .. name)
     return nil
   end
   if vim.fn.executable(source.cli) ~= 1 then
+    fail('missing_cli', { remote = remote, host = remote_host(remote), source = name })
     log.debug('detect: CLI ' .. source.cli .. ' not found')
     return nil
   end
@@ -145,6 +184,7 @@ function M.detect_at_root(root)
     name = name,
     source = source,
   }
+  last_failure = nil
   return source
 end
 
@@ -153,6 +193,7 @@ function M.detect()
   local log = require('forge.logger')
   local root = M.git_root()
   if not root then
+    fail('no_git')
     log.debug('detect: not a git repository')
     return nil
   end
@@ -162,20 +203,24 @@ function M.detect()
   end
   local remote = fn_system_text('git remote get-url origin')
   if not remote then
+    fail('no_remote')
     log.debug('detect: no origin remote')
     return nil
   end
   local name = detect_from_remote(remote)
   if not name then
+    fail('unsupported_host', { remote = remote, host = remote_host(remote) })
     log.debug('detect: no forge matched remote ' .. remote)
     return nil
   end
   local source = resolve_source(name)
   if not source then
+    fail('missing_backend', { remote = remote, host = remote_host(remote), source = name })
     log.debug('detect: failed to load source module ' .. name)
     return nil
   end
   if vim.fn.executable(source.cli) ~= 1 then
+    fail('missing_cli', { remote = remote, host = remote_host(remote), source = name })
     log.debug('detect: CLI ' .. source.cli .. ' not found')
     return nil
   end
@@ -183,12 +228,43 @@ function M.detect()
     name = name,
     source = source,
   }
+  last_failure = nil
   return source
 end
 
 function M.clear_cache()
   forge_cache = {}
   root_cache = {}
+  last_failure = nil
+end
+
+---@return string?
+function M.no_forge_message()
+  local cfg = config_mod.config()
+  if cfg.detect.unknown == 'silent' then
+    return nil
+  end
+  if last_failure and last_failure.reason == 'unsupported_host' then
+    if last_failure.host and last_failure.host ~= '' then
+      return ("unsupported host '%s'; configure vim.g.forge.sources or set vim.g.forge.detect.unknown = 'silent'"):format(
+        last_failure.host
+      )
+    end
+    return "unsupported git remote; configure vim.g.forge.sources or set vim.g.forge.detect.unknown = 'silent'"
+  end
+  if last_failure and last_failure.reason == 'missing_backend' then
+    return ("source '%s' has no backend; register it or update vim.g.forge.sources"):format(
+      last_failure.source or ''
+    )
+  end
+  return 'no forge detected'
+end
+
+function M.warn_no_forge()
+  local msg = M.no_forge_message()
+  if msg then
+    require('forge.logger').warn(msg)
+  end
 end
 
 function M.forge_name()

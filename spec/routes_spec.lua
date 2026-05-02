@@ -130,6 +130,12 @@ describe('routes', function()
         forge_name = function()
           return detected_forge and detected_forge.name or nil
         end,
+        no_forge_message = function()
+          return 'no forge detected'
+        end,
+        warn_no_forge = function()
+          captured.warn = 'no forge detected'
+        end,
       }
     end
 

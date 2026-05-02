@@ -47,6 +47,19 @@ describe('config validation', function()
     assert.equals(0, cfg.ci.refresh)
   end)
 
+  it('configures unknown forge detection warnings', function()
+    vim.g.forge = {
+      detect = {
+        unknown = 'silent',
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.equals('silent', cfg.detect.unknown)
+    assert.matches('forge%.detect%.unknown', config_error({ detect = { unknown = 'quiet' } }))
+  end)
+
   it('rejects unknown route names', function()
     assert.matches(
       'forge%.routes%.prs',

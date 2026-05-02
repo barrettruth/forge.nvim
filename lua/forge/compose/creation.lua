@@ -69,7 +69,7 @@ function M.create_pr(opts)
 
   local f = detect_mod.detect()
   if not f then
-    log.warn('no forge detected')
+    detect_mod.warn_no_forge()
     return
   end
   local ref = opts.base_scope or opts.scope or repo_mod.current_scope(f.name)
@@ -218,7 +218,7 @@ function M.create_issue(opts)
 
   local f = detect_mod.detect()
   if not f then
-    log.warn('no forge detected')
+    detect_mod.warn_no_forge()
     return
   end
   local ref = opts.scope or repo_mod.current_scope(f.name)

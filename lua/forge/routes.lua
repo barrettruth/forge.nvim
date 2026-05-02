@@ -3,6 +3,7 @@ local M = {}
 local action = require('forge.action')
 local config_mod = require('forge.config')
 local context = require('forge.context')
+local detect_mod = require('forge.detect')
 local log = require('forge.logger')
 local repo_mod = require('forge.repo')
 local surface = require('forge.surface')
@@ -66,7 +67,7 @@ local function route_handlers()
   return {
     ['prs.all'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -76,7 +77,7 @@ local function route_handlers()
     end,
     ['prs.open'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -86,7 +87,7 @@ local function route_handlers()
     end,
     ['prs.closed'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -96,7 +97,7 @@ local function route_handlers()
     end,
     ['issues.all'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -106,7 +107,7 @@ local function route_handlers()
     end,
     ['issues.open'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -116,7 +117,7 @@ local function route_handlers()
     end,
     ['issues.closed'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -126,7 +127,7 @@ local function route_handlers()
     end,
     ['ci.all'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -136,7 +137,7 @@ local function route_handlers()
     end,
     ['ci.current_branch'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -150,7 +151,7 @@ local function route_handlers()
     end,
     ['browse.contextual'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       if ctx.has_file and ctx.loc then
         local branch, err = branch_for(ctx, opts)
@@ -168,7 +169,7 @@ local function route_handlers()
     end,
     ['browse.branch'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local branch, err = branch_for(ctx, opts)
       if not branch then
@@ -178,7 +179,7 @@ local function route_handlers()
     end,
     ['browse.commit'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local commit = opts.commit
       if commit == nil or commit == '' then
@@ -191,7 +192,7 @@ local function route_handlers()
     end,
     ['releases.all'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -201,7 +202,7 @@ local function route_handlers()
     end,
     ['releases.draft'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -211,7 +212,7 @@ local function route_handlers()
     end,
     ['releases.prerelease'] = function(ctx, opts)
       if not ctx.forge then
-        return false, 'no forge detected'
+        return false, detect_mod.no_forge_message()
       end
       local pickers, err = require_pickers()
       if not pickers then
@@ -312,7 +313,7 @@ local function open_root(ctx, opts)
 
   if #entries == 0 then
     if not ctx.forge then
-      log.warn('no forge detected')
+      detect_mod.warn_no_forge()
     else
       log.warn('no sections available')
     end

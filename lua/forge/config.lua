@@ -7,6 +7,7 @@ local surface = require('forge.surface')
 ---@field debug boolean|string?
 ---@field split forge.Split
 ---@field ci forge.CIConfig
+---@field detect forge.DetectConfig
 ---@field review forge.ReviewConfig
 ---@field sources table<string, forge.SourceConfig>
 ---@field keys forge.KeysConfig|false
@@ -16,6 +17,9 @@ local surface = require('forge.surface')
 ---@field lines integer
 ---@field split forge.Split?
 ---@field refresh integer
+
+---@class forge.DetectConfig
+---@field unknown 'warn'|'silent'
 
 ---@class forge.ReviewConfig
 ---@field adapter string
@@ -99,6 +103,7 @@ local DEFAULTS = {
   debug = false,
   split = 'horizontal',
   ci = { lines = 1000, refresh = 5 },
+  detect = { unknown = 'warn' },
   review = { adapter = 'checkout' },
   targets = {
     aliases = {},
@@ -378,9 +383,13 @@ function M.config()
   end, "'horizontal' or 'vertical'")
   vim.validate('forge.display', cfg.display, 'table')
   vim.validate('forge.ci', cfg.ci, 'table')
+  vim.validate('forge.detect', cfg.detect, 'table')
   vim.validate('forge.review', cfg.review, 'table')
   vim.validate('forge.ci.lines', cfg.ci.lines, integer_at_least(0), 'integer >= 0')
   vim.validate('forge.ci.refresh', cfg.ci.refresh, integer_at_least(0), 'integer >= 0')
+  vim.validate('forge.detect.unknown', cfg.detect.unknown, function(v)
+    return v == 'warn' or v == 'silent'
+  end, "'warn' or 'silent'")
   vim.validate('forge.review.adapter', cfg.review.adapter, nonempty_string, 'non-empty string')
   vim.validate('forge.targets', cfg.targets, 'table')
   if cfg.ci.split ~= nil then
