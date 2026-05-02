@@ -48,7 +48,7 @@ function M.check()
   local clis = {
     { 'gh', 'GitHub' },
     { 'glab', 'GitLab' },
-    { 'tea', 'Codeberg/Gitea/Forgejo' },
+    { 'tea', 'Forgejo/Gitea/Codeberg' },
   }
   for _, cli in ipairs(clis) do
     if vim.fn.executable(cli[1]) == 1 then
@@ -129,7 +129,7 @@ function M.check()
 
   vim.health.start('Registered sources')
   for name, source in pairs(detect_mod.registered_sources()) do
-    if name ~= 'github' and name ~= 'gitlab' and name ~= 'codeberg' then
+    if name ~= 'github' and name ~= 'gitlab' and name ~= 'forgejo' then
       if vim.fn.executable(source.cli) == 1 then
         vim.health.ok(source.cli .. ' found (custom: ' .. name .. ')')
       else

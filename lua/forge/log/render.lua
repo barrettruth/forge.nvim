@@ -468,7 +468,7 @@ end
 
 local parser_for = {
   github = parse_github,
-  codeberg = parse_github,
+  forgejo = parse_github,
   gitlab = parse_gitlab,
 }
 

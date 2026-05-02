@@ -281,7 +281,7 @@ describe('shared operations', function()
     local ops = require('forge.action.ops')
 
     ops.pr_ci({
-      name = 'codeberg',
+      name = 'forgejo',
       labels = { pr_one = 'PR' },
       capabilities = {
         per_pr_checks = false,
@@ -290,7 +290,7 @@ describe('shared operations', function()
 
     assert.is_nil(captured.checks)
     assert.is_nil(captured.ci)
-    assert.same({ 'codeberg does not support PR checks' }, captured.infos)
+    assert.same({ 'forgejo does not support PR checks' }, captured.infos)
   end)
 
   it('runs PR close commands and success callbacks through the shared operation', function()
@@ -388,7 +388,7 @@ describe('shared operations', function()
   it('reports when a backend cannot cancel runs', function()
     local failed = 0
     local ops = require('forge.action.ops')
-    ops.ci_cancel({ name = 'codeberg' }, { id = '77', status = 'running' }, {
+    ops.ci_cancel({ name = 'forgejo' }, { id = '77', status = 'running' }, {
       on_failure = function()
         failed = failed + 1
       end,
@@ -789,7 +789,7 @@ describe('shared operations', function()
   it('list_browse warns when the source has no landing page for the kind', function()
     local ops = require('forge.action.ops')
     local f = {
-      name = 'codeberg',
+      name = 'forgejo',
       list_web_url = function()
         return nil
       end,
@@ -798,7 +798,7 @@ describe('shared operations', function()
     ops.list_browse(f, 'release', {})
 
     assert.same({}, captured.urls)
-    assert.same({ 'codeberg does not support release landing pages' }, captured.infos)
+    assert.same({ 'forgejo does not support release landing pages' }, captured.infos)
   end)
 
   it('list_browse warns when the source has no list_web_url method at all', function()

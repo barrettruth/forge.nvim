@@ -226,7 +226,7 @@ local function branch_lookup_states(forge, states)
     local state = pr_lookup_state_name(value)
     if state then
       local list_state = state
-      if state == 'merged' and forge.name == 'codeberg' then
+      if state == 'merged' and forge.name == 'forgejo' then
         list_state = 'closed'
       end
       if not seen[list_state] then

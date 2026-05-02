@@ -161,7 +161,6 @@ describe('high-level implicit-ref API', function()
             sources = {
               github = { hosts = { 'github.com' } },
               gitlab = { hosts = { 'gitlab.com' } },
-              codeberg = { hosts = { 'codeberg.org', 'gitea.com', 'forgejo.org' } },
             },
           }
         end,

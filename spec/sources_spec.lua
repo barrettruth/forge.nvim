@@ -412,10 +412,10 @@ describe('github browse', function()
       }
     end
 
-    vim.system = function(cmd, _, cb)
+    vim.system = function(cmd, _, fj)
       captured.cmd = cmd
-      if cb then
-        cb({
+      if fj then
+        fj({
           code = 0,
           stdout = 'https://example.com/repo/blob/main/lua/forge/init.lua#L10\n',
           stderr = '',
@@ -464,10 +464,10 @@ describe('github browse', function()
   end)
 
   it('logs browse resolution failures from gh', function()
-    vim.system = function(cmd, _, cb)
+    vim.system = function(cmd, _, fj)
       captured.cmd = cmd
-      if cb then
-        cb({
+      if fj then
+        fj({
           code = 1,
           stdout = '',
           stderr = 'exit status 1',
@@ -494,10 +494,10 @@ describe('github browse', function()
   end)
 
   it('dispatches browse_subject through `gh browse <num>`', function()
-    vim.system = function(cmd, _, cb)
+    vim.system = function(cmd, _, fj)
       captured.cmd = cmd
-      if cb then
-        cb({
+      if fj then
+        fj({
           code = 0,
           stdout = 'https://github.com/owner/repo/issues/42\n',
           stderr = '',
@@ -523,10 +523,10 @@ describe('github browse', function()
   end)
 
   it('logs browse_subject resolution failures from gh', function()
-    vim.system = function(cmd, _, cb)
+    vim.system = function(cmd, _, fj)
       captured.cmd = cmd
-      if cb then
-        cb({
+      if fj then
+        fj({
           code = 1,
           stdout = '',
           stderr = 'no such issue or pr',
@@ -863,7 +863,7 @@ describe('gitlab browse_subject', function()
   end
 
   local function mock_glab_api(scenarios)
-    return function(cmd, _, cb)
+    return function(cmd, _, fj)
       table.insert(captured.cmds, cmd)
       local path = cmd[5] or ''
       local result
@@ -874,8 +874,8 @@ describe('gitlab browse_subject', function()
       else
         result = { code = 1, stdout = '', stderr = 'unexpected path' }
       end
-      if cb then
-        cb(result)
+      if fj then
+        fj(result)
       end
       return {
         wait = function()
@@ -1032,21 +1032,21 @@ describe('gitlab browse_subject', function()
   end)
 end)
 
-describe('codeberg', function()
-  local cb = require('forge.backends.codeberg')
+describe('forgejo', function()
+  local fj = require('forge.backends.forgejo')
 
   it('has correct metadata', function()
-    assert.equals('tea', cb.cli)
-    assert.equals('codeberg', cb.name)
-    assert.equals('pulls', cb.kinds.pr)
-    assert.equals('issues', cb.kinds.issue)
-    assert.equals('Codeberg', cb.labels.forge_name)
-    assert.equals('CI/CD runs', cb.labels.ci_inline)
-    assert.is_nil(cb.capabilities.ci_terminal_view)
+    assert.equals('tea', fj.cli)
+    assert.equals('forgejo', fj.name)
+    assert.equals('pulls', fj.kinds.pr)
+    assert.equals('issues', fj.kinds.issue)
+    assert.equals('Forgejo', fj.labels.forge_name)
+    assert.equals('CI/CD runs', fj.labels.ci_inline)
+    assert.is_nil(fj.capabilities.ci_terminal_view)
   end)
 
   it('parses PR head with scope from head.repo.full_name', function()
-    local head = cb:parse_pr_head({
+    local head = fj:parse_pr_head({
       head = {
         ref = 'feature',
         repo = { full_name = 'contributor/fork' },
@@ -1058,66 +1058,66 @@ describe('codeberg', function()
   end)
 
   it('respects base_scope host when constructing the head scope', function()
-    local head = cb:parse_pr_head({
+    local head = fj:parse_pr_head({
       head = {
         ref = 'feature',
         repo = { full_name = 'contributor/fork' },
       },
-    }, { kind = 'codeberg', host = 'gitea.example.com' })
+    }, { kind = 'forgejo', host = 'gitea.example.com' })
     assert.equals('gitea.example.com', head.scope.host)
   end)
 
   it('match_head compares branch and scope', function()
-    local scope = cb:parse_pr_head({
+    local scope = fj:parse_pr_head({
       head = {
         ref = 'feature',
         repo = { full_name = 'contributor/fork' },
       },
     }).scope
-    assert.is_true(cb:match_head({ branch = 'feature', scope = scope }, {
+    assert.is_true(fj:match_head({ branch = 'feature', scope = scope }, {
       branch = 'feature',
       scope = scope,
     }))
-    assert.is_false(cb:match_head({ branch = 'feature', scope = scope }, {
+    assert.is_false(fj:match_head({ branch = 'feature', scope = scope }, {
       branch = 'other',
       scope = scope,
     }))
   end)
 
   it('builds list_pr_json_cmd with --fields', function()
-    local cmd = cb:list_pr_json_cmd('open')
+    local cmd = fj:list_pr_json_cmd('open')
     assert.equals('tea', cmd[1])
     assert.truthy(vim.tbl_contains(cmd, '--fields'))
   end)
 
   it('builds pr_for_branch_cmd with explicit states', function()
-    local cmd = cb:pr_for_branch_cmd('topic', { repo_arg = 'owner/repo' }, 'closed')
+    local cmd = fj:pr_for_branch_cmd('topic', { repo_arg = 'owner/repo' }, 'closed')
     assert.equals('sh', cmd[1])
     assert.truthy(cmd[3]:find('--state closed', 1, true))
     assert.truthy(cmd[3]:find('.head=="topic"', 1, true))
   end)
 
   it('respects explicit issue list limits', function()
-    local cmd = cb:list_issue_json_cmd('open', 66)
+    local cmd = fj:list_issue_json_cmd('open', 66)
     assert.truthy(vim.tbl_contains(cmd, '--limit'))
     assert.truthy(vim.tbl_contains(cmd, '66'))
   end)
 
   it('builds merge_cmd with --style', function()
-    local cmd = cb:merge_cmd('7', 'squash')
+    local cmd = fj:merge_cmd('7', 'squash')
     assert.same({ 'tea', 'pr', 'merge', '7', '--style', 'squash' }, vim.list_slice(cmd, 1, 6))
     assert.truthy(vim.tbl_contains(cmd, '--repo'))
   end)
 
   it('builds merge_cmd without --style', function()
-    local cmd = cb:merge_cmd('7')
+    local cmd = fj:merge_cmd('7')
     assert.same({ 'tea', 'pr', 'merge', '7' }, vim.list_slice(cmd, 1, 4))
     assert.truthy(vim.tbl_contains(cmd, '--repo'))
     assert.falsy(vim.tbl_contains(cmd, '--style'))
   end)
 
   it('ignores draft in create_pr_cmd', function()
-    local cmd = cb:create_pr_cmd('title', 'body', 'main', true, nil, {
+    local cmd = fj:create_pr_cmd('title', 'body', 'main', true, nil, {
       draft = true,
       labels = { 'bug' },
       assignees = { 'alice' },
@@ -1136,14 +1136,14 @@ describe('codeberg', function()
   end)
 
   it('returns correct pr_json_fields', function()
-    local f = cb.pr_fields
+    local f = fj.pr_fields
     assert.equals('index', f.number)
     assert.equals('head', f.branch)
     assert.equals('poster', f.author)
   end)
 
-  it('prefers a Codeberg display title while keeping workflow identity as context', function()
-    local run = cb:normalize_run({
+  it('prefers a Forgejo display title while keeping workflow identity as context', function()
+    local run = fj:normalize_run({
       id = 789,
       name = 'quality',
       display_title = 'feat(browse): accept shorthand target paths (#486)',
@@ -1161,36 +1161,36 @@ describe('codeberg', function()
     assert.equals('success', run.status)
   end)
 
-  it('falls back to the Codeberg run name when no display title is present', function()
+  it('falls back to the Forgejo run name when no display title is present', function()
     local run =
-      cb:normalize_run({ id = 1, name = 'quality', status = 'running', head_branch = 'main' })
+      fj:normalize_run({ id = 1, name = 'quality', status = 'running', head_branch = 'main' })
     assert.equals('quality', run.name)
     assert.equals('quality', run.context)
     assert.equals('main', run.branch)
   end)
 
   it('returns nil from draft_toggle_cmd', function()
-    assert.is_nil(cb:draft_toggle_cmd('1', true))
-    assert.is_nil(cb:draft_toggle_cmd('1', false))
+    assert.is_nil(fj:draft_toggle_cmd('1', true))
+    assert.is_nil(fj:draft_toggle_cmd('1', false))
   end)
 
   it('uses tea api owner/repo placeholders for scoped fetches', function()
-    local checks_cmd = cb:checks_json_cmd('7', { repo_arg = 'forgejo/tea-test' })
+    local checks_cmd = fj:checks_json_cmd('7', { repo_arg = 'forgejo/tea-test' })
     assert.truthy(checks_cmd[3]:find('/repos/{owner}/{repo}/pulls/7', 1, true))
     assert.truthy(checks_cmd[3]:find('/repos/{owner}/{repo}/commits/$SHA/status', 1, true))
 
-    local details_cmd = cb:fetch_pr_details_cmd('7', { repo_arg = 'forgejo/tea-test' })
+    local details_cmd = fj:fetch_pr_details_cmd('7', { repo_arg = 'forgejo/tea-test' })
     assert.truthy(details_cmd[3]:find('/repos/{owner}/{repo}/pulls/7', 1, true))
 
-    local issue_details_cmd = cb:fetch_issue_details_cmd('7', { repo_arg = 'forgejo/tea-test' })
+    local issue_details_cmd = fj:fetch_issue_details_cmd('7', { repo_arg = 'forgejo/tea-test' })
     assert.truthy(issue_details_cmd[3]:find('/repos/{owner}/{repo}/issues/7', 1, true))
 
-    local default_cmd = cb:default_branch_cmd({ repo_arg = 'forgejo/tea-test' })
+    local default_cmd = fj:default_branch_cmd({ repo_arg = 'forgejo/tea-test' })
     assert.truthy(default_cmd[3]:find('/repos/{owner}/{repo}', 1, true))
   end)
 
   it('builds simplified issue commands for tea', function()
-    local create = cb:create_issue_cmd(
+    local create = fj:create_issue_cmd(
       'title',
       'body',
       { 'bug' },
@@ -1209,7 +1209,7 @@ describe('codeberg', function()
     assert.truthy(vim.tbl_contains(create, '--milestone'))
     assert.truthy(vim.tbl_contains(create, 'v1'))
 
-    local cmd = cb:update_issue_cmd('23', 'title', 'body', { repo_arg = 'forgejo/tea-test' }, {
+    local cmd = fj:update_issue_cmd('23', 'title', 'body', { repo_arg = 'forgejo/tea-test' }, {
       labels = { 'docs' },
       assignees = { 'bob' },
       milestone = '',
@@ -1240,7 +1240,7 @@ describe('codeberg', function()
         reviewers = { 'bob' },
         milestone = 'v1',
       },
-      cb:parse_pr_details({
+      fj:parse_pr_details({
         title = 'title',
         body = 'body',
         draft = true,
@@ -1269,7 +1269,7 @@ describe('codeberg', function()
         assignees = { 'alice' },
         milestone = 'v1',
       },
-      cb:parse_issue_details({
+      fj:parse_issue_details({
         title = 'title',
         body = 'body',
         labels = {
@@ -1288,33 +1288,33 @@ describe('codeberg', function()
   it('uses tea releases commands for release list and delete', function()
     assert.same(
       { 'sh', '-c', 'tea releases list --limit 30 --output json --repo forgejo/tea-test' },
-      cb:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' })
+      fj:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' })
     )
     assert.same(
       { 'sh', '-c', 'tea releases list --limit 55 --output json --repo forgejo/tea-test' },
-      cb:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' }, 55)
+      fj:list_releases_json_cmd({ repo_arg = 'forgejo/tea-test' }, 55)
     )
     assert.same(
       { 'sh', '-c', 'tea releases delete --confirm --repo forgejo/tea-test v1.2.3' },
-      cb:delete_release_cmd('v1.2.3', { repo_arg = 'forgejo/tea-test' })
+      fj:delete_release_cmd('v1.2.3', { repo_arg = 'forgejo/tea-test' })
     )
   end)
 
   it('builds list_web_url for each kind', function()
     local scope = { web_url = 'https://codeberg.org/owner/repo' }
-    assert.equals('https://codeberg.org/owner/repo/pulls', cb:list_web_url('pr', scope))
-    assert.equals('https://codeberg.org/owner/repo/issues', cb:list_web_url('issue', scope))
-    assert.equals('https://codeberg.org/owner/repo/actions', cb:list_web_url('ci', scope))
-    assert.equals('https://codeberg.org/owner/repo/releases', cb:list_web_url('release', scope))
+    assert.equals('https://codeberg.org/owner/repo/pulls', fj:list_web_url('pr', scope))
+    assert.equals('https://codeberg.org/owner/repo/issues', fj:list_web_url('issue', scope))
+    assert.equals('https://codeberg.org/owner/repo/actions', fj:list_web_url('ci', scope))
+    assert.equals('https://codeberg.org/owner/repo/releases', fj:list_web_url('release', scope))
   end)
 
   it('returns nil from list_web_url when base url is empty', function()
-    assert.is_nil(cb:list_web_url('pr', { web_url = '' }))
+    assert.is_nil(fj:list_web_url('pr', { web_url = '' }))
   end)
 
   it('returns nil from list_web_url for unknown kinds', function()
     local scope = { web_url = 'https://codeberg.org/owner/repo' }
-    assert.is_nil(cb:list_web_url('bogus', scope))
+    assert.is_nil(fj:list_web_url('bogus', scope))
   end)
 
   it('builds a run web url and browse_run target', function()
@@ -1326,22 +1326,22 @@ describe('codeberg', function()
       return {}, nil
     end
 
-    assert.equals('https://codeberg.org/owner/repo/actions/runs/123', cb:run_web_url('123', scope))
-    cb:browse_run('123', scope)
+    assert.equals('https://codeberg.org/owner/repo/actions/runs/123', fj:run_web_url('123', scope))
+    fj:browse_run('123', scope)
 
     vim.ui.open = old_open
     assert.equals('https://codeberg.org/owner/repo/actions/runs/123', opened)
   end)
 end)
 
-describe('codeberg browse_subject', function()
+describe('forgejo browse_subject', function()
   local captured
   local old_preload
   local old_system
   local old_ui_open
-  local cb
+  local fj
 
-  local function codeberg_scope()
+  local function forgejo_scope()
     return { repo_arg = 'forgejo/forgejo' }
   end
 
@@ -1372,8 +1372,8 @@ describe('codeberg browse_subject', function()
     end
 
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.backends.codeberg'] = nil
-    cb = require('forge.backends.codeberg')
+    package.loaded['forge.backends.forgejo'] = nil
+    fj = require('forge.backends.forgejo')
   end)
 
   after_each(function()
@@ -1381,7 +1381,7 @@ describe('codeberg browse_subject', function()
     vim.ui.open = old_ui_open
     package.preload['forge.logger'] = old_preload['forge.logger']
     package.loaded['forge.logger'] = nil
-    package.loaded['forge.backends.codeberg'] = nil
+    package.loaded['forge.backends.forgejo'] = nil
   end)
 
   it('opens the html_url returned by tea api for an issue', function()
@@ -1399,7 +1399,7 @@ describe('codeberg browse_subject', function()
       }
     end
 
-    cb:browse_subject('42', codeberg_scope())
+    fj:browse_subject('42', forgejo_scope())
 
     helpers.wait_for(function()
       return captured.url ~= nil
@@ -1427,7 +1427,7 @@ describe('codeberg browse_subject', function()
       }
     end
 
-    cb:browse_subject('12272', codeberg_scope())
+    fj:browse_subject('12272', forgejo_scope())
 
     helpers.wait_for(function()
       return captured.url ~= nil
@@ -1451,7 +1451,7 @@ describe('codeberg browse_subject', function()
       }
     end
 
-    cb:browse_subject('999', codeberg_scope())
+    fj:browse_subject('999', forgejo_scope())
 
     helpers.wait_for(function()
       return captured.warn ~= nil
@@ -1476,7 +1476,7 @@ describe('codeberg browse_subject', function()
       }
     end
 
-    cb:browse_subject('42', codeberg_scope())
+    fj:browse_subject('42', forgejo_scope())
 
     helpers.wait_for(function()
       return captured.error ~= nil
@@ -1501,7 +1501,7 @@ describe('codeberg browse_subject', function()
       }
     end
 
-    cb:browse_subject('42', codeberg_scope())
+    fj:browse_subject('42', forgejo_scope())
 
     helpers.wait_for(function()
       return captured.error ~= nil

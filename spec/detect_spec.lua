@@ -18,6 +18,7 @@ describe('detect', function()
     vim.fn.executable = old_executable
     vim.fn.system = old_fn_system
     vim.system = old_system
+    vim.g.forge = nil
     detect.clear_cache()
   end)
 
@@ -81,5 +82,71 @@ describe('detect', function()
 
     assert.equals('github', forge and forge.name)
     assert.equals('github', detect.forge_name())
+  end)
+
+  it('detects Forgejo-family hosts from built-in source aliases', function()
+    vim.fn.executable = function(bin)
+      if bin == 'tea' then
+        return 1
+      end
+      return old_executable(bin)
+    end
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'git@codeberg.org:owner/current.git\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+    })
+
+    assert.equals('forgejo', detect.detect().name)
+
+    detect.clear_cache()
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'https://gitea.example.com/owner/current.git\n'
+      end
+      return ''
+    end
+
+    assert.equals('forgejo', detect.detect().name)
+  end)
+
+  it('merges custom Forgejo source hosts with built-ins', function()
+    vim.g.forge = {
+      sources = {
+        forgejo = {
+          hosts = { 'git.example.com' },
+        },
+      },
+    }
+    vim.fn.executable = function(bin)
+      if bin == 'tea' then
+        return 1
+      end
+      return old_executable(bin)
+    end
+    vim.fn.system = function(cmd)
+      if cmd == 'git rev-parse --show-toplevel' then
+        return '/repo\n'
+      end
+      if cmd == 'git remote get-url origin' then
+        return 'ssh://git@git.example.com/owner/current.git\n'
+      end
+      return ''
+    end
+    vim.system = helpers.system_router({
+      default = helpers.command_result('', 1),
+    })
+
+    assert.equals('forgejo', detect.detect().name)
   end)
 end)

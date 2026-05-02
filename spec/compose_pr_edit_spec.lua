@@ -491,7 +491,7 @@ describe('compose pr edit', function()
             },
           },
         },
-        name = 'codeberg',
+        name = 'forgejo',
       },
       '23',
       {

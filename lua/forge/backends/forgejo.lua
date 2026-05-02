@@ -14,13 +14,13 @@ local function nonempty(value)
   return trimmed ~= '' and trimmed or nil
 end
 
----@class forge.Codeberg: forge.Forge
+---@class forge.Forgejo: forge.Forge
 local M = {
-  name = 'codeberg',
+  name = 'forgejo',
   cli = 'tea',
   kinds = { issue = 'issues', pr = 'pulls' },
   labels = {
-    forge_name = 'Codeberg',
+    forge_name = 'Forgejo',
     issue = 'Issues',
     pr = 'PRs',
     pr_one = 'PR',
@@ -590,7 +590,7 @@ function M:parse_pr_head(json, base_scope)
   local scope = nil
   if full_name then
     local host = type(base_scope) == 'table' and base_scope.host or 'codeberg.org'
-    scope = scope_mod.from_url('codeberg', ('https://%s/%s'):format(host, full_name))
+    scope = scope_mod.from_url('forgejo', ('https://%s/%s'):format(host, full_name))
   end
   return {
     branch = branch,

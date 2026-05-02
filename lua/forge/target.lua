@@ -4,7 +4,7 @@ local url_mod = require('forge.url')
 local default_hosts = {
   github = 'github.com',
   gitlab = 'gitlab.com',
-  codeberg = 'codeberg.org',
+  forgejo = 'codeberg.org',
 }
 
 ---@param text any

@@ -20,9 +20,9 @@ describe('submission integration', function()
         web_url = 'https://gitlab.com/group/repo',
       }
     end
-    if name == 'codeberg' then
+    if name == 'forgejo' then
       return {
-        kind = 'codeberg',
+        kind = 'forgejo',
         host = 'codeberg.org',
         slug = 'forgejo/tea-test',
         repo_arg = 'forgejo/tea-test',
@@ -79,15 +79,15 @@ describe('submission integration', function()
       fn()
     end
 
-    vim.system = function(cmd, _, cb)
+    vim.system = function(cmd, _, fj)
       table.insert(captured.calls, cmd)
       local result = {
         code = 0,
         stdout = '',
         stderr = '',
       }
-      if cb then
-        cb(result)
+      if fj then
+        fj(result)
       end
       return {
         wait = function()
@@ -156,7 +156,7 @@ describe('submission integration', function()
       }
     end
 
-    package.loaded['forge.backends.codeberg'] = nil
+    package.loaded['forge.backends.forgejo'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.backends.gitlab'] = nil
@@ -183,7 +183,7 @@ describe('submission integration', function()
     package.preload['forge.state'] = old_preload['forge.state']
     package.preload['forge.compose.template'] = old_preload['forge.compose.template']
 
-    package.loaded['forge.backends.codeberg'] = nil
+    package.loaded['forge.backends.forgejo'] = nil
     package.loaded['forge.compose'] = nil
     package.loaded['forge.backends.github'] = nil
     package.loaded['forge.backends.gitlab'] = nil
@@ -297,11 +297,11 @@ describe('submission integration', function()
     assert.same({ 'glab', 'mr', 'update', '23', '--draft', '-R', 'group/repo' }, draft_cmd)
   end)
 
-  it('submits Codeberg PR updates through compose using only supported metadata fields', function()
+  it('submits Forgejo PR updates through compose using only supported metadata fields', function()
     local compose = require('forge.compose')
-    local cb = require('forge.backends.codeberg')
+    local fj = require('forge.backends.forgejo')
 
-    compose.open_pr_edit(cb, '23', {
+    compose.open_pr_edit(fj, '23', {
       title = 'PR title',
       body = 'PR body',
       draft = true,
@@ -351,11 +351,11 @@ describe('submission integration', function()
     assert.falsy(vim.tbl_contains(cmd, '--add-assignees'))
   end)
 
-  it('applies Codeberg PR reviewers after create when tea create cannot set them', function()
+  it('applies Forgejo PR reviewers after create when tea create cannot set them', function()
     local compose = require('forge.compose')
-    local cb = require('forge.backends.codeberg')
+    local fj = require('forge.backends.forgejo')
     local ref = {
-      kind = 'codeberg',
+      kind = 'forgejo',
       host = 'codeberg.org',
       slug = 'forgejo/tea-test',
       repo_arg = 'forgejo/tea-test',
@@ -387,7 +387,7 @@ describe('submission integration', function()
     end
 
     compose.open_pr(
-      cb,
+      fj,
       'topic',
       'main',
       false,
@@ -439,7 +439,7 @@ describe('submission integration', function()
       'v1',
     }, captured.calls[2])
     assert.same({
-      forge = cb,
+      forge = fj,
       scope = ref,
       head_branch = 'topic',
       head_scope = ref,

@@ -11,12 +11,6 @@ local forge_cache = {}
 ---@type table<string, string>
 local root_cache = {}
 
-local builtin_hosts = {
-  github = { 'github' },
-  gitlab = { 'gitlab' },
-  codeberg = { 'codeberg', 'gitea', 'forgejo' },
-}
-
 ---@param cmd string
 ---@return string?
 local function fn_system_text(cmd)
@@ -98,14 +92,6 @@ local function detect_from_remote(remote)
   for name, opts in pairs(cfg) do
     for _, host in ipairs(opts.hosts or {}) do
       if remote:find(host, 1, true) then
-        return name
-      end
-    end
-  end
-
-  for name, patterns in pairs(builtin_hosts) do
-    for _, pattern in ipairs(patterns) do
-      if remote:find(pattern, 1, true) then
         return name
       end
     end

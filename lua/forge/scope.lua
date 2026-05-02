@@ -10,7 +10,7 @@ local SUBJECT_PATHS = {
     pr = '/-/merge_requests/',
     issue = '/-/issues/',
   },
-  codeberg = {
+  forgejo = {
     pr = '/pulls/',
     issue = '/issues/',
   },
@@ -19,7 +19,7 @@ local SUBJECT_PATHS = {
 local BRANCH_PATHS = {
   github = '/tree/',
   gitlab = '/-/tree/',
-  codeberg = '/src/branch/',
+  forgejo = '/src/branch/',
 }
 
 ---@param url string
@@ -75,7 +75,7 @@ end
 
 ---@param url string
 ---@return forge.Scope?
-local function codeberg_scope(url)
+local function forgejo_scope(url)
   local host, path = url_mod.split(url)
   if not host or not path then
     return nil
@@ -86,7 +86,7 @@ local function codeberg_scope(url)
   end
   local slug = owner .. '/' .. repo
   return {
-    kind = 'codeberg',
+    kind = 'forgejo',
     host = host,
     owner = owner,
     repo = repo,
@@ -106,8 +106,8 @@ function M.from_url(kind, url)
   if kind == 'gitlab' then
     return gitlab_scope(url)
   end
-  if kind == 'codeberg' then
-    return codeberg_scope(url)
+  if kind == 'forgejo' then
+    return forgejo_scope(url)
   end
   return nil
 end

@@ -2,7 +2,7 @@
 
 **Forge-agnostic git workflow for Neovim**
 
-PR, issue, and CI workflows across GitHub, GitLab, and Codeberg/Gitea/Forgejo —
+PR, issue, and CI workflows across GitHub, GitLab, and Forgejo/Gitea/Codeberg —
 without leaving your editor.
 
 ## Features

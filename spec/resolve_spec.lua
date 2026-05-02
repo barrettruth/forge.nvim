@@ -15,7 +15,7 @@ local loaded_modules = {
   'forge.target',
   'forge.backends.github',
   'forge.backends.gitlab',
-  'forge.backends.codeberg',
+  'forge.backends.forgejo',
 }
 
 local function github_scope(repo)
@@ -26,8 +26,8 @@ local function gitlab_scope(slug)
   return assert(require('forge.scope').from_url('gitlab', 'https://gitlab.com/' .. slug))
 end
 
-local function codeberg_scope(repo)
-  return assert(require('forge.scope').from_url('codeberg', 'https://codeberg.org/owner/' .. repo))
+local function forgejo_scope(repo)
+  return assert(require('forge.scope').from_url('forgejo', 'https://codeberg.org/owner/' .. repo))
 end
 
 describe('current_pr resolver', function()
@@ -47,7 +47,7 @@ describe('current_pr resolver', function()
     })
   end
 
-  local github, gitlab, codeberg
+  local github, gitlab, forgejo
 
   before_each(function()
     captured = {
@@ -77,7 +77,7 @@ describe('current_pr resolver', function()
 
     github = fake_backend('github')
     gitlab = fake_backend('gitlab')
-    codeberg = fake_backend('codeberg')
+    forgejo = fake_backend('forgejo')
   end)
 
   after_each(function()
@@ -444,7 +444,7 @@ describe('current_pr resolver', function()
     }, pr)
   end)
 
-  it('matches Codeberg pull requests by head repo and branch', function()
+  it('matches Forgejo pull requests by head repo and branch', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(
         'git@codeberg.org:owner/upstream.git\n'
@@ -463,7 +463,7 @@ describe('current_pr resolver', function()
     })
 
     local pr, err = require('forge.resolve').current_pr({
-      forge = codeberg,
+      forge = forgejo,
       repo = 'upstream',
       head = 'fork@topic',
     })
@@ -471,12 +471,12 @@ describe('current_pr resolver', function()
     assert.is_nil(err)
     assert.same({
       num = '13',
-      scope = codeberg_scope('upstream'),
+      scope = forgejo_scope('upstream'),
     }, pr)
   end)
 
   it(
-    'treats Codeberg merged PRs as merged even though branch lookup uses closed candidates',
+    'treats Forgejo merged PRs as merged even though branch lookup uses closed candidates',
     function()
       use_system_responses({
         ['git remote get-url upstream'] = helpers.command_result(
@@ -498,7 +498,7 @@ describe('current_pr resolver', function()
       })
 
       local pr, err = require('forge.resolve').branch_pr({
-        forge = codeberg,
+        forge = forgejo,
         repo = 'upstream',
         head = 'fork@topic',
       }, {
@@ -508,12 +508,12 @@ describe('current_pr resolver', function()
       assert.is_nil(err)
       assert.same({
         num = '13',
-        scope = codeberg_scope('upstream'),
+        scope = forgejo_scope('upstream'),
       }, pr)
     end
   )
 
-  it('excludes merged Codeberg PRs from closed-only branch_pr policies', function()
+  it('excludes merged Forgejo PRs from closed-only branch_pr policies', function()
     use_system_responses({
       ['git remote get-url upstream'] = helpers.command_result(
         'git@codeberg.org:owner/upstream.git\n'
@@ -534,7 +534,7 @@ describe('current_pr resolver', function()
     })
 
     local pr, err = require('forge.resolve').branch_pr({
-      forge = codeberg,
+      forge = forgejo,
       repo = 'upstream',
       head = 'fork@topic',
     }, {

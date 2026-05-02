@@ -130,7 +130,6 @@ describe('forge.pr explicit PR targeting', function()
             sources = {
               github = { hosts = { 'github.com' } },
               gitlab = { hosts = { 'gitlab.com' } },
-              codeberg = { hosts = { 'codeberg.org', 'gitea.com', 'forgejo.org' } },
             },
           }
         end,

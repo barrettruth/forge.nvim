@@ -32,7 +32,7 @@ CONTENTS                                                 *forge.nvim-contents*
 INTRODUCTION                                              *forge* *forge.nvim*
 
 forge.nvim provides PR, issue, CI, and release workflows across GitHub,
-GitLab, and Codeberg from inside Neovim. It detects the forge from your git
+GitLab, and Forgejo from inside Neovim. It detects the forge from your git
 remote and delegates to the appropriate CLI (`gh`, `glab`, or `tea`).
 
 Requirements: ~
@@ -41,7 +41,7 @@ Requirements: ~
 - At least one forge CLI:
   - `gh` for GitHub
   - `glab` for GitLab
-  - `tea` for Codeberg/Gitea/Forgejo
+  - `tea` for Forgejo/Gitea/Codeberg
 - Optional: `fzf-lua` >= 0.40.0 for interactive built-in routes
   (`require('forge').open()`) and the picker API
   (`require('forge.picker').pick()`)
@@ -128,14 +128,25 @@ Top-level keys: ~
 <
 
 `sources`                                               *forge-config-sources*
-  `table<string, { hosts: string[] }>`  (default `{}`)
+  `table<string, { hosts: string[] }>`  (default shown below)
     Per-source host overrides for forge detection. Keys are source names
-    (e.g. `"github"`, `"gitlab"`, or a custom name). Each value has a
-    `hosts` list of hostname substrings matched against the git remote. >lua
+    (e.g. `"github"`, `"gitlab"`, `"forgejo"`, or a custom name). Each value
+    has a `hosts` list of hostname substrings matched against the git remote.
+    User hosts for a built-in source are appended to the built-in host list. >lua
+      sources = {
+        github = { hosts = { 'github.com', 'github' } },
+        gitlab = { hosts = { 'gitlab.com', 'gitlab' } },
+        forgejo = {
+          hosts = { 'codeberg.org', 'gitea.com', 'forgejo', 'gitea', 'codeberg' },
+        },
+      }
+<
+
+    Example: >lua
       vim.g.forge = {
         sources = {
           gitlab = { hosts = { 'git.internal.co' } },
-          myforgejo = { hosts = { 'forgejo.example.com' } },
+          forgejo = { hosts = { 'git.example.com' } },
         },
       }
 <
@@ -711,7 +722,7 @@ BROWSE COMMANDS                                        *forge-browse-commands*
                        branch. In non-file buffers, this falls back to the
                        current repo root.
     `{num}`            Open issue or PR `{num}` in the browser, dispatched
-                       automatically. On GitHub and Codeberg, issue and PR
+                       automatically. On GitHub and Forgejo, issue and PR
                        numbers share a single space, so the dispatch is
                        always unambiguous. On GitLab, issue and merge
                        request iids are independent; if both `#{num}` and
@@ -764,7 +775,7 @@ FORGE PICKER ~ Root workflow picker for the detected forge and current
 context.
 
                                                              *forge-picker-pr*
-PR PICKER ~ Lists PRs on GitHub/Codeberg and Merge Requests on GitLab.
+PR PICKER ~ Lists PRs on GitHub/Forgejo and Merge Requests on GitLab.
 
   Action      Default Key    Description ~
   `review`      `<cr>`           Review through the configured adapter
@@ -795,7 +806,7 @@ PR/MR checks. Both use the `ci` key group, but only the run-history picker
 exposes `toggle`; nested PR/MR checks do not.
 
 `<cr>` opens the primary inspect action. GitHub uses normal-mode terminals for
-run view/watch and opens per-job logs from job lines. GitLab and Codeberg
+run view/watch and opens per-job logs from job lines. GitLab and Forgejo
 live-tail in-progress jobs and render completed jobs in buffers.
 Forge-managed log and summary buffers auto-refresh at `ci.refresh`.
 
@@ -830,7 +841,7 @@ The interactive workflow surface is separate from the action-oriented `:Forge`
 command interface. Open it with `require('forge').open()`.
 
 The root picker shows section routes. Labels are forge-native: GitHub and
-Codeberg show `PRs` and `CI/CD`, while GitLab shows `Merge Requests` and
+Forgejo show `PRs` and `CI/CD`, while GitLab shows `Merge Requests` and
 `Pipelines`. By default: ~
 
   Label                        Route                Opens ~
@@ -967,7 +978,7 @@ Template discovery: ~
           `.github/PULL_REQUEST_TEMPLATE.md`,
           `.github/PULL_REQUEST_TEMPLATE/`
   GitLab: `.gitlab/merge_request_templates/`
-  Codeberg: `.gitea/pull_request_template.md`,
+  Forgejo: `.gitea/pull_request_template.md`,
             `.github/pull_request_template.md`,
             `.github/PULL_REQUEST_TEMPLATE.md`
 
@@ -975,7 +986,7 @@ Template discovery: ~
   GitHub: `.github/ISSUE_TEMPLATE.md`,
           `.github/ISSUE_TEMPLATE/`
   GitLab: `.gitlab/issue_templates/`
-  Codeberg: `.gitea/issue_template.md`,
+  Forgejo: `.gitea/issue_template.md`,
             `.gitea/ISSUE_TEMPLATE/`,
             `.github/ISSUE_TEMPLATE.md`,
             `.github/ISSUE_TEMPLATE/`
@@ -1037,19 +1048,20 @@ SOURCES                                                        *forge-sources*
 Built-in sources: ~
 
   Name          CLI       Hosts matched ~
-  `github`      `gh`      `github`
-  `gitlab`      `glab`    `gitlab`
-  `codeberg`    `tea`     `codeberg`, `gitea`, `forgejo`
+  `github`      `gh`      `github.com`, `github`
+  `gitlab`      `glab`    `gitlab.com`, `gitlab`
+  `forgejo`     `tea`     `codeberg.org`, `gitea.com`, `forgejo`, `gitea`,
+                           `codeberg`
 
-Sources are lazy-loaded on first matching remote. User-configured `sources`
-host patterns take priority over built-ins.
+Sources are lazy-loaded on first matching remote. User-configured host
+patterns for built-in sources are merged with these defaults.
 
 COMPATIBILITY ~
                                                          *forge-compatibility*
 Not every verb is available on every forge. The table below tracks the current
 differences:
 
-  Feature                    GitHub    GitLab    Codeberg ~
+  Feature                    GitHub    GitLab    Forgejo ~
   PR list/filter               yes       yes       yes
   PR create                    yes       yes       yes
   PR create (draft)            yes       yes       no (7)
@@ -1079,7 +1091,7 @@ differences:
   (1) `tea pr edit` only exposes `--add-assignees`; removing or clearing PR
       assignees is tracked by `gitea/tea#965`.
 
-  (2) Codeberg per-PR checks show external commit statuses. Browse opens the
+  (2) Forgejo per-PR checks show external commit statuses. Browse opens the
       provider page; log viewing requires forge-native CI.
 
   (3) GitLab releases currently expose `released_at` / `upcoming_release`,
@@ -1090,7 +1102,7 @@ differences:
   (4) GitLab rerun retries failed and cancelled jobs only. Cancel uses
       `glab ci cancel pipeline`.
 
-  (5) Codeberg cancel and rerun need Gitea >= 1.22 or Forgejo >= 10 on
+  (5) Forgejo cancel and rerun need Gitea >= 1.22 or Forgejo >= 10 on
       self-hosted instances.
 
   (6) `gh run watch` only supports live watch at the run level. When opening
@@ -1098,14 +1110,14 @@ differences:
       Tracked by `cli/cli#3484`.
 
   (7) Forgejo still treats draft pull requests as WIP title prefixes rather
-      than a toggleable draft/ready state. This leaks into downstream Codeberg
+      than a toggleable draft/ready state. This leaks into downstream Forgejo
       tooling. Tracked by `forgejo/forgejo#12206`, which tracks
       `go-gitea/gitea#30600`.
 
   (8) `tea issues edit` only exposes `--add-assignees`; removing or clearing
       issue assignees is tracked by `gitea/tea#966`.
 
-  (9) Codeberg per-check log viewing depends on Gitea Actions log APIs,
+  (9) Forgejo per-check log viewing depends on Gitea Actions log APIs,
       tracked by `go-gitea/gitea#35382`.
 
 Features marked `no` reflect CLI or API limits. Custom sources express coarse
@@ -1118,6 +1130,7 @@ To route a self-hosted instance to a built-in source: >lua
     vim.g.forge = {
       sources = {
         gitlab = { hosts = { 'gitlab.corp.com' } },
+        forgejo = { hosts = { 'git.example.com' } },
       },
     }
 <
@@ -1128,7 +1141,7 @@ Register a custom source with `require('forge').register()`: >lua
     local my_source = { ... }
     require('forge').register('myforgejo', my_source)
 < The name must match the key used in `sources` host config. For self-hosted
-instances that behave like GitHub, GitLab, or Codeberg, prefer
+instances that behave like GitHub, GitLab, or Forgejo, prefer
 |forge-config-sources| host overrides.
 
 THE `forge.Forge` INTERFACE ~

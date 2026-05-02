@@ -143,7 +143,7 @@ describe('config validation', function()
     )
 
     assert.matches(
-      'forge%.sources%.github%.hosts%[1%]',
+      'forge%.sources%.github%.hosts%[%d+%]',
       config_error({
         sources = {
           github = {
@@ -152,6 +152,29 @@ describe('config validation', function()
         },
       })
     )
+  end)
+
+  it('ships built-in source host aliases and merges user hosts', function()
+    vim.g.forge = {
+      sources = {
+        forgejo = {
+          hosts = { 'git.example.com' },
+        },
+        sourcehut = {
+          hosts = { 'git.sr.ht' },
+        },
+      },
+    }
+
+    local cfg = config.config()
+
+    assert.same(
+      { 'codeberg.org', 'gitea.com', 'forgejo', 'gitea', 'codeberg', 'git.example.com' },
+      cfg.sources.forgejo.hosts
+    )
+    assert.same({ 'git.sr.ht' }, cfg.sources.sourcehut.hosts)
+    assert.truthy(vim.tbl_contains(cfg.sources.github.hosts, 'github'))
+    assert.truthy(vim.tbl_contains(cfg.sources.gitlab.hosts, 'gitlab'))
   end)
 
   it('rejects invalid target aliases and default repos', function()

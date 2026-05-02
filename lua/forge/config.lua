@@ -103,7 +103,17 @@ local DEFAULTS = {
   targets = {
     aliases = {},
   },
-  sources = {},
+  sources = {
+    github = {
+      hosts = { 'github.com', 'github' },
+    },
+    gitlab = {
+      hosts = { 'gitlab.com', 'gitlab' },
+    },
+    forgejo = {
+      hosts = { 'codeberg.org', 'gitea.com', 'forgejo', 'gitea', 'codeberg' },
+    },
+  },
   contexts = {
     current = true,
   },
@@ -289,6 +299,44 @@ local function valid_key_notation(v)
   end
 end
 
+---@param defaults string[]
+---@param configured string[]?
+---@return string[]
+local function merge_hosts(defaults, configured)
+  local merged = {}
+  local seen = {}
+  for _, list in ipairs({ defaults, configured or {} }) do
+    for _, host in ipairs(list) do
+      if not seen[host] then
+        seen[host] = true
+        merged[#merged + 1] = host
+      end
+    end
+  end
+  return merged
+end
+
+---@param configured table<string, forge.SourceConfig>?
+---@return table<string, forge.SourceConfig>
+local function merge_sources(configured)
+  local sources = vim.deepcopy(DEFAULTS.sources)
+  if type(configured) ~= 'table' then
+    return sources
+  end
+  for name, source in pairs(configured) do
+    if type(source) == 'table' then
+      local default = DEFAULTS.sources[name]
+      sources[name] = vim.tbl_deep_extend('force', sources[name] or {}, source)
+      if type(default) == 'table' and vim.islist(default.hosts) and vim.islist(source.hosts) then
+        sources[name].hosts = merge_hosts(default.hosts, source.hosts)
+      end
+    else
+      sources[name] = source
+    end
+  end
+  return sources
+end
+
 function M.setup_highlights()
   for group, val in pairs(hl_defaults) do
     if type(val) == 'string' then
@@ -305,7 +353,11 @@ end
 function M.config()
   local user = vim.g.forge or {}
   vim.validate('vim.g.forge', user, 'table')
+  if user.sources ~= nil then
+    vim.validate('forge.sources', user.sources, 'table')
+  end
   local cfg = vim.tbl_deep_extend('force', DEFAULTS, user)
+  cfg.sources = merge_sources(user.sources)
   if user.keys == false then
     cfg.keys = false
   end

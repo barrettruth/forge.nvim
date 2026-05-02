@@ -1,6 +1,6 @@
 ---@meta
 
----@alias forge.ScopeKind 'github'|'gitlab'|'codeberg'
+---@alias forge.ScopeKind 'github'|'gitlab'|'forgejo'
 
 ---@alias forge.WebKind 'pr'|'issue'|'ci'|'release'
 ---@alias forge.SubjectKind 'pr'|'issue'
