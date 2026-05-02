@@ -18,7 +18,7 @@ local repo_root = vim.fn.getcwd()
 
 describe('discover_templates', function()
   it('finds yaml templates and skips config.yaml', function()
-    local result, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local result, templates = discover({ 'spec/fixtures/github_issue_template/' }, repo_root)
     assert.is_nil(result)
     assert.is_table(templates)
     assert.equals(2, #templates)
@@ -28,13 +28,13 @@ describe('discover_templates', function()
   end)
 
   it('returns sorted entries with display names from yaml', function()
-    local _, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local _, templates = discover({ 'spec/fixtures/github_issue_template/' }, repo_root)
     assert.equals('Bug Report', templates[1].display)
     assert.equals('Feature Request', templates[2].display)
   end)
 
   it('marks yaml entries correctly', function()
-    local _, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local _, templates = discover({ 'spec/fixtures/github_issue_template/' }, repo_root)
     for _, t in ipairs(templates) do
       assert.is_true(t.is_yaml)
     end
@@ -57,7 +57,7 @@ end)
 
 describe('load_template', function()
   it('loads a yaml template into TemplateResult', function()
-    local _, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local _, templates = discover({ 'spec/fixtures/github_issue_template/' }, repo_root)
     local bug = templates[1]
     local result = load_template(bug)
     assert.is_table(result)
@@ -67,7 +67,7 @@ describe('load_template', function()
   end)
 
   it('loads a feature request template', function()
-    local _, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local _, templates = discover({ 'spec/fixtures/github_issue_template/' }, repo_root)
     local feat = templates[2]
     local result = load_template(feat)
     assert.equals('feat: ', result.title)
@@ -80,7 +80,8 @@ describe('load_template', function()
       error('missing parser')
     end
 
-    local result, templates, err = discover({ '.github/ISSUE_TEMPLATE/bug_report.yaml' }, repo_root)
+    local result, templates, err =
+      discover({ 'spec/fixtures/github_issue_template/bug_report.yaml' }, repo_root)
 
     vim.treesitter.language.inspect = old_inspect
 
@@ -93,7 +94,7 @@ describe('load_template', function()
   end)
 
   it('returns an error when loading a yaml template without the parser', function()
-    local _, templates = discover({ '.github/ISSUE_TEMPLATE/' }, repo_root)
+    local _, templates = discover({ 'spec/fixtures/github_issue_template/' }, repo_root)
     local bug = templates[1]
     local old_inspect = vim.treesitter.language.inspect
     vim.treesitter.language.inspect = function()

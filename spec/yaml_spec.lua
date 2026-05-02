@@ -4,7 +4,7 @@ dofile(vim.fn.getcwd() .. '/spec/yaml_parser.lua')
 local yaml = require('forge.compose.yaml')
 
 local function read_template(name)
-  local path = vim.fn.getcwd() .. '/.github/ISSUE_TEMPLATE/' .. name
+  local path = vim.fn.getcwd() .. '/spec/fixtures/github_issue_template/' .. name
   local stat = vim.uv.fs_stat(path)
   local fd = vim.uv.fs_open(path, 'r', 438)
   local content = vim.uv.fs_read(fd, stat.size, 0)

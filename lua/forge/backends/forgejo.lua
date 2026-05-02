@@ -754,6 +754,8 @@ end
 ---@return string[]
 function M:issue_template_paths()
   return {
+    '.forgejo/issue_template.md',
+    '.forgejo/issue_template/',
     '.gitea/issue_template.md',
     '.gitea/ISSUE_TEMPLATE/',
     '.github/ISSUE_TEMPLATE.md',

@@ -1340,6 +1340,17 @@ describe('forgejo', function()
     )
   end)
 
+  it('prefers Forgejo issue template paths before compatibility fallbacks', function()
+    assert.same({
+      '.forgejo/issue_template.md',
+      '.forgejo/issue_template/',
+      '.gitea/issue_template.md',
+      '.gitea/ISSUE_TEMPLATE/',
+      '.github/ISSUE_TEMPLATE.md',
+      '.github/ISSUE_TEMPLATE/',
+    }, fj:issue_template_paths())
+  end)
+
   it('builds list_web_url for each kind', function()
     local scope = { web_url = 'https://codeberg.org/owner/repo' }
     assert.equals('https://codeberg.org/owner/repo/pulls', fj:list_web_url('pr', scope))

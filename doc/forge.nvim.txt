@@ -993,7 +993,9 @@ Template discovery: ~
   GitHub: `.github/ISSUE_TEMPLATE.md`,
           `.github/ISSUE_TEMPLATE/`
   GitLab: `.gitlab/issue_templates/`
-  Forgejo: `.gitea/issue_template.md`,
+  Forgejo: `.forgejo/issue_template.md`,
+            `.forgejo/issue_template/`,
+            `.gitea/issue_template.md`,
             `.gitea/ISSUE_TEMPLATE/`,
             `.github/ISSUE_TEMPLATE.md`,
             `.github/ISSUE_TEMPLATE/`
