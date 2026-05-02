@@ -41,7 +41,8 @@ describe('discover_templates', function()
   end)
 
   it('returns single file directly as result', function()
-    local result, templates = discover({ '.github/pull_request_template.md' }, repo_root)
+    local result, templates =
+      discover({ 'spec/fixtures/github_pull_request_template.md' }, repo_root)
     assert.is_table(result)
     assert.is_string(result.body)
     assert.truthy(result.body:match('Problem'))
