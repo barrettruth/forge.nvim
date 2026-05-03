@@ -25,7 +25,7 @@ without leaving your editor.
 - (Optionally) a code reviewing plugin:
   [`diffview.nvim`](https://github.com/sindrets/diffview.nvim),
   [`codediff.nvim`](https://github.com/esmuellert/codediff.nvim), or
-  [`diffs.nvim`](https://github.com/barrettruth/diffs.nvim)
+  [`diffs.nvim`](https://git.barrettruth.com/barrettruth/diffs.nvim)
 
 ## Installation
 

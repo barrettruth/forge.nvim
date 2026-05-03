@@ -128,7 +128,7 @@ Top-level keys: ~
         targets = {
           default_repo = 'upstream',
           aliases = {
-            work = 'github.com/barrettruth/forge.nvim',
+            work = 'git.barrettruth.com/barrettruth/forge.nvim',
           },
         },
       }
