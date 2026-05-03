@@ -3,11 +3,12 @@
 CONTENTS                                                 *forge.nvim-contents*
 
   1. Introduction ............................................... |forge.nvim|
-  2. Configuration ............................................ |forge-config|
+  2. Installation ...................................... |forge-installation|
+  3. Configuration ............................................ |forge-config|
      Top-level Options ................................ |forge-config-context|
      Picker Keys ......................................... |forge-config-keys|
      Display Settings ................................. |forge-config-display|
-  3. Commands ....................................................... |:Forge|
+  4. Commands ....................................................... |:Forge|
      Command Model .......................................... |:Forge-no-args|
      Target Defaults and Overrides ................... |forge-target-defaults|
      Canonical Syntax and Compatibility ........ |forge-command-compatibility|
@@ -18,15 +19,15 @@ CONTENTS                                                 *forge.nvim-contents*
      Browse Commands ................................. |forge-browse-commands|
      Review Commands ................................. |forge-review-commands|
      Cache Commands ................................... |forge-cache-commands|
-  4. Pickers ................................................. |forge-pickers|
-  5. Workflow Surface ....................................... |forge-workflow|
-  6. Compose Buffer .......................................... |forge-compose|
+  5. Pickers ................................................. |forge-pickers|
+  6. Workflow Surface ....................................... |forge-workflow|
+  7. Compose Buffer .......................................... |forge-compose|
      Compose Integration ......................... |forge-compose-integration|
-  7. Highlights ........................................... |forge-highlights|
-  8. Sources ................................................. |forge-sources|
-  9. Extending ............................................ |forge-extending|
+  8. Highlights ........................................... |forge-highlights|
+  9. Sources ................................................. |forge-sources|
+  10. Extending ........................................... |forge-extending|
      Statusline Integration ......................... |forge-statusline|
-  10. API ........................................................ |forge-api|
+  11. API ....................................................... |forge-api|
 
 ==============================================================================
 INTRODUCTION                                              *forge* *forge.nvim*
@@ -47,6 +48,18 @@ Requirements: ~
   (`require('forge.picker').pick()`)
 
 Run |:checkhealth| forge to verify CLIs and dependencies.
+
+==============================================================================
+INSTALLATION                                           *forge-installation*
+
+With vim.pack (Neovim 0.12+): >lua
+    vim.pack.add({
+      'https://git.barrettruth.com/barrettruth/forge.nvim',
+    })
+<
+With luarocks: >sh
+    luarocks install forge.nvim
+<
 
 ==============================================================================
 CONFIGURATION                                                   *forge-config*

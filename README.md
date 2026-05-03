@@ -29,8 +29,15 @@ without leaving your editor.
 
 ## Installation
 
-Install with your package manager of choice or via
-[luarocks](https://luarocks.org/modules/barrettruth/forge.nvim):
+With `vim.pack` (Neovim 0.12+):
+
+```lua
+vim.pack.add({
+  'https://git.barrettruth.com/barrettruth/forge.nvim',
+})
+```
+
+Or via [luarocks](https://luarocks.org/modules/barrettruth/forge.nvim):
 
 ```
 luarocks install forge.nvim
@@ -39,11 +46,11 @@ luarocks install forge.nvim
 ## Releases
 
 Stable releases are cut from manual tags named `v0.x.y`. Pushing one of those
-tags creates a GitHub release and publishes the tagged version to LuaRocks.
+tags publishes the tagged version to LuaRocks.
 
 Nightly prereleases are automated snapshots from `main`. They are published as
-the rolling GitHub prerelease `nightly`, with the current short commit hash in
-the release title, and are kept off the stable LuaRocks channel.
+the rolling prerelease `nightly`, with the current short commit hash in the
+release title, and are kept off the stable LuaRocks channel.
 
 ## Documentation
 
