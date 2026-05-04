@@ -5,6 +5,10 @@
 PR, issue, and CI workflows across GitHub, GitLab, and Forgejo/Gitea/Codeberg —
 without leaving your editor.
 
+> [!NOTE]
+> Due to GitHub's historic unreliability, development, issues, and pull requests
+> have moved to [Forgejo](https://git.barrettruth.com/barrettruth/forge.nvim).
+
 ## Features
 
 - Work with PRs: list, create, review, open/close, draft, merge and more
