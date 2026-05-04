@@ -9,7 +9,7 @@ source = {
 description = {
   summary = 'Forge-agnostic git workflow for Neovim',
   homepage = 'https://git.barrettruth.com/barrettruth/forge.nvim',
-  license = 'MIT',
+  license = 'GPL-3.0',
 }
 
 dependencies = {

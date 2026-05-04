@@ -50,14 +50,13 @@ Requirements: ~
 Run |:checkhealth| forge to verify CLIs and dependencies.
 
 ==============================================================================
-INSTALLATION                                           *forge-installation*
+INSTALLATION                                              *forge-installation*
 
 With vim.pack (Neovim 0.12+): >lua
     vim.pack.add({
       'https://git.barrettruth.com/barrettruth/forge.nvim',
     })
-<
-With luarocks: >sh
+< With luarocks: >sh
     luarocks install forge.nvim
 <
 
@@ -429,7 +428,7 @@ CANONICAL SYNTAX AND COMPATIBILITY               *forge-command-compatibility*
     This includes list navigation, list-scoped filters/refresh, CI
     cancel/rerun toggles, and copy helpers.
 
-SURFACE TAXONOMY                                          *forge-surface-model*
+SURFACE TAXONOMY                                         *forge-surface-model*
 
 The user-facing surface is organized into three layers:
 
@@ -452,7 +451,7 @@ Today, `:Forge` commands, `require('forge').pr_ci()`, and
 
 PR COMMANDS                                                *forge-pr-commands*
 
-`:Forge pr` [repo=...] [head=...]                                   *:Forge-pr*
+`:Forge pr` [repo=...] [head=...]                                  *:Forge-pr*
 `:Forge pr` {num} [repo=...]
     Open a PR in the edit compose flow.
     (no `{num}`)       Resolve the current PR from the current branch and open
@@ -482,7 +481,7 @@ PR COMMANDS                                                *forge-pr-commands*
                        resolved `head=` / `base=` pair.
     `draft fill`       Create draft instantly.
 
-`:Forge pr ci` [repo=...] [head=...]                           *:Forge-pr-ci*
+`:Forge pr ci` [repo=...] [head=...]                            *:Forge-pr-ci*
 `:Forge pr ci` {num} [repo=...]
     Open PR checks in the buffer-native checks view.
     (no `{num}`)       Resolve the current branch's PR and open its checks.
@@ -496,7 +495,7 @@ PR COMMANDS                                                *forge-pr-commands*
     Use `<cr>` to inspect the highlighted check and `gx` to open its URL.
     Browse-only and unavailable rows are labeled directly in the buffer.
 
-`:Forge review` [repo=...] [head=...] [adapter=...]              *:Forge-review*
+`:Forge review` [repo=...] [head=...] [adapter=...]            *:Forge-review*
 `:Forge review` {num} [repo=...] [adapter=...]
     Open a PR through the configured review adapter. When `adapter=` is
     omitted, Forge uses `review.adapter` (default: `checkout`).
@@ -518,7 +517,7 @@ PR COMMANDS                                                *forge-pr-commands*
     `diffs`            Open the PR in `diffs.nvim` using explicit base/head
                        refs.
 
-IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
+IMPLICIT CURRENT-PR RESOLUTION ~                 *forge-current-pr-resolution*
     `:Forge pr`, `:Forge review`, and the omitted-subject
     `:Forge pr approve`, `merge`, `close`, `draft`, and `ready` forms resolve
     the current PR from the current branch head when `{num}` is omitted.
@@ -533,7 +532,7 @@ IMPLICIT CURRENT-PR RESOLUTION ~                   *forge-current-pr-resolution*
     - no matches: warn `no open PR found for this branch`
     - multiple matches: warn and ask for `repo=` or `head=`
 
-IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~             *forge-pr-ci-resolution*
+IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~           *forge-pr-ci-resolution*
     `:Forge pr ci` uses the same branch-context + `repo=` / `head=`
     disambiguation model, but with a broader state policy when `{num}` is
     omitted.
@@ -547,7 +546,7 @@ IMPLICIT BRANCH-RELATIVE PR CI RESOLUTION ~             *forge-pr-ci-resolution*
     - no matches in any pass: warn `no PR found for this branch`
     - multiple matches in a pass: warn and ask for `repo=` or `head=`
 
-IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
+IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~   *forge-pr-reopen-resolution*
     `:Forge pr reopen` uses the same branch-context + `repo=` / `head=`
     disambiguation model when `{num}` is omitted, but only searches closed PRs.
     Merged PRs remain non-reopenable.
@@ -560,7 +559,7 @@ IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     - no matches: warn `no reopenable PR found for this branch`
     - multiple matches: warn and ask for `repo=` or `head=`
 
-`:Forge pr close` [repo=...] [head=...]                   *:Forge-pr-close*
+`:Forge pr close` [repo=...] [head=...]                      *:Forge-pr-close*
 `:Forge pr close` {num} [repo=...]
     Close a PR.
     (no `{num}`)       Resolve the current PR from the current branch and close
@@ -571,10 +570,10 @@ IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     `head=`            Override the head used for implicit current-PR lookup.
                        Only used when `{num}` is omitted.
 
-`:Forge pr edit` {num} [repo=...]                           *:Forge-pr-edit*
+`:Forge pr edit` {num} [repo=...]                             *:Forge-pr-edit*
     Open the PR edit compose flow for PR `{num}`.
 
-`:Forge pr reopen` [repo=...] [head=...]                *:Forge-pr-reopen*
+`:Forge pr reopen` [repo=...] [head=...]                    *:Forge-pr-reopen*
 `:Forge pr reopen` {num} [repo=...]
     Reopen a PR.
     (no `{num}`)       Resolve the current branch's unique closed PR and reopen
@@ -585,7 +584,7 @@ IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     `head=`            Override the head used for implicit branch-relative
                        lookup. Only used when `{num}` is omitted.
 
-`:Forge pr approve` [repo=...] [head=...]                 *:Forge-pr-approve*
+`:Forge pr approve` [repo=...] [head=...]                  *:Forge-pr-approve*
 `:Forge pr approve` {num} [repo=...]
     Approve a PR.
     (no `{num}`)       Resolve the current PR from the current branch and
@@ -596,7 +595,7 @@ IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     `head=`            Override the head used for implicit current-PR lookup.
                        Only used when `{num}` is omitted.
 
-`:Forge pr merge` [repo=...] [head=...] [`method=`]         *:Forge-pr-merge*
+`:Forge pr merge` [repo=...] [head=...] [`method=`]          *:Forge-pr-merge*
 `:Forge pr merge` {num} [repo=...] [`method=`]
     Merge a PR. When `method=` is omitted, the forge CLI uses its default
     merge behavior.
@@ -611,7 +610,7 @@ IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     `method=squash`    Squash merge.
     `method=rebase`    Rebase merge.
 
-`:Forge pr draft` [repo=...] [head=...]                     *:Forge-pr-draft*
+`:Forge pr draft` [repo=...] [head=...]                      *:Forge-pr-draft*
 `:Forge pr draft` {num} [repo=...]
     Mark a PR as draft when the forge supports draft toggles.
     (no `{num}`)       Resolve the current PR from the current branch and mark
@@ -622,7 +621,7 @@ IMPLICIT BRANCH-RELATIVE PR REOPEN RESOLUTION ~     *forge-pr-reopen-resolution*
     `head=`            Override the head used for implicit current-PR lookup.
                        Only used when `{num}` is omitted.
 
-`:Forge pr ready` [repo=...] [head=...]                     *:Forge-pr-ready*
+`:Forge pr ready` [repo=...] [head=...]                      *:Forge-pr-ready*
 `:Forge pr ready` {num} [repo=...]
     Mark a PR as ready when supported by the forge.
     (no `{num}`)       Resolve the current PR from the current branch and mark
@@ -827,8 +826,8 @@ exposes `toggle`; nested PR/MR checks do not.
 
 `<cr>` opens the primary inspect action. GitHub uses normal-mode terminals for
 run view/watch and opens per-job logs from job lines. GitLab and Forgejo
-live-tail in-progress jobs and render completed jobs in buffers.
-Forge-managed log and summary buffers auto-refresh at `ci.refresh`.
+live-tail in-progress jobs and render completed jobs in buffers. Forge-managed
+log and summary buffers auto-refresh at `ci.refresh`.
 
   Action      Default Key    Description ~
   `open`        `<cr>`           Inspect highlighted run/check
@@ -872,10 +871,10 @@ Forgejo show `PRs` and `CI/CD`, while GitLab shows `Merge Requests` and
   `Releases`                   `releases.all`       Open release list and release actions
 
 Use |forge-config-sections| to hide root entries and |forge-config-routes| to
-remap them.
-On GitLab, both canonical and provider-native route arguments work here, such
-as `require('forge').open('prs')` or `require('forge').open('mrs')`; route
-config keys still remain `routes.prs` and `routes.ci`.
+remap them. On GitLab, both canonical and provider-native route arguments work
+here, such as `require('forge').open('prs')` or
+`require('forge').open('mrs')`; route config keys still remain `routes.prs`
+and `routes.ci`.
 
 This interactive surface requires `fzf-lua`. Direct `:Forge` commands and
 deterministic Lua helpers such as `require('forge').pr()`, `review()`,
@@ -883,9 +882,9 @@ deterministic Lua helpers such as `require('forge').pr()`, `review()`,
 
 The picker surface covers workflows that do not fit cleanly in a single
 command, such as list navigation, row-scoped actions, filters, refresh,
-load-more rows, nested per-PR/MR checks, and copy helpers.
-Repo-wide CI browsing stays here through `require('forge').open('ci.all')`,
-while bare `:Forge ci` and `require('forge').ci()` intentionally remain narrow
+load-more rows, nested per-PR/MR checks, and copy helpers. Repo-wide CI
+browsing stays here through `require('forge').open('ci.all')`, while bare
+`:Forge ci` and `require('forge').ci()` intentionally remain narrow
 current-branch history surfaces.
 
 ==============================================================================
@@ -898,11 +897,12 @@ buffer.
 
 Metadata lives inside the trailing `<!-- ... -->` block. Forge reads supported
 `Draft`, `Reviewers`, `Labels`, `Assignees`, and `Milestone` entries from that
-block on `:w`; unsupported fields are omitted from the scaffold for the current
-forge and operation.
+block on `:w`; unsupported fields are omitted from the scaffold for the
+current forge and operation.
 
 Creating a PR (without `fill` or `web`) opens a compose buffer at
-`forge://{host}/{slug}/pr/new` with filetype `forgecompose` and buftype `acwrite`.
+`forge://{host}/{slug}/pr/new` with filetype `forgecompose` and buftype
+`acwrite`.
 
 Layout: ~
   Line 1      PR title (pre-filled from single commit subject or branch)
@@ -924,11 +924,11 @@ the title or body is empty. If the initial body came from a template or the
 current commit range and is still unchanged, Forge aborts instead of
 submitting it verbatim. The PR URL is copied to the `+` register on success.
 
-Editing a PR opens a compose buffer at
-`forge://{host}/{slug}/pr/{num}/edit` with the same title/body + metadata
-layout as PR creation. When the PR head matches the current branch, Forge also
-includes a diff stat against `origin/{base}`. Writing (`:w`) updates the PR.
-Editing is aborted if the title or body is empty.
+Editing a PR opens a compose buffer at `forge://{host}/{slug}/pr/{num}/edit`
+with the same title/body + metadata layout as PR creation. When the PR head
+matches the current branch, Forge also includes a diff stat against
+`origin/{base}`. Writing (`:w`) updates the PR. Editing is aborted if the
+title or body is empty.
 
 Creating an issue (without `web`) opens a compose buffer at
 `forge://{host}/{slug}/issue/new` with filetype `forgecompose` and buftype
@@ -955,8 +955,8 @@ is copied to the `+` register on success.
 
 Editing an issue opens a compose buffer at
 `forge://{host}/{slug}/issue/{num}/edit` with the same title/body + metadata
-layout as issue creation. Writing (`:w`) updates the issue. Editing is
-aborted if the title is empty. Empty bodies are allowed.
+layout as issue creation. Writing (`:w`) updates the issue. Editing is aborted
+if the title is empty. Empty bodies are allowed.
 
 Integration: ~                                     *forge-compose-integration*
   Forge-owned buffers expose a small public buffer-local table for completion
@@ -1212,8 +1212,8 @@ entrypoint for built-in interactive routes and picker flows.
 `forge.picker.pick()` is the low-level UI primitive wired to `fzf-lua`.
 Helper-style APIs such as formatting, template lookup, repo scope helpers, PR
 state helpers, and review adapter names live on their owning submodules.
-`require('forge')` keeps compatibility shims for existing integrations.
-On GitLab, route arguments also accept provider-native aliases such as `mrs`,
+`require('forge')` keeps compatibility shims for existing integrations. On
+GitLab, route arguments also accept provider-native aliases such as `mrs`,
 `mrs.open`, `pipelines`, and `pipelines.current_branch`.
 
 CALLING FORGE FROM YOUR OWN PICKER             *forge-extending-custom-picker*
@@ -1226,7 +1226,7 @@ built-in forge route and its action set.
     forge.open(row.route)
 <
 
-CALLING THE TOP-LEVEL API                             *forge-extending-verbs*
+CALLING THE TOP-LEVEL API                              *forge-extending-verbs*
 
 For common direct workflows, call `require('forge')` directly. These helpers
 mirror the Ex surface and reuse the shared resolver layer. >lua
@@ -1247,19 +1247,19 @@ Internal layers such as `lua/forge/action/ops.lua` and `lua/forge/pickers.lua`
 power the built-in commands and pickers, but they are not the public
 integration surface.
 
-STATUSLINE INTEGRATION                                  *forge-statusline*
+STATUSLINE INTEGRATION                                      *forge-statusline*
 
 `require('forge').status()` returns cached current-branch data for the current
-working tree. It returns `nil` outside git repos, always includes `branch` when
-available, and sets `scope` and `pr` when Forge can resolve them.
+working tree. It returns `nil` outside git repos, always includes `branch`
+when available, and sets `scope` and `pr` when Forge can resolve them.
 
 `status.scope` is the branch head/push scope. `status.pr.scope` is the base
 repo scope for the matching PR, so fork-aware statuslines can distinguish the
 two.
 
-Refresh happens asynchronously. When the cached value changes, forge.nvim emits
-the `User` autocmd `ForgeStatusUpdate`. A minimal core Neovim integration
-looks like: >lua
+Refresh happens asynchronously. When the cached value changes, forge.nvim
+emits the `User` autocmd `ForgeStatusUpdate`. A minimal core Neovim
+integration looks like: >lua
     function _G.ForgeStatusline()
       local status = require('forge').status()
       if not status then
@@ -1351,10 +1351,10 @@ Advanced registration helpers such as `register_context_provider()`,
 `register_action()`, and `register_review_adapter()` live in
 `lua/forge/init.lua`.
 
-TOP-LEVEL API: `require('forge')` ~                     *forge-top-level-api*
+TOP-LEVEL API: `require('forge')` ~                      *forge-top-level-api*
 
-The canonical user-facing Lua surface lives in `lua/forge/init.lua`.
-Prefer these helpers for normal integrations:
+The canonical user-facing Lua surface lives in `lua/forge/init.lua`. Prefer
+these helpers for normal integrations:
 - `pr(opts?)`, `review(opts?)`, `edit_issue(num, scope?)`,
   `current_pr(opts?)`, `status()`, `create_pr(opts?)`,
   `create_issue(opts?)`, `pr_ci(opts?)`, and `ci(opts?)` for deterministic
@@ -1388,7 +1388,7 @@ owner directly:
   `format_log_line()`, `filter_runs()`, `filter_checks()`
 - `require('forge.review')`: `names()` and `register(name, adapter)`
 
-MIGRATION NOTES ~                                         *forge-migration*
+MIGRATION NOTES ~                                            *forge-migration*
 
 For the implicit-ref rollout:
 - `:Forge pr` and `:Forge review` are the canonical current-PR commands when
@@ -1412,10 +1412,10 @@ For the implicit-ref rollout:
 
 PUBLIC API: `require('forge.picker')` ~                     *forge-picker-api*
 
-The picker primitive and its contracts live in
-`lua/forge/picker/init.lua`. Use `pick(opts)` to render a custom picker with
-Forge's configured backend. `forge.PickerOpts`, `forge.PickerEntry`, and
-`forge.PickerActionDef` are defined there.
+The picker primitive and its contracts live in `lua/forge/picker/init.lua`.
+Use `pick(opts)` to render a custom picker with Forge's configured backend.
+`forge.PickerOpts`, `forge.PickerEntry`, and `forge.PickerActionDef` are
+defined there.
 
 For custom forge backends, see |forge-Forge-interface| and
 `lua/forge/backends/`.
