@@ -254,7 +254,6 @@ local function open_buffer(u, found, o)
     view.hl('Title', u.collection == 'prs' and 'PR' or 'ISSUE'),
     view.hl('Tag', 'new'),
     view.hl('Directory', ('%s/%s'):format(view.escape(u.owner), view.escape(u.repo))),
-    view.hl('Comment', 'ZZ create  ZQ discard'),
   }, ' ')
 
   vim.api.nvim_win_set_buf(0, buf)
