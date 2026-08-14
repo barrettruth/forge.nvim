@@ -11,7 +11,6 @@
 --- @field repo string?
 --- @field number integer? nil for a list
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
---- @field head boolean? the pull request for the branch checked out here
 --- @field draft boolean? a member that does not exist yet
 --- @field template string? the file a draft started from, named as github names it
 
@@ -192,10 +191,7 @@ function M.resolve(target, collection)
   end
 
   if target == '' then
-    if collection == 'prs' then
-      return { collection = 'prs', head = true }
-    end
-    return { collection = 'issues', state = 'OPEN' }
+    return { collection = collection, state = 'OPEN' }
   end
   if target:match('^#?%d+$') then
     return { collection = collection, number = tonumber(target:match('%d+')) }
