@@ -4,6 +4,8 @@ local uri = require('forge.uri')
 
 local M = {}
 
+local NS = vim.api.nvim_create_namespace('forge')
+
 local LIST_QUERY = [[
 query($owner: String!, $repo: String!, $states: [IssueState!], $after: String) {
   repository(owner: $owner, name: $repo) {
@@ -85,11 +87,18 @@ end
 ---
 --- The buffer is replaced in place rather than wiped and rebuilt, so a window
 --- handle held by a caller stays valid across a refresh.
+--- @class forge.Mark
+--- @field row integer zero-based
+--- @field col integer byte column, inclusive
+--- @field end_col integer byte column, exclusive
+--- @field group string
+
 --- @param u forge.Uri
 --- @param lines string[]
 --- @param winbar string
+--- @param marks forge.Mark[]?
 --- @return integer buf
-local function render(u, lines, winbar)
+local function render(u, lines, winbar, marks)
   local name = uri.tostring(u)
   local buf = vim.fn.bufnr(name)
   if buf == -1 then
@@ -99,6 +108,15 @@ local function render(u, lines, winbar)
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
+
+  vim.api.nvim_buf_clear_namespace(buf, NS, 0, -1)
+  for _, mark in ipairs(marks or {}) do
+    vim.api.nvim_buf_set_extmark(buf, NS, mark.row, mark.col, {
+      end_col = mark.end_col,
+      hl_group = mark.group,
+    })
+  end
+
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].bufhidden = 'hide'
   vim.bo[buf].swapfile = false
@@ -164,17 +182,24 @@ local function open_list(u, page, cursors)
         return
       end
 
-      local lines = {}
+      local lines, marks = {}, {}
       for _, issue in ipairs(issues.nodes or {}) do
         local comments = issue.comments and issue.comments.totalCount or 0
-        lines[#lines + 1] = ('#%-6d %s%s'):format(
-          issue.number,
-          issue.title,
-          comments > 0 and ('  (%d)'):format(comments) or ''
-        )
+        local tail = comments > 0 and ('  (%d)'):format(comments) or ''
+        local line = ('#%-6d %s%s'):format(issue.number, issue.title, tail)
+        local row = #lines
+
+        lines[row + 1] = line
+        marks[#marks + 1] =
+          { row = row, col = 0, end_col = 1 + #tostring(issue.number), group = 'Tag' }
+        if tail ~= '' then
+          marks[#marks + 1] =
+            { row = row, col = #line - #tail + 2, end_col = #line, group = 'Comment' }
+        end
       end
       if #lines == 0 then
         lines = { ('No %s issues.'):format(state) }
+        marks = { { row = 0, col = 0, end_col = #lines[1], group = 'Comment' } }
       end
 
       local info = issues.pageInfo or {}
@@ -188,7 +213,7 @@ local function open_list(u, page, cursors)
         hl('Comment', ('(%d)'):format(total)),
       }, ' ')
 
-      local buf = render(u, lines, winbar)
+      local buf = render(u, lines, winbar, marks)
       if info.hasNextPage and info.endCursor then
         cursors[page + 1] = info.endCursor
       end
