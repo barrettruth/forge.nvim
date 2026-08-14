@@ -47,6 +47,7 @@
           shell = pkgs.mkShell {
             packages = devTools;
             VIMRUNTIME = "${nvim}/share/nvim/runtime";
+            FORGE_YAML_PARSER = "${pkgs.vimPlugins.nvim-treesitter-parsers.yaml}";
           };
         in
         {
