@@ -41,6 +41,21 @@ local PR_LEGACY = {
   'docs/PULL_REQUEST_TEMPLATE.md',
 }
 
+--- What to call a template that did not name itself.
+---
+--- github requires `name:` on anything that appears in its own chooser, so
+--- this is for the ones that never carry it: a pull request template, whose
+--- filename is its identity, and any issue template missing the key. Derived
+--- rather than looked up, because the filenames are whatever someone typed.
+--- @param path string
+--- @return string
+local function label(path)
+  local base = vim.fs.basename(path):gsub('%.%w+$', ''):gsub('[_-]+', ' '):lower()
+  return (base:gsub('%S+', function(word)
+    return word:sub(1, 1):upper() .. word:sub(2)
+  end))
+end
+
 --- @param path string
 --- @return string[]?
 local function read(path)
@@ -131,7 +146,7 @@ local function markdown_template(path)
   end
   local keys, body = front_matter(lines)
   return {
-    name = keys.name or vim.fs.basename(path),
+    name = keys.name or label(path),
     path = path,
     title = keys.title,
     labels = names(keys.labels),
@@ -191,7 +206,7 @@ local function form_template(path)
   end
 
   return {
-    name = form.name or vim.fs.basename(path),
+    name = form.name or label(path),
     path = path,
     title = form.title,
     labels = names(form.labels),

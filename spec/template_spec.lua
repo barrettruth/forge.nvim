@@ -112,3 +112,23 @@ describe('a form', function()
     assert.same({ 'barrettruth' }, found.assignees)
   end)
 end)
+
+describe('what a template is called', function()
+  it('prefers the name it gave itself', function()
+    if not fixture() then
+      return
+    end
+    local names = {}
+    for _, found in ipairs(template.all('issues', FIXTURE)) do
+      names[#names + 1] = found.name
+    end
+    assert.same({ 'Feature request', 'Question', 'Bug report' }, names)
+  end)
+
+  it('makes one from the filename when there is none', function()
+    if not fixture() then
+      return
+    end
+    assert.equals('Pull Request Template', template.all('prs', FIXTURE)[1].name)
+  end)
+end)
