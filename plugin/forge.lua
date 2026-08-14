@@ -11,6 +11,18 @@ vim.keymap.set('n', '<Plug>(forge-up)', function()
   require('forge.issue').up()
 end, { desc = 'go up to the issue list' })
 
+vim.keymap.set('n', '<Plug>(forge-issue-next-page)', function()
+  require('forge.issue').page(1)
+end, { desc = 'the next page of issues' })
+
+vim.keymap.set('n', '<Plug>(forge-issue-prev-page)', function()
+  require('forge.issue').page(-1)
+end, { desc = 'the previous page of issues' })
+
+vim.keymap.set('n', '<Plug>(forge-issue-state)', function()
+  require('forge.issue').toggle_state()
+end, { desc = 'toggle open and closed issues' })
+
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args)
 end, { nargs = '?', desc = 'open a GitHub issue, or the issue list' })
