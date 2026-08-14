@@ -11,6 +11,13 @@ vim.keymap.set('n', '<Plug>(forge-up)', function()
   require('forge.issue').up()
 end, { desc = 'go up to the issue list' })
 
+vim.keymap.set(
+  'n',
+  '<Plug>(forge-help)',
+  '<cmd>help forge-mappings<cr>',
+  { desc = 'what the keys in this buffer do' }
+)
+
 vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.issue').web()
 end, { desc = 'open this view on github.com' })

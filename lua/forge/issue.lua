@@ -123,6 +123,7 @@ local function render(u, lines, winbar, marks)
   vim.bo[buf].filetype = u.kind == 'issue' and 'markdown' or 'forge'
 
   local map = require('forge.map')
+  map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the issue list')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
   if u.kind == 'issues' then

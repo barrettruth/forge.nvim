@@ -89,6 +89,9 @@ nothing already maps to the <Plug>; otherwise your mapping stands. They are
 attached by URI rather than by filetype, so nothing here reaches an ordinary
 markdown file.
 
+                                                          *<Plug>(forge-help)*
+g?                      This list, for the buffer you are in.
+
                                                     *<Plug>(forge-issue-open)*
 <CR>                    In an issue list, open the issue under the cursor.
 
