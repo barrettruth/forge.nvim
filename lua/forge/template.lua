@@ -1,3 +1,5 @@
+local vcs = require('forge.vcs')
+
 local M = {}
 
 --- @class forge.Field
@@ -210,11 +212,13 @@ end
 ---
 --- Read from the working copy rather than the API, because github's
 --- issueTemplates only reports markdown ones and cannot see a form at all.
+--- That means templates come from the checkout the request was made in, and a
+--- repository you are only browsing offers none.
 --- @param collection forge.Collection
---- @param root string?
+--- @param dir string? the directory the request is made from
 --- @return forge.Template[]
-function M.all(collection, root)
-  root = root or vim.fs.root(0, '.git')
+function M.all(collection, dir)
+  local root = vim.fs.root(dir or vcs.dir(), '.git')
   if not root then
     return {}
   end
