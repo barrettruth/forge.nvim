@@ -182,11 +182,18 @@ local function open_list(u, page, cursors)
         return
       end
 
+      local nodes = issues.nodes or {}
+      local width = 1
+      for _, issue in ipairs(nodes) do
+        width = math.max(width, #tostring(issue.number))
+      end
+      local format = ('#%%-%dd %%s%%s'):format(width)
+
       local lines, marks = {}, {}
-      for _, issue in ipairs(issues.nodes or {}) do
+      for _, issue in ipairs(nodes) do
         local comments = issue.comments and issue.comments.totalCount or 0
         local tail = comments > 0 and ('  (%d)'):format(comments) or ''
-        local line = ('#%-6d %s%s'):format(issue.number, issue.title, tail)
+        local line = format:format(issue.number, issue.title, tail)
         local row = #lines
 
         lines[row + 1] = line
