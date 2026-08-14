@@ -38,17 +38,11 @@ local function flag(value)
   return '-f'
 end
 
---- Send a GraphQL document through the gh CLI.
----
---- Owns the progress message for the request, so every path out of here ends it
---- and none can dangle. Variables are typed by their Lua type: numbers become
---- GraphQL Ints, anything else a String. Errors are reported, never raised.
---- @param req forge.Request
---- @param on_done fun(data: table)
-function M.graphql(req, on_done)
-  local desc, variables = req.desc, req.variables
-  local cmd = { 'gh', 'api', 'graphql', '-f', 'query=' .. req.query }
-  for name, value in pairs(variables) do
+--- Both kinds of request carry their variables the same way.
+--- @param cmd string[]
+--- @param variables table<string, string|integer|string[]>
+local function fields(cmd, variables)
+  for name, value in pairs(variables or {}) do
     if type(value) == 'table' then
       for _, item in ipairs(value) do
         cmd[#cmd + 1] = '-f'
@@ -59,6 +53,19 @@ function M.graphql(req, on_done)
       cmd[#cmd + 1] = ('%s=%s'):format(name, value)
     end
   end
+end
+
+--- Send a GraphQL document through the gh CLI.
+---
+--- Owns the progress message for the request, so every path out of here ends it
+--- and none can dangle. Variables are typed by their Lua type: numbers become
+--- GraphQL Ints, anything else a String. Errors are reported, never raised.
+--- @param req forge.Request
+--- @param on_done fun(data: table)
+function M.graphql(req, on_done)
+  local desc, variables = req.desc, req.variables
+  local cmd = { 'gh', 'api', 'graphql', '-f', 'query=' .. req.query }
+  fields(cmd, variables)
 
   local done = log.progress(desc)
 
@@ -83,6 +90,55 @@ function M.graphql(req, on_done)
 
       done('success', desc)
       on_done(body.data or {})
+    end)
+  end)
+end
+
+--- Ask github's REST API to make something.
+---
+--- Creating goes through REST rather than GraphQL because a mutation wants a
+--- repository's node id, which is a round trip to learn, while REST takes the
+--- owner and repo we already have and label *names* rather than their ids.
+--- @class forge.Rest
+--- @field desc string what to say while it is in flight
+--- @field method 'POST'|'PATCH'
+--- @field path string
+--- @field variables table<string, string|integer|string[]>
+--- @field cwd string?
+
+--- @param req forge.Rest
+--- @param on_done fun(data: table)
+--- @param on_fail fun()? so a caller holding something unsaved can keep it
+function M.rest(req, on_done, on_fail)
+  local cmd = { 'gh', 'api', '--method', req.method, req.path }
+  fields(cmd, req.variables)
+
+  local done = log.progress(req.desc)
+
+  vim.system(cmd, { text = true, cwd = req.cwd }, function(out)
+    vim.schedule(function()
+      local ok, body = pcall(vim.json.decode, out.stdout)
+      if out.code ~= 0 then
+        local message = ok and type(body) == 'table' and body.message
+        local msg = message or vim.trim(out.stderr or '')
+        msg = msg ~= '' and msg or 'gh api failed'
+        done('failed', msg)
+        log.err(msg)
+        if on_fail then
+          on_fail()
+        end
+        return
+      end
+      if not ok or type(body) ~= 'table' then
+        done('failed', 'could not read gh output')
+        log.err('could not read gh output')
+        if on_fail then
+          on_fail()
+        end
+        return
+      end
+      done('success', req.desc)
+      on_done(body)
     end)
   end)
 end

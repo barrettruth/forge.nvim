@@ -12,6 +12,7 @@ local M = {}
 --- @field options string[]? for a dropdown or checkboxes
 --- @field required_options boolean[]? for checkboxes, per option
 --- @field multiple boolean? a dropdown taking more than one answer
+--- @field default integer? the option a dropdown starts on, counting from zero
 
 --- @class forge.Template
 --- @field name string what to call it when choosing
@@ -181,6 +182,7 @@ local function form_template(path)
         options = options,
         required_options = required_options,
         multiple = attributes.multiple == true,
+        default = type(attributes.default) == 'number' and attributes.default or nil,
       }
       if attributes.description and guidance[#fields] == nil then
         guidance[#fields] = vim.trim(attributes.description)
