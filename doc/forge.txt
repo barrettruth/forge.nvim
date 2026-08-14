@@ -175,7 +175,9 @@ ga                      Start something new in the collection you are looking
                         at. Templates come from your checkout, so a repository
                         you are only browsing offers none and the draft starts
                         empty. One template is used without asking, several
-                        are chosen between.
+                        are chosen between by name. A template that names
+                        itself is called that; one that does not, which is
+                        every pull request template, is called after its file.
 
                         A draft is an ordinary buffer holding the markdown
                         that will be filed. Guidance a form carries is shown

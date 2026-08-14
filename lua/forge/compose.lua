@@ -287,6 +287,9 @@ function M.start(o)
   if not u or u.draft then
     return
   end
+  if u.collection == 'prs' then
+    return log.warn('opening a pull request is not here yet')
+  end
   o = o or {}
   o.cwd = o.cwd or require('forge.vcs').dir()
 
