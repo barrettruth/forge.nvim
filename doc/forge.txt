@@ -38,7 +38,7 @@ what it returns; there is nothing to configure and no setup() to call.
         :Issue neovim/neovim#41138
         :Issue neovim/neovim
         :Issue https://github.com/neovim/neovim/issues/41138
-        :Issue forge://neovim/neovim/issue/41138
+        :Issue forge://neovim/neovim/issues/41138
 <
     A bare number and a bare `owner/repo` need an origin remote pointing at
     github.com; every other form carries its own repository.
@@ -52,8 +52,12 @@ it. >
 
     forge://{owner}/{repo}/issues           the open issue list
     forge://{owner}/{repo}/issues/closed    the closed issue list
-    forge://{owner}/{repo}/issue/{number}   a single issue
+    forge://{owner}/{repo}/issues/{number}  a single issue
 <
+The path after the scheme is github.com's own, so a forge:// URI is a page you
+already know how to read. GitHub numbers a single issue under the plural
+"issues" too, and matching that is worth more than being tidier than they are.
+
 Which issues a list holds is part of its name, so reloading one with |:edit|
 brings back what you were looking at. Which page you were on is not, so a
 reload starts again at the first.

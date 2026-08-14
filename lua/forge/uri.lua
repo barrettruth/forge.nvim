@@ -35,7 +35,7 @@ end
 --- @return string
 function M.tostring(uri)
   if uri.kind == 'issue' then
-    return ('%s%s/%s/issue/%d'):format(SCHEME, uri.owner, uri.repo, uri.number)
+    return ('%s%s/%s/issues/%d'):format(SCHEME, uri.owner, uri.repo, uri.number)
   end
   if uri.state == 'CLOSED' then
     return ('%s%s/%s/issues/closed'):format(SCHEME, uri.owner, uri.repo)
@@ -50,7 +50,7 @@ function M.parse(str)
   if not rest then
     return nil
   end
-  local owner, repo, number = rest:match('^([^/]+)/([^/]+)/issue/(%d+)$')
+  local owner, repo, number = rest:match('^([^/]+)/([^/]+)/issues/(%d+)$')
   if owner then
     return { owner = owner, repo = repo, kind = 'issue', number = tonumber(number) }
   end
