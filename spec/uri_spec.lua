@@ -1,17 +1,5 @@
 local uri = require('forge.uri')
 
---- Resolving needs a repository for the forms that do not carry one, and the
---- origin remote is not ours to depend on in a test.
-local function stub_origin(owner, repo)
-  local real = uri.origin
-  uri.origin = function()
-    return owner, repo
-  end
-  return function()
-    uri.origin = real
-  end
-end
-
 describe('uri.parse', function()
   it('reads every form it writes', function()
     for _, name in ipairs({
@@ -46,12 +34,8 @@ describe('uri.parse', function()
 end)
 
 describe('uri.resolve', function()
-  it('accepts the forms a person would type', function()
-    local restore = stub_origin('barrettruth', 'forge.nvim')
+  it('accepts every form that carries a repository', function()
     local cases = {
-      ['41310'] = 'forge://barrettruth/forge.nvim/issues/41310',
-      ['#41310'] = 'forge://barrettruth/forge.nvim/issues/41310',
-      [''] = 'forge://barrettruth/forge.nvim/issues',
       ['neovim/neovim'] = 'forge://neovim/neovim/issues',
       ['neovim/neovim#41310'] = 'forge://neovim/neovim/issues/41310',
       ['https://github.com/neovim/neovim/issues'] = 'forge://neovim/neovim/issues',
@@ -63,7 +47,35 @@ describe('uri.resolve', function()
       assert.is_nil(err, target .. ' -> ' .. tostring(err))
       assert.equals(want, uri.tostring(assert(got, target)))
     end
-    restore()
+  end)
+
+  it('leaves the repository to gh when the target named none', function()
+    for _, target in ipairs({ '', '41310', '#41310' }) do
+      local got = assert(uri.resolve(target, 'issues'), target)
+      assert.is_nil(got.owner, target .. ' should not name an owner')
+      assert.is_nil(got.repo, target .. ' should not name a repo')
+    end
+  end)
+
+  it('never shells out, so it cannot fail for want of a remote', function()
+    local ran = false
+    local real = vim.system
+    --- @diagnostic disable-next-line: duplicate-set-field
+    vim.system = function(...)
+      ran = true
+      return real(...)
+    end
+    local got, err = uri.resolve('', 'issues')
+    vim.system = real
+
+    assert.is_false(ran)
+    assert.is_nil(err)
+    assert.is_not_nil(got)
+  end)
+
+  it('takes a bare number as a number, whichever command asked', function()
+    assert.equals(41310, assert(uri.resolve('41310', 'issues')).number)
+    assert.equals(41310, assert(uri.resolve('#41310', 'prs')).number)
   end)
 
   it('reports one error and no uri for a malformed forge uri', function()
@@ -76,6 +88,69 @@ describe('uri.resolve', function()
     local got, err = uri.resolve('neovim/neovim#1', 'issues')
     assert.is_not_nil(got)
     assert.is_nil(err)
+  end)
+end)
+
+describe('the referent of a bare command', function()
+  it('is the issue list, because nothing identifies the current issue', function()
+    local t = assert(uri.resolve('', 'issues'))
+    assert.is_nil(t.head)
+    assert.is_nil(t.number)
+    assert.equals('OPEN', t.state)
+  end)
+
+  it('is the pull request for this branch, not the pull request list', function()
+    local t = assert(uri.resolve('', 'prs'))
+    assert.is_true(t.head)
+    assert.is_nil(t.state)
+  end)
+
+  it('is the list again once a repository is named, which is not "here"', function()
+    local t = assert(uri.resolve('neovim/neovim', 'prs'))
+    assert.is_nil(t.head)
+    assert.equals('OPEN', t.state)
+  end)
+end)
+
+describe('uri.of', function()
+  it('names a view after the repository github answered for', function()
+    local t = { collection = 'issues', number = 41310 }
+    assert.equals(
+      'forge://neovim/neovim/issues/41310',
+      uri.tostring(assert(uri.of('neovim/neovim', t)))
+    )
+  end)
+
+  it('keeps which half of a list the target asked for', function()
+    local t = { collection = 'prs', state = 'CLOSED' }
+    assert.equals('forge://a/b/prs/closed', uri.tostring(assert(uri.of('a/b', t))))
+  end)
+
+  it("prefers github's spelling to the one that was typed", function()
+    local t = { collection = 'issues', owner = 'Neovim', repo = 'Neovim' }
+    assert.equals('forge://neovim/neovim/issues', uri.tostring(assert(uri.of('neovim/neovim', t))))
+  end)
+
+  it('has no name to give when github named nothing', function()
+    assert.is_nil(uri.of(nil, { collection = 'issues' }))
+    assert.is_nil(uri.of('', { collection = 'issues' }))
+    assert.is_nil(uri.of('neovim', { collection = 'issues' }))
+  end)
+end)
+
+describe('gh.slug', function()
+  local gh = require('forge.gh')
+
+  it('hands gh its own placeholders when no repository was named', function()
+    local owner, repo = gh.slug({ collection = 'issues' })
+    assert.equals('{owner}', owner)
+    assert.equals('{repo}', repo)
+  end)
+
+  it('sends what the target named when it named one', function()
+    local owner, repo = gh.slug({ collection = 'issues', owner = 'neovim', repo = 'neovim' })
+    assert.equals('neovim', owner)
+    assert.equals('neovim', repo)
   end)
 end)
 
