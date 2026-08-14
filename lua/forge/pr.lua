@@ -2,6 +2,7 @@ local gh = require('forge.gh')
 local log = require('forge.log')
 local text = require('forge.text')
 local uri = require('forge.uri')
+local vcs = require('forge.vcs')
 local view = require('forge.view')
 
 local M = {}
@@ -19,6 +20,28 @@ query($owner: String!, $repo: String!, $states: [PullRequestState!], $after: Str
       totalCount
       pageInfo { hasNextPage endCursor }
       nodes { number title }
+    }
+  }
+}
+]]
+
+--- The open pull request whose head is a given branch.
+---
+--- A fork's pull request lives on the base repository, where a branch name is
+--- not necessarily unique, so the viewer's own is preferred over a stranger's
+--- that happens to share it.
+local HEAD_QUERY = [[
+query($owner: String!, $repo: String!, $head: String!) {
+  viewer { login }
+  repository(owner: $owner, name: $repo) {
+    nameWithOwner
+    pullRequests(
+      headRefName: $head
+      states: [OPEN]
+      first: 10
+      orderBy: {field: UPDATED_AT, direction: DESC}
+    ) {
+      nodes { number headRepositoryOwner { login } }
     }
   }
 }
@@ -178,11 +201,50 @@ end
 
 --- Open the pull request for the branch checked out here.
 ---
+--- The branch is found locally and the pull request is asked for by name, so a
+--- fork is answered by the repository the pull request is actually on.
+--- @param t forge.Target
+--- @param o forge.Open
+local function open_head(t, o)
+  local branch, err = vcs.branch(o.cwd or vim.fn.getcwd())
+  if not branch then
+    log.err(err or 'cannot tell which branch this is')
+    return
+  end
+
+  local owner, repo = gh.slug(t)
+  gh.graphql({
+    desc = ('the pull request for %s'):format(branch),
+    query = HEAD_QUERY,
+    variables = { owner = owner, repo = repo, head = branch },
+    cwd = o.cwd,
+  }, function(data)
+    local slug = vim.tbl_get(data, 'repository', 'nameWithOwner')
+    local nodes = vim.tbl_get(data, 'repository', 'pullRequests', 'nodes') or {}
+    local me = vim.tbl_get(data, 'viewer', 'login')
+    local mine
+    for _, pr in ipairs(nodes) do
+      if vim.tbl_get(pr, 'headRepositoryOwner', 'login') == me then
+        mine = mine or pr
+      end
+    end
+    local found = mine or nodes[1]
+    if not found then
+      log.err(('no open pull request for %s'):format(branch))
+      return
+    end
+    local item = { collection = 'prs', number = found.number }
+    open_pr(uri.of(slug, item) or item, o)
+  end)
+end
+
 --- Draw the pull request view `t` names.
 --- @param t forge.Target
 --- @param o forge.Open
 function M.show(t, o)
-  if t.number then
+  if t.head then
+    open_head(t, o)
+  elseif t.number then
     open_pr(t, o)
   else
     open_list(t, o)
