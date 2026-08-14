@@ -12,6 +12,7 @@
 --- @field number integer? nil for a list
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
 --- @field head boolean? the pull request for the branch checked out here
+--- @field draft boolean? a member that does not exist yet
 
 --- A view forge can address, which is a target github has already answered.
 ---
@@ -28,8 +29,8 @@ local SCHEME = 'forge://'
 --- plural for an issue list and a single issue, plural for a pull request
 --- list and singular for a single pull request; ours are always "prs".
 local WEB = {
-  issues = { list = 'issues', member = 'issues', filter = 'issue' },
-  prs = { list = 'pulls', member = 'pull', filter = 'pr' },
+  issues = { list = 'issues', member = 'issues', filter = 'issue', new = 'issues/new' },
+  prs = { list = 'pulls', member = 'pull', filter = 'pr', new = 'compare' },
 }
 
 --- The view a response describes, named by the repository github answered for.
@@ -59,6 +60,9 @@ end
 --- @return string
 function M.tostring(uri)
   local base = ('%s%s/%s/%s'):format(SCHEME, uri.owner, uri.repo, uri.collection)
+  if uri.draft then
+    return base .. '/new'
+  end
   if uri.number then
     return ('%s/%d'):format(base, uri.number)
   end
@@ -78,6 +82,9 @@ end
 function M.web(uri)
   local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
   local web = WEB[uri.collection]
+  if uri.draft then
+    return ('%s/%s'):format(base, web.new)
+  end
   if uri.number then
     return ('%s/%s/%d'):format(base, web.member, uri.number)
   end
@@ -103,6 +110,11 @@ function M.parse(str)
       collection = collection,
       number = tonumber(number),
     }
+  end
+
+  owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/new$')
+  if owner and WEB[collection] then
+    return { owner = owner, repo = repo, collection = collection, draft = true }
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/closed$')
