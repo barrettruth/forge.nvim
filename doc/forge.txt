@@ -91,10 +91,10 @@ markdown file.
                                                           *<Plug>(forge-help)*
 g?                      This list, for the buffer you are in.
 
-                                                    *<Plug>(forge-issue-open)*
+                                                          *<Plug>(forge-open)*
 <CR>                    In an issue list, open the issue under the cursor.
 
-                                              *<Plug>(forge-issue-open-split)*
+                                                    *<Plug>(forge-open-split)*
 o                       In an issue list, open the issue under the cursor in
                         a split, keeping the list visible.
 
@@ -107,11 +107,11 @@ R                       Fetch this view again, keeping the page you are on.
                         |:edit| also refetches, but rebuilds from the name and
                         so returns to the first page.
 
-                                               *<Plug>(forge-issue-next-page)*
-                                               *<Plug>(forge-issue-prev-page)*
+                                                     *<Plug>(forge-next-page)*
+                                                     *<Plug>(forge-prev-page)*
 ]i  [i                  A hundred issues at a time, forwards and backwards.
 
-                                                   *<Plug>(forge-issue-state)*
+                                                         *<Plug>(forge-state)*
 g.                      Swap between open and closed issues, from the first
                         page.
 
