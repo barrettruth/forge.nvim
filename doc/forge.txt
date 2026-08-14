@@ -174,7 +174,12 @@ g.                      Swap between open and closed, from the first page.
 ga                      Start something new in the collection you are looking
                         at. Templates come from your checkout, so a repository
                         you are only browsing offers none and the draft starts
-                        empty. One template is used without asking, several
+                        empty. Reading an issue                         *form*
+                        parser for yaml; without one, forms are skipped and
+                        forge says so rather than offering you nothing.
+                        |:checkhealth| reports whether you have it.
+
+                        One template is used without asking, several
                         are chosen between by name. A template that names
                         itself is called that; one that does not, which is
                         every pull request template, is called after its file.

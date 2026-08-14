@@ -23,6 +23,15 @@ function M.check()
   else
     vim.health.error('gh is not authenticated', 'Run: gh auth login')
   end
+
+  if pcall(vim.treesitter.get_string_parser, '', 'yaml') then
+    vim.health.ok('yaml parser found, so issue forms can be read')
+  else
+    vim.health.warn(
+      'no yaml parser, so issue forms will be skipped',
+      'Install one, for example :TSInstall yaml. Markdown templates still work.'
+    )
+  end
 end
 
 return M

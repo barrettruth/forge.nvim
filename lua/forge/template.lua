@@ -158,13 +158,17 @@ end
 
 --- @param path string
 --- @return forge.Template?
+--- @return string? err
 local function form_template(path)
   local lines = read(path)
   if not lines then
     return nil
   end
-  local form = require('forge.yaml').decode(table.concat(lines, '\n'))
-  if type(form) ~= 'table' or type(form.body) ~= 'table' then
+  local form, err = require('forge.yaml').decode(table.concat(lines, '\n'))
+  if not form then
+    return nil, err
+  end
+  if type(form.body) ~= 'table' then
     return nil
   end
 
@@ -218,6 +222,7 @@ end
 
 --- @param path string
 --- @return forge.Template?
+--- @return string? err
 local function load(path)
   if path:match('%.ya?ml$') then
     return form_template(path)
@@ -234,6 +239,7 @@ end
 --- @param collection forge.Collection
 --- @param dir string? the directory the request is made from
 --- @return forge.Template[]
+--- @return string? err why a template that exists was not read
 function M.all(collection, dir)
   local root = vim.fs.root(dir or vcs.dir(), '.git')
   if not root then
@@ -256,18 +262,20 @@ function M.all(collection, dir)
     end
   end
 
-  local templates, seen = {}, {}
+  local templates, seen, err = {}, {}, nil
   for _, path in ipairs(paths) do
     local real = vim.uv.fs_realpath(path)
     if real and not seen[real] then
       seen[real] = true
-      local template = load(path)
+      local template, why = load(path)
       if template then
         templates[#templates + 1] = template
+      else
+        err = err or why
       end
     end
   end
-  return templates
+  return templates, err
 end
 
 return M
