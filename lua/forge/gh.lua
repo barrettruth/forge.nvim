@@ -45,21 +45,4 @@ function M.graphql(desc, query, variables, on_done)
   end)
 end
 
---- Warn when a connection came back truncated.
----
---- Every connection is capped. Asking for totalCount alongside the nodes is
---- what makes the cap visible instead of silently losing the tail.
---- @param connection table?
---- @param what string
-function M.check_truncated(connection, what)
-  if not connection then
-    return
-  end
-  local shown = #(connection.nodes or {})
-  local total = connection.totalCount or shown
-  if total > shown then
-    log.warn(('showing %d of %d %s'):format(shown, total, what))
-  end
-end
-
 return M

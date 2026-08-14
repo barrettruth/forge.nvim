@@ -3,18 +3,6 @@ if vim.g.loaded_forge then
 end
 vim.g.loaded_forge = true
 
-vim.keymap.set('n', '<Plug>(forge-issue-open)', function()
-  require('forge.issue').open_at_cursor()
-end, { desc = 'open the issue under the cursor' })
-
-vim.keymap.set('n', '<Plug>(forge-issue-open-split)', function()
-  require('forge.issue').open_at_cursor(true)
-end, { desc = 'open the issue under the cursor in a split' })
-
-vim.keymap.set('n', '<Plug>(forge-up)', function()
-  require('forge.issue').up()
-end, { desc = 'go up to the issue list' })
-
 vim.keymap.set(
   'n',
   '<Plug>(forge-help)',
@@ -22,25 +10,37 @@ vim.keymap.set(
   { desc = 'what the keys in this buffer do' }
 )
 
+vim.keymap.set('n', '<Plug>(forge-open)', function()
+  require('forge.view').open_at_cursor()
+end, { desc = 'open the item under the cursor' })
+
+vim.keymap.set('n', '<Plug>(forge-open-split)', function()
+  require('forge.view').open_at_cursor(true)
+end, { desc = 'open the item under the cursor in a split' })
+
+vim.keymap.set('n', '<Plug>(forge-up)', function()
+  require('forge.view').up()
+end, { desc = 'go up to the list this item is in' })
+
 vim.keymap.set('n', '<Plug>(forge-refresh)', function()
-  require('forge.issue').refresh()
+  require('forge.view').refresh()
 end, { desc = 'fetch this view again' })
 
 vim.keymap.set('n', '<Plug>(forge-web)', function()
-  require('forge.issue').web()
+  require('forge.view').web()
 end, { desc = 'open this view on github.com' })
 
-vim.keymap.set('n', '<Plug>(forge-issue-next-page)', function()
-  require('forge.issue').page(1)
-end, { desc = 'the next page of issues' })
+vim.keymap.set('n', '<Plug>(forge-next-page)', function()
+  require('forge.view').page(1)
+end, { desc = 'the next page' })
 
-vim.keymap.set('n', '<Plug>(forge-issue-prev-page)', function()
-  require('forge.issue').page(-1)
-end, { desc = 'the previous page of issues' })
+vim.keymap.set('n', '<Plug>(forge-prev-page)', function()
+  require('forge.view').page(-1)
+end, { desc = 'the previous page' })
 
-vim.keymap.set('n', '<Plug>(forge-issue-state)', function()
-  require('forge.issue').toggle_state()
-end, { desc = 'toggle open and closed issues' })
+vim.keymap.set('n', '<Plug>(forge-state)', function()
+  require('forge.view').toggle_state()
+end, { desc = 'toggle open and closed' })
 
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args)
@@ -56,7 +56,10 @@ vim.api.nvim_create_autocmd('BufReadCmd', {
   pattern = 'forge://*',
   callback = function(args)
     vim.schedule(function()
-      require('forge.issue').open(args.match)
+      local u = require('forge.uri').parse(args.match)
+      if u then
+        require('forge.view').open(u)
+      end
     end)
   end,
 })
