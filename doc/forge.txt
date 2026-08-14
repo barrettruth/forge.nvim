@@ -33,7 +33,17 @@ what it returns; there is nothing to configure and no setup() to call.
     Open {target}. Without an argument, either command opens its list for the
     repository you are in.
 
+    :PR @ opens the pull request for the change you are on, spelled as git and
+    jj both spell it. Only a pull request has one: nothing identifies the
+    issue you are on, and :Issue @ says so.
+
+    In a jj repository a bookmark belongs to a change rather than trailing
+    behind you, so the branch is the bookmark on the change you are working
+    on. A change wearing none is reported, not guessed at: the nearest
+    bookmark below belongs to a different change.
+
     {target} is any of: >
+        :PR @
         :Issue 41138
         :Issue #41138
         :Issue neovim/neovim#41138

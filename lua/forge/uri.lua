@@ -11,6 +11,7 @@
 --- @field repo string?
 --- @field number integer? nil for a list
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
+--- @field head boolean? the pull request for the change you are on
 --- @field draft boolean? a member that does not exist yet
 --- @field template string? the file a draft started from, named as github names it
 
@@ -190,6 +191,12 @@ function M.resolve(target, collection)
     return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
   end
 
+  if target == '@' then
+    if collection ~= 'prs' then
+      return nil, 'nothing identifies the issue you are on'
+    end
+    return { collection = 'prs', head = true }
+  end
   if target == '' then
     return { collection = collection, state = 'OPEN' }
   end
