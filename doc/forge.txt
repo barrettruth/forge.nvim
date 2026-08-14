@@ -30,15 +30,8 @@ what it returns; there is nothing to configure and no setup() to call.
 
 :PR [{target}]                                                           *:PR*
 :Issue [{target}]                                                     *:Issue*
-    Open {target}. Without an argument, :Issue opens the issue list, and :PR
-    opens the pull request for the branch you are on. Only a pull request has
-    an obvious referent: nothing identifies "the current issue".
-
-    In a jj repository a bookmark belongs to a change rather than trailing
-    behind you, so the branch is the bookmark on the change you are working
-    on. A change wearing none is reported, not guessed at: the nearest
-    bookmark below belongs to a different change, and proposing it would open
-    a pull request for someone else's branch.
+    Open {target}. Without an argument, either command opens its list for the
+    repository you are in.
 
     {target} is any of: >
         :Issue 41138
