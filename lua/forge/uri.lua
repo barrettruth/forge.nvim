@@ -13,6 +13,7 @@
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
 --- @field head boolean? the pull request for the branch checked out here
 --- @field draft boolean? a member that does not exist yet
+--- @field template string? the file a draft started from, named as github names it
 
 --- A view forge can address, which is a target github has already answered.
 ---
@@ -76,14 +77,20 @@ end
 ---
 --- Close to the path with the scheme swapped, but not a translation forge
 --- avoids: github spells a closed list as a query, names a single pull
---- request in the singular, and calls the collection "pulls".
+--- request in the singular, and calls the collection "pulls". A draft takes
+--- the template it started from as a query too, so the page opens on the same
+--- form rather than on the chooser.
 --- @param uri forge.Uri
 --- @return string
 function M.web(uri)
   local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
   local web = WEB[uri.collection]
   if uri.draft then
-    return ('%s/%s'):format(base, web.new)
+    local url = ('%s/%s'):format(base, web.new)
+    if uri.template then
+      return ('%s?template=%s'):format(url, vim.uri_encode(uri.template))
+    end
+    return url
   end
   if uri.number then
     return ('%s/%s/%d'):format(base, web.member, uri.number)

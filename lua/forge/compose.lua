@@ -243,6 +243,7 @@ local function open_buffer(u, found, o)
     labels = found and found.labels or {},
     assignees = found and found.assignees or {},
     fields = found and found.fields or {},
+    template = found and vim.fs.basename(found.path) or nil,
     cwd = o.cwd,
   }
 

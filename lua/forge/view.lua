@@ -278,6 +278,10 @@ function M.web()
     log.warn('no url for this buffer')
     return
   end
+  local compose = vim.b[vim.api.nvim_get_current_buf()].forge_compose
+  if u.draft and compose then
+    u.template = compose.template
+  end
   vim.ui.open(uri.web(u))
 end
 
