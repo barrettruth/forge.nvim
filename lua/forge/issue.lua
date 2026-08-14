@@ -129,7 +129,13 @@ local function render(u, lines, winbar, marks)
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
   if u.kind == 'issues' then
     map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
-    map.buf_default(buf, 'n', 'o', '<Plug>(forge-issue-open-split)', 'open it in a split instead')
+    map.buf_default(
+      buf,
+      'n',
+      'o',
+      '<Plug>(forge-issue-open-split)',
+      'open the issue under the cursor in a split'
+    )
     map.buf_default(buf, 'n', ']i', '<Plug>(forge-issue-next-page)', 'the next page of issues')
     map.buf_default(buf, 'n', '[i', '<Plug>(forge-issue-prev-page)', 'the previous page of issues')
     map.buf_default(buf, 'n', 'g.', '<Plug>(forge-issue-state)', 'toggle open and closed issues')

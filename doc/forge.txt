@@ -93,13 +93,15 @@ markdown file.
 g?                      This list, for the buffer you are in.
 
                                                     *<Plug>(forge-issue-open)*
+<CR>                    In an issue list, open the issue under the cursor.
+
                                               *<Plug>(forge-issue-open-split)*
-<CR>  o                 In an issue list, open the issue under the cursor;
-                        with "o", beside the list rather than over it.
+o                       In an issue list, open the issue under the cursor in
+                        a split, keeping the list visible.
 
                                                             *<Plug>(forge-up)*
--                       Leave an issue for the list it belongs to. The list is
-                        the top, so there it does nothing.
+-                       Leave an issue for the list that issue belongs to. A
+                        list is the top, so "-" in a list does nothing.
 
                                                        *<Plug>(forge-refresh)*
 R                       Fetch this view again, keeping the page you are on.
@@ -115,10 +117,10 @@ g.                      Swap between open and closed issues, from the first
                         page.
 
                                                            *<Plug>(forge-web)*
-gX                      Open this view on github.com. What is shown, not what
-                        the cursor is on; |gx| is still the line under it.
-                        Which page you are on is not carried, because a page
-                        is not part of the name.
+gX                      Open this view on github.com. What the buffer shows,
+                        not what the cursor is on; |gx| still opens whatever
+                        the cursor is on. Which page you are on is not
+                        carried, because a page is not part of a view's name.
 
 ==============================================================================
 6. HEALTH                                                       *forge-health*
