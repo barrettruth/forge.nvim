@@ -1,0 +1,16 @@
+doc/tags
+*.log
+
+.*cache*
+CLAUDE.md
+.claude/
+
+node_modules/
+
+result
+result-*
+.direnv/
+.envrc
+
+.research/
+AGENTS.md
