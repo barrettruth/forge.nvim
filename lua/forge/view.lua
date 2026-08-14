@@ -60,6 +60,33 @@ local function buffer_named(name)
   end
 end
 
+--- Whether a command was told to put its result somewhere new.
+---
+--- `tab` is -1 when absent rather than nil, so it is compared rather than
+--- tested. See |:command-modifiers|.
+--- @param smods table?
+--- @return boolean
+function M.wants_window(smods)
+  smods = smods or {}
+  return (smods.split or '') ~= ''
+    or smods.vertical == true
+    or smods.horizontal == true
+    or (smods.tab or -1) >= 0
+end
+
+--- Honour a command's window modifiers, if it had any.
+---
+--- The structured modifiers say whether to make a window; the raw ones say
+--- what kind, by being replayed onto a plain split. Callers do this after
+--- resolving their target, so a target that cannot be resolved leaves no
+--- window behind.
+--- @param opts vim.api.keyset.create_user_command.command_args?
+function M.split_for(opts)
+  if M.wants_window(opts and opts.smods) then
+    vim.cmd(((opts and opts.mods) or '') .. ' split')
+  end
+end
+
 --- Show `lines` as the view named by `u`, reusing its buffer if it exists.
 ---
 --- An item is markdown, because that is what github gave us and markdown

@@ -43,6 +43,14 @@ what it returns; there is nothing to configure and no setup() to call.
     A bare number and a bare `owner/repo` need an origin remote pointing at
     github.com; every other form carries its own repository.
 
+    |:command-modifiers| are honoured, so the view opens where you say: >
+        :vertical Issue 41310
+        :tab PR 41138
+        :botright Issue neovim/neovim
+<
+    The window is made after the target resolves, so a target that is refused
+    leaves no window behind.
+
     A target that names the other kind is refused: :Issue will not open a pull
     request, and :PR will not open an issue. A bare number cannot be checked
     that way, because github numbers issues and pull requests from one counter
