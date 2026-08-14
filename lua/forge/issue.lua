@@ -188,6 +188,17 @@ function M.open(target)
   end
 end
 
+--- Leave an issue for the list it belongs to.
+---
+--- The list is the top: there is nothing above it to go up to.
+function M.up()
+  local u = uri.parse(vim.api.nvim_buf_get_name(0))
+  if not u or u.kind ~= 'issue' then
+    return
+  end
+  open_list({ owner = u.owner, repo = u.repo, kind = 'issues' })
+end
+
 --- Open the issue under the cursor in an issue list.
 function M.open_at_cursor()
   local u = uri.parse(vim.api.nvim_buf_get_name(0))
