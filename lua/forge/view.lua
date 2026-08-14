@@ -12,6 +12,31 @@ M.PER_PAGE = 100
 --- What a collection is called when talking to a person.
 local LABEL = { issues = 'issues', prs = 'pull requests' }
 
+--- What to say when a target names the collection the other command opens.
+local OTHER = {
+  issues = 'that names pull requests; use :PR',
+  prs = 'that names issues; use :Issue',
+}
+
+--- Where a view was asked for, and where its answer should land.
+---
+--- A request is a round trip, so none of this can be read off the editor by
+--- the time one comes back.
+--- @class forge.Open
+--- @field page integer?
+--- @field cursors table<integer, string>?
+--- @field win integer? the window the command was given in
+--- @field mods string? see |:command-modifiers|
+--- @field smods table?
+--- @field cwd string? the directory the request is made from
+
+--- The repository a target names, for saying out loud while it is in flight.
+--- @param t forge.Target
+--- @return string
+function M.where(t)
+  return t.owner and ('%s/%s'):format(t.owner, t.repo) or 'this repository'
+end
+
 --- @class forge.Mark
 --- @field row integer zero-based
 --- @field col integer byte column, inclusive
@@ -77,14 +102,25 @@ end
 --- Honour a command's window modifiers, if it had any.
 ---
 --- The structured modifiers say whether to make a window; the raw ones say
---- what kind, by being replayed onto a plain split. Callers do this after
---- resolving their target, so a target that cannot be resolved leaves no
---- window behind.
---- @param opts vim.api.keyset.create_user_command.command_args?
+--- what kind, by being replayed onto a plain split.
+--- @param opts { mods: string?, smods: table? }?
 function M.split_for(opts)
   if M.wants_window(opts and opts.smods) then
     vim.cmd(((opts and opts.mods) or '') .. ' split')
   end
+end
+
+--- Put the editor where a view is about to be drawn.
+---
+--- The window a command was given in is the one its answer belongs in, not
+--- whichever happens to be current once github replies. The split is made here
+--- too, after the reply, so a request that fails leaves no window behind.
+--- @param o forge.Open?
+function M.place(o)
+  if o and o.win and vim.api.nvim_win_is_valid(o.win) then
+    vim.api.nvim_set_current_win(o.win)
+  end
+  M.split_for(o)
 end
 
 --- Show `lines` as the view named by `u`, reusing its buffer if it exists.
@@ -149,12 +185,36 @@ function M.render(u, lines, winbar, marks, maps)
 end
 
 --- Show a view, whichever collection it belongs to.
---- @param u forge.Uri
---- @param page integer?
---- @param cursors table<integer, string>?
-function M.open(u, page, cursors)
-  local module = u.collection == 'prs' and 'forge.pr' or 'forge.issue'
-  require(module).show(u, page or 1, cursors or {})
+--- @param t forge.Target
+--- @param o forge.Open?
+function M.open(t, o)
+  local module = t.collection == 'prs' and 'forge.pr' or 'forge.issue'
+  require(module).show(t, o or {})
+end
+
+--- Open whatever `target` names, so long as it names `collection`.
+---
+--- Both commands arrive here. The window and the directory are read now, while
+--- the user is still standing in them; everything else waits for github.
+--- @param target string?
+--- @param collection forge.Collection
+--- @param opts vim.api.keyset.create_user_command.command_args?
+function M.command(target, collection, opts)
+  local t, err = uri.resolve(target, collection)
+  if not t then
+    log.err(err or 'cannot resolve target')
+    return
+  end
+  if t.collection ~= collection then
+    log.err(OTHER[collection])
+    return
+  end
+  M.open(t, {
+    win = vim.api.nvim_get_current_win(),
+    mods = opts and opts.mods,
+    smods = opts and opts.smods,
+    cwd = require('forge.vcs').dir(),
+  })
 end
 
 --- Leave an item for the list it belongs to.
@@ -192,7 +252,7 @@ function M.refresh()
     return
   end
   local paging = M.paging(vim.api.nvim_get_current_buf())
-  M.open(u, paging.page, paging.cursors)
+  M.open(u, { page = paging.page, cursors = paging.cursors })
 end
 
 --- Open this view on github.com.
@@ -225,7 +285,7 @@ function M.page(delta)
     log.info('no more ' .. LABEL[u.collection])
     return
   end
-  M.open(u, page, paging.cursors)
+  M.open(u, { page = page, cursors = paging.cursors })
 end
 
 --- Swap a list between open and closed, from the first page.
