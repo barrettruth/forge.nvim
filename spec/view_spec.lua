@@ -25,6 +25,26 @@ describe('view.render', function()
   end)
 end)
 
+describe('where a list got to', function()
+  it('survives the buffer variable it is kept in', function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.b[buf].forge = { page = 1, cursors = { [view.at(2)] = 'CURSOR2' }, has_next = true }
+
+    local paging = view.paging(buf)
+    assert.is_nil(paging.cursors[view.at(1)])
+    assert.equals('CURSOR2', paging.cursors[view.at(2)])
+  end)
+
+  it('would not, keyed by number: the first page has no cursor', function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.b[buf].forge = { cursors = { [2] = 'CURSOR2' } }
+
+    local cursors = view.paging(buf).cursors
+    assert.equals(vim.NIL, cursors[1])
+    assert.is_truthy(cursors[1])
+  end)
+end)
+
 describe('an item opened from a list', function()
   it('remembers which half of the collection it came from', function()
     local buf = view.render(
