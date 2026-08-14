@@ -51,8 +51,13 @@ scheme. Every view has exactly one name, and that name is enough to rebuild
 it. >
 
     forge://{owner}/{repo}/issues           the open issue list
+    forge://{owner}/{repo}/issues/closed    the closed issue list
     forge://{owner}/{repo}/issue/{number}   a single issue
 <
+Which issues a list holds is part of its name, so reloading one with |:edit|
+brings back what you were looking at. Which page you were on is not, so a
+reload starts again at the first.
+
 ==============================================================================
 5. MAPPINGS                                                   *forge-mappings*
 
@@ -71,6 +76,14 @@ markdown file.
                                                             *<Plug>(forge-up)*
 -                       Leave an issue for the list it belongs to. The list is
                         the top, so there it does nothing.
+
+                                               *<Plug>(forge-issue-next-page)*
+                                               *<Plug>(forge-issue-prev-page)*
+]i  [i                  A hundred issues at a time, forwards and backwards.
+
+                                                   *<Plug>(forge-issue-state)*
+g.                      Swap between open and closed issues, from the first
+                        page.
 
 ==============================================================================
 6. HEALTH                                                       *forge-health*

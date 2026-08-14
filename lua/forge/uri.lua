@@ -3,6 +3,7 @@
 --- @field repo string
 --- @field kind 'issues'|'issue'
 --- @field number integer?
+--- @field state 'OPEN'|'CLOSED'? which issues a list holds; open when absent
 
 local M = {}
 
@@ -36,6 +37,9 @@ function M.tostring(uri)
   if uri.kind == 'issue' then
     return ('%s%s/%s/issue/%d'):format(SCHEME, uri.owner, uri.repo, uri.number)
   end
+  if uri.state == 'CLOSED' then
+    return ('%s%s/%s/issues/closed'):format(SCHEME, uri.owner, uri.repo)
+  end
   return ('%s%s/%s/issues'):format(SCHEME, uri.owner, uri.repo)
 end
 
@@ -50,9 +54,13 @@ function M.parse(str)
   if owner then
     return { owner = owner, repo = repo, kind = 'issue', number = tonumber(number) }
   end
+  owner, repo = rest:match('^([^/]+)/([^/]+)/issues/closed$')
+  if owner then
+    return { owner = owner, repo = repo, kind = 'issues', state = 'CLOSED' }
+  end
   owner, repo = rest:match('^([^/]+)/([^/]+)/issues$')
   if owner then
-    return { owner = owner, repo = repo, kind = 'issues' }
+    return { owner = owner, repo = repo, kind = 'issues', state = 'OPEN' }
   end
   return nil
 end

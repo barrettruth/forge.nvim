@@ -5,15 +5,23 @@ local uri = require('forge.uri')
 local M = {}
 
 local LIST_QUERY = [[
-query($owner: String!, $repo: String!) {
+query($owner: String!, $repo: String!, $states: [IssueState!], $after: String) {
   repository(owner: $owner, name: $repo) {
-    issues(first: 100, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
+    issues(
+      first: 100
+      states: $states
+      after: $after
+      orderBy: {field: UPDATED_AT, direction: DESC}
+    ) {
       totalCount
+      pageInfo { hasNextPage endCursor }
       nodes { number title comments { totalCount } }
     }
   }
 }
 ]]
+
+local PER_PAGE = 100
 
 local ISSUE_QUERY = [[
 query($owner: String!, $repo: String!, $number: Int!) {
@@ -99,6 +107,9 @@ local function render(u, lines)
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the issue list')
   if u.kind == 'issues' then
     map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
+    map.buf_default(buf, 'n', ']i', '<Plug>(forge-issue-next-page)', 'the next page of issues')
+    map.buf_default(buf, 'n', '[i', '<Plug>(forge-issue-prev-page)', 'the previous page of issues')
+    map.buf_default(buf, 'n', 'g.', '<Plug>(forge-issue-state)', 'toggle open and closed issues')
   end
 
   vim.api.nvim_win_set_buf(0, buf)
@@ -106,30 +117,96 @@ local function render(u, lines)
   return buf
 end
 
+--- Show one page of a repository's issues.
+---
+--- `cursors[n]` is what to ask GitHub for to reach page n, so paging backwards
+--- costs nothing beyond remembering where each page began.
 --- @param u forge.Uri
-local function open_list(u)
-  local desc = ('%s/%s issues'):format(u.owner, u.repo)
-  gh.graphql(desc, LIST_QUERY, { owner = u.owner, repo = u.repo }, function(data)
-    local issues = vim.tbl_get(data, 'repository', 'issues')
-    if not issues then
-      log.err(('no such repository: %s/%s'):format(u.owner, u.repo))
-      return
+--- @param page integer
+--- @param cursors table<integer, string>
+local function open_list(u, page, cursors)
+  local state = u.state == 'CLOSED' and 'closed' or 'open'
+  local variables = { owner = u.owner, repo = u.repo, states = u.state or 'OPEN' }
+  if cursors[page] then
+    variables.after = cursors[page]
+  end
+
+  gh.graphql(
+    ('%s/%s %s issues'):format(u.owner, u.repo, state),
+    LIST_QUERY,
+    variables,
+    function(data)
+      local issues = vim.tbl_get(data, 'repository', 'issues')
+      if not issues then
+        log.err(('no such repository: %s/%s'):format(u.owner, u.repo))
+        return
+      end
+
+      local lines = {}
+      for _, issue in ipairs(issues.nodes or {}) do
+        local comments = issue.comments and issue.comments.totalCount or 0
+        lines[#lines + 1] = ('#%-6d %s%s'):format(
+          issue.number,
+          issue.title,
+          comments > 0 and ('  (%d)'):format(comments) or ''
+        )
+      end
+      if #lines == 0 then
+        lines = { ('No %s issues.'):format(state) }
+      end
+
+      local info = issues.pageInfo or {}
+      local buf = render(u, lines)
+      if info.hasNextPage and info.endCursor then
+        cursors[page + 1] = info.endCursor
+      end
+      vim.b[buf].forge = { page = page, cursors = cursors, has_next = info.hasNextPage or false }
+
+      local total = issues.totalCount or #lines
+      local pages = math.max(1, math.ceil(total / PER_PAGE))
+      log.info(('%s issues, page %d of %d (%d total)'):format(state, page, pages, total))
     end
-    local lines = {}
-    for _, issue in ipairs(issues.nodes or {}) do
-      local comments = issue.comments and issue.comments.totalCount or 0
-      lines[#lines + 1] = ('#%-6d %s%s'):format(
-        issue.number,
-        issue.title,
-        comments > 0 and ('  (%d)'):format(comments) or ''
-      )
-    end
-    if #lines == 0 then
-      lines = { 'No open issues.' }
-    end
-    render(u, lines)
-    gh.check_truncated(issues, 'issues')
-  end)
+  )
+end
+
+--- The paging state a list buffer is carrying, if it is a list buffer.
+--- @return forge.Uri?
+--- @return table?
+local function list_state()
+  local u = uri.parse(vim.api.nvim_buf_get_name(0))
+  if not u or u.kind ~= 'issues' then
+    return nil, nil
+  end
+  return u, vim.b[vim.api.nvim_get_current_buf()].forge or { page = 1, cursors = {} }
+end
+
+--- Step `delta` pages through an issue list.
+--- @param delta integer
+function M.page(delta)
+  local u, state = list_state()
+  if not u or not state then
+    return
+  end
+  local page = state.page + delta
+  if page < 1 then
+    log.info('already on the first page')
+    return
+  end
+  if delta > 0 and not state.has_next then
+    log.info('no more issues')
+    return
+  end
+  open_list(u, page, state.cursors)
+end
+
+--- Swap an issue list between open and closed, from the first page.
+function M.toggle_state()
+  local u = list_state()
+  if not u then
+    return
+  end
+  u.state = u.state == 'CLOSED' and 'OPEN' or 'CLOSED'
+  open_list(u, 1, {})
 end
 
 --- @param u forge.Uri
@@ -199,7 +276,7 @@ function M.open(target)
   if u.kind == 'issue' then
     open_issue(u)
   else
-    open_list(u)
+    open_list(u, 1, {})
   end
 end
 
@@ -211,7 +288,7 @@ function M.up()
   if not u or u.kind ~= 'issue' then
     return
   end
-  open_list({ owner = u.owner, repo = u.repo, kind = 'issues' })
+  open_list({ owner = u.owner, repo = u.repo, kind = 'issues', state = 'OPEN' }, 1, {})
 end
 
 --- Open the issue under the cursor in an issue list.
