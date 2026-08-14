@@ -66,14 +66,22 @@ local function append_body(lines, body)
   end
 end
 
---- Show `lines` in the buffer named `name`, reusing it if it already exists.
+--- Show `lines` as the view named by `u`, reusing its buffer if it exists.
+---
+--- A single issue is markdown, because that is what GitHub gave us and
+--- markdown already knows how to draw it. A list is not markdown, so it gets a
+--- filetype of its own.
+---
+--- Mappings are set here rather than in an ftplugin: a viewer is markdown, and
+--- an ftplugin/markdown.lua would reach every markdown file you open.
 ---
 --- The buffer is replaced in place rather than wiped and rebuilt, so a window
 --- handle held by a caller stays valid across a refresh.
---- @param name string
+--- @param u forge.Uri
 --- @param lines string[]
 --- @return integer buf
-local function render(name, lines)
+local function render(u, lines)
+  local name = uri.tostring(u)
   local buf = vim.fn.bufnr(name)
   if buf == -1 then
     buf = vim.api.nvim_create_buf(true, true)
@@ -85,7 +93,14 @@ local function render(name, lines)
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].bufhidden = 'hide'
   vim.bo[buf].swapfile = false
-  vim.bo[buf].filetype = 'forge-issue'
+  vim.bo[buf].filetype = u.kind == 'issue' and 'markdown' or 'forge'
+
+  local map = require('forge.map')
+  map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the issue list')
+  if u.kind == 'issues' then
+    map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
+  end
+
   vim.api.nvim_win_set_buf(0, buf)
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
   return buf
@@ -112,7 +127,7 @@ local function open_list(u)
     if #lines == 0 then
       lines = { 'No open issues.' }
     end
-    render(uri.tostring(u), lines)
+    render(u, lines)
     gh.check_truncated(issues, 'issues')
   end)
 end
@@ -167,7 +182,7 @@ local function open_issue(u)
         end
       end
 
-      render(uri.tostring(u), lines)
+      render(u, lines)
       gh.check_truncated(comments, 'comments')
     end
   )

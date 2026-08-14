@@ -56,9 +56,14 @@ it. >
 ==============================================================================
 5. MAPPINGS                                                   *forge-mappings*
 
+A single issue has a filetype of "markdown", because that is the shape GitHub
+returns it in. A list has a filetype of "forge".
+
 Mappings are buffer-local and defined through <Plug> so they can be replaced.
-A default is only set when the key is free and nothing already maps to the
-<Plug>; otherwise your mapping stands.
+A default is only set when nothing in that buffer already maps the key, and
+nothing already maps to the <Plug>; otherwise your mapping stands. They are
+attached by URI rather than by filetype, so nothing here reaches an ordinary
+markdown file.
 
                                                     *<Plug>(forge-issue-open)*
 <CR>                    In an issue list, open the issue under the cursor.
