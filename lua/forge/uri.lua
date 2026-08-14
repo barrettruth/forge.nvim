@@ -1,13 +1,22 @@
+--- @alias forge.Collection 'issues'|'pulls'
+
+--- A view forge can address.
+---
+--- An item is a collection with a number; without one it is the list itself.
 --- @class forge.Uri
 --- @field owner string
 --- @field repo string
---- @field kind 'issues'|'issue'
---- @field number integer?
---- @field state 'OPEN'|'CLOSED'? which issues a list holds; open when absent
+--- @field collection forge.Collection
+--- @field number integer? nil for a list
+--- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
 
 local M = {}
 
 local SCHEME = 'forge://'
+
+--- github.com's own path segment for one member of a collection. Theirs is
+--- plural for issues and singular for pull requests; ours is always plural.
+local WEB_MEMBER = { issues = 'issues', pulls = 'pull' }
 
 --- @param url string
 --- @return string? owner
@@ -34,30 +43,33 @@ end
 --- @param uri forge.Uri
 --- @return string
 function M.tostring(uri)
-  if uri.kind == 'issue' then
-    return ('%s%s/%s/issues/%d'):format(SCHEME, uri.owner, uri.repo, uri.number)
+  local base = ('%s%s/%s/%s'):format(SCHEME, uri.owner, uri.repo, uri.collection)
+  if uri.number then
+    return ('%s/%d'):format(base, uri.number)
   end
   if uri.state == 'CLOSED' then
-    return ('%s%s/%s/issues/closed'):format(SCHEME, uri.owner, uri.repo)
+    return base .. '/closed'
   end
-  return ('%s%s/%s/issues'):format(SCHEME, uri.owner, uri.repo)
+  return base
 end
 
 --- The github.com page a view corresponds to.
 ---
 --- Mostly the path with the scheme swapped, since forge:// borrows github's
---- own. A closed list is the exception: github spells that filter as a query.
+--- own. Two exceptions: github spells a closed list as a query, and names a
+--- single pull request in the singular.
 --- @param uri forge.Uri
 --- @return string
 function M.web(uri)
   local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
-  if uri.kind == 'issue' then
-    return ('%s/issues/%d'):format(base, uri.number)
+  if uri.number then
+    return ('%s/%s/%d'):format(base, WEB_MEMBER[uri.collection], uri.number)
   end
   if uri.state == 'CLOSED' then
-    return ('%s/issues?q=is%%3Aissue+is%%3Aclosed'):format(base)
+    local what = uri.collection == 'pulls' and 'pr' or 'issue'
+    return ('%s/%s?q=is%%3A%s+is%%3Aclosed'):format(base, uri.collection, what)
   end
-  return ('%s/issues'):format(base)
+  return ('%s/%s'):format(base, uri.collection)
 end
 
 --- @param str string
@@ -67,30 +79,44 @@ function M.parse(str)
   if not rest then
     return nil
   end
-  local owner, repo, number = rest:match('^([^/]+)/([^/]+)/issues/(%d+)$')
-  if owner then
-    return { owner = owner, repo = repo, kind = 'issue', number = tonumber(number) }
+
+  local owner, repo, collection, number = rest:match('^([^/]+)/([^/]+)/(%a+)/(%d+)$')
+  if owner and WEB_MEMBER[collection] then
+    return {
+      owner = owner,
+      repo = repo,
+      collection = collection,
+      number = tonumber(number),
+    }
   end
-  owner, repo = rest:match('^([^/]+)/([^/]+)/issues/closed$')
-  if owner then
-    return { owner = owner, repo = repo, kind = 'issues', state = 'CLOSED' }
+
+  owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/closed$')
+  if owner and WEB_MEMBER[collection] then
+    return { owner = owner, repo = repo, collection = collection, state = 'CLOSED' }
   end
-  owner, repo = rest:match('^([^/]+)/([^/]+)/issues$')
-  if owner then
-    return { owner = owner, repo = repo, kind = 'issues', state = 'OPEN' }
+
+  owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')
+  if owner and WEB_MEMBER[collection] then
+    return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
   end
+
   return nil
 end
 
---- Resolve what the user typed into a URI.
+--- Resolve what the user typed into a view.
 ---
---- Accepts, in order: a forge:// URI, a github.com URL, an `owner/repo#number`
---- slug, a bare `owner/repo`, a bare issue number, or nothing at all. The last
---- two need a repository, which comes from the origin remote.
+--- Accepts a forge:// URI, a github.com URL, an `owner/repo#number` slug, a
+--- bare `owner/repo`, a bare number, or nothing at all. The last three need a
+--- repository, which comes from the origin remote.
+---
+--- `collection` says which of issues or pull requests a bare number means; it
+--- is the only thing a caller's intent decides. Every other form says for
+--- itself, and may disagree with the caller — that is for the caller to catch.
 --- @param target string?
+--- @param collection forge.Collection
 --- @return forge.Uri? uri
 --- @return string? err
-function M.resolve(target)
+function M.resolve(target, collection)
   target = vim.trim(target or '')
 
   if target:find('^' .. SCHEME) then
@@ -101,21 +127,28 @@ function M.resolve(target)
     return parsed
   end
 
-  local owner, repo, number = target:match('^https?://github%.com/([^/]+)/([^/]+)/issues/(%d+)')
-  if owner then
-    return { owner = owner, repo = repo, kind = 'issue', number = tonumber(number) }
+  local owner, repo, member, number =
+    target:match('^https?://github%.com/([^/]+)/([^/]+)/(%a+)/(%d+)')
+  if owner and (member == 'issues' or member == 'pull') then
+    return {
+      owner = owner,
+      repo = repo,
+      collection = member == 'pull' and 'pulls' or 'issues',
+      number = tonumber(number),
+    }
   end
-  owner, repo = target:match('^https?://github%.com/([^/]+)/([^/]+)/issues/?$')
-  if owner then
-    return { owner = owner, repo = repo, kind = 'issues' }
+  owner, repo, member = target:match('^https?://github%.com/([^/]+)/([^/]+)/(%a+)/?$')
+  if owner and WEB_MEMBER[member] then
+    return { owner = owner, repo = repo, collection = member, state = 'OPEN' }
   end
+
   owner, repo, number = target:match('^([%w._-]+)/([%w._-]+)#(%d+)$')
   if owner then
-    return { owner = owner, repo = repo, kind = 'issue', number = tonumber(number) }
+    return { owner = owner, repo = repo, collection = collection, number = tonumber(number) }
   end
   owner, repo = target:match('^([%w._-]+)/([%w._-]+)$')
   if owner then
-    return { owner = owner, repo = repo, kind = 'issues' }
+    return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
   end
 
   local origin_owner, origin_repo = M.origin()
@@ -123,13 +156,18 @@ function M.resolve(target)
     return nil, 'no github origin remote here'
   end
   if target == '' then
-    return { owner = origin_owner, repo = origin_repo, kind = 'issues' }
+    return {
+      owner = origin_owner,
+      repo = origin_repo,
+      collection = collection,
+      state = 'OPEN',
+    }
   end
   if target:match('^#?%d+$') then
     return {
       owner = origin_owner,
       repo = origin_repo,
-      kind = 'issue',
+      collection = collection,
       number = tonumber(target:match('%d+')),
     }
   end
