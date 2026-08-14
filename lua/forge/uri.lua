@@ -43,6 +43,23 @@ function M.tostring(uri)
   return ('%s%s/%s/issues'):format(SCHEME, uri.owner, uri.repo)
 end
 
+--- The github.com page a view corresponds to.
+---
+--- Mostly the path with the scheme swapped, since forge:// borrows github's
+--- own. A closed list is the exception: github spells that filter as a query.
+--- @param uri forge.Uri
+--- @return string
+function M.web(uri)
+  local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
+  if uri.kind == 'issue' then
+    return ('%s/issues/%d'):format(base, uri.number)
+  end
+  if uri.state == 'CLOSED' then
+    return ('%s/issues?q=is%%3Aissue+is%%3Aclosed'):format(base)
+  end
+  return ('%s/issues'):format(base)
+end
+
 --- @param str string
 --- @return forge.Uri?
 function M.parse(str)

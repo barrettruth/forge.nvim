@@ -124,6 +124,7 @@ local function render(u, lines, winbar, marks)
 
   local map = require('forge.map')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the issue list')
+  map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
   if u.kind == 'issues' then
     map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
     map.buf_default(buf, 'n', ']i', '<Plug>(forge-issue-next-page)', 'the next page of issues')
@@ -337,6 +338,19 @@ function M.open(target)
   else
     open_list(u, 1, {})
   end
+end
+
+--- Open this view on github.com.
+---
+--- What is shown, not what the cursor is on: the buffer already knows what it
+--- is, and <CR> is how you follow a line.
+function M.web()
+  local u = uri.parse(vim.api.nvim_buf_get_name(0))
+  if not u then
+    log.warn('no url for this buffer')
+    return
+  end
+  vim.ui.open(uri.web(u))
 end
 
 --- Leave an issue for the list it belongs to.

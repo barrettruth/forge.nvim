@@ -104,6 +104,12 @@ markdown file.
 g.                      Swap between open and closed issues, from the first
                         page.
 
+                                                           *<Plug>(forge-web)*
+gX                      Open this view on github.com. What is shown, not what
+                        the cursor is on; |gx| is still the line under it.
+                        Which page you are on is not carried, because a page
+                        is not part of the name.
+
 ==============================================================================
 6. HEALTH                                                       *forge-health*
 
