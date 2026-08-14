@@ -122,18 +122,22 @@ function convert(node, source)
 end
 
 --- @param source string
---- @return table?
+--- @return table? decoded
+--- @return string? err
 function M.decode(source)
   local ok, parser = pcall(vim.treesitter.get_string_parser, source, 'yaml')
   if not ok then
-    return nil
+    return nil, 'no treesitter parser for yaml, so an issue form cannot be read'
   end
   local tree = parser:parse()[1]
   if not tree then
-    return nil
+    return nil, 'could not parse'
   end
   local decoded = convert(tree:root(), source)
-  return type(decoded) == 'table' and decoded or nil
+  if type(decoded) ~= 'table' then
+    return nil, 'not a mapping'
+  end
+  return decoded
 end
 
 return M

@@ -132,3 +132,26 @@ describe('what a template is called', function()
     assert.equals('Pull Request Template', template.all('prs', FIXTURE)[1].name)
   end)
 end)
+
+describe('when a form cannot be read', function()
+  it('says so instead of pretending there was no template', function()
+    local dir = vim.fn.tempname()
+    vim.fn.mkdir(dir .. '/.github/ISSUE_TEMPLATE', 'p')
+    vim.fn.writefile({ '' }, dir .. '/.git')
+    vim.fn.writefile(
+      { 'name: X', 'body:', '  - type: input' },
+      dir .. '/.github/ISSUE_TEMPLATE/a.yml'
+    )
+
+    local real = vim.treesitter.get_string_parser
+    vim.treesitter.get_string_parser = function()
+      error('No parser for language "yaml"')
+    end
+    local found, err = template.all('issues', dir)
+    vim.treesitter.get_string_parser = real
+
+    assert.equals(0, #found)
+    assert.is_truthy(err and err:find('yaml', 1, true))
+    vim.fn.delete(dir, 'rf')
+  end)
+end)

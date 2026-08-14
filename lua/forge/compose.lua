@@ -300,7 +300,10 @@ function M.start(o)
     draft = true,
   } --[[@as forge.Uri]]
 
-  local found = template.all(u.collection, o.cwd)
+  local found, err = template.all(u.collection, o.cwd)
+  if err then
+    log.warn(err)
+  end
   if #found == 0 then
     return open_buffer(draft, nil, o)
   end
