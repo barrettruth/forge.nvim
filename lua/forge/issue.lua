@@ -148,8 +148,6 @@ local function open_issue(u)
         view.hl('Title', 'ISSUE'),
         view.hl('Tag', '#' .. issue.number),
         view.hl(STATE_HL[issue.state] or '', issue.state or '?'),
-        view.hl('Comment', '|'),
-        view.escape(issue.title or '') .. '%<',
       }, ' ')
 
       view.render(u, lines, winbar)
