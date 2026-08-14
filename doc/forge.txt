@@ -72,6 +72,13 @@ Every view sets a 'winbar' saying what it is and where in it you are: >
 Because the winbar holds it, nothing is reported when a view loads. Messages
 are for problems, not for progress that succeeded.
 
+Highlighting uses builtin groups only, so a colorscheme needs to know nothing
+about forge. An issue number is |hl-Tag| wherever it appears, a repository is
+|hl-Directory|, a state is |hl-OkMsg| or |hl-ErrorMsg|, and anything secondary
+is |hl-Comment|. Lists are marked with extmarks recorded as each line is
+built, rather than matched by pattern afterwards, so a title that happens to
+contain "#12" or end in "(3)" is never mistaken for one.
+
 Mappings are buffer-local and defined through <Plug> so they can be replaced.
 A default is only set when nothing in that buffer already maps the key, and
 nothing already maps to the <Plug>; otherwise your mapping stands. They are
