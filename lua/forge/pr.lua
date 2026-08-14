@@ -185,7 +185,8 @@ end
 --- Anything that names itself is believed, and refused here if it named the
 --- other one.
 --- @param target string?
-function M.open(target)
+--- @param opts vim.api.keyset.create_user_command.command_args? window modifiers
+function M.open(target, opts)
   local u, err = require('forge.uri').resolve(target, 'pulls')
   if not u then
     log.err(err or 'cannot resolve target')
@@ -195,6 +196,7 @@ function M.open(target)
     log.err('that names issues; use :Issue')
     return
   end
+  view.split_for(opts)
   M.show(u, 1, {})
 end
 

@@ -43,11 +43,11 @@ vim.keymap.set('n', '<Plug>(forge-state)', function()
 end, { desc = 'toggle open and closed' })
 
 vim.api.nvim_create_user_command('Issue', function(opts)
-  require('forge.issue').open(opts.args)
+  require('forge.issue').open(opts.args, opts)
 end, { nargs = '?', desc = 'open a GitHub issue, or the issue list' })
 
 vim.api.nvim_create_user_command('PR', function(opts)
-  require('forge.pr').open(opts.args)
+  require('forge.pr').open(opts.args, opts)
 end, { nargs = '?', desc = 'open a GitHub pull request, or the pull request list' })
 
 local group = vim.api.nvim_create_augroup('forge', { clear = true })
