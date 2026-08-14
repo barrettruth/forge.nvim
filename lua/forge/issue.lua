@@ -127,6 +127,18 @@ local function escape(text)
   return (text:gsub('%%', '%%%%'))
 end
 
+--- Wrap 'winbar' text in a highlight group. An empty group is harmless.
+--- @param group string
+--- @param text string
+--- @return string
+local function hl(group, text)
+  return ('%%#%s#%s%%*'):format(group, text)
+end
+
+--- Builtin groups, linked to nothing of our own: a state reads as ok or as a
+--- problem, and those groups already mean that everywhere else in the editor.
+local STATE_HL = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg' }
+
 --- Show one page of a repository's issues.
 ---
 --- `cursors[n]` is what to ask GitHub for to reach page n, so paging backwards
@@ -168,14 +180,13 @@ local function open_list(u, page, cursors)
       local info = issues.pageInfo or {}
       local total = issues.totalCount or #lines
       local pages = math.max(1, math.ceil(total / PER_PAGE))
-      local winbar = ('ISSUES %s/%s %s %d/%d (%d)'):format(
-        escape(u.owner),
-        escape(u.repo),
-        state,
-        page,
-        pages,
-        total
-      )
+      local winbar = table.concat({
+        hl('Title', 'ISSUES'),
+        hl('Directory', ('%s/%s'):format(escape(u.owner), escape(u.repo))),
+        hl(STATE_HL[u.state or 'OPEN'] or '', state),
+        ('%d/%d'):format(page, pages),
+        hl('Comment', ('(%d)'):format(total)),
+      }, ' ')
 
       local buf = render(u, lines, winbar)
       if info.hasNextPage and info.endCursor then
@@ -276,11 +287,13 @@ local function open_issue(u)
         end
       end
 
-      local winbar = ('ISSUE #%d %s | %s%%<'):format(
-        issue.number,
-        issue.state or '?',
-        escape(issue.title or '')
-      )
+      local winbar = table.concat({
+        hl('Title', 'ISSUE'),
+        hl('Tag', '#' .. issue.number),
+        hl(STATE_HL[issue.state] or '', issue.state or '?'),
+        hl('Comment', '|'),
+        escape(issue.title or '') .. '%<',
+      }, ' ')
       render(u, lines, winbar)
       gh.check_truncated(comments, 'comments')
     end
