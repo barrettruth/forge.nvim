@@ -46,6 +46,20 @@ function M.current()
   return uri.parse(vim.api.nvim_buf_get_name(0))
 end
 
+--- The buffer named exactly `name`.
+---
+--- Not |bufnr()|, which takes a pattern: a list would match an item already
+--- open beneath it and render itself into that item's buffer.
+--- @param name string
+--- @return integer?
+local function buffer_named(name)
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_get_name(buf) == name then
+      return buf
+    end
+  end
+end
+
 --- Show `lines` as the view named by `u`, reusing its buffer if it exists.
 ---
 --- An item is markdown, because that is what github gave us and markdown
@@ -65,8 +79,8 @@ end
 --- @return integer buf
 function M.render(u, lines, winbar, marks, maps)
   local name = uri.tostring(u)
-  local buf = vim.fn.bufnr(name)
-  if buf == -1 then
+  local buf = buffer_named(name)
+  if not buf then
     buf = vim.api.nvim_create_buf(true, true)
     vim.api.nvim_buf_set_name(buf, name)
   end
