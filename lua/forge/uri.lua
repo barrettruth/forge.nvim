@@ -1,14 +1,23 @@
 --- @alias forge.Collection 'issues'|'prs'
 
---- A view forge can address.
+--- What the user asked for, before github has said which repository that is.
 ---
---- An item is a collection with a number; without one it is the list itself.
---- @class forge.Uri
---- @field owner string
---- @field repo string
+--- `owner` and `repo` are absent when the target did not name a repository.
+--- Nothing here fills them in: gh resolves the repository, and the answer
+--- comes back with the view.
+--- @class forge.Target
 --- @field collection forge.Collection
+--- @field owner string?
+--- @field repo string?
 --- @field number integer? nil for a list
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
+
+--- A view forge can address, which is a target github has already answered.
+---
+--- An item is a collection with a number; without one it is the list itself.
+--- @class forge.Uri : forge.Target
+--- @field owner string
+--- @field repo string
 
 local M = {}
 
@@ -22,26 +31,27 @@ local WEB = {
   prs = { list = 'pulls', member = 'pull', filter = 'pr' },
 }
 
---- @param url string
---- @return string? owner
---- @return string? repo
-local function split_remote(url)
-  local owner, repo = url:match('github%.com[:/]([^/]+)/([^/]+)$')
+--- The view a response describes, named by the repository github answered for.
+---
+--- A target that named no repository is sent with gh's placeholders, so the
+--- name a view is filed under arrives with the view rather than being guessed
+--- at beforehand. A target that named one is still filed under github's
+--- spelling of it, which is the one that round-trips.
+--- @param slug string? "owner/repo", as github spells it
+--- @param t forge.Target
+--- @return forge.Uri?
+function M.of(slug, t)
+  local owner, repo = (slug or ''):match('^([^/]+)/([^/]+)$')
   if not owner then
-    return nil, nil
+    return nil
   end
-  return owner, (repo:gsub('%.git$', ''))
-end
-
---- The owner and repo of the repository containing the working directory.
---- @return string? owner
---- @return string? repo
-function M.origin()
-  local out = vim.system({ 'git', 'remote', 'get-url', 'origin' }, { text = true }):wait()
-  if out.code ~= 0 then
-    return nil, nil
-  end
-  return split_remote(vim.trim(out.stdout))
+  return {
+    owner = owner,
+    repo = repo,
+    collection = t.collection,
+    number = t.number,
+    state = t.state,
+  }
 end
 
 --- @param uri forge.Uri
@@ -107,18 +117,19 @@ function M.parse(str)
   return nil
 end
 
---- Resolve what the user typed into a view.
+--- Resolve what the user typed into a target.
 ---
 --- Accepts a forge:// URI, a github.com URL, an `owner/repo#number` slug, a
---- bare `owner/repo`, a bare number, or nothing at all. The last three need a
---- repository, which comes from the origin remote.
+--- bare `owner/repo`, a bare number, or nothing at all. The forms that name no
+--- repository leave `owner` and `repo` unset for gh to answer; this never
+--- shells out, and never fails for want of a remote.
 ---
 --- `collection` says which of issues or pull requests a bare number means; it
 --- is the only thing a caller's intent decides. Every other form says for
 --- itself, and may disagree with the caller — that is for the caller to catch.
 --- @param target string?
 --- @param collection forge.Collection
---- @return forge.Uri? uri
+--- @return forge.Target? target
 --- @return string? err
 function M.resolve(target, collection)
   target = vim.trim(target or '')
@@ -156,25 +167,11 @@ function M.resolve(target, collection)
     return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
   end
 
-  local origin_owner, origin_repo = M.origin()
-  if not origin_owner then
-    return nil, 'no github origin remote here'
-  end
   if target == '' then
-    return {
-      owner = origin_owner,
-      repo = origin_repo,
-      collection = collection,
-      state = 'OPEN',
-    }
+    return { collection = collection, state = 'OPEN' }
   end
   if target:match('^#?%d+$') then
-    return {
-      owner = origin_owner,
-      repo = origin_repo,
-      collection = collection,
-      number = tonumber(target:match('%d+')),
-    }
+    return { collection = collection, number = tonumber(target:match('%d+')) }
   end
   return nil, 'cannot resolve: ' .. target
 end
