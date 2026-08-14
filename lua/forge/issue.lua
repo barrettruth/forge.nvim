@@ -87,8 +87,9 @@ end
 --- handle held by a caller stays valid across a refresh.
 --- @param u forge.Uri
 --- @param lines string[]
+--- @param winbar string
 --- @return integer buf
-local function render(u, lines)
+local function render(u, lines, winbar)
   local name = uri.tostring(u)
   local buf = vim.fn.bufnr(name)
   if buf == -1 then
@@ -114,7 +115,16 @@ local function render(u, lines)
 
   vim.api.nvim_win_set_buf(0, buf)
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  vim.b[buf].forge_winbar = winbar
+  vim.wo.winbar = winbar
   return buf
+end
+
+--- Escape text bound for a 'winbar', where % introduces an item.
+--- @param text string
+--- @return string
+local function escape(text)
+  return (text:gsub('%%', '%%%%'))
 end
 
 --- Show one page of a repository's issues.
@@ -156,15 +166,22 @@ local function open_list(u, page, cursors)
       end
 
       local info = issues.pageInfo or {}
-      local buf = render(u, lines)
+      local total = issues.totalCount or #lines
+      local pages = math.max(1, math.ceil(total / PER_PAGE))
+      local winbar = ('ISSUES %s/%s %s %d/%d (%d)'):format(
+        escape(u.owner),
+        escape(u.repo),
+        state,
+        page,
+        pages,
+        total
+      )
+
+      local buf = render(u, lines, winbar)
       if info.hasNextPage and info.endCursor then
         cursors[page + 1] = info.endCursor
       end
       vim.b[buf].forge = { page = page, cursors = cursors, has_next = info.hasNextPage or false }
-
-      local total = issues.totalCount or #lines
-      local pages = math.max(1, math.ceil(total / PER_PAGE))
-      log.info(('%s issues, page %d of %d (%d total)'):format(state, page, pages, total))
     end
   )
 end
@@ -228,7 +245,7 @@ local function open_issue(u)
       end
 
       local lines = {
-        ('# %s #%d'):format(issue.title, issue.number),
+        ('# %s'):format(issue.title),
         '',
         ('- Author: %s (%s)'):format(
           vim.tbl_get(issue, 'author', 'login') or 'ghost',
@@ -259,7 +276,12 @@ local function open_issue(u)
         end
       end
 
-      render(u, lines)
+      local winbar = ('ISSUE #%d %s | %s%%<'):format(
+        issue.number,
+        issue.state or '?',
+        escape(issue.title or '')
+      )
+      render(u, lines, winbar)
       gh.check_truncated(comments, 'comments')
     end
   )

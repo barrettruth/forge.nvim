@@ -27,15 +27,27 @@ vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args)
 end, { nargs = '?', desc = 'open a GitHub issue, or the issue list' })
 
+local group = vim.api.nvim_create_augroup('forge', { clear = true })
+
 -- A forge:// buffer has no file behind it, so reading one means fetching it
 -- again. This is what makes :edit reload a view instead of emptying it, and
 -- what lets :edit forge://... open one from nothing.
 vim.api.nvim_create_autocmd('BufReadCmd', {
-  group = vim.api.nvim_create_augroup('forge', { clear = true }),
+  group = group,
   pattern = 'forge://*',
   callback = function(args)
     vim.schedule(function()
       require('forge.issue').open(args.match)
     end)
+  end,
+})
+
+-- 'winbar' is a window option, so a view shown in a second window would lose
+-- the one set when it was drawn.
+vim.api.nvim_create_autocmd('BufWinEnter', {
+  group = group,
+  pattern = 'forge://*',
+  callback = function(args)
+    vim.wo.winbar = vim.b[args.buf].forge_winbar or ''
   end,
 })
