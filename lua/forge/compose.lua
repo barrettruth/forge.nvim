@@ -166,6 +166,7 @@ local function submit(buf)
   if not title then
     return log.warn(err or 'nothing to file')
   end
+  vim.bo[buf].modified = false
 
   local variables = { title = title, body = body }
   if #state.labels > 0 then
@@ -264,7 +265,6 @@ local function open_buffer(u, found, o)
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
     callback = function()
-      vim.bo[buf].modified = false
       submit(buf)
     end,
   })
