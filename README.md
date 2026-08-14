@@ -25,8 +25,9 @@ vim.pack.add({ 'https://github.com/barrettruth/forge.nvim' })
 :Issue neovim/neovim#41310                        " in another repo
 :Issue https://github.com/neovim/neovim/issues/41310
 
-:PR                                               " open pull requests
+:PR                                               " the PR for this branch
 :PR 41138                                         " a pull request by number
+:PR neovim/neovim                                 " open pull requests there
 ```
 
 In a list, `<CR>` opens the item under the cursor and `g?` says what every

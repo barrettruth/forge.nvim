@@ -91,6 +91,27 @@ describe('uri.resolve', function()
   end)
 end)
 
+describe('the referent of a bare command', function()
+  it('is the issue list, because nothing identifies the current issue', function()
+    local t = assert(uri.resolve('', 'issues'))
+    assert.is_nil(t.head)
+    assert.is_nil(t.number)
+    assert.equals('OPEN', t.state)
+  end)
+
+  it('is the pull request for this branch, not the pull request list', function()
+    local t = assert(uri.resolve('', 'prs'))
+    assert.is_true(t.head)
+    assert.is_nil(t.state)
+  end)
+
+  it('is the list again once a repository is named, which is not "here"', function()
+    local t = assert(uri.resolve('neovim/neovim', 'prs'))
+    assert.is_nil(t.head)
+    assert.equals('OPEN', t.state)
+  end)
+end)
+
 describe('uri.of', function()
   it('names a view after the repository github answered for', function()
     local t = { collection = 'issues', number = 41310 }

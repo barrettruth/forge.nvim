@@ -30,8 +30,9 @@ what it returns; there is nothing to configure and no setup() to call.
 
 :PR [{target}]                                                           *:PR*
 :Issue [{target}]                                                     *:Issue*
-    Open {target}. Without an argument, opens the list for the repository you
-    are in.
+    Open {target}. Without an argument, :Issue opens the issue list, and :PR
+    opens the pull request for the branch you are on. Only a pull request has
+    an obvious referent: nothing identifies "the current issue".
 
     {target} is any of: >
         :Issue 41138
@@ -77,6 +78,12 @@ The repository comes back with the view, so it is github's spelling of the
 name that a buffer is filed under, whatever you typed. Requests are made from
 the directory of the buffer you are in, so a file opened from another
 repository is asked about there rather than wherever nvim was started.
+
+A bare |:PR| additionally needs to know which branch you are on. git is asked
+first. In a colocated jj repository git's HEAD is detached one commit behind
+the bookmark that names the pull request, so git there is not merely silent
+but wrong, and jj is asked for the nearest bookmark instead. Reading a branch
+never writes to the repository.
 
 ==============================================================================
 5. URIS                                                           *forge-uris*

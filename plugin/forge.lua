@@ -48,7 +48,7 @@ end, { nargs = '?', desc = 'open a GitHub issue, or the issue list' })
 
 vim.api.nvim_create_user_command('PR', function(opts)
   require('forge.pr').open(opts.args, opts)
-end, { nargs = '?', desc = 'open a GitHub pull request, or the pull request list' })
+end, { nargs = '?', desc = 'open a GitHub pull request, or the one for this branch' })
 
 local group = vim.api.nvim_create_augroup('forge', { clear = true })
 

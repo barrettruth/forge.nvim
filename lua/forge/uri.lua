@@ -11,6 +11,7 @@
 --- @field repo string?
 --- @field number integer? nil for a list
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
+--- @field head boolean? the pull request for the branch checked out here
 
 --- A view forge can address, which is a target github has already answered.
 ---
@@ -124,6 +125,10 @@ end
 --- repository leave `owner` and `repo` unset for gh to answer; this never
 --- shells out, and never fails for want of a remote.
 ---
+--- Nothing at all means the issue list, or the pull request for the branch
+--- checked out here. Only a pull request has an obvious referent: nothing
+--- identifies "the current issue".
+---
 --- `collection` says which of issues or pull requests a bare number means; it
 --- is the only thing a caller's intent decides. Every other form says for
 --- itself, and may disagree with the caller — that is for the caller to catch.
@@ -168,7 +173,10 @@ function M.resolve(target, collection)
   end
 
   if target == '' then
-    return { collection = collection, state = 'OPEN' }
+    if collection == 'prs' then
+      return { collection = 'prs', head = true }
+    end
+    return { collection = 'issues', state = 'OPEN' }
   end
   if target:match('^#?%d+$') then
     return { collection = collection, number = tonumber(target:match('%d+')) }
