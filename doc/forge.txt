@@ -1,0 +1,72 @@
+*forge.txt* *forge.nvim.txt*     GitHub issues and pull requests in Neovim
+
+Author:  Barrett Ruth <br@barrettruth.com>
+License: GPL-3.0
+
+==============================================================================
+CONTENTS                                                      *forge-contents*
+
+  1. Introduction ......................................... |forge-intro|
+  2. Requirements .................................. |forge-requirements|
+  3. Commands ........................................... |forge-commands|
+  4. URIs ................................................... |forge-uris|
+  5. Mappings ........................................... |forge-mappings|
+  6. Health ............................................... |forge-health|
+
+==============================================================================
+1. INTRODUCTION                                                  *forge-intro*
+
+Work with GitHub issues in Neovim. Forge delegates to the "gh" CLI and renders
+what it returns; there is nothing to configure and no setup() to call.
+
+==============================================================================
+2. REQUIREMENTS                                           *forge-requirements*
+
+  - Neovim 0.11 or newer
+  - the "gh" CLI, authenticated (https://cli.github.com)
+
+==============================================================================
+3. COMMANDS                                                   *forge-commands*
+
+:Issue [{target}]                                                     *:Issue*
+    Open {target}. Without an argument, opens the issue list for the
+    repository containing the working directory.
+
+    {target} is any of: >
+        :Issue 41138
+        :Issue #41138
+        :Issue neovim/neovim#41138
+        :Issue neovim/neovim
+        :Issue https://github.com/neovim/neovim/issues/41138
+        :Issue forge://neovim/neovim/issue/41138
+<
+    A bare number and a bare `owner/repo` need an origin remote pointing at
+    github.com; every other form carries its own repository.
+
+==============================================================================
+4. URIS                                                           *forge-uris*
+
+Buffers are named with a "forge://" URI, which is the plugin's addressing
+scheme. Every view has exactly one name, and that name is enough to rebuild
+it. >
+
+    forge://{owner}/{repo}/issues           the open issue list
+    forge://{owner}/{repo}/issue/{number}   a single issue
+<
+==============================================================================
+5. MAPPINGS                                                   *forge-mappings*
+
+Mappings are buffer-local and defined through <Plug> so they can be replaced.
+A default is only set when the key is free and nothing already maps to the
+<Plug>; otherwise your mapping stands.
+
+                                                    *<Plug>(forge-issue-open)*
+<CR>                    In an issue list, open the issue under the cursor.
+
+==============================================================================
+6. HEALTH                                                       *forge-health*
+
+`:checkhealth forge` reports the Neovim version, whether "gh" is present, and
+whether it is authenticated.
+
+ vim:tw=78:ts=8:ft=help:norl:
