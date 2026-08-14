@@ -120,14 +120,14 @@ local function render(u, lines, winbar, marks)
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].bufhidden = 'hide'
   vim.bo[buf].swapfile = false
-  vim.bo[buf].filetype = u.kind == 'issue' and 'markdown' or 'forge'
+  vim.bo[buf].filetype = u.number and 'markdown' or 'forge'
 
   local map = require('forge.map')
   map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the issue list')
   map.buf_default(buf, 'n', 'R', '<Plug>(forge-refresh)', 'fetch this view again')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
-  if u.kind == 'issues' then
+  if not u.number then
     map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
     map.buf_default(
       buf,
@@ -236,7 +236,7 @@ end
 --- @return table?
 local function list_state()
   local u = uri.parse(vim.api.nvim_buf_get_name(0))
-  if not u or u.kind ~= 'issues' then
+  if not u or u.number then
     return nil, nil
   end
   return u, vim.b[vim.api.nvim_get_current_buf()].forge or { page = 1, cursors = {} }
@@ -334,15 +334,23 @@ local function open_issue(u)
   )
 end
 
---- Open whatever `target` names.
+--- Open whatever `target` names, so long as it names issues.
+---
+--- A bare number is taken as an issue, since github numbers issues and pull
+--- requests from one counter and only github can say which it is. Anything
+--- that names itself is believed, and refused here if it named the other one.
 --- @param target string?
 function M.open(target)
-  local u, err = uri.resolve(target)
+  local u, err = uri.resolve(target, 'issues')
   if not u then
     log.err(err or 'cannot resolve target')
     return
   end
-  if u.kind == 'issue' then
+  if u.collection ~= 'issues' then
+    log.err('that names pull requests; use :PR')
+    return
+  end
+  if u.number then
     open_issue(u)
   else
     open_list(u, 1, {})
@@ -358,7 +366,7 @@ function M.refresh()
   if not u then
     return
   end
-  if u.kind == 'issue' then
+  if u.number then
     open_issue(u)
     return
   end
@@ -384,17 +392,17 @@ end
 --- The list is the top: there is nothing above it to go up to.
 function M.up()
   local u = uri.parse(vim.api.nvim_buf_get_name(0))
-  if not u or u.kind ~= 'issue' then
+  if not u or not u.number then
     return
   end
-  open_list({ owner = u.owner, repo = u.repo, kind = 'issues', state = 'OPEN' }, 1, {})
+  open_list({ owner = u.owner, repo = u.repo, collection = u.collection, state = 'OPEN' }, 1, {})
 end
 
 --- Open the issue under the cursor in an issue list.
 --- @param split boolean? open it beside the list rather than over it
 function M.open_at_cursor(split)
   local u = uri.parse(vim.api.nvim_buf_get_name(0))
-  if not u or u.kind ~= 'issues' then
+  if not u or u.number then
     return
   end
   local number = vim.api.nvim_get_current_line():match('^#(%d+)')
@@ -404,7 +412,12 @@ function M.open_at_cursor(split)
   if split then
     vim.cmd('split')
   end
-  open_issue({ owner = u.owner, repo = u.repo, kind = 'issue', number = tonumber(number) })
+  open_issue({
+    owner = u.owner,
+    repo = u.repo,
+    collection = u.collection,
+    number = tonumber(number),
+  })
 end
 
 return M
