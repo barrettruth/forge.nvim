@@ -117,10 +117,10 @@ g.                      Swap between open and closed issues, from the first
                         page.
 
                                                            *<Plug>(forge-web)*
-gX                      Open this view on github.com. What the buffer shows,
-                        not what the cursor is on; |gx| still opens whatever
-                        the cursor is on. Which page you are on is not
-                        carried, because a page is not part of a view's name.
+gX                      Open this view on github.com: what the buffer shows,
+                        not what the cursor is on. Which page you are on is
+                        not carried, because a page is not part of a view's
+                        name.
 
 ==============================================================================
 6. HEALTH                                                       *forge-health*
