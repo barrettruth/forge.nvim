@@ -18,6 +18,10 @@ vim.keymap.set(
   { desc = 'what the keys in this buffer do' }
 )
 
+vim.keymap.set('n', '<Plug>(forge-refresh)', function()
+  require('forge.issue').refresh()
+end, { desc = 'fetch this view again' })
+
 vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.issue').web()
 end, { desc = 'open this view on github.com' })

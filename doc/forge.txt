@@ -99,6 +99,11 @@ g?                      This list, for the buffer you are in.
 -                       Leave an issue for the list it belongs to. The list is
                         the top, so there it does nothing.
 
+                                                       *<Plug>(forge-refresh)*
+R                       Fetch this view again, keeping the page you are on.
+                        |:edit| also refetches, but rebuilds from the name and
+                        so returns to the first page.
+
                                                *<Plug>(forge-issue-next-page)*
                                                *<Plug>(forge-issue-prev-page)*
 ]i  [i                  A hundred issues at a time, forwards and backwards.

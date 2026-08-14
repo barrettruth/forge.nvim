@@ -125,6 +125,7 @@ local function render(u, lines, winbar, marks)
   local map = require('forge.map')
   map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the issue list')
+  map.buf_default(buf, 'n', 'R', '<Plug>(forge-refresh)', 'fetch this view again')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
   if u.kind == 'issues' then
     map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
@@ -339,6 +340,23 @@ function M.open(target)
   else
     open_list(u, 1, {})
   end
+end
+
+--- Fetch this view again, where it stands.
+---
+--- Unlike |:edit|, which rebuilds a view from its name and so returns to the
+--- first page, a refresh keeps the page you were on.
+function M.refresh()
+  local u = uri.parse(vim.api.nvim_buf_get_name(0))
+  if not u then
+    return
+  end
+  if u.kind == 'issue' then
+    open_issue(u)
+    return
+  end
+  local state = vim.b[vim.api.nvim_get_current_buf()].forge or { page = 1, cursors = {} }
+  open_list(u, state.page, state.cursors)
 end
 
 --- Open this view on github.com.
