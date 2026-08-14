@@ -66,9 +66,9 @@ it. >
     forge://{owner}/{repo}/issues           the open issue list
     forge://{owner}/{repo}/issues/closed    the closed issue list
     forge://{owner}/{repo}/issues/{number}  a single issue
-    forge://{owner}/{repo}/pulls            the open pull request list
-    forge://{owner}/{repo}/pulls/closed     the closed and merged list
-    forge://{owner}/{repo}/pulls/{number}   a single pull request
+    forge://{owner}/{repo}/prs            the open pull request list
+    forge://{owner}/{repo}/prs/closed     the closed and merged list
+    forge://{owner}/{repo}/prs/{number}   a single pull request
 <
 The path after the scheme is github.com's own, so a forge:// URI is a page you
 already know how to read. GitHub numbers a single issue under the plural

@@ -17,8 +17,8 @@ describe('view.render', function()
   end)
 
   it('reuses the buffer a view already has', function()
-    local first = view.render(uri('pulls', 9), { 'one' }, 'PR')
-    local again = view.render(uri('pulls', 9), { 'two' }, 'PR')
+    local first = view.render(uri('prs', 9), { 'one' }, 'PR')
+    local again = view.render(uri('prs', 9), { 'two' }, 'PR')
 
     assert.equals(first, again)
     assert.same({ 'two' }, vim.api.nvim_buf_get_lines(again, 0, -1, false))
