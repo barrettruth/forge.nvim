@@ -158,8 +158,6 @@ local function open_pr(u)
         view.hl(STATE_HL[state] or '', state),
         view.hl('Added', ('+%d'):format(pr.additions or 0)),
         view.hl('Removed', ('-%d'):format(pr.deletions or 0)),
-        view.hl('Comment', '|'),
-        view.escape(pr.title or '') .. '%<',
       }, ' ')
 
       view.render(u, lines, winbar)

@@ -81,9 +81,9 @@ returns it in. A list has a filetype of "forge".
 Every view sets a 'winbar' saying what it is and where in it you are: >
 
     ISSUES barrettruth/forge-fixture open 1/2 (124)
-    ISSUE #27 OPEN | Tracking: flaky async tests on the slow CI runner
+    ISSUE #27 OPEN
     PRS barrettruth/forge-fixture open 1/1 (14)
-    PR #151 MERGED +10 -2 | registry: collect load failures
+    PR #151 MERGED +10 -2
 <
 Because the winbar holds it, nothing is reported when a view loads. Messages
 are for problems, not for progress that succeeded.
