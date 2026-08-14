@@ -251,3 +251,24 @@ describe('a draft', function()
     assert.is_nil(assert(uri.parse('forge://a/b/issues/closed')).draft)
   end)
 end)
+
+describe('a draft started from a template', function()
+  it('opens github on that form, not on the chooser', function()
+    local u = assert(uri.parse('forge://neovim/neovim/issues/new'))
+    u.template = 'bug_report.yml'
+    assert.equals('https://github.com/neovim/neovim/issues/new?template=bug_report.yml', uri.web(u))
+  end)
+
+  it('opens the chooser when it started from nothing', function()
+    assert.equals(
+      'https://github.com/neovim/neovim/issues/new',
+      uri.web(assert(uri.parse('forge://neovim/neovim/issues/new')))
+    )
+  end)
+
+  it('leaves the buffer name alone', function()
+    local u = assert(uri.parse('forge://a/b/issues/new'))
+    u.template = 'bug_report.yml'
+    assert.equals('forge://a/b/issues/new', uri.tostring(u))
+  end)
+end)

@@ -199,7 +199,8 @@ ga                      Start something new in the collection you are looking
 gX                      Open this view on github.com: what the buffer shows,
                         not what the cursor is on. Which page you are on is
                         not carried, because a page is not part of a view's
-                        name.
+                        name. A draft opens the form it started from, rather
+                        than the chooser.
 
 ==============================================================================
 7. HEALTH                                                       *forge-health*
