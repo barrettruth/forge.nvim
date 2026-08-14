@@ -187,12 +187,12 @@ end
 --- @param target string?
 --- @param opts vim.api.keyset.create_user_command.command_args? window modifiers
 function M.open(target, opts)
-  local u, err = require('forge.uri').resolve(target, 'pulls')
+  local u, err = require('forge.uri').resolve(target, 'prs')
   if not u then
     log.err(err or 'cannot resolve target')
     return
   end
-  if u.collection ~= 'pulls' then
+  if u.collection ~= 'prs' then
     log.err('that names issues; use :Issue')
     return
   end

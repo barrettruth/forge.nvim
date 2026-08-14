@@ -1,4 +1,4 @@
---- @alias forge.Collection 'issues'|'pulls'
+--- @alias forge.Collection 'issues'|'prs'
 
 --- A view forge can address.
 ---
@@ -14,9 +14,13 @@ local M = {}
 
 local SCHEME = 'forge://'
 
---- github.com's own path segment for one member of a collection. Theirs is
---- plural for issues and singular for pull requests; ours is always plural.
-local WEB_MEMBER = { issues = 'issues', pulls = 'pull' }
+--- github.com's own path segments, which forge does not borrow. Theirs are
+--- plural for an issue list and a single issue, plural for a pull request
+--- list and singular for a single pull request; ours are always "prs".
+local WEB = {
+  issues = { list = 'issues', member = 'issues', filter = 'issue' },
+  prs = { list = 'pulls', member = 'pull', filter = 'pr' },
+}
 
 --- @param url string
 --- @return string? owner
@@ -55,21 +59,21 @@ end
 
 --- The github.com page a view corresponds to.
 ---
---- Mostly the path with the scheme swapped, since forge:// borrows github's
---- own. Two exceptions: github spells a closed list as a query, and names a
---- single pull request in the singular.
+--- Close to the path with the scheme swapped, but not a translation forge
+--- avoids: github spells a closed list as a query, names a single pull
+--- request in the singular, and calls the collection "pulls".
 --- @param uri forge.Uri
 --- @return string
 function M.web(uri)
   local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
+  local web = WEB[uri.collection]
   if uri.number then
-    return ('%s/%s/%d'):format(base, WEB_MEMBER[uri.collection], uri.number)
+    return ('%s/%s/%d'):format(base, web.member, uri.number)
   end
   if uri.state == 'CLOSED' then
-    local what = uri.collection == 'pulls' and 'pr' or 'issue'
-    return ('%s/%s?q=is%%3A%s+is%%3Aclosed'):format(base, uri.collection, what)
+    return ('%s/%s?q=is%%3A%s+is%%3Aclosed'):format(base, web.list, web.filter)
   end
-  return ('%s/%s'):format(base, uri.collection)
+  return ('%s/%s'):format(base, web.list)
 end
 
 --- @param str string
@@ -81,7 +85,7 @@ function M.parse(str)
   end
 
   local owner, repo, collection, number = rest:match('^([^/]+)/([^/]+)/(%a+)/(%d+)$')
-  if owner and WEB_MEMBER[collection] then
+  if owner and WEB[collection] then
     return {
       owner = owner,
       repo = repo,
@@ -91,12 +95,12 @@ function M.parse(str)
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/closed$')
-  if owner and WEB_MEMBER[collection] then
+  if owner and WEB[collection] then
     return { owner = owner, repo = repo, collection = collection, state = 'CLOSED' }
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')
-  if owner and WEB_MEMBER[collection] then
+  if owner and WEB[collection] then
     return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
   end
 
@@ -133,13 +137,14 @@ function M.resolve(target, collection)
     return {
       owner = owner,
       repo = repo,
-      collection = member == 'pull' and 'pulls' or 'issues',
+      collection = member == 'pull' and 'prs' or 'issues',
       number = tonumber(number),
     }
   end
   owner, repo, member = target:match('^https?://github%.com/([^/]+)/([^/]+)/(%a+)/?$')
-  if owner and WEB_MEMBER[member] then
-    return { owner = owner, repo = repo, collection = member, state = 'OPEN' }
+  if owner and (member == 'issues' or member == 'pulls') then
+    local named = member == 'pulls' and 'prs' or 'issues'
+    return { owner = owner, repo = repo, collection = named, state = 'OPEN' }
   end
 
   owner, repo, number = target:match('^([%w._-]+)/([%w._-]+)#(%d+)$')

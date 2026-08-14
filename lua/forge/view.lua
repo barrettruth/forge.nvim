@@ -10,7 +10,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 M.PER_PAGE = 100
 
 --- What a collection is called when talking to a person.
-local LABEL = { issues = 'issues', pulls = 'pull requests' }
+local LABEL = { issues = 'issues', prs = 'pull requests' }
 
 --- @class forge.Mark
 --- @field row integer zero-based
@@ -148,7 +148,7 @@ end
 --- @param page integer?
 --- @param cursors table<integer, string>?
 function M.open(u, page, cursors)
-  local module = u.collection == 'pulls' and 'forge.pr' or 'forge.issue'
+  local module = u.collection == 'prs' and 'forge.pr' or 'forge.issue'
   require(module).show(u, page or 1, cursors or {})
 end
 

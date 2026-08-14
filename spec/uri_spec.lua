@@ -93,11 +93,11 @@ describe('uri.web', function()
 end)
 
 describe('uri for pull requests', function()
-  it('uses the same grammar as issues', function()
+  it('uses our own word, and the same grammar as issues', function()
     for _, name in ipairs({
-      'forge://neovim/neovim/pulls',
-      'forge://neovim/neovim/pulls/closed',
-      'forge://neovim/neovim/pulls/41138',
+      'forge://neovim/neovim/prs',
+      'forge://neovim/neovim/prs/closed',
+      'forge://neovim/neovim/prs/41138',
     }) do
       assert.equals(name, uri.tostring(assert(uri.parse(name))))
     end
@@ -106,25 +106,22 @@ describe('uri for pull requests', function()
   it('follows github into the singular only on the web', function()
     assert.equals(
       'https://github.com/neovim/neovim/pull/41138',
-      uri.web(assert(uri.parse('forge://neovim/neovim/pulls/41138')))
+      uri.web(assert(uri.parse('forge://neovim/neovim/prs/41138')))
     )
     assert.equals(
       'https://github.com/neovim/neovim/pulls',
-      uri.web(assert(uri.parse('forge://neovim/neovim/pulls')))
+      uri.web(assert(uri.parse('forge://neovim/neovim/prs')))
     )
   end)
 
   it('believes a target that names its own collection', function()
-    assert.equals('pulls', assert(uri.resolve('forge://a/b/pulls/1', 'issues')).collection)
-    assert.equals('issues', assert(uri.resolve('forge://a/b/issues/1', 'pulls')).collection)
-    assert.equals(
-      'pulls',
-      assert(uri.resolve('https://github.com/a/b/pull/1', 'issues')).collection
-    )
+    assert.equals('prs', assert(uri.resolve('forge://a/b/prs/1', 'issues')).collection)
+    assert.equals('issues', assert(uri.resolve('forge://a/b/issues/1', 'prs')).collection)
+    assert.equals('prs', assert(uri.resolve('https://github.com/a/b/pull/1', 'issues')).collection)
   end)
 
   it('lets the caller decide only for a bare number', function()
-    assert.equals('pulls', assert(uri.resolve('a/b#1', 'pulls')).collection)
+    assert.equals('prs', assert(uri.resolve('a/b#1', 'prs')).collection)
     assert.equals('issues', assert(uri.resolve('a/b#1', 'issues')).collection)
   end)
 
