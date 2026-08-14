@@ -140,6 +140,11 @@ function M.render(u, lines, winbar, marks, maps)
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
   vim.b[buf].forge_winbar = winbar
   vim.wo.winbar = winbar
+
+  if u.number and u.state then
+    vim.b[buf].forge = { state = u.state }
+  end
+
   return buf
 end
 
@@ -154,13 +159,23 @@ end
 
 --- Leave an item for the list it belongs to.
 ---
+--- Which half of the collection that is cannot be read off an item's name, so
+--- an item opened from a list remembers where it came from. One opened by
+--- name came from nowhere, and goes to the open list.
+---
 --- A list is the top: there is nothing above a list to go up to.
 function M.up()
   local u = M.current()
   if not u or not u.number then
     return
   end
-  M.open({ owner = u.owner, repo = u.repo, collection = u.collection, state = 'OPEN' })
+  local came_from = vim.b[vim.api.nvim_get_current_buf()].forge or {}
+  M.open({
+    owner = u.owner,
+    repo = u.repo,
+    collection = u.collection,
+    state = came_from.state or 'OPEN',
+  })
 end
 
 --- Fetch this view again, where it stands.
@@ -242,6 +257,7 @@ function M.open_at_cursor(split)
     repo = u.repo,
     collection = u.collection,
     number = tonumber(number),
+    state = u.state,
   })
 end
 

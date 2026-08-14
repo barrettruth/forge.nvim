@@ -120,8 +120,10 @@ o                       In an issue list, open the issue under the cursor in
                         a split, keeping the list visible.
 
                                                             *<Plug>(forge-up)*
--                       Leave an issue for the list that issue belongs to. A
-                        list is the top, so "-" in a list does nothing.
+-                       Leave an item for the list it belongs to, closed or
+                        open, whichever you came from. An item opened by name
+                        came from nowhere, and goes to the open list. A list
+                        is the top, so "-" in a list does nothing.
 
                                                        *<Plug>(forge-refresh)*
 R                       Fetch this view again, keeping the page you are on.
