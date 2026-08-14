@@ -129,6 +129,7 @@ local function render(u, lines, winbar, marks)
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
   if u.kind == 'issues' then
     map.buf_default(buf, 'n', '<CR>', '<Plug>(forge-issue-open)', 'open the issue under the cursor')
+    map.buf_default(buf, 'n', 'o', '<Plug>(forge-issue-open-split)', 'open it in a split instead')
     map.buf_default(buf, 'n', ']i', '<Plug>(forge-issue-next-page)', 'the next page of issues')
     map.buf_default(buf, 'n', '[i', '<Plug>(forge-issue-prev-page)', 'the previous page of issues')
     map.buf_default(buf, 'n', 'g.', '<Plug>(forge-issue-state)', 'toggle open and closed issues')
@@ -384,7 +385,8 @@ function M.up()
 end
 
 --- Open the issue under the cursor in an issue list.
-function M.open_at_cursor()
+--- @param split boolean? open it beside the list rather than over it
+function M.open_at_cursor(split)
   local u = uri.parse(vim.api.nvim_buf_get_name(0))
   if not u or u.kind ~= 'issues' then
     return
@@ -392,6 +394,9 @@ function M.open_at_cursor()
   local number = vim.api.nvim_get_current_line():match('^#(%d+)')
   if not number then
     return
+  end
+  if split then
+    vim.cmd('split')
   end
   open_issue({ owner = u.owner, repo = u.repo, kind = 'issue', number = tonumber(number) })
 end

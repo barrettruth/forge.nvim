@@ -7,6 +7,10 @@ vim.keymap.set('n', '<Plug>(forge-issue-open)', function()
   require('forge.issue').open_at_cursor()
 end, { desc = 'open the issue under the cursor' })
 
+vim.keymap.set('n', '<Plug>(forge-issue-open-split)', function()
+  require('forge.issue').open_at_cursor(true)
+end, { desc = 'open the issue under the cursor in a split' })
+
 vim.keymap.set('n', '<Plug>(forge-up)', function()
   require('forge.issue').up()
 end, { desc = 'go up to the issue list' })

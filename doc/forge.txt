@@ -93,7 +93,9 @@ markdown file.
 g?                      This list, for the buffer you are in.
 
                                                     *<Plug>(forge-issue-open)*
-<CR>                    In an issue list, open the issue under the cursor.
+                                              *<Plug>(forge-issue-open-split)*
+<CR>  o                 In an issue list, open the issue under the cursor;
+                        with "o", beside the list rather than over it.
 
                                                             *<Plug>(forge-up)*
 -                       Leave an issue for the list it belongs to. The list is
