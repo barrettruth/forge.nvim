@@ -94,7 +94,11 @@ function M.resolve(target)
   target = vim.trim(target or '')
 
   if target:find('^' .. SCHEME) then
-    return M.parse(target) or nil, 'not a forge uri: ' .. target
+    local parsed = M.parse(target)
+    if not parsed then
+      return nil, 'not a forge uri: ' .. target
+    end
+    return parsed
   end
 
   local owner, repo, number = target:match('^https?://github%.com/([^/]+)/([^/]+)/issues/(%d+)')
