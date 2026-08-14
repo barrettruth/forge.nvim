@@ -14,3 +14,16 @@ end, { desc = 'go up to the issue list' })
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args)
 end, { nargs = '?', desc = 'open a GitHub issue, or the issue list' })
+
+-- A forge:// buffer has no file behind it, so reading one means fetching it
+-- again. This is what makes :edit reload a view instead of emptying it, and
+-- what lets :edit forge://... open one from nothing.
+vim.api.nvim_create_autocmd('BufReadCmd', {
+  group = vim.api.nvim_create_augroup('forge', { clear = true }),
+  pattern = 'forge://*',
+  callback = function(args)
+    vim.schedule(function()
+      require('forge.issue').open(args.match)
+    end)
+  end,
+})
