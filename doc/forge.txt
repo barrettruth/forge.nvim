@@ -8,9 +8,10 @@ CONTENTS                                                      *forge-contents*
   1. Introduction ......................................... |forge-intro|
   2. Requirements .................................. |forge-requirements|
   3. Commands ........................................... |forge-commands|
-  4. URIs ................................................... |forge-uris|
-  5. Mappings ........................................... |forge-mappings|
-  6. Health ............................................... |forge-health|
+  4. Repository ....................................... |forge-repository|
+  5. URIs ................................................... |forge-uris|
+  6. Mappings ........................................... |forge-mappings|
+  7. Health ............................................... |forge-health|
 
 ==============================================================================
 1. INTRODUCTION                                                  *forge-intro*
@@ -29,8 +30,8 @@ what it returns; there is nothing to configure and no setup() to call.
 
 :PR [{target}]                                                           *:PR*
 :Issue [{target}]                                                     *:Issue*
-    Open {target}. Without an argument, opens the issue list for the
-    repository containing the working directory.
+    Open {target}. Without an argument, opens the list for the repository you
+    are in.
 
     {target} is any of: >
         :Issue 41138
@@ -40,16 +41,18 @@ what it returns; there is nothing to configure and no setup() to call.
         :Issue https://github.com/neovim/neovim/issues/41138
         :Issue forge://neovim/neovim/issues/41138
 <
-    A bare number and a bare `owner/repo` need an origin remote pointing at
-    github.com; every other form carries its own repository.
+    A form that names no repository is answered by the one gh resolves. See
+    |forge-repository|.
 
     |:command-modifiers| are honoured, so the view opens where you say: >
         :vertical Issue 41310
         :tab PR 41138
         :botright Issue neovim/neovim
 <
-    The window is made after the target resolves, so a target that is refused
-    leaves no window behind.
+    The window is made once github has answered, and in the window the command
+    was given in. A request that fails leaves no window behind, and one that
+    succeeds while you are reading something else does not steal the window
+    you moved to.
 
     A target that names the other kind is refused: :Issue will not open a pull
     request, and :PR will not open an issue. A bare number cannot be checked
@@ -57,7 +60,26 @@ what it returns; there is nothing to configure and no setup() to call.
     and only github knows which a number is.
 
 ==============================================================================
-4. URIS                                                           *forge-uris*
+4. REPOSITORY                                               *forge-repository*
+
+Forge does not work out which repository you are in. It sends gh's own
+`{owner}` and `{repo}` placeholders and lets gh answer, which means forge
+agrees with every other gh command you run in the same directory, for free.
+
+That matters most in a fork. gh answers with the base repository, the one a
+fork's issues and pull requests actually live on. It honours a default set
+with `gh repo set-default`, and otherwise prefers a remote named "upstream",
+then "github", then "origin". Reading a remote here instead would answer a
+fork with the wrong repository, which is a silently empty list rather than an
+error.
+
+The repository comes back with the view, so it is github's spelling of the
+name that a buffer is filed under, whatever you typed. Requests are made from
+the directory of the buffer you are in, so a file opened from another
+repository is asked about there rather than wherever nvim was started.
+
+==============================================================================
+5. URIS                                                           *forge-uris*
 
 Buffers are named with a "forge://" URI, which is the plugin's addressing
 scheme. Every view has exactly one name, and that name is enough to rebuild
@@ -81,7 +103,7 @@ brings back what you were looking at. Which page you were on is not, so a
 reload starts again at the first.
 
 ==============================================================================
-5. MAPPINGS                                                   *forge-mappings*
+6. MAPPINGS                                                   *forge-mappings*
 
 A single issue has a filetype of "markdown", because that is the shape GitHub
 returns it in. A list has a filetype of "forge".
@@ -147,7 +169,7 @@ gX                      Open this view on github.com: what the buffer shows,
                         name.
 
 ==============================================================================
-6. HEALTH                                                       *forge-health*
+7. HEALTH                                                       *forge-health*
 
 `:checkhealth forge` reports the Neovim version, whether "gh" is present, and
 whether it is authenticated.

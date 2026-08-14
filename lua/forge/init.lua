@@ -9,4 +9,11 @@ function M.issue(target)
   require('forge.issue').open(target)
 end
 
+--- Open a pull request, or the pull request list. See |:PR| for accepted
+--- targets.
+--- @param target string?
+function M.pr(target)
+  require('forge.pr').open(target)
+end
+
 return M
