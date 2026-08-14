@@ -24,7 +24,7 @@ local OTHER = {
 --- the time one comes back.
 --- @class forge.Open
 --- @field page integer?
---- @field cursors table<integer, string>?
+--- @field cursors table<string, string>?
 --- @field win integer? the window the command was given in
 --- @field mods string? see |:command-modifiers|
 --- @field smods table?
@@ -59,10 +59,22 @@ function M.hl(group, text)
 end
 
 --- Where a list buffer has got to.
+---
+--- Cursors are keyed by page as a string. The first page has no cursor, so an
+--- integer-keyed table would be a list with a hole at index 1, and a buffer
+--- variable round-trips that hole back as `vim.NIL` — truthy in Lua, and not
+--- something github will accept as a cursor.
 --- @param buf integer
---- @return { page: integer, cursors: table<integer, string>, has_next: boolean }
+--- @return { page: integer, cursors: table<string, string>, has_next: boolean }
 function M.paging(buf)
   return vim.b[buf].forge or { page = 1, cursors = {}, has_next = false }
+end
+
+--- The key page `n` files its cursor under.
+--- @param n integer
+--- @return string
+function M.at(n)
+  return tostring(n)
 end
 
 --- The view a buffer holds, if a buffer holds one.
