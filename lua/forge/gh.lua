@@ -99,6 +99,8 @@ end
 --- Creating goes through REST rather than GraphQL because a mutation wants a
 --- repository's node id, which is a round trip to learn, while REST takes the
 --- owner and repo we already have and label *names* rather than their ids.
+--- Github answers a refused write with a generic `message` and the reason
+--- itself inside `errors`, so the reason is preferred where there is one.
 --- @class forge.Rest
 --- @field desc string what to say while it is in flight
 --- @field method 'POST'|'PATCH'
@@ -119,7 +121,11 @@ function M.rest(req, on_done, on_fail)
     vim.schedule(function()
       local ok, body = pcall(vim.json.decode, out.stdout)
       if out.code ~= 0 then
-        local message = ok and type(body) == 'table' and body.message
+        local message = nil
+        if ok and type(body) == 'table' then
+          local first = body.errors and body.errors[1]
+          message = (type(first) == 'table' and first.message) or body.message
+        end
         local msg = message or vim.trim(out.stderr or '')
         msg = msg ~= '' and msg or 'gh api failed'
         done('failed', msg)

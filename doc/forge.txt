@@ -190,6 +190,12 @@ ga                      Start something new in the collection you are looking
                         nothing to delete before filing, and a "*" marks an
                         answer github will insist on.
 
+                        A pull request also needs two branches. The one you
+                        are on is proposed, and github says what it merges
+                        into; the winbar names both. Being on that branch
+                        already, with nothing to propose, is refused rather
+                        than sent.
+
                         Writing the buffer files it: "ZZ" creates and closes,
                         ":w" creates and leaves you on what you made, and "ZQ"
                         discards. An answer left blank becomes "_No response_",

@@ -13,6 +13,13 @@ local NS = vim.api.nvim_create_namespace('forge.compose')
 --- filed from here is indistinguishable from one filed on the web.
 local NO_RESPONSE = '_No response_'
 
+--- What a pull request would merge into, when nobody said otherwise.
+local BASE_QUERY = [[
+query($owner: String!, $repo: String!) {
+  repository(owner: $owner, name: $repo) { defaultBranchRef { name } }
+}
+]]
+
 --- @param lines string[]
 --- @param text string?
 local function append(lines, text)
@@ -169,17 +176,24 @@ local function submit(buf)
   vim.bo[buf].modified = false
 
   local variables = { title = title, body = body }
-  if #state.labels > 0 then
-    variables.labels = state.labels
-  end
-  if #state.assignees > 0 then
-    variables.assignees = state.assignees
+  local what = 'issues'
+  if state.collection == 'prs' then
+    what = 'pulls'
+    variables.head = state.head
+    variables.base = state.base
+  else
+    if #state.labels > 0 then
+      variables.labels = state.labels
+    end
+    if #state.assignees > 0 then
+      variables.assignees = state.assignees
+    end
   end
 
   gh.rest({
     desc = ('filing in %s/%s'):format(state.owner, state.repo),
     method = 'POST',
-    path = ('repos/%s/%s/issues'):format(state.owner, state.repo),
+    path = ('repos/%s/%s/%s'):format(state.owner, state.repo, what),
     variables = variables,
     cwd = state.cwd,
   }, function(created)
@@ -211,7 +225,8 @@ end
 --- @param u forge.Uri
 --- @param found forge.Template?
 --- @param o forge.Open
-local function open_buffer(u, found, o)
+--- @param refs { head: string, base: string }? which branches a pull request joins
+local function open_buffer(u, found, o, refs)
   view.place(o)
 
   local name = uri.tostring(u)
@@ -244,6 +259,8 @@ local function open_buffer(u, found, o)
     assignees = found and found.assignees or {},
     fields = found and found.fields or {},
     template = found and vim.fs.basename(found.path) or nil,
+    head = refs and refs.head or nil,
+    base = refs and refs.base or nil,
     cwd = o.cwd,
   }
 
@@ -251,11 +268,15 @@ local function open_buffer(u, found, o)
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
 
-  local winbar = table.concat({
+  local bar = {
     view.hl('Title', u.collection == 'prs' and 'PR' or 'ISSUE'),
     view.hl('Tag', 'new'),
     view.hl('Directory', ('%s/%s'):format(view.escape(u.owner), view.escape(u.repo))),
-  }, ' ')
+  }
+  if refs then
+    bar[#bar + 1] = view.hl('Comment', view.escape(refs.head) .. ' into ' .. view.escape(refs.base))
+  end
+  local winbar = table.concat(bar, ' ')
 
   vim.api.nvim_win_set_buf(0, buf)
   vim.b[buf].forge_winbar = winbar
@@ -276,39 +297,16 @@ local function open_buffer(u, found, o)
   end
 end
 
---- Start something new in the collection being looked at.
----
---- Templates come from the checkout, so a repository you are only browsing
---- offers none and the buffer starts empty. One template is used without
---- asking; several are chosen from; cancelling chooses nothing.
---- @param o forge.Open?
-function M.start(o)
-  local u = view.current()
-  if not u or u.draft then
-    return
-  end
-  if u.collection == 'prs' then
-    return log.warn('opening a pull request is not here yet')
-  end
-  o = o or {}
-  o.cwd = o.cwd or require('forge.vcs').dir()
-
-  local draft = {
-    owner = u.owner,
-    repo = u.repo,
-    collection = u.collection,
-    draft = true,
-  } --[[@as forge.Uri]]
-
+--- @param u forge.Uri
+--- @param o forge.Open
+--- @param refs { head: string, base: string }?
+local function choose(u, o, refs)
   local found, err = template.all(u.collection, o.cwd)
   if err then
     log.warn(err)
   end
-  if #found == 0 then
-    return open_buffer(draft, nil, o)
-  end
-  if #found == 1 then
-    return open_buffer(draft, found[1], o)
+  if #found <= 1 then
+    return open_buffer(u, found[1], o, refs)
   end
 
   local choices = {}
@@ -321,7 +319,60 @@ function M.start(o)
     if not index then
       return
     end
-    open_buffer(draft, found[index], o)
+    open_buffer(u, found[index], o, refs)
+  end)
+end
+
+--- Start something new in the collection being looked at.
+---
+--- Templates come from the checkout, so a repository you are only browsing
+--- offers none and the buffer starts empty. One template is used without
+--- asking; several are chosen from; cancelling chooses nothing.
+---
+--- A pull request also needs two branches. The one you are on is the one you
+--- are proposing, and github is asked what it would be merged into, since a
+--- repository's default branch is not ours to guess.
+--- @param o forge.Open?
+function M.start(o)
+  local u = view.current()
+  if not u or u.draft then
+    return
+  end
+  o = o or {}
+  o.cwd = o.cwd or require('forge.vcs').dir()
+
+  local draft = {
+    owner = u.owner,
+    repo = u.repo,
+    collection = u.collection,
+    draft = true,
+  } --[[@as forge.Uri]]
+
+  if u.collection ~= 'prs' then
+    return choose(draft, o)
+  end
+
+  local head, err = require('forge.vcs').branch(o.cwd)
+  if not head then
+    return log.err(err or 'no branch here, so no pull request to open')
+  end
+
+  gh.graphql({
+    desc = ('what %s/%s merges into'):format(u.owner, u.repo),
+    query = BASE_QUERY,
+    variables = { owner = u.owner, repo = u.repo },
+    cwd = o.cwd,
+  }, function(data)
+    local base = vim.tbl_get(data, 'repository', 'defaultBranchRef', 'name')
+    if not base then
+      return log.err('cannot tell which branch to merge into')
+    end
+    if base == head then
+      return log.err(
+        ('%s is what would be merged into, so there is nothing to propose'):format(head)
+      )
+    end
+    choose(draft, o, { head = head, base = base })
   end)
 end
 
