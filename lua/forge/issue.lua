@@ -17,7 +17,7 @@ query($owner: String!, $repo: String!, $states: [IssueState!], $after: String) {
     ) {
       totalCount
       pageInfo { hasNextPage endCursor }
-      nodes { number title comments { totalCount } }
+      nodes { number title }
     }
   }
 }
@@ -187,22 +187,14 @@ local function open_list(u, page, cursors)
       for _, issue in ipairs(nodes) do
         width = math.max(width, #tostring(issue.number))
       end
-      local format = ('#%%-%dd %%s%%s'):format(width)
+      local format = ('#%%-%dd %%s'):format(width)
 
       local lines, marks = {}, {}
       for _, issue in ipairs(nodes) do
-        local comments = issue.comments and issue.comments.totalCount or 0
-        local tail = comments > 0 and ('  (%d)'):format(comments) or ''
-        local line = format:format(issue.number, issue.title, tail)
         local row = #lines
-
-        lines[row + 1] = line
+        lines[row + 1] = format:format(issue.number, issue.title)
         marks[#marks + 1] =
           { row = row, col = 0, end_col = 1 + #tostring(issue.number), group = 'Tag' }
-        if tail ~= '' then
-          marks[#marks + 1] =
-            { row = row, col = #line - #tail + 2, end_col = #line, group = 'Comment' }
-        end
       end
       if #lines == 0 then
         lines = { ('No %s issues.'):format(state) }
