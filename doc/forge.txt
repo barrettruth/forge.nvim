@@ -63,6 +63,10 @@ A default is only set when the key is free and nothing already maps to the
                                                     *<Plug>(forge-issue-open)*
 <CR>                    In an issue list, open the issue under the cursor.
 
+                                                            *<Plug>(forge-up)*
+-                       Leave an issue for the list it belongs to. The list is
+                        the top, so there it does nothing.
+
 ==============================================================================
 6. HEALTH                                                       *forge-health*
 
