@@ -89,7 +89,7 @@ end
 --- open beneath it and render itself into that item's buffer.
 --- @param name string
 --- @return integer?
-local function buffer_named(name)
+function M.buffer_named(name)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_get_name(buf) == name then
       return buf
@@ -154,7 +154,7 @@ end
 --- @return integer buf
 function M.render(u, lines, winbar, marks, maps)
   local name = uri.tostring(u)
-  local buf = buffer_named(name)
+  local buf = M.buffer_named(name)
   if not buf then
     buf = vim.api.nvim_create_buf(true, true)
     vim.api.nvim_buf_set_name(buf, name)
@@ -180,6 +180,7 @@ function M.render(u, lines, winbar, marks, maps)
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
   map.buf_default(buf, 'n', 'R', '<Plug>(forge-refresh)', 'fetch this view again')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
+  map.buf_default(buf, 'n', 'ga', '<Plug>(forge-create)', 'start something new in this collection')
   for _, m in ipairs(maps or {}) do
     map.buf_default(buf, 'n', m[1], m[2], m[3])
   end
@@ -238,7 +239,7 @@ end
 --- A list is the top: there is nothing above a list to go up to.
 function M.up()
   local u = M.current()
-  if not u or not u.number then
+  if not u or not (u.number or u.draft) then
     return
   end
   local came_from = vim.b[vim.api.nvim_get_current_buf()].forge or {}

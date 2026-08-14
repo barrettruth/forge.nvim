@@ -26,6 +26,10 @@ vim.keymap.set('n', '<Plug>(forge-refresh)', function()
   require('forge.view').refresh()
 end, { desc = 'fetch this view again' })
 
+vim.keymap.set('n', '<Plug>(forge-create)', function()
+  require('forge.compose').start()
+end, { desc = 'start something new in this collection' })
+
 vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.view').web()
 end, { desc = 'open this view on github.com' })
@@ -61,7 +65,7 @@ vim.api.nvim_create_autocmd('BufReadCmd', {
   callback = function(args)
     vim.schedule(function()
       local u = require('forge.uri').parse(args.match)
-      if u then
+      if u and not u.draft then
         require('forge.view').open(u)
       end
     end)

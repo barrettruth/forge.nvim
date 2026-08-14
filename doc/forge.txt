@@ -98,6 +98,7 @@ it. >
     forge://{owner}/{repo}/prs            the open pull request list
     forge://{owner}/{repo}/prs/closed     the closed and merged list
     forge://{owner}/{repo}/prs/{number}   a single pull request
+    forge://{owner}/{repo}/issues/new     an issue not filed yet
 <
 The path after the scheme is github.com's own, so a forge:// URI is a page you
 already know how to read. GitHub numbers a single issue under the plural
@@ -168,6 +169,24 @@ R                       Fetch this view again, keeping the page you are on.
 g.                      Swap between open and closed, from the first page.
                         Closed pull requests include merged ones, which is the
                         split github's own Closed tab makes.
+
+                                                        *<Plug>(forge-create)*
+ga                      Start something new in the collection you are looking
+                        at. Templates come from your checkout, so a repository
+                        you are only browsing offers none and the draft starts
+                        empty. One template is used without asking, several
+                        are chosen between.
+
+                        A draft is an ordinary buffer holding the markdown
+                        that will be filed. Guidance a form carries is shown
+                        beside it rather than written into it, so there is
+                        nothing to delete before filing, and a "*" marks an
+                        answer github will insist on.
+
+                        Writing the buffer files it: "ZZ" creates and closes,
+                        ":w" creates and leaves you on what you made, and "ZQ"
+                        discards. An answer left blank becomes "_No response_",
+                        which is what github writes for one.
 
                                                            *<Plug>(forge-web)*
 gX                      Open this view on github.com: what the buffer shows,
