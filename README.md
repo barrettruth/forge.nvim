@@ -33,3 +33,7 @@ In a list, `<CR>` opens the item under the cursor and `g?` says what every
 other key does.
 
 See `:help forge.nvim`.
+
+## Acknowledgements
+
+- [guh.nvim](https://github.com/justinmk/guh.nvim)
