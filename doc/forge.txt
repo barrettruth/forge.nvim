@@ -27,6 +27,7 @@ what it returns; there is nothing to configure and no setup() to call.
 ==============================================================================
 3. COMMANDS                                                   *forge-commands*
 
+:PR [{target}]                                                           *:PR*
 :Issue [{target}]                                                     *:Issue*
     Open {target}. Without an argument, opens the issue list for the
     repository containing the working directory.
@@ -42,6 +43,11 @@ what it returns; there is nothing to configure and no setup() to call.
     A bare number and a bare `owner/repo` need an origin remote pointing at
     github.com; every other form carries its own repository.
 
+    A target that names the other kind is refused: :Issue will not open a pull
+    request, and :PR will not open an issue. A bare number cannot be checked
+    that way, because github numbers issues and pull requests from one counter
+    and only github knows which a number is.
+
 ==============================================================================
 4. URIS                                                           *forge-uris*
 
@@ -52,10 +58,15 @@ it. >
     forge://{owner}/{repo}/issues           the open issue list
     forge://{owner}/{repo}/issues/closed    the closed issue list
     forge://{owner}/{repo}/issues/{number}  a single issue
+    forge://{owner}/{repo}/pulls            the open pull request list
+    forge://{owner}/{repo}/pulls/closed     the closed and merged list
+    forge://{owner}/{repo}/pulls/{number}   a single pull request
 <
 The path after the scheme is github.com's own, so a forge:// URI is a page you
 already know how to read. GitHub numbers a single issue under the plural
-"issues" too, and matching that is worth more than being tidier than they are.
+"issues" too. It numbers a single pull request under the singular "pull",
+which forge does not copy: a collection is plural here whatever it holds, and
+the singular appears only in the address "gX" opens.
 
 Which issues a list holds is part of its name, so reloading one with |:edit|
 brings back what you were looking at. Which page you were on is not, so a
@@ -71,6 +82,8 @@ Every view sets a 'winbar' saying what it is and where in it you are: >
 
     ISSUES barrettruth/forge-fixture open 1/2 (124)
     ISSUE #27 OPEN | Tracking: flaky async tests on the slow CI runner
+    PRS barrettruth/forge-fixture open 1/1 (14)
+    PR #151 MERGED +10 -2 | registry: collect load failures
 <
 Because the winbar holds it, nothing is reported when a view loads. Messages
 are for problems, not for progress that succeeded.
@@ -109,11 +122,13 @@ R                       Fetch this view again, keeping the page you are on.
 
                                                      *<Plug>(forge-next-page)*
                                                      *<Plug>(forge-prev-page)*
-]i  [i                  A hundred issues at a time, forwards and backwards.
+]i  [i                  A hundred issues at a time, forwards and backwards. ]p
+[p                  The same, through pull requests.
 
                                                          *<Plug>(forge-state)*
-g.                      Swap between open and closed issues, from the first
-                        page.
+g.                      Swap between open and closed, from the first page.
+                        Closed pull requests include merged ones, which is the
+                        split github's own Closed tab makes.
 
                                                            *<Plug>(forge-web)*
 gX                      Open this view on github.com: what the buffer shows,

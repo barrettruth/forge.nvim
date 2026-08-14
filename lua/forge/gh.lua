@@ -9,13 +9,20 @@ local M = {}
 --- GraphQL Ints, anything else a String. Errors are reported, never raised.
 --- @param desc string what to say while the request is in flight
 --- @param query string
---- @param variables table<string, string|integer>
+--- @param variables table<string, string|integer|string[]>
 --- @param on_done fun(data: table)
 function M.graphql(desc, query, variables, on_done)
   local cmd = { 'gh', 'api', 'graphql', '-f', 'query=' .. query }
   for name, value in pairs(variables) do
-    cmd[#cmd + 1] = type(value) == 'number' and '-F' or '-f'
-    cmd[#cmd + 1] = ('%s=%s'):format(name, value)
+    if type(value) == 'table' then
+      for _, item in ipairs(value) do
+        cmd[#cmd + 1] = '-f'
+        cmd[#cmd + 1] = ('%s[]=%s'):format(name, item)
+      end
+    else
+      cmd[#cmd + 1] = type(value) == 'number' and '-F' or '-f'
+      cmd[#cmd + 1] = ('%s=%s'):format(name, value)
+    end
   end
 
   local done = log.progress(desc)

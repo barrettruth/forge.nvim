@@ -1,5 +1,6 @@
 local gh = require('forge.gh')
 local log = require('forge.log')
+local text = require('forge.text')
 local view = require('forge.view')
 
 local M = {}
@@ -108,40 +109,6 @@ local function open_list(u, page, cursors)
   )
 end
 
---- @param iso string?
---- @return string
-local function age(iso)
-  if not iso then
-    return 'unknown'
-  end
-  local year, month, day = iso:match('^(%d+)-(%d+)-(%d+)')
-  if not year then
-    return iso
-  end
-  local then_ = os.time({
-    year = assert(tonumber(year)),
-    month = assert(tonumber(month)),
-    day = assert(tonumber(day)),
-  })
-  local days = math.floor(os.difftime(os.time(), then_) / 86400)
-  if days <= 0 then
-    return 'today'
-  elseif days == 1 then
-    return 'yesterday'
-  elseif days < 30 then
-    return days .. ' days ago'
-  end
-  return math.floor(days / 30) .. ' months ago'
-end
-
---- @param lines string[]
---- @param body string?
-local function append_body(lines, body)
-  for _, line in ipairs(vim.split(vim.trim(body or ''), '\n', { plain = true })) do
-    lines[#lines + 1] = line
-  end
-end
-
 --- @param u forge.Uri
 local function open_issue(u)
   gh.graphql(
@@ -167,30 +134,15 @@ local function open_issue(u)
           vim.tbl_get(issue, 'author', 'login') or 'ghost',
           issue.authorAssociation or 'NONE'
         ),
-        ('- State: %s, opened %s'):format(issue.state or '?', age(issue.createdAt)),
+        ('- State: %s, opened %s'):format(issue.state or '?', text.age(issue.createdAt)),
       }
       if #labels > 0 then
         lines[#lines + 1] = ('- Labels: %s'):format(table.concat(labels, ', '))
       end
       lines[#lines + 1] = ''
-      append_body(lines, issue.body)
+      text.append_body(lines, issue.body)
 
-      local comments = issue.comments or {}
-      local nodes = comments.nodes or {}
-      if #nodes > 0 then
-        lines[#lines + 1] = ''
-        lines[#lines + 1] = ('## Comments (%d)'):format(comments.totalCount or #nodes)
-        for _, comment in ipairs(nodes) do
-          lines[#lines + 1] = ''
-          lines[#lines + 1] = ('*%s (%s) — %s*'):format(
-            vim.tbl_get(comment, 'author', 'login') or 'ghost',
-            comment.authorAssociation or 'NONE',
-            age(comment.createdAt)
-          )
-          lines[#lines + 1] = ''
-          append_body(lines, comment.body)
-        end
-      end
+      text.append_comments(lines, issue.comments)
 
       local winbar = table.concat({
         view.hl('Title', 'ISSUE'),
@@ -201,7 +153,7 @@ local function open_issue(u)
       }, ' ')
 
       view.render(u, lines, winbar)
-      view.check_truncated(comments, 'comments')
+      view.check_truncated(issue.comments, 'comments')
     end
   )
 end
