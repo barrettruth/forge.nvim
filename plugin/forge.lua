@@ -11,6 +11,10 @@ vim.keymap.set('n', '<Plug>(forge-up)', function()
   require('forge.issue').up()
 end, { desc = 'go up to the issue list' })
 
+vim.keymap.set('n', '<Plug>(forge-web)', function()
+  require('forge.issue').web()
+end, { desc = 'open this view on github.com' })
+
 vim.keymap.set('n', '<Plug>(forge-issue-next-page)', function()
   require('forge.issue').page(1)
 end, { desc = 'the next page of issues' })
