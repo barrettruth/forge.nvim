@@ -44,12 +44,14 @@ function M.list(spec, t, o)
     variables.after = cursors[page]
   end
 
+  local settle = view.busy(t)
   gh.graphql({
     desc = ('%s %s in %s'):format(state, spec.many, view.where(t)),
     query = spec.list_query,
     variables = variables,
     cwd = o.cwd,
   }, function(data)
+    settle()
     local conn = vim.tbl_get(data, 'repository', spec.list_key)
     local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
     if not conn or not u then
@@ -76,24 +78,28 @@ function M.list(spec, t, o)
       marks = { { row = 0, col = 0, end_col = #lines[1], group = 'Comment' } }
     end
 
-    local info = conn.pageInfo or {}
+    local page_info = conn.pageInfo or {}
     local total = conn.totalCount or #lines
-    local pages = math.max(1, math.ceil(total / view.PER_PAGE))
-    local winbar = table.concat({
-      view.hl('Title', spec.list_title),
-      view.hl('Directory', ('%s/%s'):format(view.escape(u.owner), view.escape(u.repo))),
-      view.hl(spec.state_hl[u.state or 'OPEN'] or '', state),
-      ('%d/%d'):format(page, pages),
-      view.hl('Comment', ('(%d)'):format(total)),
-    }, ' ')
+    local last = math.max(1, math.ceil(total / view.PER_PAGE))
+
+    --- @type forge.BufVar
+    local info = {
+      kind = 'list',
+      label = spec.list_title,
+      repo = ('%s/%s'):format(u.owner, u.repo),
+      state = state,
+      state_hl = spec.state_hl[u.state or 'OPEN'] or 'Normal',
+      pages = ('%d/%d'):format(page, last),
+      total = tostring(total),
+    }
 
     view.place(o)
-    local buf = view.render(u, lines, winbar, marks, spec.list_maps, o)
-    if info.hasNextPage and info.endCursor then
-      cursors[page + 1] = info.endCursor
+    local buf = view.render(u, lines, info, marks, spec.list_maps, o)
+    if page_info.hasNextPage and page_info.endCursor then
+      cursors[page + 1] = page_info.endCursor
     end
-    view.paged(buf, page, cursors, info.hasNextPage or false)
-  end)
+    view.paged(buf, page, cursors, page_info.hasNextPage or false)
+  end, settle)
 end
 
 --- Draw one of `spec`'s items.
@@ -102,12 +108,14 @@ end
 --- @param o forge.Open
 function M.item(spec, t, o)
   local owner, repo = gh.slug(t)
+  local settle = view.busy(t)
   gh.graphql({
     desc = ('%s #%d in %s'):format(spec.one, t.number, view.where(t)),
     query = spec.item_query,
     variables = { owner = owner, repo = repo, number = t.number },
     cwd = o.cwd,
   }, function(data)
+    settle()
     local node = vim.tbl_get(data, 'repository', spec.item_key)
     local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
     if not node or not u then
@@ -138,21 +146,28 @@ function M.item(spec, t, o)
     text.append_body(lines, node.body)
     text.append_comments(lines, node.comments)
 
-    local segments = {
-      view.hl('Title', spec.item_title),
-      view.hl('Tag', '#' .. node.number),
-      view.hl(spec.state_hl[state] or '', state),
+    local badges = (spec.badges and spec.badges(node)) or {}
+
+    --- @type forge.BufVar
+    local info = {
+      kind = 'item',
+      label = spec.item_title,
+      repo = ('%s/%s'):format(u.owner, u.repo),
+      state = state,
+      state_hl = spec.state_hl[state] or 'Normal',
+      tag = '#' .. node.number,
+      title = node.title or '',
+      badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
     }
-    vim.list_extend(segments, (spec.badges and spec.badges(node)) or {})
+    if spec.remember then
+      info = vim.tbl_extend('force', info, spec.remember(node))
+    end
 
     view.place(o)
-    local buf = view.render(u, lines, table.concat(segments, ' '), nil, spec.item_maps, o)
-    if spec.remember then
-      vim.b[buf].forge = vim.tbl_extend('force', vim.b[buf].forge or {}, spec.remember(node))
-    end
+    view.render(u, lines, info, nil, spec.item_maps, o)
     view.check_truncated(node.labels, 'labels')
     view.check_truncated(node.comments, 'comments')
-  end)
+  end, settle)
 end
 
 return M

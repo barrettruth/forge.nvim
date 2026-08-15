@@ -12,9 +12,31 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- an item came from, and the branches a pull request joins. Bookkeeping that
 --- would mean nothing to a reader is not here — see `paged` below.
 --- @class forge.BufVar
---- @field state 'OPEN'|'CLOSED'? which half of the list an item was opened from
+--- @field kind 'list'|'item' which of the two shapes a view has
+--- @field label string what the winbar calls it
+--- @field repo string "owner/repo"
+--- @field state string the state to show, as a person reads it
+--- @field state_hl string the group that state is drawn in
+--- @field tag string? "#27", for an item
+--- @field title string? an item's title
+--- @field badges string? winbar segments an item adds, already highlighted
+--- @field pages string? "1/2", for a list
+--- @field total string? how many a list holds in all
+--- @field from 'OPEN'|'CLOSED'? which half of the list an item was opened from
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
+
+local STATE = [[%{%'%#' .. b:forge.state_hl .. '#' .. b:forge.state .. '%*'%}]]
+
+--- @type table<'list'|'item', string>
+local WINBAR = {
+  list = [[%#Title#%{b:forge.label}%* %#Directory#%{b:forge.repo}%* ]]
+    .. STATE
+    .. [[ %{b:forge.pages} %#Comment#(%{b:forge.total})%*]],
+  item = [[%#Title#%{b:forge.label}%* %#Tag#%{b:forge.tag}%* ]]
+    .. STATE
+    .. [[%{%b:forge.badges%}%( | %{b:forge.title}%)%<]],
+}
 
 --- Where a view was last being read, kept for buffers no window is showing.
 ---
@@ -33,6 +55,12 @@ local placed = {}
 --- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean }>
 local pages = {}
 
+--- @type integer
+local seq = 0
+
+--- @type table<integer, integer>
+local drawn = {}
+
 --- Note where `buf` is being read, before something else takes the window.
 --- @param buf integer
 function M.remember(buf)
@@ -46,6 +74,7 @@ end
 function M.forget(buf)
   placed[buf] = nil
   pages[buf] = nil
+  drawn[buf] = nil
 end
 
 --- How many items a list asks github for at once.
@@ -70,8 +99,10 @@ local OTHER = {
 --- @field win integer? the window the command was given in
 --- @field mods string? see |:command-modifiers|
 --- @field smods table?
+--- @field split boolean? put the answer beside the view it was asked for in
 --- @field cwd string? the directory the request is made from
 --- @field keep boolean? this is the content you were already reading
+--- @field seq integer? which request this is
 
 --- The repository a target names, for saying out loud while it is in flight.
 --- @param t forge.Target
@@ -86,19 +117,18 @@ end
 --- @field end_col integer byte column, exclusive
 --- @field group string
 
---- Escape text bound for a 'winbar', where % introduces an item.
---- @param text string
---- @return string
-function M.escape(text)
-  return (text:gsub('%%', '%%%%'))
-end
-
 --- Wrap 'winbar' text in a highlight group. An empty group is harmless.
 --- @param group string
 --- @param text string
 --- @return string
 function M.hl(group, text)
   return ('%%#%s#%s%%*'):format(group, text)
+end
+
+--- @param o forge.Open?
+--- @return boolean
+function M.newest(o)
+  return o == nil or o.seq == nil or o.seq == seq
 end
 
 --- Where a list buffer has got to.
@@ -137,6 +167,21 @@ function M.buffer_named(name)
   end
 end
 
+--- @param t forge.Target
+--- @return fun()
+function M.busy(t)
+  local buf = t.owner and M.buffer_named(uri.tostring(t --[[@as forge.Uri]])) or nil
+  if not buf then
+    return function() end
+  end
+  vim.bo[buf].busy = vim.bo[buf].busy + 1
+  return function()
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.bo[buf].busy = math.max(0, vim.bo[buf].busy - 1)
+    end
+  end
+end
+
 --- Whether a command was told to put its result somewhere new.
 ---
 --- `tab` is -1 when absent rather than nil, so it is compared rather than
@@ -155,9 +200,9 @@ end
 ---
 --- The structured modifiers say whether to make a window; the raw ones say
 --- what kind, by being replayed onto a plain split.
---- @param opts { mods: string?, smods: table? }?
+--- @param opts { mods: string?, smods: table?, split: boolean? }?
 function M.split_for(opts)
-  if M.wants_window(opts and opts.smods) then
+  if (opts and opts.split) or M.wants_window(opts and opts.smods) then
     vim.cmd(((opts and opts.mods) or '') .. ' split')
   end
 end
@@ -169,10 +214,43 @@ end
 --- too, after the reply, so a request that fails leaves no window behind.
 --- @param o forge.Open?
 function M.place(o)
+  if not M.newest(o) then
+    return
+  end
   if o and o.win and vim.api.nvim_win_is_valid(o.win) then
     vim.api.nvim_set_current_win(o.win)
   end
   M.split_for(o)
+end
+
+--- @param buf integer
+--- @param win integer
+function M.dress(buf, win)
+  local u = uri.parse(vim.api.nvim_buf_get_name(buf))
+  if not u then
+    return
+  end
+  local item = u.number ~= nil
+
+  if vim.b[buf].forge then
+    vim.wo[win][0].winbar = WINBAR[item and 'item' or 'list']
+  end
+  vim.wo[win][0].list = false
+  vim.wo[win][0].number = false
+  vim.wo[win][0].relativenumber = false
+  vim.wo[win][0].signcolumn = 'no'
+  vim.wo[win][0].spell = false
+
+  if item then
+    vim.wo[win][0].wrap = true
+    vim.wo[win][0].linebreak = true
+    vim.wo[win][0].breakindent = true
+    vim.wo[win][0].conceallevel = 2
+    vim.wo[win][0].concealcursor = 'nc'
+  else
+    vim.wo[win][0].wrap = false
+    vim.wo[win][0].cursorline = true
+  end
 end
 
 --- Show `lines` as the view named by `u`, reusing its buffer if it exists.
@@ -188,13 +266,13 @@ end
 --- handle held by a caller stays valid across a refresh.
 --- @param u forge.Uri
 --- @param lines string[]
---- @param winbar string
+--- @param info forge.BufVar
 --- @param marks forge.Mark[]?
 --- @param maps [string, string, string][]? extra mappings, as lhs/plug/desc
 --- @param o forge.Open? whose `keep` says whether this is a redraw of what
 --- was already being read, rather than different content under the same name
 --- @return integer buf
-function M.render(u, lines, winbar, marks, maps, o)
+function M.render(u, lines, info, marks, maps, o)
   local name = uri.tostring(u)
   local buf = M.buffer_named(name)
   local keep = buf ~= nil and o ~= nil and o.keep == true
@@ -202,6 +280,11 @@ function M.render(u, lines, winbar, marks, maps, o)
     buf = vim.api.nvim_create_buf(true, true)
     vim.api.nvim_buf_set_name(buf, name)
   end
+
+  if o and o.seq and o.seq < (drawn[buf] or 0) then
+    return buf
+  end
+  drawn[buf] = (o and o.seq) or drawn[buf]
 
   local looking = {}
   if keep then
@@ -211,9 +294,18 @@ function M.render(u, lines, winbar, marks, maps, o)
   end
   local hidden = keep and #looking == 0 and placed[buf] or nil
 
+  vim.bo[buf].modeline = false
+  vim.bo[buf].undolevels = -1
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].bufhidden = 'hide'
+  vim.bo[buf].swapfile = false
+
+  vim.bo[buf].readonly = false
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
+  vim.bo[buf].readonly = true
+  vim.bo[buf].modified = false
 
   vim.api.nvim_buf_clear_namespace(buf, NS, 0, -1)
   for _, mark in ipairs(marks or {}) do
@@ -223,10 +315,10 @@ function M.render(u, lines, winbar, marks, maps, o)
     })
   end
 
-  vim.bo[buf].buftype = 'nofile'
-  vim.bo[buf].bufhidden = 'hide'
-  vim.bo[buf].swapfile = false
-  vim.bo[buf].filetype = u.number and 'markdown' or 'forge'
+  --- @type forge.BufVar
+  local prev = vim.b[buf].forge or {}
+  info.from = (u.number and u.state) or prev.from
+  vim.b[buf].forge = info
 
   map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
@@ -237,11 +329,13 @@ function M.render(u, lines, winbar, marks, maps, o)
     map.buf_default(buf, 'n', m[1], m[2], m[3])
   end
 
-  vim.api.nvim_win_set_buf(0, buf)
-  if not keep then
-    vim.api.nvim_win_set_cursor(0, { 1, 0 })
-  elseif hidden then
-    vim.fn.winrestview(hidden)
+  if M.newest(o) then
+    vim.api.nvim_win_set_buf(0, buf)
+    if not keep then
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    elseif hidden then
+      vim.fn.winrestview(hidden)
+    end
   end
   for _, seen in ipairs(looking) do
     if vim.api.nvim_win_is_valid(seen.win) then
@@ -250,12 +344,11 @@ function M.render(u, lines, winbar, marks, maps, o)
       end)
     end
   end
-  vim.b[buf].forge_winbar = winbar
-  vim.wo.winbar = winbar
-
-  if u.number and u.state then
-    vim.b[buf].forge = vim.tbl_extend('force', vim.b[buf].forge or {}, { state = u.state })
+  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+    M.dress(buf, win)
   end
+
+  vim.bo[buf].filetype = u.number and 'markdown' or 'forge'
 
   return buf
 end
@@ -264,8 +357,14 @@ end
 --- @param t forge.Target
 --- @param o forge.Open?
 function M.open(t, o)
+  o = o or {}
+  seq = seq + 1
+  o.seq = seq
+  o.win = o.win or vim.api.nvim_get_current_win()
+  o.cwd = o.cwd or require('forge.vcs').dir()
+
   local module = t.collection == 'prs' and 'forge.pr' or 'forge.issue'
-  require(module).show(t, o or {})
+  require(module).show(t, o)
 end
 
 --- Open whatever `target` names, so long as it names `collection`.
@@ -285,12 +384,7 @@ function M.command(target, collection, opts)
     log.err(OTHER[collection])
     return
   end
-  M.open(t, {
-    win = vim.api.nvim_get_current_win(),
-    mods = opts and opts.mods,
-    smods = opts and opts.smods,
-    cwd = require('forge.vcs').dir(),
-  })
+  M.open(t, { mods = opts and opts.mods, smods = opts and opts.smods })
 end
 
 --- Leave an item for the list it belongs to.
@@ -311,7 +405,7 @@ function M.up()
     owner = u.owner,
     repo = u.repo,
     collection = u.collection,
-    state = came_from.state or 'OPEN',
+    state = came_from.from or 'OPEN',
   }, { keep = true })
 end
 
@@ -424,16 +518,13 @@ function M.open_at_cursor(split)
   if not number then
     return
   end
-  if split then
-    vim.cmd('split')
-  end
   M.open({
     owner = u.owner,
     repo = u.repo,
     collection = u.collection,
     number = tonumber(number),
     state = u.state,
-  }, { keep = true })
+  }, { keep = true, split = split })
 end
 
 --- Warn when a connection came back truncated.
