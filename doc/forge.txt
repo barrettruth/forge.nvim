@@ -51,13 +51,11 @@ without them, and |forge-health| reports which is missing.
     is not an error — "@" opens the page one arrives on, and gh pushes the
     branch on the way there.
 
-    :Issue . and :PR . open the reference under the cursor, from anywhere: a
-    source file, a commit message, a |:terminal| running `gh search`. A
-    reference is what github itself would have made a link of — "#41138",
-    "neovim/neovim#41138", a github.com URL, a forge:// URI — and nothing
-    else. A bare "owner/repo" is not one, because that is also how a path is
-    spelled, and neither is a mention. Inside a view |gf| does the same thing
-    without the command; see |forge-gf|.
+    :Issue . and :PR . open the reference under the cursor, from any buffer:
+    a source file, a commit message, a |:terminal| running `gh search`. A
+    reference is "#41138", "neovim/neovim#41138", a github.com URL or a
+    forge:// URI. A bare "owner/repo" is not one, and neither is a mention.
+    Inside a view, |gf| does the same without the command; see |forge-gf|.
 
     {target} is any of: >
         :PR @
@@ -86,9 +84,8 @@ without them, and |forge-health| reports which is missing.
     command was given in. A request that fails leaves no window behind, and
     one overtaken by a later command does not take the window from it.
 
-    A |:range| is accepted and thrown away. Neither command has anything to
-    do with lines, but ":" from Visual mode writes one for you, and a
-    selection you happened to be holding should not be an error.
+    A |:range| is accepted and ignored, so ":" from Visual mode is not an
+    error.
 
 ==============================================================================
 4. REPOSITORY                                               *forge-repository*
@@ -250,23 +247,17 @@ touched. This is the only thing forge writes to a repository.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor, |CTRL-W_f| follows it into a
-split, and in Visual mode |gf| takes the selection instead. Nothing here is
-bound: 'includeexpr' turns a reference into the name of the buffer that holds
-it, and |gf| is Neovim's own key opening a name. A reference that names no
-repository means the one whose view you read it in.
+split, and in Visual mode |gf| follows the selection. Nothing is bound; this
+is 'includeexpr'. A reference naming no repository means the one whose view
+you are in. The punctuation prose wraps a reference in is left behind, so
+"(#123)", "`#123`" and "#123." all follow to the same place.
 
-The reference is read with |<cfile>| rather than the WORD, so 'isfname' leaves
-behind the brackets, quotes and trailing punctuation prose wraps one in:
-"(#123)", "`#123`" and "#123." all arrive as "#123", and either half of a
-markdown link answers for itself.
-
-A github.com URL is the one reference |gf| cannot follow, because Neovim
-recognises a URL before 'includeexpr' is consulted and opens it as itself.
-":Issue ." and ":PR ." take one.
+|gf| does not take a github.com URL. |gx| opens one in the browser, ":Issue ."
+and ":PR ." open one here.
 
 <CR> and |gf| are not the same key twice. In a list <CR> opens the item the
 line describes, wherever on the line the cursor sits; gf opens the reference
-the cursor is actually on, which inside a title may be another issue entirely.
+the cursor is on, which inside a title may be another issue entirely.
 
 ==============================================================================
 8. HEALTH                                                       *forge-health*
