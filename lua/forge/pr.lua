@@ -87,7 +87,6 @@ local PRS = {
     { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
     { ']p', '<Plug>(forge-next-page)', 'the next page of pull requests' },
     { '[p', '<Plug>(forge-prev-page)', 'the previous page of pull requests' },
-    { 'g.', '<Plug>(forge-state)', 'toggle open and closed pull requests' },
   },
   --- A pull request is the only view with checks behind it, so "dc" is bound
   --- here rather than everywhere. An issue has no CI, and a key that exists

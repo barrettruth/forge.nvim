@@ -99,16 +99,16 @@ to the repository.
 Buffers are named with a "forge://" URI. Every view has exactly one name, and
 that name is enough to rebuild it. >
 
-    forge://{owner}/{repo}/issues           the open issue list
-    forge://{owner}/{repo}/issues/closed    the closed issue list
+    forge://{owner}/{repo}/issues           every issue
+    forge://{owner}/{repo}/issues/closed    the closed ones
     forge://{owner}/{repo}/issues/{number}  a single issue
-    forge://{owner}/{repo}/prs              the open pull request list
-    forge://{owner}/{repo}/prs/closed       the closed and merged list
+    forge://{owner}/{repo}/prs              every pull request
+    forge://{owner}/{repo}/prs/closed       the closed and merged ones
     forge://{owner}/{repo}/prs/{number}     a single pull request
 <
-|:edit| on one of these opens it from anywhere, and reloads it from inside.
-Which half of a collection a list holds is part of its name; the page is not,
-so a reload returns to the first. "R" keeps the page.
+|:edit| on one of these opens it from anywhere, and reloads it from inside. A
+list holds every state unless its name says otherwise; the page is not part of
+the name, so a reload returns to the first. "R" keeps the page.
 
 ==============================================================================
 6. BUFFERS                                                     *forge-buffers*
@@ -133,7 +133,7 @@ it, and a user mapping may read it. Present in both shapes: >
     kind       "list" or "item"
     label      what the winbar calls it, e.g. "PR"
     repo       "owner/repo"
-    state      the state as shown, e.g. "OPEN", "MERGED", "open"
+    state      the state as shown, e.g. "OPEN", "MERGED", "all"
     state_hl   the highlight group that state is drawn in
 <
 In a list, and only in one: >
@@ -152,7 +152,7 @@ In an item, and only in one. The last two are a pull request's: >
 <
 Every view sets a 'winbar': >
 
-    ISSUES barrettruth/forge-fixture open 1/2 (124)
+    ISSUES barrettruth/forge-fixture all 1/2 (124)
     ISSUE #27 OPEN | a title that fits
     PR #151 MERGED +10 -2 | another one
 <
@@ -166,7 +166,6 @@ Highlighting uses builtin |group-name| groups only.
     gf       (see |forge-gf|)          Follow the reference under the cursor.
     -        <Plug>(forge-up)          Leave an item for its list.
     R        <Plug>(forge-refresh)     Fetch this view again, in place.
-    g.       <Plug>(forge-state)       Toggle open and closed.
     ]i  [i   <Plug>(forge-next-page)   Page through a list. A pull
              <Plug>(forge-prev-page)   request list uses ]p and [p.
     ga       <Plug>(forge-create)      Start something new, on github.com.
@@ -181,7 +180,6 @@ Highlighting uses builtin |group-name| groups only.
                                                     *<Plug>(forge-open-split)*
                                                             *<Plug>(forge-up)*
                                                        *<Plug>(forge-refresh)*
-                                                         *<Plug>(forge-state)*
                                                      *<Plug>(forge-next-page)*
                                                      *<Plug>(forge-prev-page)*
                                                         *<Plug>(forge-create)*
@@ -199,8 +197,8 @@ existing mapping stands. To rebind, map the |<Plug>| target: >lua
 "-" goes to the half of the list the item was opened from. An item opened by
 name goes to the open list. "-" in a list does nothing.
 
-"R" keeps the current page and cursor position; |:edit|, a new page and the
-other half of a list all start at the first line.
+"R" keeps the current page and cursor position; |:edit| and a new page both
+start at the first line.
 
 "ga" opens github's own page for a new issue or pull request. The repository
 is the one the view names rather than the current one, so a fork can propose a
