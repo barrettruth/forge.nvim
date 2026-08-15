@@ -202,6 +202,8 @@ know about forge.
     ]i  [i   <Plug>(forge-next-page)   Page through a list. A pull
              <Plug>(forge-prev-page)   request list uses ]p and [p.
     ga       <Plug>(forge-create)      Start something new, on github.com.
+    gx       <Plug>(forge-web-cursor)  Open the reference under the cursor
+                                       on github.com.
     gX       <Plug>(forge-web)         Open this view on github.com.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
@@ -218,6 +220,7 @@ know about forge.
                                                      *<Plug>(forge-prev-page)*
                                                         *<Plug>(forge-create)*
                                                            *<Plug>(forge-web)*
+                                                    *<Plug>(forge-web-cursor)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -241,6 +244,13 @@ whichever template the repository defines and accepts attachments. The
 repository is the one the view names rather than the current one, so a fork
 can propose a branch to what it forked.
 
+"gx" and "gX" divide the cursor from the buffer, as |gf| and "gX" do. "gx"
+opens the reference under the cursor, or the one selected in Visual mode:
+"#41138", "neovim/neovim#41138", or an "@mention", which goes to a profile.
+Anything else is handed back to |gx| unchanged, so an ordinary URL still opens
+and a |gx| of your own still wins. The label of a markdown link is handed back
+too, because its target may name another repository and Neovim reads that.
+
 "gX" opens what the buffer shows, not what the cursor is on. The page is not
 carried, because a page is not part of a view's name.
 
@@ -252,10 +262,11 @@ from a diff is |CTRL-O|.
 
 "dl" splits instead, leaving the pull request beside it as the way back:
 fugitive's "-" means the parent tree object. The log is >
-    git log --oneline --reverse base..head
+    git log --stat --reverse base..head
 <
-"g?" in it lists fugitive's own keys, of which |<CR>|, "o", "O" and "gO" open
-a commit out of it.
+")" and "(" step between commits, |<CR>| opens the one under the cursor, and
+"o", "O" and "gO" open it in a split, a tab and a vertical split. "g?" lists
+the rest of fugitive's keys.
 
 "dd" and "dl" fetch both ends of the pull request first, and share the one
 fetch. The refs land under refs/forge/, which nothing else writes; no branch,
