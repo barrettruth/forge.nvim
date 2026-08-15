@@ -138,7 +138,7 @@ In a list, and only in one: >
     pages      the current page, e.g. "1/3"
     total      how many the list holds in all
 <
-In an item, and only in one. The last three are a pull request's: >
+In an item, and only in one. The last four are a pull request's: >
 
     tag        its number, e.g. "#41138"
     title      its title
@@ -146,6 +146,7 @@ In an item, and only in one. The last three are a pull request's: >
     state_hl   the highlight group that state is drawn in
     badges     its extra winbar segments
     stat       what it measures, drawn against the right edge
+    id         what a mutation names it by
     base       the branch it merges into
     head       the branch it merges from
     remote     the repository "dd" and "dl" fetch it from
@@ -182,6 +183,7 @@ Highlighting uses builtin |group-name| groups only.
     ga       <Plug>(forge-create)      Start something new, on github.com.
     gX       <Plug>(forge-web)         Open this view on github.com.
     gy       <Plug>(forge-yank)        Yank this view's URL.
+    c        <Plug>(forge-act)         Do something to a pull request.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
     dl       <Plug>(forge-log)         Its commits, in fugitive.
@@ -197,6 +199,7 @@ Highlighting uses builtin |group-name| groups only.
                                                         *<Plug>(forge-create)*
                                                            *<Plug>(forge-web)*
                                                           *<Plug>(forge-yank)*
+                                                           *<Plug>(forge-act)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -220,8 +223,14 @@ branch to what it forked.
 the URL it would have opened. "gy" takes the register it is given, so `"+gy`
 reaches the system clipboard.
 
-"dc", "dd" and "dl" are bound only in a pull request. "dc" and "dd" replace
-the view; ci.nvim returns with "-", and the way back from a diff is |CTRL-O|.
+"c" offers what the pull request can be asked to do as it stands, and does the
+one picked. An open pull request can be converted to a draft and a draft can
+be marked ready for review; a merged or closed one is told it has nothing to
+do. The menu is |vim.ui.select()|, so it is whichever picker you already use.
+
+"c", "dc", "dd" and "dl" are bound only in a pull request. "dc" and "dd"
+replace the view; ci.nvim returns with "-", and the way back from a diff is
+|CTRL-O|.
 
 "dl" splits instead. The log is >
     git log --stat --reverse base..head

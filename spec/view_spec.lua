@@ -318,6 +318,26 @@ describe('view.yank', function()
   end)
 end)
 
+describe('what a pull request can be asked to do', function()
+  local pr = require('forge.pr')
+
+  local function offered(state)
+    return vim.tbl_map(function(action)
+      return action.label
+    end, pr.actions({ state = state }))
+  end
+
+  it('offers only the way the state can go', function()
+    assert.same({ 'Convert to draft' }, offered('OPEN'))
+    assert.same({ 'Ready for review' }, offered('DRAFT'))
+  end)
+
+  it('offers nothing once it is over', function()
+    assert.same({}, offered('MERGED'))
+    assert.same({}, offered('CLOSED'))
+  end)
+end)
+
 describe('view.field', function()
   it('is empty for anything b:forge does not hold', function()
     vim.b.forge = { tag = '#7' }

@@ -38,6 +38,10 @@ vim.keymap.set('n', '<Plug>(forge-yank)', function()
   require('forge.view').yank()
 end, { desc = "yank this view's url" })
 
+vim.keymap.set('n', '<Plug>(forge-act)', function()
+  require('forge.pr').act()
+end, { desc = 'do something to this pull request' })
+
 vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })

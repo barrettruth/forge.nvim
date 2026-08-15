@@ -49,7 +49,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
     nameWithOwner
     url
     pullRequest(number: $number) {
-      number title state body createdAt isDraft mergeable url
+      id number title state body createdAt isDraft mergeable url
       additions deletions changedFiles
       baseRefName headRefName
       author { login }
@@ -62,6 +62,18 @@ query($owner: String!, $repo: String!, $number: Int!) {
       }
     }
   }
+}
+]]
+
+local DRAFT = [[
+mutation($id: ID!) {
+  convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId }
+}
+]]
+
+local READY = [[
+mutation($id: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $id}) { clientMutationId }
 }
 ]]
 
@@ -109,6 +121,7 @@ local PRS = {
   --- here rather than everywhere. An issue has no CI, and a key that exists
   --- only to refuse is worse than no key.
   item_maps = {
+    { 'c', '<Plug>(forge-act)', 'do something to this pull request' },
     { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this pull request's diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this pull request's commits in fugitive" },
@@ -117,7 +130,12 @@ local PRS = {
   --- them to ask diffs.nvim for the right merge base. The repository github
   --- named is what "dd" and "dl" fetch from, so it comes too.
   remember = function(node, repo)
-    return { base = node.baseRefName, head = node.headRefName, remote = repo.url }
+    return {
+      id = node.id,
+      base = node.baseRefName,
+      head = node.headRefName,
+      remote = repo.url,
+    }
   end,
   --- Draft is a flag on an open pull request, and github leaves it set when
   --- one is closed; a closed draft is closed.
@@ -147,6 +165,80 @@ local PRS = {
     }
   end,
 }
+
+--- @param var forge.ItemVar
+--- @param query string
+--- @param said string
+local function mutate(var, query, said)
+  local u = view.current()
+  local win = vim.api.nvim_get_current_win()
+  local cwd = vcs.dir()
+  if not u then
+    return
+  end
+  gh.graphql({ desc = said, query = query, variables = { id = var.id }, cwd = cwd }, function()
+    view.open(u, { keep = true, win = win, cwd = cwd })
+  end)
+end
+
+--- @class forge.Action
+--- @field label string
+--- @field when fun(var: forge.ItemVar): boolean
+--- @field run fun(var: forge.ItemVar)
+
+--- Labelled in github's own words, and filtered rather than greyed: a picker
+--- has no third state.
+--- @type forge.Action[]
+local ACTIONS = {
+  {
+    label = 'Convert to draft',
+    when = function(var)
+      return var.state == 'OPEN'
+    end,
+    run = function(var)
+      mutate(var, DRAFT, ('%s to a draft'):format(var.tag))
+    end,
+  },
+  {
+    label = 'Ready for review',
+    when = function(var)
+      return var.state == 'DRAFT'
+    end,
+    run = function(var)
+      mutate(var, READY, ('%s ready for review'):format(var.tag))
+    end,
+  },
+}
+
+--- What this pull request can be asked to do, as it stands.
+--- @param var forge.ItemVar
+--- @return forge.Action[]
+function M.actions(var)
+  return vim.tbl_filter(function(action)
+    return action.when(var)
+  end, ACTIONS)
+end
+
+--- Offer those, and do the one chosen. A menu rather than a key each, because
+--- naming the action is the only confirmation a state flip gets.
+function M.act()
+  local var = vim.b.forge or {}
+  local can = M.actions(var)
+  if #can == 0 then
+    log.info(('nothing to do to a %s pull request'):format((var.state or '?'):lower()))
+    return
+  end
+  vim.ui.select(can, {
+    prompt = ('%s %s'):format(var.label or 'PR', var.tag or ''),
+    format_item = function(action)
+      return action.label
+    end,
+  }, function(action)
+    if action then
+      action.run(var)
+    end
+  end)
+end
 
 --- Open the pull request for the branch checked out here.
 ---
