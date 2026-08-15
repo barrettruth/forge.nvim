@@ -6,7 +6,7 @@ end
 
 --- @param kind 'list'|'item'
 --- @param over table?
---- @return forge.BufVar
+--- @return forge.ListVar|forge.ItemVar
 local function info(kind, over)
   return vim.tbl_extend('force', {
     kind = kind,
@@ -269,5 +269,59 @@ describe('a capped connection', function()
     view.check_truncated(nil, 'comments')
     restore()
     assert.same({}, said)
+  end)
+end)
+
+--- What the 'winbar' of the current window draws to.
+--- @return string text
+--- @return boolean kept whether the option survived the redraw
+local function drawn()
+  vim.cmd('redraw!')
+  local bar = vim.wo.winbar
+  local shown = vim.api.nvim_eval_statusline(bar, { winid = 0, use_winbar = true })
+  return shown.str, bar ~= ''
+end
+
+describe("a view's winbar", function()
+  it('says what the view is', function()
+    view.render(uri('issues', 27), { 'body' }, info('item', { title = 'a title', badges = ' x' }))
+    local text, kept = drawn()
+    assert.is_true(kept)
+    assert.equals('ISSUE #1 OPEN x | a title', text)
+
+    view.render(uri('issues'), { '#1 x' }, info('list', { state = 'open', total = '124' }))
+    text, kept = drawn()
+    assert.is_true(kept)
+    assert.equals('ISSUES a/b open 1/1 (124)', text)
+  end)
+
+  it('survives a shape it was not given, rather than emptying itself', function()
+    local buf = view.render(uri('issues', 31), { 'body' }, info('item'))
+    vim.b[buf].forge = { kind = 'item', label = 'ISSUE', repo = 'a/b', state = 'OPEN' }
+    local text, kept = drawn()
+    assert.is_true(kept)
+    assert.equals('ISSUE  OPEN', text)
+
+    vim.b[buf].forge = nil
+    local _, still = drawn()
+    assert.is_true(still)
+  end)
+
+  it('does not read a title as format items', function()
+    view.render(uri('issues', 33), { 'body' }, info('item', { title = '100%% of %{x} %#Error#' }))
+    assert.equals('ISSUE #1 OPEN | 100%% of %{x} %#Error#', (drawn()))
+  end)
+end)
+
+describe('view.field', function()
+  it('is empty for anything b:forge does not hold', function()
+    vim.b.forge = { tag = '#7' }
+    assert.equals('#7', view.field('tag'))
+    assert.equals('', view.field('title'))
+    vim.b.forge = nil
+    assert.equals('', view.field('tag'))
+    vim.b.forge = 'not a table'
+    assert.equals('', view.field('tag'))
+    vim.b.forge = nil
   end)
 end)

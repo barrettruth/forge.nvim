@@ -82,7 +82,7 @@ function M.list(spec, t, o)
     local total = conn.totalCount or #lines
     local last = math.max(1, math.ceil(total / view.PER_PAGE))
 
-    --- @type forge.BufVar
+    --- @type forge.ListVar
     local info = {
       kind = 'list',
       label = spec.list_title,
@@ -148,7 +148,7 @@ function M.item(spec, t, o)
 
     local badges = (spec.badges and spec.badges(node)) or {}
 
-    --- @type forge.BufVar
+    --- @type forge.ItemVar
     local info = {
       kind = 'item',
       label = spec.item_title,
