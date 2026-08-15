@@ -8,11 +8,16 @@ local M = {}
 ---
 --- An optional dependency, on the same terms as ci.nvim: forge delegates
 --- diffs rather than drawing them, so the honest thing when there is nothing
---- to delegate to is to say so. The require comes first because for a lazily
---- loaded plugin it is what sources the plugin file, and the flag is what
---- says the command it defines exists.
+--- to delegate to is to say so.
+---
+--- An installed plugin is not a loaded one. Under `pack/*/opt` nothing is on
+--- the runtimepath until |:packadd|, so requiring first would call an
+--- installed diffs.nvim missing merely because its own trigger had not fired.
 --- @return boolean
 function M.available()
+  if not vim.g.loaded_diffs then
+    pcall(vim.cmd.packadd, 'diffs.nvim')
+  end
   pcall(require, 'diffs')
   return vim.g.loaded_diffs ~= nil
 end
