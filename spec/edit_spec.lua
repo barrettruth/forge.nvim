@@ -86,10 +86,10 @@ describe('editing an item', function()
     assert.is_false(vim.bo.modified)
   end)
 
-  it('says which line is the title, which nothing else does', function()
+  it("is the item's own winbar, with the mode where the state was", function()
     edit.open(showing())
     local bar = vim.api.nvim_eval_statusline(vim.wo.winbar, { winid = 0, use_winbar = true }).str
-    assert.equals('EDIT #27 | first line is the title | :w sends it', bar)
+    assert.equals('ISSUE #27 EDIT', bar)
   end)
 
   it('leaves the item where CTRL-O reaches it', function()

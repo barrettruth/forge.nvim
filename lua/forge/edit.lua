@@ -116,11 +116,13 @@ function M.open(var)
   })
 
   vim.cmd.buffer(buf)
-  --- Nothing else says the first line is the title: the buffer is markdown, so
-  --- it draws as ordinary prose while the body's own headings do not. Written
-  --- rather than templated, because none of it comes from github.
-  vim.wo[0][0].winbar = ('%%#Title#EDIT%%* %%#Tag#%s%%* %%#Comment#| first line is the title | :w sends it%%*'):format(
-    var.tag
+  --- The item's own winbar with its state swapped for the mode, so the editor
+  --- reads as something the item is doing rather than another kind of thing.
+  --- `ModeMsg` because that is what a mode is drawn in, and because a state's
+  --- colour would put EDIT in a vocabulary it does not belong to.
+  vim.wo[0][0].winbar = ('%%#Title#%s%%* %%#Tag#%s%%* %%#ModeMsg#EDIT%%*'):format(
+    var.label or '',
+    var.tag or ''
   )
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go back to the item this edits')
 end
