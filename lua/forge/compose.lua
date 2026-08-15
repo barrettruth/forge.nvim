@@ -47,10 +47,19 @@ local function guide(marks, row, text)
   marks[#marks + 1] = { row, 0, { virt_lines = virt, virt_lines_above = true } }
 end
 
+--- Mark an answer github will insist on.
+---
+--- The gap is its own unhighlighted chunk, as core's diagnostics do it: "eol"
+--- means right after the last character, so the space is ours to add, and a
+--- highlight that carries an underline would otherwise underline it too.
 --- @param marks table[]
 --- @param row integer
 local function required_here(marks, row)
-  marks[#marks + 1] = { row, 0, { virt_text = { { ' *', 'DiagnosticError' } } } }
+  marks[#marks + 1] = {
+    row,
+    0,
+    { virt_text = { { '  ', '' }, { '*', 'DiagnosticError' } } },
+  }
 end
 
 --- Turn a template into the markdown it will be submitted as.
@@ -87,16 +96,19 @@ function M.skeleton(found)
           required_here(marks, #lines - 1)
         end
       end
+      lines[#lines + 1] = ''
     elseif field.render then
       lines[#lines + 1] = '```' .. field.render
       append(lines, field.value)
       lines[#lines + 1] = '```'
+      lines[#lines + 1] = ''
     elseif field.kind == 'dropdown' and field.default and field.options then
       lines[#lines + 1] = field.options[field.default + 1] or ''
+      lines[#lines + 1] = ''
     elseif field.value then
       append(lines, field.value)
+      lines[#lines + 1] = ''
     end
-    lines[#lines + 1] = ''
   end
 
   return lines, marks
@@ -222,10 +234,32 @@ local function submit(buf)
   end)
 end
 
+--- Say that the first line is the title, without writing it there.
+---
+--- Line one becomes the title verbatim, so anything real put there would be
+--- filed. A hint that is not text cannot be, and it goes as soon as there is
+--- a title to read.
+--- @param buf integer
+local function ghost(buf)
+  local mark = vim.api.nvim_buf_set_extmark(buf, NS, 0, 0, {
+    virt_text = { { 'Title', 'Comment' } },
+    virt_text_pos = 'overlay',
+  })
+  vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
+    buffer = buf,
+    callback = function()
+      if (vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or '') ~= '' then
+        pcall(vim.api.nvim_buf_del_extmark, buf, NS, mark)
+        return true
+      end
+    end,
+  })
+end
+
 --- @param u forge.Uri
 --- @param found forge.Template?
 --- @param o forge.Open
---- @param refs { head: string, base: string }? which branches a pull request joins
+--- @param refs { head: string, base: string, default: string }? a pull request's branches
 local function open_buffer(u, found, o, refs)
   view.place(o)
 
@@ -273,8 +307,14 @@ local function open_buffer(u, found, o, refs)
     view.hl('Tag', 'new'),
     view.hl('Directory', ('%s/%s'):format(view.escape(u.owner), view.escape(u.repo))),
   }
+  if found then
+    bar[#bar + 1] = view.hl('Comment', view.escape(found.name))
+  end
   if refs then
-    bar[#bar + 1] = view.hl('Comment', view.escape(refs.head) .. ' into ' .. view.escape(refs.base))
+    bar[#bar + 1] = view.hl('Comment', view.escape(refs.head))
+    if refs.base ~= refs.default then
+      bar[#bar + 1] = 'into ' .. view.hl('WarningMsg', view.escape(refs.base))
+    end
   end
   local winbar = table.concat(bar, ' ')
 
@@ -292,14 +332,15 @@ local function open_buffer(u, found, o, refs)
 
   local title = vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or ''
   vim.api.nvim_win_set_cursor(0, { 1, #title })
-  if title ~= '' then
-    vim.cmd('startinsert!')
+  vim.cmd('startinsert!')
+  if title == '' then
+    ghost(buf)
   end
 end
 
 --- @param u forge.Uri
 --- @param o forge.Open
---- @param refs { head: string, base: string }?
+--- @param refs { head: string, base: string, default: string }?
 local function choose(u, o, refs)
   local found, err = template.all(u.collection, o.cwd)
   if err then
@@ -372,7 +413,7 @@ function M.start(o)
         ('%s is what would be merged into, so there is nothing to propose'):format(head)
       )
     end
-    choose(draft, o, { head = head, base = base })
+    choose(draft, o, { head = head, base = base, default = base })
   end)
 end
 

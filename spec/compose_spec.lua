@@ -31,9 +31,7 @@ describe('compose.skeleton', function()
       '',
       '### Summary',
       '',
-      '',
       '### Detail',
-      '',
       '',
       '### Acknowledgements',
       '',
@@ -59,7 +57,9 @@ describe('compose.skeleton', function()
         above = above + 1
       else
         eol = eol + 1
-        assert.equals('DiagnosticError', mark[3].virt_text[1][2])
+        assert.equals('', mark[3].virt_text[1][2])
+        assert.equals('*', mark[3].virt_text[2][1])
+        assert.equals('DiagnosticError', mark[3].virt_text[2][2])
       end
     end
     assert.equals(2, above)
