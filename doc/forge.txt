@@ -234,6 +234,17 @@ dc                      In a pull request, hand it to ci.nvim and show its
                         the pull request, so the way out is the key that
                         already means out.
 
+                                                          *<Plug>(forge-diff)*
+dd                      In a pull request, hand it to diffs.nvim and show its
+                        diff. Bound only there, for the same reason as "dc".
+
+                        A pull request is a merge-base diff, so what goes over
+                        is "base...head" and nothing else. Both branches have
+                        to be in your checkout: one github knows about and you
+                        have never fetched cannot be drawn, and forge says
+                        which is missing rather than letting diffs.nvim fail
+                        with two names it was handed.
+
                         Forge does not draw CI; ci.nvim owns that. The pull
                         request is handed over as its github.com URL, which is
                         a target ":CI" already accepts.

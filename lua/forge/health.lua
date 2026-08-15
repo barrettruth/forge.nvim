@@ -40,6 +40,15 @@ function M.check()
       'Optional. Install it from https://github.com/barrettruth/ci.nvim'
     )
   end
+
+  if require('forge.diff').available() then
+    vim.health.ok('diffs.nvim loaded, so dd can show a pull request its diff')
+  else
+    vim.health.warn(
+      'diffs.nvim not available, so dd has nothing to show a diff with',
+      'Optional. Install it from https://github.com/barrettruth/diffs.nvim'
+    )
+  end
 end
 
 return M

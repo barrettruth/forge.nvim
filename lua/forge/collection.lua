@@ -28,6 +28,7 @@ local M = {}
 --- @field state? fun(node: table): string the state to show, when not node.state
 --- @field header? fun(node: table): string[] extra lines under State
 --- @field badges? fun(node: table): string[] extra winbar segments
+--- @field remember? fun(node: table): table what the buffer should keep of it
 
 --- Draw a page of `spec`'s list.
 --- @param spec forge.Spec
@@ -145,7 +146,10 @@ function M.item(spec, t, o)
     vim.list_extend(segments, (spec.badges and spec.badges(node)) or {})
 
     view.place(o)
-    view.render(u, lines, table.concat(segments, ' '), nil, spec.item_maps)
+    local buf = view.render(u, lines, table.concat(segments, ' '), nil, spec.item_maps)
+    if spec.remember then
+      vim.b[buf].forge = vim.tbl_extend('force', vim.b[buf].forge or {}, spec.remember(node))
+    end
     view.check_truncated(node.comments, 'comments')
   end)
 end
