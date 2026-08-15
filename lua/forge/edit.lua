@@ -51,8 +51,7 @@ end
 --- @param buf integer
 --- @param u forge.Uri the item being edited
 --- @param var forge.ItemVar
---- @param win integer the window the item is in, to draw the answer back into
-local function write(buf, u, var, win)
+local function write(buf, u, var)
   local title, body = split(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   if title == '' then
     log.err('an item needs a title')
@@ -72,25 +71,26 @@ local function write(buf, u, var, win)
     if vim.api.nvim_buf_is_valid(buf) then
       vim.bo[buf].modified = false
     end
-    if vim.api.nvim_win_is_valid(win) then
-      view.open(u, { keep = true, win = win, cwd = cwd })
-    end
+    --- Into its own buffer and no further: the window it would have taken is
+    --- the one still showing what was written, and it is fresh by the time
+    --- "-" goes back to it.
+    view.open(u, { keep = true, hidden = true, cwd = cwd })
   end)
 end
 
 --- Open the title and body of the item being viewed, to be edited.
 ---
---- In a split, so the item keeps its window and can be drawn again where it
---- stands once the write lands. The name is a `forge://` one for the sake of
---- reading it, but |uri.parse| does not know it, which is what keeps every
---- `forge://*` autocmd off a buffer that is not a view.
+--- Over the view rather than beside it, as "dd" and "dc" do: nearly all of
+--- what an item shows is its title and its body, so a split would be the same
+--- words twice. The name is a `forge://` one for the sake of reading it, but
+--- |uri.parse| does not know it, which is what keeps every `forge://*`
+--- autocmd off a buffer that is not a view.
 --- @param var forge.ItemVar
 function M.open(var)
   local u = view.current()
   if not u or not u.number then
     return
   end
-  local item = vim.api.nvim_get_current_win()
   local name = ('%s/edit'):format(uri.tostring(u))
 
   local buf = view.buffer_named(name) or vim.api.nvim_create_buf(true, false)
@@ -110,12 +110,17 @@ function M.open(var)
     buffer = buf,
     desc = 'send an edited title and body to github',
     callback = function()
-      write(buf, u, var, item)
+      write(buf, u, var)
     end,
   })
 
-  vim.cmd.split({ mods = { keepalt = true } })
-  vim.api.nvim_win_set_buf(0, buf)
+  vim.cmd.buffer(buf)
+  --- Nothing else says the first line is the title: the buffer is markdown, so
+  --- it draws as ordinary prose while the body's own headings do not. Written
+  --- rather than templated, because none of it comes from github.
+  vim.wo[0][0].winbar = ('%%#Title#EDIT%%* %%#Tag#%s%%* %%#Comment#| first line is the title | :w sends it%%*'):format(
+    var.tag
+  )
 end
 
 return M

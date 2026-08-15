@@ -257,14 +257,18 @@ plain close means "completed" whether or not that is true. Closing as a
 duplicate is left to github's own page, which asks which issue.
 
                                                                   *forge-edit*
-"Edit title and body" opens the two in a split, as a commit message is laid
-out: the first line is the title, and the body follows a blank line. Writing
-the buffer sends it, so ":w" submits, ":wq" and "ZZ" submit and close, and
-"ZQ" and ":q!" discard. Nothing is sent for an empty title.
+"Edit title and body" replaces the view, as "dd" and "dc" do, because nearly
+all of what an item shows is the two. |CTRL-O| is the way back. The buffer is
+laid out as a commit message is: the first line is the title, and the body
+follows a blank line, which the 'winbar' says since nothing else would.
+
+Writing sends it: ":w" and nothing else. Leaving without writing discards, and
+nothing is sent for an empty title.
 
 The buffer stays 'modified' until github says yes, so a refusal leaves what
-you wrote where it is and ":q" will not throw it away. It is not a view: its
-name cannot rebuild it, and "R" and |:edit| do nothing to it.
+you wrote where it is. It is not a view: its name cannot rebuild it, and "R"
+and |:edit| do nothing to it. The item is drawn again where it sits once the
+write lands, so it is current by the time you go back to it.
 
 "cc" is bound in an item; "dc", "dd" and "dl" only in a pull request. "dc" and
 "dd" replace the view; ci.nvim returns with "-", and the way back from a diff

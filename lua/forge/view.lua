@@ -171,6 +171,7 @@ local OTHER = {
 --- @field split boolean? put the answer beside the view it was asked for in
 --- @field cwd string? the directory the request is made from
 --- @field keep boolean? this is the content you were already reading
+--- @field hidden boolean? draw it into its buffer without giving it a window
 --- @field seq integer? which request this is
 
 --- The repository a target names, for saying out loud while it is in flight.
@@ -297,7 +298,10 @@ end
 --- too, after the reply, so a request that fails leaves no window behind.
 --- @param o forge.Open?
 function M.place(o)
-  if not M.newest(o) then
+  --- Hidden is for an answer nobody is waiting to look at: a view redrawn
+  --- because something was written to it, while the window it lives in is
+  --- showing the buffer that wrote.
+  if not M.newest(o) or (o and o.hidden) then
     return
   end
   if o and o.win and vim.api.nvim_win_is_valid(o.win) then
