@@ -111,16 +111,16 @@ describe('the winbar', function()
     vim.cmd('only')
   end)
 
-  it('leaves a title alone however much it looks like a format item', function()
+  it('leaves what github named alone however much it looks like a format item', function()
     local buf = view.render(
-      uri('issues', 43),
-      { 'x' },
-      info('item', { tag = '#43', title = '100% of %{system("id")} %#ErrorMsg#x%*' })
+      uri('issues'),
+      { '#1 x' },
+      info('list', { repo = '100% of %{system("id")} %#ErrorMsg#x%*' })
     )
     local win = vim.fn.win_findbuf(buf)[1]
     local str =
       vim.api.nvim_eval_statusline(vim.wo[win].winbar, { winid = win, use_winbar = true }).str
-    assert.equals('ISSUE #43 OPEN | 100% of %{system("id")} %#ErrorMsg#x%*', str)
+    assert.equals('ISSUES 100% of %{system("id")} %#ErrorMsg#x%* 1/1 (1)', str)
   end)
 end)
 
@@ -265,7 +265,7 @@ describe("a view's winbar", function()
     view.render(uri('issues', 27), { 'body' }, info('item', { title = 'a title', badges = ' x' }))
     local text, kept = drawn()
     assert.is_true(kept)
-    assert.equals('ISSUE #1 OPEN x | a title', text)
+    assert.equals('ISSUE #1 OPEN x', text)
 
     view.render(uri('issues'), { '#1 x' }, info('list', { total = '124' }))
     text, kept = drawn()
@@ -283,11 +283,6 @@ describe("a view's winbar", function()
     vim.b[buf].forge = nil
     local _, still = drawn()
     assert.is_true(still)
-  end)
-
-  it('does not read a title as format items', function()
-    view.render(uri('issues', 33), { 'body' }, info('item', { title = '100%% of %{x} %#Error#' }))
-    assert.equals('ISSUE #1 OPEN | 100%% of %{x} %#Error#', (drawn()))
   end)
 end)
 
