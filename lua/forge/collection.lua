@@ -70,8 +70,13 @@ function M.list(spec, t, o)
     for _, node in ipairs(nodes) do
       local row = #lines
       lines[row + 1] = format:format(node.number, node.title)
-      marks[#marks + 1] =
-        { row = row, col = 0, end_col = 1 + #tostring(node.number), group = 'Tag' }
+      marks[#marks + 1] = {
+        row = row,
+        col = 0,
+        end_col = 1 + #tostring(node.number),
+        --- Not one state per half: closed holds merged, open holds drafts.
+        group = spec.state_hl[(spec.state and spec.state(node)) or node.state] or 'Tag',
+      }
     end
     if #lines == 0 then
       lines = { ('No %s %s.'):format(state, spec.many) }

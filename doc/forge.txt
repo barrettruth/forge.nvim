@@ -122,7 +122,7 @@ Both are scratch buffers: 'buftype' is "nofile", 'readonly' is set,
 
 Window options are applied wherever a view appears and released when that
 window shows something else. An item is set up to read as prose, a list to
-hold one item to a line.
+hold one item to a line, each number drawn in the state of the item it names.
 
 A buffer being fetched again sets 'busy' until the reply lands.
 
