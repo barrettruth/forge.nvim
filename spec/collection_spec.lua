@@ -199,6 +199,18 @@ describe('a pull request github answered with', function()
     assert.equals('fix-the-thing', info.head)
   end)
 
+  it('says so when github cannot merge it, and stays quiet when it can', function()
+    answering(response({ mergeable = 'CONFLICTING' }), show)
+    local _, info = drawn()
+    assert.equals(' %#ErrorMsg#CONFLICT%* %#Added#+10%* %#Removed#-2%*', info.badges)
+
+    for _, clean in ipairs({ 'MERGEABLE', 'UNKNOWN' }) do
+      answering(response({ mergeable = clean }), show)
+      local _, quiet = drawn()
+      assert.equals(' %#Added#+10%* %#Removed#-2%*', quiet.badges)
+    end
+  end)
+
   it('shows a draft as a draft, not as the open it really is', function()
     answering(response({ state = 'OPEN', isDraft = true }), show)
     local _, info = drawn()

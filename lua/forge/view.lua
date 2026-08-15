@@ -164,6 +164,20 @@ end
 --- @field end_col integer byte column, exclusive
 --- @field group string
 
+--- What a state means, rather than what colour it is.
+---
+--- Every github enum forge draws lands in one of these five, so a new one is
+--- mapped rather than argued about. Builtin groups only, so a colourscheme
+--- that never heard of forge still draws it.
+--- @enum forge.Hl
+M.HL = {
+  live = 'OkMsg', --- open, approved, passing
+  done = 'Special', --- merged, completed
+  bad = 'ErrorMsg', --- closed unmerged, conflicting, failing, changes requested
+  waiting = 'WarningMsg', --- pending, expected, not yet known
+  inert = 'Comment', --- draft, not planned, skipped
+}
+
 --- Wrap 'winbar' text in a highlight group. An empty group is harmless.
 --- @param group string
 --- @param text string
