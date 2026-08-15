@@ -263,11 +263,7 @@ from a diff is |CTRL-O|.
 "dl" splits instead, leaving the pull request beside it. The log is >
     git log --stat --reverse base..head
 <
-")" and "(" step between commits and |<CR>| opens the one under the cursor;
-"o", "O" and "gO" open it in a split, a tab and a vertical split. |CTRL-O|
-returns to the log at the commit it was left on. Fugitive's "-" opens the
-parent commit instead, walking out of the range. "g?" lists the rest of
-fugitive's keys.
+and the keys in it are fugitive's own.
 
 "dd" and "dl" fetch both ends of the pull request first, and share the one
 fetch. The refs land under refs/forge/, which nothing else writes; no branch,
