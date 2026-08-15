@@ -72,7 +72,6 @@ function M.list(spec, t, o)
         row = row,
         col = 0,
         end_col = 1 + #tostring(node.number),
-        --- Not one state per half: closed holds merged, open holds drafts.
         group = spec.state_hl[(spec.state and spec.state(node)) or node.state] or 'Tag',
       }
     end

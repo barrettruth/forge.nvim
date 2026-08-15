@@ -164,11 +164,7 @@ end
 --- @field end_col integer byte column, exclusive
 --- @field group string
 
---- What a state means, rather than what colour it is.
----
---- Every github enum forge draws lands in one of these five, so a new one is
---- mapped rather than argued about. Builtin groups only, so a colourscheme
---- that never heard of forge still draws it.
+--- What a state means, rather than what colour it is. Builtin groups only.
 --- @enum forge.Hl
 M.HL = {
   live = 'OkMsg', --- open, approved, passing
