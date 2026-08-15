@@ -34,10 +34,6 @@ vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.view').web()
 end, { desc = 'open this view on github.com' })
 
-vim.keymap.set({ 'n', 'x' }, '<Plug>(forge-web-cursor)', function()
-  require('forge.view').web_at_cursor(vim.fn.mode() == 'n' and 'n' or 'x')
-end, { desc = 'open the reference under the cursor on github.com' })
-
 vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })
@@ -62,9 +58,6 @@ vim.keymap.set('n', '<Plug>(forge-state)', function()
   require('forge.view').toggle_state()
 end, { desc = 'toggle open and closed' })
 
--- Both commands take a range and throw it away. Neither has anything to do
--- with lines, but ":" from Visual mode writes one for you, and refusing it
--- would make a selection you happened to be holding an error.
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {

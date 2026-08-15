@@ -48,29 +48,6 @@ local function token()
   end)
 end
 
---- What follows the token the cursor is in, or "" at the end of the line.
----
---- One character is enough to spot the label of a markdown link, which is
---- "#918]". Its target may name another repository entirely, and core reads
---- that out of the markdown tree, so forge declines the label and lets it.
---- @param tok string
---- @return string
-local function trailing(tok)
-  local line = vim.api.nvim_get_current_line()
-  local col = vim.api.nvim_win_get_cursor(0)[2] + 1
-  local from = 1
-  while true do
-    local first, last = line:find(tok, from, true)
-    if not first then
-      return ''
-    end
-    if col >= first and col <= last then
-      return line:sub(last + 1, last + 1)
-    end
-    from = first + 1
-  end
-end
-
 --- The reference under the cursor.
 --- @return string? token
 --- @return string? err
@@ -111,40 +88,6 @@ function M.include(fname)
     state = t.state,
   }
   return uri.tostring(there)
-end
-
---- The github.com page a reference names, or nil for anything else.
----
---- A mention is only ever a page: there is no forge:// name for a user, so it
---- is the one reference |gf| cannot follow and |gx| can. Everything nil is
---- handed back to |gx|, whose job it already was.
---- @param selected string? the Visual selection, when there is one
---- @return string?
-function M.web(selected)
-  local tok = selected and vim.trim(selected) or token()
-  local user = tok:match('^@([%w][%w-]*)$')
-  if user then
-    return ('https://github.com/%s'):format(user)
-  end
-  if not linked(tok) or (not selected and trailing(tok) == ']') then
-    return nil
-  end
-  local here = uri.parse(vim.api.nvim_buf_get_name(0))
-  if not here then
-    return nil
-  end
-  local t = uri.resolve(tok, here.collection)
-  if not t or not t.number then
-    return nil
-  end
-  --- @type forge.Uri
-  local there = {
-    owner = t.owner or here.owner,
-    repo = t.repo or here.repo,
-    collection = t.collection,
-    number = t.number,
-  }
-  return uri.web(there)
 end
 
 return M
