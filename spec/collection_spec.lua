@@ -184,6 +184,13 @@ describe('a pull request github answered with', function()
     assert.equals('DRAFT', info.state)
     assert.equals('Normal', info.state_hl)
   end)
+
+  it('shows a closed draft as closed, however github left the flag', function()
+    answering(response({ state = 'CLOSED', isDraft = true }), show)
+    local _, info = drawn()
+    assert.equals('CLOSED', info.state)
+    assert.equals('ErrorMsg', info.state_hl)
+  end)
 end)
 
 describe('a list github answered with', function()
@@ -283,12 +290,13 @@ describe('a pull request list github answered with', function()
       response({
         { number = 1, title = 'landed', state = 'MERGED', isDraft = false },
         { number = 2, title = 'abandoned', state = 'CLOSED', isDraft = false },
+        { number = 3, title = 'abandoned early', state = 'CLOSED', isDraft = true },
       }),
       function()
         show('CLOSED')
       end
     )
-    assert.same({ 'Special', 'ErrorMsg' }, groups())
+    assert.same({ 'Special', 'ErrorMsg', 'ErrorMsg' }, groups())
   end)
 
   it('draws a draft as a draft, not as the open it really is', function()

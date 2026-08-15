@@ -102,8 +102,10 @@ local PRS = {
   remember = function(node)
     return { base = node.baseRefName, head = node.headRefName }
   end,
+  --- Draft is a flag on an open pull request, and github leaves it set when
+  --- one is closed; a closed draft is closed.
   state = function(node)
-    return node.isDraft and 'DRAFT' or node.state
+    return (node.state == 'OPEN' and node.isDraft) and 'DRAFT' or node.state
   end,
   header = function(node)
     return { ('- Branch: %s into %s'):format(node.headRefName or '?', node.baseRefName or '?') }
