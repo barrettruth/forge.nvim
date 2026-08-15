@@ -22,10 +22,10 @@ end
 --- A pull request is a merge-base diff, which is what `base...head` means to
 --- git and to |:Diff| alike, so the handover is the spec and nothing else.
 ---
---- The refs are resolved here rather than passed on hopefully. They name
---- branches on github, and a branch you have never fetched is not a diff
---- anyone can draw: saying which one is missing beats a failure from a plugin
---- that was only told two names.
+--- Both ends are fetched first. diffs.nvim draws from the object store rather
+--- than from a patch, and a pull request you did not write is never already
+--- there: refusing on that would refuse on almost every pull request worth
+--- looking at.
 function M.show()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then
@@ -38,21 +38,15 @@ function M.show()
   end
 
   local refs = vim.b[vim.api.nvim_get_current_buf()].forge or {}
-  if not refs.base or not refs.head then
-    log.err('this pull request did not say which branches it joins')
+  if not refs.base then
+    log.err('this pull request did not say what it merges into')
     return
   end
 
-  local dir = vcs.dir()
-  local base, head = vcs.rev(dir, refs.base), vcs.rev(dir, refs.head)
-  if not base then
-    return log.err(('%s is not here, so there is nothing to diff against'):format(refs.base))
-  end
-  if not head then
-    return log.err(('%s is not here, so there is nothing to diff'):format(refs.head))
-  end
-
-  vim.cmd({ cmd = 'Diff', args = { 'review', ('%s...%s'):format(base, head) } })
+  local url = ('https://github.com/%s/%s'):format(u.owner, u.repo)
+  vcs.fetch_pull(vcs.dir(), url, u.number, refs.base, function(base, head)
+    vim.cmd({ cmd = 'Diff', args = { 'review', ('%s...%s'):format(base, head) } })
+  end)
 end
 
 return M

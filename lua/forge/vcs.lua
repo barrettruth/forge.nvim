@@ -1,3 +1,5 @@
+local log = require('forge.log')
+
 local M = {}
 
 local TIMEOUT = 2000
@@ -29,20 +31,46 @@ function M.dir()
   return vim.fs.dirname(name)
 end
 
---- A branch as this checkout can name it, if it can.
+--- Bring a pull request into this repository, without disturbing it.
 ---
---- A pull request names branches as github holds them, and a checkout may
---- have the same branch locally, only as a remote-tracking ref, or not at
---- all. The first that resolves is the one to hand on.
+--- github publishes every pull request as `refs/pull/N/head` on the base
+--- repository, so a pull request nobody has fetched is still one commit away.
+--- The base branch comes too, because a merge base needs both ends.
+---
+--- Fetching by URL rather than by remote name is deliberate: the repository a
+--- pull request belongs to is not always the one `origin` points at, and in a
+--- fork it never is. The refs land under `refs/forge/`, which nothing else
+--- writes, so no branch, tag or working tree is touched.
 --- @param dir string
---- @param branch string
---- @return string?
-function M.rev(dir, branch)
-  for _, name in ipairs({ branch, 'origin/' .. branch }) do
-    if run(dir, { 'git', 'rev-parse', '--verify', '--quiet', name .. '^{commit}' }) then
-      return name
-    end
-  end
+--- @param url string
+--- @param number integer
+--- @param base string
+--- @param on_done fun(base: string, head: string)
+function M.fetch_pull(dir, url, number, base, on_done)
+  local head_ref = ('refs/forge/%d/head'):format(number)
+  local base_ref = ('refs/forge/%d/base'):format(number)
+  local cmd = {
+    'git',
+    'fetch',
+    '--quiet',
+    url,
+    ('+refs/pull/%d/head:%s'):format(number, head_ref),
+    ('+refs/heads/%s:%s'):format(base, base_ref),
+  }
+
+  local done = log.progress(('fetching #%d'):format(number))
+  vim.system(cmd, { cwd = dir, text = true }, function(out)
+    vim.schedule(function()
+      if out.code ~= 0 then
+        local why = vim.trim((out.stderr or ''):gsub('\n.*', ''))
+        why = why ~= '' and why or 'git fetch failed'
+        done('failed', why)
+        return log.err(why)
+      end
+      done('success', ('fetched #%d'):format(number))
+      on_done(base_ref, head_ref)
+    end)
+  end)
 end
 
 --- The branch whose pull request a bare |:PR| means.
@@ -70,7 +98,7 @@ function M.branch(dir)
     return nil, 'no branch here, so no pull request to open'
   end
 
-  local function log(revision, template)
+  local function ask(revision, template)
     return run(dir, {
       'jj',
       'log',
@@ -83,8 +111,8 @@ function M.branch(dir)
     })
   end
 
-  local revision = log('@', 'if(empty, "empty", "work")') == 'empty' and '@-' or '@'
-  local marks = log(revision, 'bookmarks')
+  local revision = ask('@', 'if(empty, "empty", "work")') == 'empty' and '@-' or '@'
+  local marks = ask(revision, 'bookmarks')
   local nearest = marks and vim.split(marks, '%s+')[1]
   if not nearest or nearest == '' then
     return nil, 'this change has no bookmark, so there is no branch to propose'
