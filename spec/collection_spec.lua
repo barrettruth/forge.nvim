@@ -194,7 +194,8 @@ describe('a pull request github answered with', function()
     assert.equals('PR', info.label)
     assert.equals('MERGED', info.state)
     assert.equals('Special', info.state_hl)
-    assert.equals(' %#Added#+10%* %#Removed#-2%*', info.badges)
+    assert.equals('', info.badges)
+    assert.equals('%#Added#+10%* %#Removed#-2%*', info.stat)
     assert.equals('master', info.base)
     assert.equals('fix-the-thing', info.head)
   end)
@@ -202,12 +203,12 @@ describe('a pull request github answered with', function()
   it('says so when github cannot merge it, and stays quiet when it can', function()
     answering(response({ mergeable = 'CONFLICTING' }), show)
     local _, info = drawn()
-    assert.equals(' %#ErrorMsg#CONFLICT%* %#Added#+10%* %#Removed#-2%*', info.badges)
+    assert.equals(' %#ErrorMsg#CONFLICT%*', info.badges)
 
     for _, clean in ipairs({ 'MERGEABLE', 'UNKNOWN' }) do
       answering(response({ mergeable = clean }), show)
       local _, quiet = drawn()
-      assert.equals(' %#Added#+10%* %#Removed#-2%*', quiet.badges)
+      assert.equals('', quiet.badges)
     end
   end)
 
@@ -221,12 +222,12 @@ describe('a pull request github answered with', function()
       return info.badges
     end
 
-    assert.equals(' %#ErrorMsg#FAILING%* %#Added#+10%* %#Removed#-2%*', badges_for('FAILURE'))
-    assert.equals(' %#ErrorMsg#FAILING%* %#Added#+10%* %#Removed#-2%*', badges_for('ERROR'))
-    assert.equals(' %#WarningMsg#PENDING%* %#Added#+10%* %#Removed#-2%*', badges_for('PENDING'))
-    assert.equals(' %#WarningMsg#EXPECTED%* %#Added#+10%* %#Removed#-2%*', badges_for('EXPECTED'))
-    assert.equals(' %#Added#+10%* %#Removed#-2%*', badges_for('SUCCESS'))
-    assert.equals(' %#Added#+10%* %#Removed#-2%*', badges_for(nil))
+    assert.equals(' %#ErrorMsg#FAILING%*', badges_for('FAILURE'))
+    assert.equals(' %#ErrorMsg#FAILING%*', badges_for('ERROR'))
+    assert.equals(' %#WarningMsg#PENDING%*', badges_for('PENDING'))
+    assert.equals(' %#WarningMsg#EXPECTED%*', badges_for('EXPECTED'))
+    assert.equals('', badges_for('SUCCESS'))
+    assert.equals('', badges_for(nil))
   end)
 
   it('shows a draft as a draft, not as the open it really is', function()

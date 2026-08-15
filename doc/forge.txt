@@ -144,6 +144,7 @@ In an item, and only in one. The last two are a pull request's: >
     state      the state as shown, e.g. "OPEN", "MERGED", "NOT PLANNED"
     state_hl   the highlight group that state is drawn in
     badges     its extra winbar segments
+    stat       what it measures, drawn against the right edge
     base       the branch it merges into
     head       the branch it merges from
 <
@@ -151,13 +152,15 @@ Every view sets a 'winbar': >
 
     ISSUES barrettruth/forge-fixture 1/2 (124)
     ISSUE #27 OPEN
-    PR #151 MERGED +10 -2
-    PR #152 OPEN CONFLICT FAILING +7 -0
+    PR #151 MERGED                                                 +10 -2
+    PR #152 OPEN CONFLICT FAILING                                   +7 -0
 <
 An item's title is the first line of its buffer, so the winbar does not repeat
-it. A badge appears only when it has something to say, so a pull request that
-merges cleanly and whose checks passed carries neither of those two. Its
-checks are "FAILING", "PENDING" or "EXPECTED"; "dc" shows which.
+it. What is wrong sits beside the state; a diffstat is only a measure, so it
+goes to the right edge. A badge appears only when it has something to say, so
+a pull request that merges cleanly and whose checks passed carries neither of
+those two. Its checks are "FAILING", "PENDING" or "EXPECTED"; "dc" shows
+which.
 
 Highlighting uses builtin |group-name| groups only.
 
