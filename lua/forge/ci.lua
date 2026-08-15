@@ -9,13 +9,17 @@ local M = {}
 --- An optional dependency. Forge delegates CI rather than drawing it, so the
 --- honest thing when there is nothing to delegate to is to say so.
 ---
---- Requiring the module is not enough to know that. What a handover needs is
---- the `ci://` |BufReadCmd|, and that lives in ci.nvim's plugin file rather
---- than its module: with one loaded and not the other, `:CI` would open a
---- buffer nothing ever fills. The require comes first regardless, since for a
---- lazily loaded plugin it is what sources the plugin file.
+--- An installed plugin is not a loaded one. Under `pack/*/opt` nothing is on
+--- the runtimepath until |:packadd|, so requiring first would call an
+--- installed ci.nvim missing merely because its own trigger had not fired.
+--- The flag is what settles it either way: it lives in ci.nvim's plugin file,
+--- which is exactly what a handover needs, since with the module loaded and
+--- the plugin not, `:CI` would open a buffer nothing ever fills.
 --- @return table?
 function M.available()
+  if not vim.g.loaded_ci then
+    pcall(vim.cmd.packadd, 'ci.nvim')
+  end
   local ok, ci = pcall(require, 'ci')
   if not ok or not vim.g.loaded_ci then
     return nil
