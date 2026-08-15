@@ -246,11 +246,19 @@ dd                      In a pull request, hand it to diffs.nvim and show its
                         diff. Bound only there, for the same reason as "dc".
 
                         A pull request is a merge-base diff, so what goes over
-                        is "base...head" and nothing else. Both branches have
-                        to be in your checkout: one github knows about and you
-                        have never fetched cannot be drawn, and forge says
-                        which is missing rather than letting diffs.nvim fail
-                        with two names it was handed.
+                        is "base...head" and nothing else.
+
+                        diffs.nvim draws from your object store rather than
+                        from a patch, so both ends are fetched first: github
+                        publishes every pull request as refs/pull/N/head on
+                        the repository it belongs to, and the base branch
+                        comes with it. This is the one thing forge writes to a
+                        repository. The refs land under refs/forge/, which
+                        nothing else writes, and no branch, tag or working
+                        tree is touched. Fetching is by URL rather than by
+                        remote name, because the repository a pull request
+                        belongs to is not always the one "origin" points at,
+                        and in a fork it never is.
 
                         Forge does not draw CI; ci.nvim owns that. The pull
                         request is handed over as its github.com URL, which is
