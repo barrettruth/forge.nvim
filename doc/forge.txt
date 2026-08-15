@@ -286,13 +286,16 @@ Its 'winbar' is the item's own with the state swapped for the mode: >
     PR #151 EDIT
 <
 
-Writing sends it: ":w" and nothing else. Leaving without writing discards, and
-nothing is sent for an empty title.
+Writing sends it: ":w" and nothing else. Nothing is sent for an empty title.
 
-The buffer stays 'modified' until github says yes, so a refusal leaves what
-you wrote where it is. It is not a view: its name cannot rebuild it, and "R"
-and |:edit| do nothing to it. The item is drawn again where it sits once the
-write lands, so it is current by the time you go back to it.
+The buffer lasts as long as it is on screen and no longer, so it never holds
+anything staler than the item it was opened from. Until github says yes it
+stays 'modified', which is what refuses to let you leave it — a refused write
+keeps what you wrote, and ":q!" is how you throw it away.
+
+It is not a view: its name cannot rebuild it, and "R" and |:edit| do nothing
+to it. The item is drawn again where it sits once the write lands, so it is
+current by the time you go back to it.
 
 "cc" is bound in an item; "dc", "dd" and "dl" only in a pull request. "dc" and
 "dd" replace the view; ci.nvim returns with "-", and the way back from a diff

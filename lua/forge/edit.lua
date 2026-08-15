@@ -94,18 +94,17 @@ function M.open(var)
   local name = ('%s/edit'):format(uri.tostring(u))
 
   local buf = view.buffer_named(name) or vim.api.nvim_create_buf(true, false)
-  if vim.api.nvim_buf_get_name(buf) ~= name then
-    vim.api.nvim_buf_set_name(buf, name)
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(var.edit or '', '\n'))
-    vim.bo[buf].modified = false
-  end
+  vim.api.nvim_buf_set_name(buf, name)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(var.edit or '', '\n'))
+  vim.bo[buf].modified = false
   vim.bo[buf].buftype = 'acwrite'
   vim.bo[buf].filetype = 'markdown'
+  --- Gone the moment nothing shows it, so the editor is only ever as old as
+  --- the item it was opened from. While there is something unsent 'modified'
+  --- refuses to let it be abandoned at all, so wiping cannot lose anything
+  --- that was not thrown away on purpose with ":q!".
+  vim.bo[buf].bufhidden = 'wipe'
 
-  --- The buffer outlives any one opening of it, and each carries its own
-  --- window to answer into, so the latest owns the write rather than joining
-  --- a queue of them.
-  vim.api.nvim_clear_autocmds({ buffer = buf, event = 'BufWriteCmd' })
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
     desc = 'send an edited title and body to github',

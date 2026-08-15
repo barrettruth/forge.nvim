@@ -55,6 +55,14 @@ end
 
 describe('editing an item', function()
   after_each(function()
+    --- It is meant to refuse being abandoned while there is something unsent,
+    --- so a test that leaves one behind would fail every buffer switch after
+    --- it, in this file and the next.
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_get_name(buf):match('/edit$') then
+        pcall(vim.api.nvim_buf_delete, buf, { force = true })
+      end
+    end
     vim.cmd('silent! only')
   end)
 
@@ -90,6 +98,21 @@ describe('editing an item', function()
     edit.open(showing())
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-o>', true, false, true), 'x', false)
     assert.equals('forge://a/b/issues/27', vim.api.nvim_buf_get_name(0))
+  end)
+
+  it('is gone once nothing shows it, having nothing left to keep', function()
+    edit.open(showing())
+    local buf = vim.api.nvim_get_current_buf()
+    vim.cmd('enew')
+    assert.is_false(vim.api.nvim_buf_is_valid(buf))
+  end)
+
+  it('refuses to be left while it holds something unsent', function()
+    edit.open(showing())
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a title', '', 'unsent' })
+    local ok, err = pcall(vim.cmd, 'enew')
+    assert.is_false(ok)
+    assert.is_truthy(tostring(err):find('E37'))
   end)
 
   it('is not a view, so nothing that answers for one answers for it', function()
