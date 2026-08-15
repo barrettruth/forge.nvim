@@ -383,6 +383,10 @@ function M.render(u, lines, info, marks, maps, o)
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
   map.buf_default(buf, 'n', 'R', '<Plug>(forge-refresh)', 'fetch this view again')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
+  for _, mode in ipairs({ 'n', 'x' }) do
+    local plug = '<Plug>(forge-web-cursor)'
+    map.buf_default(buf, mode, 'gx', plug, 'open the reference under the cursor on github.com')
+  end
   map.buf_default(buf, 'n', 'ga', '<Plug>(forge-create)', 'start something new in this collection')
   for _, m in ipairs(maps or {}) do
     map.buf_default(buf, 'n', m[1], m[2], m[3])
@@ -533,6 +537,45 @@ function M.create(t)
       end)
     end
   )
+end
+
+--- Hand |gx| back to whatever it was before this buffer shadowed it.
+---
+--- Looked up now rather than captured when forge loaded, because only a global
+--- mapping answers here: rebind gx afterwards and yours still wins. Core's own
+--- can raise — an unparsed markdown tree is enough — and a mapping is not a
+--- place to raise from.
+--- @param mode 'n'|'x'
+local function unshadowed(mode)
+  for _, m in ipairs(vim.api.nvim_get_keymap(mode)) do
+    if m.lhs == 'gx' and m.callback then
+      local ok, err = pcall(m.callback)
+      if not ok then
+        log.err(tostring(err))
+      end
+      return
+    end
+  end
+end
+
+--- Open the reference under the cursor, or the one selected, on github.com.
+---
+--- A mention goes to a profile, and everything forge does not recognise goes
+--- back to |gx|, so an ordinary URL still opens.
+--- @param mode 'n'|'x'
+function M.web_at_cursor(mode)
+  local selected
+  if mode == 'x' then
+    local region =
+      vim.fn.getregion(vim.fn.getpos('.'), vim.fn.getpos('v'), { type = vim.fn.mode() })
+    selected = table.concat(region, '')
+  end
+  local url = ref.web(selected)
+  if url then
+    vim.ui.open(url)
+    return
+  end
+  unshadowed(mode)
 end
 
 --- Open this view on github.com.

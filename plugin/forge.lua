@@ -34,6 +34,10 @@ vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.view').web()
 end, { desc = 'open this view on github.com' })
 
+vim.keymap.set({ 'n', 'x' }, '<Plug>(forge-web-cursor)', function()
+  require('forge.view').web_at_cursor(vim.fn.mode() == 'n' and 'n' or 'x')
+end, { desc = 'open the reference under the cursor on github.com' })
+
 vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })
