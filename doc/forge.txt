@@ -29,13 +29,15 @@ to configure and no setup() to call.
   - Neovim 0.12 or newer
   - the "gh" CLI, authenticated (https://cli.github.com)
 
-Two plugins are optional. Each backs one mapping; every other key works
+Three plugins are optional. Each backs one mapping; every other key works
 without them, and |forge-health| reports which is missing.
 
   - ci.nvim, for "dc"
     https://forge.barrettruth.com/barrettruth/ci.nvim
   - diffs.nvim, for "dd"
     https://forge.barrettruth.com/barrettruth/diffs.nvim
+  - vim-fugitive, for "dl"
+    https://github.com/tpope/vim-fugitive
 
 ==============================================================================
 3. COMMANDS                                                   *forge-commands*
@@ -196,6 +198,7 @@ know nothing about forge. A number is "Tag", a repository "Directory", a state
     gX       <Plug>(forge-web)         Open this view on github.com.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
+    dl       <Plug>(forge-log)         Its commits, in fugitive.
     g?       <Plug>(forge-help)        This section.
 
                                                           *<Plug>(forge-help)*
@@ -210,6 +213,7 @@ know nothing about forge. A number is "Tag", a repository "Directory", a state
                                                            *<Plug>(forge-web)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
+                                                           *<Plug>(forge-log)*
 Mappings are buffer-local and attached by URI, so nothing here reaches an
 ordinary markdown file. A default is only set when nothing in that buffer
 already maps the key and nothing already maps to the <Plug>; otherwise your
@@ -234,16 +238,26 @@ are standing in, so a fork can propose a branch to what it forked.
 "gX" opens what the buffer shows, not what the cursor is on. Which page you
 are on is not carried, because a page is not part of a view's name.
 
-"dc" and "dd" are bound only in a pull request: an issue has no CI and no
-diff. Both replace the view rather than splitting beside it, being the same
+"dc", "dd" and "dl" are bound only in a pull request: an issue has no CI, no
+diff and no commits of its own. "dc" and "dd" replace the view, being the same
 pull request seen differently. ci.nvim's own "-" is pointed back at the pull
 request; diffs.nvim has no notion of where it was opened from, so the way back
 from a diff is |CTRL-O|.
 
-"dd" fetches both ends of the pull request first, because diffs.nvim draws
-from your object store rather than from a patch. The refs land under
-refs/forge/, which nothing else writes; no branch, tag or working tree is
-touched. This is the only thing forge writes to a repository.
+"dl" splits instead and leaves the pull request beside it, which is the way
+back: fugitive's "-" means the parent tree object, not where you came from.
+The log is `git log --oneline --reverse base..head`; press "g?" in it for
+fugitive's own keys, of which |<CR>|, "o", "O" and "gO" open a commit out of
+it.
+
+"dd" and "dl" fetch both ends of the pull request first, and share the one
+fetch. The refs land under refs/forge/, which nothing else writes; no branch,
+tag or working tree is touched. This is the only thing forge writes to a
+repository.
+
+"dl" also sets `b:git_dir` on the pull request buffer, so `:Git` in it aims at
+the repository the refs were fetched into — the one you are in, which is not
+necessarily the one the view names.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor, |CTRL-W_f| follows it into a
