@@ -34,9 +34,14 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 ]]
 
---- How a closed issue ended, where that is not what CLOSED already says.
+--- How a closed issue ended. Each of these implies closed, so the winbar says
+--- the reason and not both, as MERGED and DRAFT already do for a pull request.
 --- REOPENED is left out: that one is open, and says so.
-local REASON = { DUPLICATE = 'DUPLICATE', NOT_PLANNED = 'NOT PLANNED' }
+local REASON = {
+  COMPLETED = 'COMPLETED',
+  DUPLICATE = 'DUPLICATE',
+  NOT_PLANNED = 'NOT PLANNED',
+}
 
 --- @type forge.Spec
 local ISSUES = {
@@ -48,9 +53,12 @@ local ISSUES = {
   list_key = 'issues',
   item_query = ISSUE_QUERY,
   list_query = LIST_QUERY,
+  --- CLOSED is the fallback for one github gave no reason, which it backfilled
+  --- COMPLETED on every issue closed before it started asking.
   state_hl = {
     OPEN = view.HL.live,
     CLOSED = view.HL.done,
+    COMPLETED = view.HL.done,
     DUPLICATE = view.HL.done,
     ['NOT PLANNED'] = view.HL.inert,
   },
