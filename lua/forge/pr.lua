@@ -185,6 +185,15 @@ local PRS = {
   --- refusal names the branch.
   actions = {
     {
+      label = 'Edit title and body',
+      when = function(var)
+        return var.can_update == true
+      end,
+      run = function(var)
+        require('forge.edit').open(var)
+      end,
+    },
+    {
       label = 'Convert to draft',
       said = 'to a draft',
       query = DRAFT,

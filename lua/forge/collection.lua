@@ -78,8 +78,9 @@ end
 --- rather than passed is that github spells its enums in the query.
 --- @class forge.Action
 --- @field label string what the picker shows, in github's own words
---- @field said string what the progress message says of it
---- @field query string the mutation to send
+--- @field said? string what the progress message says of it, where one is sent
+--- @field query? string the mutation to send
+--- @field run? fun(var: forge.ItemVar) what to do instead of sending one
 --- @field when fun(var: forge.ItemVar): boolean
 
 --- Everything that distinguishes one collection from another.
@@ -163,7 +164,12 @@ function M.act(spec)
       return action.label
     end,
   }, function(action)
-    if action then
+    if not action then
+      return
+    end
+    if action.run then
+      action.run(var)
+    else
       mutate(var, action)
     end
   end)
@@ -309,6 +315,9 @@ function M.item(spec, t, o)
       state_hl = spec.state_hl[state] or 'Normal',
       tag = '#' .. node.number,
       title = node.title or '',
+      --- What "cc" hands the editor: the title and body as they stand, in the
+      --- shape they are written back in.
+      edit = ('%s\n\n%s'):format(node.title or '', node.body or ''),
       badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
       --- Its bar belongs to the value: a `%(…%)` group wrapped round a
       --- `%{%…%}` is dropped whole, taking the separator with it.

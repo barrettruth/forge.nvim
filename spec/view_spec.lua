@@ -328,12 +328,15 @@ describe('what an issue can be asked to do', function()
   end
 
   it('names the reason, because github records one either way', function()
-    assert.same({ 'Close as completed', 'Close as not planned' }, offered('OPEN'))
+    assert.same(
+      { 'Edit title and body', 'Close as completed', 'Close as not planned' },
+      offered('OPEN')
+    )
   end)
 
   it('reopens from every way an issue can be closed', function()
     for _, state in ipairs({ 'CLOSED', 'COMPLETED', 'DUPLICATE', 'NOT PLANNED' }) do
-      assert.same({ 'Reopen issue' }, offered(state))
+      assert.same({ 'Edit title and body', 'Reopen issue' }, offered(state))
     end
   end)
 
@@ -353,9 +356,15 @@ describe('what a pull request can be asked to do', function()
   end
 
   it('offers only the ways the state can go, the reversible one first', function()
-    assert.same({ 'Convert to draft', 'Close pull request' }, offered('OPEN'))
-    assert.same({ 'Ready for review', 'Close pull request' }, offered('DRAFT'))
-    assert.same({ 'Reopen pull request' }, offered('CLOSED'))
+    assert.same(
+      { 'Edit title and body', 'Convert to draft', 'Close pull request' },
+      offered('OPEN')
+    )
+    assert.same(
+      { 'Edit title and body', 'Ready for review', 'Close pull request' },
+      offered('DRAFT')
+    )
+    assert.same({ 'Edit title and body', 'Reopen pull request' }, offered('CLOSED'))
   end)
 
   it('offers nothing github would refuse, whatever the state', function()
@@ -364,8 +373,8 @@ describe('what a pull request can be asked to do', function()
     assert.same({}, offered('CLOSED', false))
   end)
 
-  it('offers nothing once it is merged, the one state with no way out', function()
-    assert.same({}, offered('MERGED'))
+  it('still edits a merged one, which github allows and nothing else does', function()
+    assert.same({ 'Edit title and body' }, offered('MERGED'))
   end)
 end)
 

@@ -107,6 +107,15 @@ local ISSUES = {
   --- the one state to test for and everything else is closed.
   actions = {
     {
+      label = 'Edit title and body',
+      when = function(var)
+        return var.can_update == true
+      end,
+      run = function(var)
+        require('forge.edit').open(var)
+      end,
+    },
+    {
       label = 'Close as completed',
       said = 'closed as completed',
       query = COMPLETED,

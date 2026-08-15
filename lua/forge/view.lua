@@ -36,6 +36,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field stat string what it measures, its own bar included, drawn right
 --- @field id string? what a mutation names a pull request by
 --- @field can_update boolean? whether github will let you change it
+--- @field edit string? its title and body, as "cc" hands them to be edited
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
 --- @field remote string? the repository "dd" and "dl" fetch a pull request from
