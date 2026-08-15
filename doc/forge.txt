@@ -150,11 +150,12 @@ In an item, and only in one. The last two are a pull request's: >
 Every view sets a 'winbar': >
 
     ISSUES barrettruth/forge-fixture 1/2 (124)
-    ISSUE #27 OPEN | a title that fits
-    PR #151 MERGED +10 -2 | another one
-    PR #152 OPEN CONFLICT FAILING +7 -0 | one in trouble
+    ISSUE #27 OPEN
+    PR #151 MERGED +10 -2
+    PR #152 OPEN CONFLICT FAILING +7 -0
 <
-A badge appears only when it has something to say, so a pull request that
+An item's title is the first line of its buffer, so the winbar does not repeat
+it. A badge appears only when it has something to say, so a pull request that
 merges cleanly and whose checks passed carries neither of those two. Its
 checks are "FAILING", "PENDING" or "EXPECTED"; "dc" shows which.
 

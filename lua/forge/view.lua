@@ -78,9 +78,10 @@ local WINBAR = {
     .. ' %#Comment#('
     .. at('total')
     .. ')%*',
+  --- The title is the first line of the buffer, so the winbar leaves it there.
   item = '%#Title#' .. at('label') .. '%* %#Tag#' .. at('tag') .. '%* ' .. STATE .. '%{%' .. call(
     'badges'
-  ) .. '%}%( | ' .. at('title') .. '%)%<',
+  ) .. '%}',
 }
 
 --- Where a view was last being read, kept for buffers no window is showing.
