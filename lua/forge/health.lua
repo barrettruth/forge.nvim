@@ -23,15 +23,6 @@ function M.check()
     end
   end
 
-  if pcall(vim.treesitter.get_string_parser, '', 'yaml') then
-    vim.health.ok('yaml parser found, so issue forms can be read')
-  else
-    vim.health.warn(
-      'no yaml parser, so issue forms will be skipped',
-      'Install one, for example :TSInstall yaml. Markdown templates still work.'
-    )
-  end
-
   if require('forge.ci').available() then
     vim.health.ok('ci.nvim loaded, so dc can show a pull request its checks')
   else

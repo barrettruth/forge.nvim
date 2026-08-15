@@ -302,7 +302,7 @@ end
 --- A list is the top: there is nothing above a list to go up to.
 function M.up()
   local u = M.current()
-  if not u or not (u.number or u.draft) then
+  if not u or not u.number then
     return
   end
   --- @type forge.BufVar
@@ -332,6 +332,44 @@ function M.refresh()
   M.open(u, { page = paging.page, cursors = paging.cursors, keep = true })
 end
 
+--- Start something new in the collection being looked at.
+---
+--- github's own page is the form: it applies whichever template the
+--- repository defines, enforces what that template requires, and takes
+--- attachments. gh pushes the branch a pull request needs on the way there.
+--- Drawing any of it here would be a worse copy of a page one keystroke away.
+---
+--- The repository comes from the view rather than the working directory, so
+--- what you are looking at is what you add to — including proposing a branch
+--- to a repository you are only a fork of.
+function M.create()
+  local u = M.current()
+  if not u then
+    return
+  end
+
+  local what = u.collection == 'prs' and 'pr' or 'issue'
+  local said = u.collection == 'prs' and 'pull request' or 'issue'
+  local slug = ('%s/%s'):format(u.owner, u.repo)
+  local done = log.progress(('a new %s in %s'):format(said, slug))
+
+  vim.system(
+    { 'gh', what, 'create', '--repo', slug, '--web' },
+    { cwd = require('forge.vcs').dir(), text = true },
+    function(out)
+      vim.schedule(function()
+        if out.code ~= 0 then
+          local why = vim.trim((out.stderr or ''):gsub('\n.*', ''))
+          why = why ~= '' and why or ('gh %s create failed'):format(what)
+          done('failed', why)
+          return log.err(why)
+        end
+        done('success', ('a new %s in %s'):format(said, slug))
+      end)
+    end
+  )
+end
+
 --- Open this view on github.com.
 ---
 --- What the buffer shows, not what the cursor is on: the buffer already knows
@@ -341,10 +379,6 @@ function M.web()
   if not u then
     log.warn('no url for this buffer')
     return
-  end
-  local compose = vim.b[vim.api.nvim_get_current_buf()].forge_compose
-  if u.draft and compose then
-    u.template = compose.template
   end
   vim.ui.open(uri.web(u))
 end

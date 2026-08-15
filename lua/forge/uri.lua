@@ -12,8 +12,6 @@
 --- @field number integer? nil for a list
 --- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
 --- @field head boolean? the pull request for the change you are on
---- @field draft boolean? a member that does not exist yet
---- @field template string? the file a draft started from, named as github names it
 
 --- A view forge can address, which is a target github has already answered.
 ---
@@ -30,8 +28,8 @@ local SCHEME = 'forge://'
 --- plural for an issue list and a single issue, plural for a pull request
 --- list and singular for a single pull request; ours are always "prs".
 local WEB = {
-  issues = { list = 'issues', member = 'issues', filter = 'issue', new = 'issues/new' },
-  prs = { list = 'pulls', member = 'pull', filter = 'pr', new = 'compare' },
+  issues = { list = 'issues', member = 'issues', filter = 'issue' },
+  prs = { list = 'pulls', member = 'pull', filter = 'pr' },
 }
 
 --- The view a response describes, named by the repository github answered for.
@@ -61,9 +59,6 @@ end
 --- @return string
 function M.tostring(uri)
   local base = ('%s%s/%s/%s'):format(SCHEME, uri.owner, uri.repo, uri.collection)
-  if uri.draft then
-    return base .. '/new'
-  end
   if uri.number then
     return ('%s/%d'):format(base, uri.number)
   end
@@ -77,21 +72,12 @@ end
 ---
 --- Close to the path with the scheme swapped, but not a translation forge
 --- avoids: github spells a closed list as a query, names a single pull
---- request in the singular, and calls the collection "pulls". A draft takes
---- the template it started from as a query too, so the page opens on the same
---- form rather than on the chooser.
+--- request in the singular, and calls the collection "pulls".
 --- @param uri forge.Uri
 --- @return string
 function M.web(uri)
   local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
   local web = WEB[uri.collection]
-  if uri.draft then
-    local url = ('%s/%s'):format(base, web.new)
-    if uri.template then
-      return ('%s?template=%s'):format(url, vim.uri_encode(uri.template))
-    end
-    return url
-  end
   if uri.number then
     return ('%s/%s/%d'):format(base, web.member, uri.number)
   end
@@ -117,11 +103,6 @@ function M.parse(str)
       collection = collection,
       number = tonumber(number),
     }
-  end
-
-  owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/new$')
-  if owner and WEB[collection] then
-    return { owner = owner, repo = repo, collection = collection, draft = true }
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/closed$')
