@@ -28,7 +28,7 @@ function M.check()
   else
     vim.health.warn(
       'ci.nvim not available, so dc has nothing to show checks with',
-      'Optional. Install it from https://github.com/barrettruth/ci.nvim'
+      'Optional. Install it from https://forge.barrettruth.com/barrettruth/ci.nvim'
     )
   end
 
@@ -37,7 +37,7 @@ function M.check()
   else
     vim.health.warn(
       'diffs.nvim not available, so dd has nothing to show a diff with',
-      'Optional. Install it from https://github.com/barrettruth/diffs.nvim'
+      'Optional. Install it from https://forge.barrettruth.com/barrettruth/diffs.nvim'
     )
   end
 end
