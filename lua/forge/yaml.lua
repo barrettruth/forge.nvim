@@ -2,8 +2,10 @@ local M = {}
 
 --- Enough YAML to read a github issue form, and no more.
 ---
---- Neovim ships a treesitter parser for YAML, so the grammar is not ours to
---- reimplement. What is ours is the walk from a parse tree to a Lua table:
+--- A treesitter parser handles the grammar, so it is not ours to reimplement.
+--- Neovim does not bundle one for YAML: the dev shell supplies it and CI
+--- builds it, and where neither has, a form is skipped rather than guessed
+--- at. What is ours is the walk from a parse tree to a Lua table:
 --- mappings, sequences, plain and quoted scalars, and block scalars. Anchors,
 --- aliases, tags and flow collections do not appear in issue forms, and are
 --- not handled.
