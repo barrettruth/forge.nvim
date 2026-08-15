@@ -15,6 +15,7 @@
 
 local gh = require('forge.gh')
 local log = require('forge.log')
+local map = require('forge.map')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
 local view = require('forge.view')
@@ -121,6 +122,7 @@ function M.open(var)
   vim.wo[0][0].winbar = ('%%#Title#EDIT%%* %%#Tag#%s%%* %%#Comment#| first line is the title | :w sends it%%*'):format(
     var.tag
   )
+  map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go back to the item this edits')
 end
 
 return M

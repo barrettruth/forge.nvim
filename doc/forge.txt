@@ -258,9 +258,10 @@ duplicate is left to github's own page, which asks which issue.
 
                                                                   *forge-edit*
 "Edit title and body" replaces the view, as "dd" and "dc" do, because nearly
-all of what an item shows is the two. |CTRL-O| is the way back. The buffer is
-laid out as a commit message is: the first line is the title, and the body
-follows a blank line, which the 'winbar' says since nothing else would.
+all of what an item shows is the two. "-" goes back to it, and so does
+|CTRL-O|. The buffer is laid out as a commit message is: the first line is the
+title, and the body follows a blank line, which the 'winbar' says since
+nothing else would.
 
 Writing sends it: ":w" and nothing else. Leaving without writing discards, and
 nothing is sent for an empty title.

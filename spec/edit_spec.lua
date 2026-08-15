@@ -54,6 +54,12 @@ local function showing()
 end
 
 describe('editing an item', function()
+  before_each(function()
+    --- The <Plug> mappings live there, and "-" is one of them.
+    vim.g.loaded_forge = nil
+    vim.cmd('source ./plugin/forge.lua')
+  end)
+
   after_each(function()
     vim.cmd('silent! only')
   end)
@@ -90,6 +96,23 @@ describe('editing an item', function()
     edit.open(showing())
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-o>', true, false, true), 'x', false)
     assert.equals('forge://a/b/issues/27', vim.api.nvim_buf_get_name(0))
+  end)
+
+  it('goes back to the item on "-", as every other buffer does', function()
+    edit.open(showing())
+    local asked
+    local real = view.open
+    --- @diagnostic disable-next-line: duplicate-set-field
+    view.open = function(t)
+      asked = t
+    end
+    vim.api.nvim_feedkeys('-', 'x', false)
+    view.open = real
+
+    assert.is_table(asked)
+    assert.equals('issues', asked.collection)
+    assert.equals(27, asked.number)
+    assert.equals('a', asked.owner)
   end)
 
   it('is not a view, so nothing that answers for one answers for it', function()
