@@ -260,13 +260,14 @@ pull request seen differently. ci.nvim's own "-" is pointed back at the pull
 request; diffs.nvim has no notion of where it was opened from, so the way back
 from a diff is |CTRL-O|.
 
-"dl" splits instead, leaving the pull request beside it as the way back:
-fugitive's "-" means the parent tree object. The log is >
+"dl" splits instead, leaving the pull request beside it. The log is >
     git log --stat --reverse base..head
 <
-")" and "(" step between commits, |<CR>| opens the one under the cursor, and
-"o", "O" and "gO" open it in a split, a tab and a vertical split. "g?" lists
-the rest of fugitive's keys.
+")" and "(" step between commits and |<CR>| opens the one under the cursor;
+"o", "O" and "gO" open it in a split, a tab and a vertical split. |CTRL-O|
+returns to the log at the commit it was left on. Fugitive's "-" opens the
+parent commit instead, walking out of the range. "g?" lists the rest of
+fugitive's keys.
 
 "dd" and "dl" fetch both ends of the pull request first, and share the one
 fetch. The refs land under refs/forge/, which nothing else writes; no branch,
