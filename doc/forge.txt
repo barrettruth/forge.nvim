@@ -22,7 +22,7 @@ what it returns; there is nothing to configure and no setup() to call.
 ==============================================================================
 2. REQUIREMENTS                                           *forge-requirements*
 
-  - Neovim 0.11 or newer
+  - Neovim 0.12 or newer
   - the "gh" CLI, authenticated (https://cli.github.com)
   - optionally ci.nvim (https://github.com/barrettruth/ci.nvim), which "dc"
     hands a pull request to. Every other key works without it.

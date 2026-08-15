@@ -4,7 +4,7 @@ GitHub issues and pull requests in Neovim.
 
 ## Requirements
 
-- Neovim 0.11+
+- Neovim 0.12+
 - [`gh`](https://cli.github.com), authenticated
 - (Optionally) [ci.nvim](https://github.com/barrettruth/ci.nvim) to view PR checks
 - (Optionally) [diffs.nvim](https://github.com/barrettruth/diffs.nvim) to view PR diffs

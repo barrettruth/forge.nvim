@@ -3,10 +3,10 @@ local M = {}
 function M.check()
   vim.health.start('forge.nvim')
 
-  if vim.fn.has('nvim-0.11') == 1 then
+  if vim.fn.has('nvim-0.12') == 1 then
     vim.health.ok('Neovim ' .. tostring(vim.version()))
   else
-    vim.health.error('Neovim 0.11 or newer is required')
+    vim.health.error('Neovim 0.12 or newer is required')
   end
 
   if vim.fn.executable('gh') == 0 then
