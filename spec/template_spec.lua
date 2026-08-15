@@ -93,13 +93,15 @@ describe('a form', function()
     assert.same({ true, false }, fields[7].required_options)
   end)
 
-  it('keeps guidance apart from the fields it belongs above', function()
+  it('gathers what belongs above a field onto that field', function()
     if not fixture() then
       return
     end
     local found = assert(issue_template('Feature request'))
-    assert.is_truthy(found.guidance[0]:find('Before you start', 1, true))
-    assert.equals('One line, in the imperative.', found.guidance[1])
+    assert.is_nil(found.guidance[0])
+    assert.is_truthy(found.guidance[1]:find('Before you start', 1, true))
+    assert.is_truthy(found.guidance[1]:find('One line, in the imperative.', 1, true))
+    assert.equals('Optional on purpose, so a reader sees a false requirement.', found.guidance[2])
   end)
 
   it('takes the header github would apply', function()
@@ -153,5 +155,55 @@ describe('when a form cannot be read', function()
     assert.equals(0, #found)
     assert.is_truthy(err and err:find('yaml', 1, true))
     vim.fn.delete(dir, 'rf')
+  end)
+end)
+
+describe('guidance in a form', function()
+  --- @param body string[]
+  --- @return forge.Template
+  local function parse(body)
+    local dir = vim.fn.tempname()
+    vim.fn.mkdir(dir .. '/.github/ISSUE_TEMPLATE', 'p')
+    vim.fn.writefile({ '' }, dir .. '/.git')
+    vim.fn.writefile(body, dir .. '/.github/ISSUE_TEMPLATE/a.yml')
+    local found = template.all('issues', dir)[1]
+    vim.fn.delete(dir, 'rf')
+    return found
+  end
+
+  it('belongs to the field it comes before, not the one behind it', function()
+    local found = assert(parse({
+      'name: X',
+      'description: d',
+      'body:',
+      '  - type: input',
+      '    attributes:',
+      '      label: First',
+      '  - type: markdown',
+      '    attributes:',
+      '      value: between the two',
+      '  - type: input',
+      '    attributes:',
+      '      label: Second',
+    }))
+    assert.equals(2, #found.fields)
+    assert.is_nil(found.guidance[1])
+    assert.equals('between the two', found.guidance[2])
+  end)
+
+  it('keeps a block and a description that share a field', function()
+    local found = assert(parse({
+      'name: X',
+      'description: d',
+      'body:',
+      '  - type: markdown',
+      '    attributes:',
+      '      value: read this',
+      '  - type: input',
+      '    attributes:',
+      '      label: First',
+      '      description: and this',
+    }))
+    assert.equals('read this\n\nand this', found.guidance[1])
   end)
 end)

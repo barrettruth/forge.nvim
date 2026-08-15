@@ -22,7 +22,7 @@ local M = {}
 --- @field assignees string[]
 --- @field body string? for a markdown template, the whole of it
 --- @field fields forge.Field[]? for a form, what it asks
---- @field guidance table<integer, string> guidance above field n, 0 for the top
+--- @field guidance table<integer, string> what to say above field n
 
 --- Where github looks, and nowhere else.
 ---
@@ -173,10 +173,23 @@ local function form_template(path)
   end
 
   local fields, guidance = {}, {}
+
+  --- Guidance belongs to the field it comes before, and more than one piece
+  --- can: a markdown block, then the description of the field it introduces.
+  --- @param at integer
+  --- @param text string?
+  local function say(at, text)
+    text = vim.trim(text or '')
+    if text == '' then
+      return
+    end
+    guidance[at] = guidance[at] and (guidance[at] .. '\n\n' .. text) or text
+  end
+
   for _, element in ipairs(form.body) do
     local attributes = element.attributes or {}
     if element.type == 'markdown' then
-      guidance[#fields] = vim.trim(attributes.value or '')
+      say(#fields + 1, attributes.value)
     elseif attributes.label then
       local options, required_options = nil, nil
       if attributes.options then
@@ -203,9 +216,7 @@ local function form_template(path)
         multiple = attributes.multiple == true,
         default = type(attributes.default) == 'number' and attributes.default or nil,
       }
-      if attributes.description and guidance[#fields] == nil then
-        guidance[#fields] = vim.trim(attributes.description)
-      end
+      say(#fields, attributes.description)
     end
   end
 
