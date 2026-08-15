@@ -19,10 +19,6 @@ local function mapped_in(buf, mode, lhs)
 end
 
 --- Map `lhs` to `plug` in `buf`, unless the user got there first.
----
---- A default is skipped when the user has already mapped something to `plug`,
---- or when they have their own buffer-local mapping for `lhs`. Either way their
---- mapping stands, so a default never silently replaces a deliberate choice.
 --- @param buf integer
 --- @param mode string
 --- @param lhs string

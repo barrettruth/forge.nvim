@@ -6,15 +6,11 @@ local M = {}
 
 --- ci.nvim, if it is there to be used.
 ---
---- An optional dependency. Forge delegates CI rather than drawing it, so the
---- honest thing when there is nothing to delegate to is to say so.
----
 --- An installed plugin is not a loaded one. Under `pack/*/opt` nothing is on
 --- the runtimepath until |:packadd|, so requiring first would call an
 --- installed ci.nvim missing merely because its own trigger had not fired.
---- The flag is what settles it either way: it lives in ci.nvim's plugin file,
---- which is exactly what a handover needs, since with the module loaded and
---- the plugin not, `:CI` would open a buffer nothing ever fills.
+--- The flag settles it either way: it lives in ci.nvim's plugin file, and with
+--- the module loaded and the plugin not, `:CI` opens a buffer nothing fills.
 --- @return table?
 function M.available()
   if not vim.g.loaded_ci then
@@ -29,14 +25,10 @@ end
 
 --- Hand this pull request to ci.nvim.
 ---
---- The pull request goes over as its github.com URL, which is a target |:CI|
---- already accepts, so forge needs to know nothing about how ci.nvim addresses
---- its own buffers.
----
---- The checks replace this view rather than splitting beside it: they are the
---- same pull request seen differently, which is the relationship <CR> already
---- has with a list. ci.nvim's own "-" is pointed back here, so the way out is
---- the key that already means "out".
+--- It goes over as its github.com URL, which is a target |:CI| already accepts,
+--- so forge needs to know nothing about how ci.nvim addresses its own buffers.
+--- ci.nvim's own "-" is pointed back here, so the way out of the checks is the
+--- key that already means "out".
 function M.checks()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then

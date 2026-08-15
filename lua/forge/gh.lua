@@ -57,9 +57,8 @@ end
 
 --- Send a GraphQL document through the gh CLI.
 ---
---- Owns the progress message for the request, so every path out of here ends it
---- and none can dangle. Variables are typed by their Lua type: numbers become
---- GraphQL Ints, anything else a String. Errors are reported, never raised.
+--- Owns the progress message for the request, so every path out of here ends
+--- it and none can dangle. Errors are reported, never raised.
 --- @param req forge.Request
 --- @param on_done fun(data: table)
 --- @param on_fail fun()? so a caller that said it was working can stop saying it

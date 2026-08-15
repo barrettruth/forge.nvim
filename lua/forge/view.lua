@@ -336,10 +336,6 @@ end
 
 --- Show `lines` as the view named by `u`, reusing its buffer if it exists.
 ---
---- An item is markdown, because that is what github gave us and markdown
---- already knows how to draw it. A list is not, so it gets a filetype of its
---- own.
----
 --- Mappings are set here rather than in an ftplugin: an item is markdown, and
 --- an ftplugin/markdown.lua would reach every markdown file you open. So is
 --- 'includeexpr', last of all, so that a filetype plugin of your own cannot
@@ -481,8 +477,6 @@ function M.command(target, collection, opts)
 end
 
 --- Leave an item for the list it belongs to.
----
---- A list is the top: there is nothing above a list to go up to.
 function M.up()
   local u = M.current()
   if not u or not u.number then
@@ -510,13 +504,10 @@ end
 
 --- Start something new in a collection, on github.com.
 ---
---- github's own page is the form: it applies whichever template the
---- repository defines, enforces what that template requires, and takes
---- attachments. gh pushes the branch a pull request needs on the way there.
---- Drawing any of it here would be a worse copy of a page one keystroke away.
----
---- The repository is the one asked about rather than the one you are standing
---- in, so a fork can propose a branch to what it forked.
+--- github's own page is the form, so templates and required fields stay
+--- theirs to enforce, and gh pushes the branch on the way there. The
+--- repository is the one asked about rather than the one you are standing in,
+--- so a fork can propose a branch to what it forked.
 --- @param t forge.Target? what to add to, or the view being looked at
 function M.create(t)
   t = t or M.current()

@@ -295,10 +295,8 @@ end
 
 --- Open whatever `target` names, so long as it names pull requests.
 ---
---- A bare number is taken as a pull request, since github numbers issues and
---- pull requests from one counter and only github can say which it is.
---- Anything that names itself is believed, and refused here if it named the
---- other one.
+--- A bare number is taken as a pull request: github numbers both from one
+--- counter, so only github can say which it is.
 --- @param target string?
 --- @param opts vim.api.keyset.create_user_command.command_args? window modifiers
 function M.open(target, opts)

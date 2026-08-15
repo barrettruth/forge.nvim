@@ -6,10 +6,6 @@ local M = {}
 
 --- diffs.nvim, if it is there to be used.
 ---
---- An optional dependency, on the same terms as ci.nvim: forge delegates
---- diffs rather than drawing them, so the honest thing when there is nothing
---- to delegate to is to say so.
----
 --- An installed plugin is not a loaded one. Under `pack/*/opt` nothing is on
 --- the runtimepath until |:packadd|, so requiring first would call an
 --- installed diffs.nvim missing merely because its own trigger had not fired.
@@ -26,17 +22,10 @@ end
 ---
 --- A pull request is a merge-base diff, which is what `base...head` means to
 --- git and to |:Diff| alike, so the handover is the spec and nothing else.
----
---- Both ends are fetched first. diffs.nvim draws from the object store rather
---- than from a patch, and a pull request you did not write is never already
---- there: refusing on that would refuse on almost every pull request worth
---- looking at.
----
---- The diff takes this window rather than splitting off it, as the checks do.
---- It is the same pull request seen differently, and a review map is the
---- widest and longest thing forge hands anywhere: half a window is the worst
---- place for it. The window is named before the fetch, because by the time
---- one comes back the current window is whatever you wandered to.
+--- Both ends are fetched first, unconditionally: diffs.nvim draws from the
+--- object store, and a pull request you did not write is never already there.
+--- The window is named before the fetch, because by the time one comes back
+--- the current window is whatever you wandered to.
 function M.show()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then

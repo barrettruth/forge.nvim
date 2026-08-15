@@ -86,16 +86,10 @@ function M.parse(str)
   return nil
 end
 
---- Resolve what the user typed into a target.
+--- Resolve what the user typed into a target. See |:Issue| for the forms.
 ---
---- Accepts a forge:// URI, a github.com URL, an `owner/repo#number` slug, a
---- bare `owner/repo`, a bare number, or nothing at all. The forms that name no
---- repository leave `owner` and `repo` unset for gh to answer; this never
---- shells out, and never fails for want of a remote.
----
---- Nothing at all means the issue list, or the pull request for the branch
---- checked out here. Only a pull request has an obvious referent: nothing
---- identifies "the current issue".
+--- A form naming no repository leaves `owner` and `repo` unset for gh to
+--- answer, so this never shells out and never fails for want of a remote.
 ---
 --- `collection` says which of issues or pull requests a bare number means; it
 --- is the only thing a caller's intent decides. Every other form says for
