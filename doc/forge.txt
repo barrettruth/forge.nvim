@@ -39,6 +39,10 @@ what it returns; there is nothing to configure and no setup() to call.
     jj both spell it. Only a pull request has one: nothing identifies the
     issue you are on, and :Issue @ says so.
 
+    A change with no pull request yet is not an error. "@" asks for this
+    change on github, and where it is not there yet, that is the page where it
+    arrives: forge says so and opens it, and gh pushes the branch on the way.
+
     In a jj repository a bookmark belongs to a change rather than trailing
     behind you, so the branch is the bookmark on the change you are working
     on. A change wearing none is reported, not guessed at: the nearest

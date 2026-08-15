@@ -332,25 +332,25 @@ function M.refresh()
   M.open(u, { page = paging.page, cursors = paging.cursors, keep = true })
 end
 
---- Start something new in the collection being looked at.
+--- Start something new in a collection, on github.com.
 ---
 --- github's own page is the form: it applies whichever template the
 --- repository defines, enforces what that template requires, and takes
 --- attachments. gh pushes the branch a pull request needs on the way there.
 --- Drawing any of it here would be a worse copy of a page one keystroke away.
 ---
---- The repository comes from the view rather than the working directory, so
---- what you are looking at is what you add to — including proposing a branch
---- to a repository you are only a fork of.
-function M.create()
-  local u = M.current()
-  if not u then
+--- The repository is the one asked about rather than the one you are standing
+--- in, so a fork can propose a branch to what it forked.
+--- @param t forge.Target? what to add to, or the view being looked at
+function M.create(t)
+  t = t or M.current()
+  if not t then
     return
   end
 
-  local what = u.collection == 'prs' and 'pr' or 'issue'
-  local said = u.collection == 'prs' and 'pull request' or 'issue'
-  local slug = ('%s/%s'):format(u.owner, u.repo)
+  local what = t.collection == 'prs' and 'pr' or 'issue'
+  local said = t.collection == 'prs' and 'pull request' or 'issue'
+  local slug = ('%s/%s'):format(t.owner, t.repo)
   local done = log.progress(('a new %s in %s'):format(said, slug))
 
   vim.system(

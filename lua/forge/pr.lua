@@ -146,7 +146,8 @@ local function open_head(t, o)
     end
     local found = mine or nodes[1]
     if not found then
-      log.err(('no open pull request for %s'):format(branch))
+      log.info(('no pull request for %s yet, so opening a new one'):format(branch))
+      view.create(uri.of(slug, { collection = 'prs' }))
       return
     end
     local item = { collection = 'prs', number = found.number }
