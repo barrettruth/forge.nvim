@@ -172,11 +172,14 @@ R                       Fetch this view again, keeping the page you are on and
                         rebuilds from the name and so returns to the first
                         page.
 
-                        A view keeps its place whenever it is drawn again, not
-                        only on a refresh, so leaving a long list for an item
-                        and coming back with "-" returns you to the line you
-                        left. Only the first sight of a view starts at the
-                        top.
+                        A view starts at the top unless you are returning to
+                        something you were already reading. Refreshing keeps
+                        your place, and so does leaving a long list for an
+                        item and coming back with "-". Anything that puts
+                        different content under the same name does not: a new
+                        page, the other half of a list, or a reload with
+                        |:edit| all start at the first line, because the line
+                        you were on described something else.
 
                                                      *<Plug>(forge-next-page)*
                                                      *<Plug>(forge-prev-page)*
