@@ -17,11 +17,12 @@ CONTENTS                                                      *forge-contents*
 ==============================================================================
 1. INTRODUCTION                                                  *forge-intro*
 
-Read GitHub issues and pull requests in Neovim. Two commands, |:Issue| and
-|:PR|; everything else is a mapping inside the buffer they open.
+Forge reads GitHub issues and pull requests into Neovim buffers. There are two
+commands, |:Issue| and |:PR|; every other action is a mapping in the buffer
+they open.
 
-Forge delegates to the "gh" CLI and renders what it returns. There is nothing
-to configure and no setup() to call.
+Requests go through the "gh" CLI. There is no setup() function and nothing to
+configure.
 
 ==============================================================================
 2. REQUIREMENTS                                           *forge-requirements*
@@ -30,7 +31,7 @@ to configure and no setup() to call.
   - the "gh" CLI, authenticated (https://cli.github.com)
 
 Three plugins are optional. Each backs one mapping; every other key works
-without them, and |forge-health| reports which is missing.
+without them, and |forge-health| reports which are missing.
 
   - ci.nvim, for "dc"
     https://forge.barrettruth.com/barrettruth/ci.nvim
@@ -44,20 +45,21 @@ without them, and |forge-health| reports which is missing.
 
 :Issue [{target}]                                                     *:Issue*
 :PR [{target}]                                                           *:PR*
-    Open {target}. Without an argument, either command opens its list for the
-    repository you are in.
+    Opens {target}. Without an argument, opens the list for the current
+    repository.
 
-    :PR @ opens the pull request for the change you are on, spelled as git
-    and jj both spell it. Only a pull request has one: nothing identifies the
-    issue you are on, and :Issue @ says so. A change with no pull request yet
-    is not an error — "@" opens the page one arrives on, and gh pushes the
+    ":PR @" opens the pull request for the current change, spelled as git and
+    jj both spell it. Only a pull request has one: nothing identifies the
+    current issue, and ":Issue @" says so. A change with no pull request is
+    not an error — "@" opens the page a new one arrives on, and gh pushes the
     branch on the way there.
 
-    :Issue . and :PR . open the reference under the cursor, from any buffer:
-    a source file, a commit message, a |:terminal| running `gh search`. A
-    reference is "#41138", "neovim/neovim#41138", a github.com URL or a
-    forge:// URI. A bare "owner/repo" is not one, and neither is a mention.
-    Inside a view, |gf| does the same without the command; see |forge-gf|.
+    ":Issue ." and ":PR ." open the reference under the cursor, from any
+    buffer: a source file, a commit message, a |:terminal| running
+    "gh search". A reference is "#41138", "neovim/neovim#41138", a github.com
+    URL or a forge:// URI. A bare "owner/repo" is not one, and neither is a
+    mention. Inside a view, |gf| does the same without the command; see
+    |forge-gf|.
 
     {target} is any of: >
         :PR @
@@ -72,19 +74,19 @@ without them, and |forge-health| reports which is missing.
     A form that names no repository is answered by the one gh resolves. See
     |forge-repository|.
 
-    A target that names the other kind is refused: :Issue will not open a
-    pull request, and :PR will not open an issue. A bare number cannot be
-    checked that way, because github numbers issues and pull requests from
-    one counter and only github knows which a number is.
+    A target naming the other kind is refused: ":Issue" will not open a pull
+    request, and ":PR" will not open an issue. A bare number cannot be checked
+    that way, because github numbers issues and pull requests from one counter
+    and only github knows which a number belongs to.
 
-    |:command-modifiers| are honoured, so the view opens where you say: >
+    |:command-modifiers| are honoured: >
         :vertical Issue 41310
         :tab PR 41138
         :botright Issue neovim/neovim
 <
-    The window is made once github has answered, and in the window the
-    command was given in. A request that fails leaves no window behind, and
-    one overtaken by a later command does not take the window from it.
+    The window is made once github answers, in the window the command was
+    given in. A request that fails leaves no window behind, and one overtaken
+    by a later command does not take the window from it.
 
     A |:range| is accepted and ignored, so ":" from Visual mode is not an
     error.
@@ -92,25 +94,24 @@ without them, and |forge-health| reports which is missing.
 ==============================================================================
 4. REPOSITORY                                               *forge-repository*
 
-Forge does not work out which repository you are in. It sends gh's own
+Forge does not resolve the current repository itself. It sends gh's own
 `{owner}` and `{repo}` placeholders and lets gh answer, so forge agrees with
-every other gh command you run in the same directory.
+every other gh command run in the same directory.
 
 In a fork that means the base repository, the one a fork's issues and pull
 requests actually live on. gh honours a default set with `gh repo set-default`
 and otherwise prefers a remote named "upstream", then "github", then "origin".
 
-Requests are made from the directory of the buffer you are in, so a file
-opened from another repository is asked about there rather than wherever nvim
-was started. The repository comes back with the answer, so a buffer is filed
-under github's spelling of the name, whatever you typed.
+Requests are made from the directory of the current buffer, so a file opened
+from another repository is asked about there rather than wherever Nvim
+started. The repository comes back with the answer, so a buffer is filed under
+github's spelling of the name whatever was typed.
 
-A bare |:PR| also needs to know which branch you are on. git is asked first.
-In a colocated jj repository git's HEAD is detached one commit behind the
-bookmark that names the pull request, so jj is asked instead: the branch is
-the bookmark on the change you are working on, and a change wearing none is
-reported rather than guessed at. Reading a branch never writes to the
-repository.
+A bare |:PR| also needs the current branch. git answers first. In a colocated
+jj repository git's HEAD is detached one commit behind the bookmark that names
+the pull request, so jj answers instead: the branch is the bookmark on the
+change being worked on, and a change wearing none is reported rather than
+guessed at. Reading a branch never writes to the repository.
 
 ==============================================================================
 5. URIS                                                           *forge-uris*
@@ -127,34 +128,36 @@ that name is enough to rebuild it. >
 <
 |:edit| on one of these opens it from anywhere, and reloads it from inside.
 Which half of a collection a list holds is part of its name, so a reload
-brings back what you were looking at. Which page you were on is not, so a
-reload starts again at the first; "R" keeps it.
+restores the same half. The page is not part of the name, so a reload returns
+to the first; "R" keeps the page instead.
 
-github spells a single pull request "pull" and the list "pulls". Forge writes
-"prs" for both, and the singular appears only in the address "gX" opens.
+The path is close to github.com's but does not copy it. github spells a single
+pull request "pull" and the list "pulls", and a closed list as a query rather
+than a path; forge writes "prs" for both halves of the collection, and
+"/closed" as a path. github's spelling appears only in the address "gX" opens.
 
 ==============================================================================
 6. BUFFERS                                                     *forge-buffers*
 
-A single issue or pull request has a 'filetype' of "markdown", which is the
-shape github returns it in, so whatever already renders markdown for you
-renders it here. Comments are headings, so "]]" and "[[" walk between them. A
-list has a 'filetype' of "forge".
+A single issue or pull request has a 'filetype' of "markdown", the shape
+github returns it in, so any existing markdown rendering applies. Comments are
+headings, so "]]" and "[[" move between them. A list has a 'filetype' of
+"forge".
 
 Both are scratch buffers: 'buftype' is "nofile", 'readonly' is set, and
-'undolevels' is -1, so refreshing does not build an undo history you cannot
-reach anyway. 'modeline' is off, because a body is text a stranger wrote.
+'undolevels' is -1, so a refresh builds no unreachable undo history.
+'modeline' is off, because a body is text written by a stranger.
 
-A window is set up when a view appears in it, in the buffer-local scope, so
-the settings are given back when that window shows something else. An item
-gets 'wrap', 'linebreak' and 'breakindent'; a list gets 'nowrap' and
-'cursorline', because there one line is one item.
+Window options are applied wherever a view appears, in the buffer-local scope,
+so a window releases them when it shows something else. An item sets 'wrap',
+'linebreak' and 'breakindent'; a list sets 'nowrap' and 'cursorline', because
+in a list one line is one item.
 
-While a view is being fetched again, its buffer's 'busy' flag is set.
+A buffer being fetched again sets 'busy' until the reply lands.
 
                                                                      *b:forge*
 Every view buffer carries a `b:forge` dictionary. The 'winbar' is drawn from
-it, and a mapping of your own may read it: >
+it, and a user mapping may read it. Present in both shapes: >
 
     kind       "list" or "item"
     label      what the winbar calls it, e.g. "PR"
@@ -164,7 +167,7 @@ it, and a mapping of your own may read it: >
 <
 In a list, and only in one: >
 
-    pages      which page you are on, e.g. "1/3"
+    pages      the current page, e.g. "1/3"
     total      how many the list holds in all
 <
 In an item, and only in one. The last two are a pull request's: >
@@ -176,18 +179,19 @@ In an item, and only in one. The last two are a pull request's: >
     base       the branch it merges into
     head       the branch it merges from
 <
-Every view sets a 'winbar' saying what it is and where in it you are: >
+Every view sets a 'winbar' naming it and giving the position within it: >
 
     ISSUES barrettruth/forge-fixture open 1/2 (124)
     ISSUE #27 OPEN | a title that fits
     PR #151 MERGED +10 -2 | another one
 <
-Because the winbar holds it, nothing is reported when a view loads. Messages
-are for problems.
+A finished load echoes nothing, because the winbar already reports it.
+Messages are for problems.
 
-Highlighting uses builtin |group-name| groups only, so a colorscheme needs to
-know nothing about forge. A number is "Tag", a repository "Directory", a state
-"OkMsg", "ErrorMsg" or "Special", and anything secondary "Comment".
+Highlighting uses builtin |group-name| groups only, so no colorscheme needs to
+know about forge: "Title" for the label, "Directory" for a repository, "Tag"
+for a number, "Added" and "Removed" for a diffstat, "OkMsg", "ErrorMsg" or
+"Special" for a state, and "Comment" for anything secondary.
 
 ==============================================================================
 7. MAPPINGS                                                   *forge-mappings*
@@ -220,29 +224,28 @@ know nothing about forge. A number is "Tag", a repository "Directory", a state
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
-Mappings are buffer-local and attached by URI, so nothing here reaches an
-ordinary markdown file. A default is only set when nothing in that buffer
-already maps the key and nothing already maps to the <Plug>; otherwise your
-mapping stands. To rebind, map the |<Plug>| target: >lua
+Mappings are buffer-local and attached by URI, so none of them reach an
+ordinary markdown file. A default is set only where nothing in that buffer
+already maps the key and nothing already maps to the <Plug>; otherwise the
+existing mapping stands. To rebind, map the |<Plug>| target: >lua
     vim.keymap.set('n', '<C-]>', '<Plug>(forge-open)')
 <
 
-"-" goes to the half of the list you came from. An item opened by name came
-from nowhere, and goes to the open list. A list is the top, so "-" in one does
-nothing.
+"-" goes to the half of the list the item was opened from. An item opened by
+name came from nowhere and goes to the open list. A list is the top, so "-" in
+one does nothing.
 
-"R" keeps the page you are on and where you were reading it. A view starts at
-the top unless you are returning to something you were already reading; a new
-page, the other half of a list, or a reload with |:edit| all start at the
-first line.
+"R" keeps the current page and cursor position. A view opens at the top unless
+it is being returned to; a new page, the other half of a list, and a reload
+with |:edit| all start at the first line.
 
-"ga" opens github's own page for a new issue or pull request, which is the
-form: it applies whichever template the repository defines and takes
-attachments. The repository is the one the view names rather than the one you
-are standing in, so a fork can propose a branch to what it forked.
+"ga" opens github's own page for a new issue or pull request, which applies
+whichever template the repository defines and accepts attachments. The
+repository is the one the view names rather than the current one, so a fork
+can propose a branch to what it forked.
 
-"gX" opens what the buffer shows, not what the cursor is on. Which page you
-are on is not carried, because a page is not part of a view's name.
+"gX" opens what the buffer shows, not what the cursor is on. The page is not
+carried, because a page is not part of a view's name.
 
 "dc", "dd" and "dl" are bound only in a pull request: an issue has no CI, no
 diff and no commits of its own. "dc" and "dd" replace the view, being the same
@@ -250,27 +253,28 @@ pull request seen differently. ci.nvim's own "-" is pointed back at the pull
 request; diffs.nvim has no notion of where it was opened from, so the way back
 from a diff is |CTRL-O|.
 
-"dl" splits instead and leaves the pull request beside it, which is the way
-back: fugitive's "-" means the parent tree object, not where you came from.
-The log is `git log --oneline --reverse base..head`; press "g?" in it for
-fugitive's own keys, of which |<CR>|, "o", "O" and "gO" open a commit out of
-it.
+"dl" splits instead, leaving the pull request beside it as the way back:
+fugitive's "-" means the parent tree object. The log is >
+    git log --oneline --reverse base..head
+<
+"g?" in it lists fugitive's own keys, of which |<CR>|, "o", "O" and "gO" open
+a commit out of it.
 
 "dd" and "dl" fetch both ends of the pull request first, and share the one
 fetch. The refs land under refs/forge/, which nothing else writes; no branch,
 tag or working tree is touched. This is the only thing forge writes to a
 repository.
 
-"dl" also sets `b:git_dir` on the pull request buffer, so `:Git` in it aims at
-the repository the refs were fetched into — the one you are in, which is not
+"dl" also sets `b:git_dir` on the pull request buffer, so `:Git` there aims at
+the repository the refs were fetched into — the current one, which is not
 necessarily the one the view names.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor, |CTRL-W_f| follows it into a
 split, and in Visual mode |gf| follows the selection. Nothing is bound; this
 is 'includeexpr'. A reference naming no repository means the one whose view
-you are in. The punctuation prose wraps a reference in is left behind, so
-"(#123)", "`#123`" and "#123." all follow to the same place.
+holds it. Punctuation wrapped around a reference is left behind, so "(#123)",
+"`#123`" and "#123." all follow to the same place.
 
 |gf| does not take a github.com URL. |gx| opens one in the browser, ":Issue ."
 and ":PR ." open one here.
@@ -283,8 +287,8 @@ the cursor is on, which inside a title may be another issue entirely.
 8. HEALTH                                                       *forge-health*
 
 `:checkhealth forge` reports the Neovim version, whether "gh" is present and
-authenticated, and whether ci.nvim and diffs.nvim are available. The last two
-are warnings rather than errors: both are optional, and forge says which key
-stops working without each.
+authenticated, and whether each plugin in |forge-requirements| is available. A
+missing optional plugin is a warning rather than an error, and names the
+mapping that stops working without it.
 
  vim:tw=78:ts=8:ft=help:norl:
