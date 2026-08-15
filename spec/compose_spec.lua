@@ -8,7 +8,7 @@ local function form()
     title = '[feature]: ',
     labels = { 'enhancement' },
     assignees = {},
-    guidance = { [0] = 'Read this first', [1] = 'One line' },
+    guidance = { [1] = 'Read this first', [2] = 'One line' },
     fields = {
       { kind = 'input', label = 'Summary', required = true },
       { kind = 'textarea', label = 'Detail', required = false },

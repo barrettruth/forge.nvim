@@ -74,8 +74,6 @@ function M.skeleton(found)
   local lines = { found.title or '', '' }
   local marks = {}
 
-  guide(marks, #lines, found.guidance[0])
-
   if not found.fields then
     append(lines, found.body)
     return lines, marks
@@ -110,6 +108,8 @@ function M.skeleton(found)
       lines[#lines + 1] = ''
     end
   end
+
+  guide(marks, #lines, found.guidance[#found.fields + 1])
 
   return lines, marks
 end
