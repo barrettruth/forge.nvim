@@ -38,6 +38,10 @@ vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })
 
+vim.keymap.set('n', '<Plug>(forge-diff)', function()
+  require('forge.diff').show()
+end, { desc = "show this pull request's diff in diffs.nvim" })
+
 vim.keymap.set('n', '<Plug>(forge-next-page)', function()
   require('forge.view').page(1)
 end, { desc = 'the next page' })

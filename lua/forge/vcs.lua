@@ -29,6 +29,22 @@ function M.dir()
   return vim.fs.dirname(name)
 end
 
+--- A branch as this checkout can name it, if it can.
+---
+--- A pull request names branches as github holds them, and a checkout may
+--- have the same branch locally, only as a remote-tracking ref, or not at
+--- all. The first that resolves is the one to hand on.
+--- @param dir string
+--- @param branch string
+--- @return string?
+function M.rev(dir, branch)
+  for _, name in ipairs({ branch, 'origin/' .. branch }) do
+    if run(dir, { 'git', 'rev-parse', '--verify', '--quiet', name .. '^{commit}' }) then
+      return name
+    end
+  end
+end
+
 --- The branch whose pull request a bare |:PR| means.
 ---
 --- git answers first. A colocated jj repository leaves git's HEAD detached at

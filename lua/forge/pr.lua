@@ -94,7 +94,13 @@ local PRS = {
   --- only to refuse is worse than no key.
   item_maps = {
     { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
+    { 'dd', '<Plug>(forge-diff)', "show this pull request's diff in diffs.nvim" },
   },
+  --- Which branches it joins cannot be read back off the view, and "dd" needs
+  --- them to ask diffs.nvim for the right merge base.
+  remember = function(node)
+    return { base = node.baseRefName, head = node.headRefName }
+  end,
   state = function(node)
     return node.isDraft and 'DRAFT' or node.state
   end,
