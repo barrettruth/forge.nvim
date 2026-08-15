@@ -173,8 +173,6 @@ Highlighting uses builtin |group-name| groups only.
     ]i  [i   <Plug>(forge-next-page)   Page through a list. A pull
              <Plug>(forge-prev-page)   request list uses ]p and [p.
     ga       <Plug>(forge-create)      Start something new, on github.com.
-    gx       <Plug>(forge-web-cursor)  Open the reference under the cursor
-                                       on github.com.
     gX       <Plug>(forge-web)         Open this view on github.com.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
@@ -191,7 +189,6 @@ Highlighting uses builtin |group-name| groups only.
                                                      *<Plug>(forge-prev-page)*
                                                         *<Plug>(forge-create)*
                                                            *<Plug>(forge-web)*
-                                                    *<Plug>(forge-web-cursor)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -211,9 +208,6 @@ other half of a list all start at the first line.
 "ga" opens github's own page for a new issue or pull request. The repository
 is the one the view names rather than the current one, so a fork can propose a
 branch to what it forked.
-
-"gx" opens the reference under the cursor, or the one selected in Visual mode,
-including an "@mention". Anything else is handed back to |gx|.
 
 "gX" opens what the buffer shows, not what the cursor is on.
 
