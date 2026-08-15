@@ -155,7 +155,8 @@ Every view sets a 'winbar': >
     ISSUES barrettruth/forge-fixture 1/2 (124)
     ISSUE #27 OPEN | a title that fits
     ISSUE #41309 NOT PLANNED | one nobody is going to do
-    PR #152 OPEN CONFLICT FAILING | another one          +7 -0
+    PR #151 MERGED | another one                              | +10 -2
+    PR #152 OPEN | one in trouble             CONFLICT FAILING | +7 -0
 <
 A closed issue is drawn as the reason it closed, since each of those implies
 closed, the way "MERGED" and "DRAFT" do for a pull request.

@@ -269,7 +269,8 @@ describe("a view's winbar", function()
     view.render(uri('issues', 27), { 'body' }, info('item', { title = 'a title', badges = ' x' }))
     local text, kept = drawn()
     assert.is_true(kept)
-    assert.equals('ISSUE #1 OPEN x | a title', text)
+    --- The gap `%=` opens is collapsed here; where it falls is what matters.
+    assert.equals('ISSUE #1 OPEN | a title x', (text:gsub('%s%s+', ' ')))
 
     view.render(uri('issues'), { '#1 x' }, info('list', { total = '124' }))
     text, kept = drawn()

@@ -81,12 +81,22 @@ local WINBAR = {
     .. ' %#Comment#('
     .. at('total')
     .. ')%*',
-  --- What it is and how it stands, then the title with whatever room is left:
-  --- `%<` after the bar makes the title the only thing that can be cut, so the
-  --- state can never be pushed off the end.
-  item = '%#Title#' .. at('label') .. '%* %#Tag#' .. at('tag') .. '%* ' .. STATE .. '%{%' .. call(
-    'badges'
-  ) .. '%}%( | %<' .. at('title') .. '%)%=%{%' .. call('stat') .. '%}',
+  --- What it is and how it stands, the title with whatever room is left, then
+  --- what only some of them have. `%<` after the first bar makes the title the
+  --- one thing that can be cut, so nothing else is ever pushed off.
+  item = '%#Title#'
+    .. at('label')
+    .. '%* %#Tag#'
+    .. at('tag')
+    .. '%* '
+    .. STATE
+    .. '%( | %<'
+    .. at('title')
+    .. '%)%=%{%'
+    .. call('badges')
+    .. '%}%( | %{%'
+    .. call('stat')
+    .. '%}%)',
 }
 
 --- Where a view was last being read, kept for buffers no window is showing.
