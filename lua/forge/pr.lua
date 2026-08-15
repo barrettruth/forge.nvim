@@ -47,7 +47,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
     pullRequest(number: $number) {
-      number title state body createdAt isDraft
+      number title state body createdAt isDraft mergeable
       additions deletions changedFiles
       baseRefName headRefName
       author { login }
@@ -75,7 +75,12 @@ local PRS = {
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.
   --- Dimmed rather than uncoloured, as `gh pr list` and github's own badge draw
   --- it: a draft is not asking to be read yet.
-  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = 'Comment' },
+  state_hl = {
+    OPEN = view.HL.live,
+    CLOSED = view.HL.bad,
+    MERGED = view.HL.done,
+    DRAFT = view.HL.inert,
+  },
   list_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
     { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
@@ -103,11 +108,18 @@ local PRS = {
   header = function(node)
     return { ('- Branch: %s into %s'):format(node.headRefName or '?', node.baseRefName or '?') }
   end,
+  --- Only what is wrong is worth a badge: a pull request that merges cleanly
+  --- says nothing, and UNKNOWN is github still working it out rather than an
+  --- answer. `mergeStateStatus` is deliberately not asked for — of its seven
+  --- values only DIRTY is actionable, and that is this one.
   badges = function(node)
-    return {
-      view.hl('Added', ('+%d'):format(node.additions or 0)),
-      view.hl('Removed', ('-%d'):format(node.deletions or 0)),
-    }
+    local badges = {}
+    if node.mergeable == 'CONFLICTING' then
+      badges[#badges + 1] = view.hl(view.HL.bad, 'CONFLICT')
+    end
+    badges[#badges + 1] = view.hl('Added', ('+%d'):format(node.additions or 0))
+    badges[#badges + 1] = view.hl('Removed', ('-%d'):format(node.deletions or 0))
+    return badges
   end,
 }
 

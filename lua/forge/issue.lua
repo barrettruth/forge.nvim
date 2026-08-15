@@ -47,7 +47,7 @@ local ISSUES = {
   --- Closed is where an issue ends up either way, so the reason carries the
   --- weight: done is drawn like a merge, and abandoned is dimmed. This is what
   --- gh draws too, though only in a list.
-  state_hl = { OPEN = 'OkMsg', CLOSED = 'Special', ['NOT PLANNED'] = 'Comment' },
+  state_hl = { OPEN = view.HL.live, CLOSED = view.HL.done, ['NOT PLANNED'] = view.HL.inert },
   --- github keeps a reason on every closed issue, backfilling COMPLETED on the
   --- ones closed before it asked; DUPLICATE counts as done.
   state = function(node)
