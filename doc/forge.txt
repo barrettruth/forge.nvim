@@ -198,7 +198,8 @@ ga                      Start something new in the collection you are looking
                         beside the line rather than in it. Guidance a form
                         carries is shown the same way, so there is nothing to
                         delete before filing, and a "*" marks an answer github
-                        will insist on. The winbar names the template.
+                        will insist on. The winbar names the template when
+                        there was more than one to choose between.
 
                         A pull request also needs two branches. The one you
                         are on is proposed, and github says what it merges
