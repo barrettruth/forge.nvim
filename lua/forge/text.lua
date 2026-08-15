@@ -1,12 +1,18 @@
 local M = {}
 
 --- github's timestamps are UTC; `os.time` reads a table as local.
+---
+--- The round trip has to carry the daylight saving in force at that instant.
+--- `os.date('!*t')` reports isdst false, because UTC has none, and reading that
+--- back as local picks the standard offset — an hour out for as long as summer
+--- time lasts, which shows up as an item opened minutes ago reading "yesterday"
+--- for the hour before local midnight.
 --- @param t osdateparam
 --- @return integer
 local function from_utc(t)
   local guess = os.time(t)
   local round_tripped = os.date('!*t', guess) --[[@as osdateparam]]
-  round_tripped.isdst = false
+  round_tripped.isdst = os.date('*t', guess).isdst
   return math.floor(guess + os.difftime(guess, os.time(round_tripped)))
 end
 
