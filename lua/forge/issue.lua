@@ -34,6 +34,10 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 ]]
 
+--- How a closed issue ended, where that is not what CLOSED already says.
+--- REOPENED is left out: that one is open, and says so.
+local REASON = { DUPLICATE = 'DUPLICATE', NOT_PLANNED = 'NOT PLANNED' }
+
 --- @type forge.Spec
 local ISSUES = {
   one = 'issue',
@@ -44,9 +48,14 @@ local ISSUES = {
   list_key = 'issues',
   item_query = ISSUE_QUERY,
   list_query = LIST_QUERY,
-  state_hl = { OPEN = view.HL.live, CLOSED = view.HL.done, ['NOT PLANNED'] = view.HL.inert },
+  state_hl = {
+    OPEN = view.HL.live,
+    CLOSED = view.HL.done,
+    DUPLICATE = view.HL.done,
+    ['NOT PLANNED'] = view.HL.inert,
+  },
   state = function(node)
-    return node.stateReason == 'NOT_PLANNED' and 'NOT PLANNED' or node.state
+    return REASON[node.stateReason] or node.state
   end,
   list_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the issue under the cursor' },

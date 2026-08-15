@@ -152,6 +152,7 @@ Every view sets a 'winbar': >
 
     ISSUES barrettruth/forge-fixture 1/2 (124)
     ISSUE #27 OPEN
+    ISSUE #41309 NOT PLANNED
     PR #151 MERGED                                                 +10 -2
     PR #152 OPEN CONFLICT FAILING                                   +7 -0
 <
