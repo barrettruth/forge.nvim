@@ -545,13 +545,27 @@ end
 --- mapping answers here: rebind gx afterwards and yours still wins. Core's own
 --- can raise — an unparsed markdown tree is enough — and a mapping is not a
 --- place to raise from.
+---
+--- A mapping is a Lua function or a right-hand side, and either may be an
+--- |<expr>|. All four spellings are in the wild, and reading only the first
+--- leaves a vimscript gx dead in these buffers, which is the whole of what
+--- this is here to prevent.
 --- @param mode 'n'|'x'
 local function unshadowed(mode)
   for _, m in ipairs(vim.api.nvim_get_keymap(mode)) do
-    if m.lhs == 'gx' and m.callback then
-      local ok, err = pcall(m.callback)
+    if m.lhs == 'gx' then
+      local ok, keys = pcall(function()
+        if not m.callback then
+          return m.expr == 1 and vim.fn.eval(m.rhs) or m.rhs
+        end
+        local produced = m.callback()
+        return m.expr == 1 and produced or nil
+      end)
       if not ok then
-        log.err(tostring(err))
+        return log.err(('gx: %s'):format(keys))
+      end
+      if type(keys) == 'string' and keys ~= '' then
+        vim.api.nvim_feedkeys(vim.keycode(keys), m.noremap == 1 and 'n' or 'm', false)
       end
       return
     end
