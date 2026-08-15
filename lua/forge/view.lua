@@ -32,7 +32,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field state string the state to show, as a person reads it
 --- @field state_hl string the group that state is drawn in
 --- @field badges string winbar segments an item adds, already highlighted
---- @field stat string what it measures, drawn against the right edge
+--- @field stat string what it measures, its own bar included, drawn right
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
 --- @field remote string? the repository "dd" and "dl" fetch a pull request from
@@ -94,9 +94,9 @@ local WINBAR = {
     .. at('title')
     .. '%)%=%{%'
     .. call('badges')
-    .. '%}%( | %{%'
+    .. '%}%{%'
     .. call('stat')
-    .. '%}%)',
+    .. '%}',
 }
 
 --- Where a view was last being read, kept for buffers no window is showing.

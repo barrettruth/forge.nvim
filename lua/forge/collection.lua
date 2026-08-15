@@ -164,7 +164,9 @@ function M.item(spec, t, o)
       tag = '#' .. node.number,
       title = node.title or '',
       badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
-      stat = table.concat(stat, ' '),
+      --- Its bar belongs to the value: a `%(…%)` group wrapped round a
+      --- `%{%…%}` is dropped whole, taking the separator with it.
+      stat = #stat > 0 and (' | ' .. table.concat(stat, ' ')) or '',
     }
     if spec.remember then
       info = vim.tbl_extend('force', info, spec.remember(node, data.repository))

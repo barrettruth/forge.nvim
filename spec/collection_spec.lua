@@ -213,7 +213,7 @@ describe('a pull request github answered with', function()
     assert.equals('MERGED', info.state)
     assert.equals('Special', info.state_hl)
     assert.equals('', info.badges)
-    assert.equals('%#Added#+10%* %#Removed#-2%*', info.stat)
+    assert.equals(' | %#Added#+10%* %#Removed#-2%*', info.stat)
     assert.equals('master', info.base)
     assert.equals('fix-the-thing', info.head)
   end)
@@ -246,6 +246,16 @@ describe('a pull request github answered with', function()
     assert.equals(' %#WarningMsg#EXPECTED%*', badges_for('EXPECTED'))
     assert.equals('', badges_for('SUCCESS'))
     assert.equals('', badges_for(nil))
+  end)
+
+  it('draws all of it, and not only into the buffer variable', function()
+    answering(response({ mergeable = 'CONFLICTING' }), show)
+    vim.cmd('redraw!')
+    local drew = vim.api.nvim_eval_statusline(vim.wo.winbar, { winid = 0, use_winbar = true }).str
+    assert.equals(
+      'PR #41138 MERGED | Fix the thing CONFLICT | +10 -2',
+      (vim.trim(drew):gsub('%s%s+', ' '))
+    )
   end)
 
   it('shows a draft as a draft, not as the open it really is', function()
