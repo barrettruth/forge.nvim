@@ -6,12 +6,32 @@ local M = {}
 
 local NS = vim.api.nvim_create_namespace('forge')
 
+--- What a view buffer remembers about itself, and what a reader may rely on.
+---
+--- Kept in `b:forge` because all of it is worth seeing: which half of a list
+--- an item came from, and the branches a pull request joins. Bookkeeping that
+--- would mean nothing to a reader is not here — see `paged` below.
+--- @class forge.BufVar
+--- @field state 'OPEN'|'CLOSED'? which half of the list an item was opened from
+--- @field base string? the branch a pull request merges into
+--- @field head string? the branch a pull request merges from
+
 --- Where a view was last being read, kept for buffers no window is showing.
 ---
 --- A visible buffer can be asked directly; one left behind by |<CR>| cannot,
 --- and replacing its lines forgets the cursor it had.
 --- @type table<integer, vim.fn.winsaveview.ret>
 local placed = {}
+
+--- How far through a list each buffer has got.
+---
+--- Lua rather than `b:`, because a buffer variable is a serialisation boundary
+--- and none of this survives it usefully: the cursors are opaque tokens keyed
+--- by page, page one has none, and a table with that hole comes back as a list
+--- with `vim.NIL` in it — truthy, and not a cursor github accepts. Nothing
+--- outside forge has any use for them either.
+--- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean }>
+local pages = {}
 
 --- Note where `buf` is being read, before something else takes the window.
 --- @param buf integer
@@ -21,10 +41,11 @@ function M.remember(buf)
   end
 end
 
---- Stop keeping a place for a buffer that no longer exists.
+--- Drop what was kept for a buffer that no longer exists.
 --- @param buf integer
 function M.forget(buf)
   placed[buf] = nil
+  pages[buf] = nil
 end
 
 --- How many items a list asks github for at once.
@@ -45,7 +66,7 @@ local OTHER = {
 --- the time one comes back.
 --- @class forge.Open
 --- @field page integer?
---- @field cursors table<string, string>?
+--- @field cursors table<integer, string>?
 --- @field win integer? the window the command was given in
 --- @field mods string? see |:command-modifiers|
 --- @field smods table?
@@ -80,22 +101,19 @@ function M.hl(group, text)
 end
 
 --- Where a list buffer has got to.
----
---- Cursors are keyed by page as a string. The first page has no cursor, so an
---- integer-keyed table would be a list with a hole at index 1, and a buffer
---- variable round-trips that hole back as `vim.NIL` — truthy in Lua, and not
---- something github will accept as a cursor.
 --- @param buf integer
---- @return { page: integer, cursors: table<string, string>, has_next: boolean }
+--- @return { page: integer, cursors: table<integer, string>, has_next: boolean }
 function M.paging(buf)
-  return vim.b[buf].forge or { page = 1, cursors = {}, has_next = false }
+  return pages[buf] or { page = 1, cursors = {}, has_next = false }
 end
 
---- The key page `n` files its cursor under.
---- @param n integer
---- @return string
-function M.at(n)
-  return tostring(n)
+--- Record where a list buffer has got to.
+--- @param buf integer
+--- @param page integer
+--- @param cursors table<integer, string>
+--- @param has_next boolean
+function M.paged(buf, page, cursors, has_next)
+  pages[buf] = { page = page, cursors = cursors, has_next = has_next }
 end
 
 --- The view a buffer holds, if a buffer holds one.
@@ -233,7 +251,7 @@ function M.render(u, lines, winbar, marks, maps)
   vim.wo.winbar = winbar
 
   if u.number and u.state then
-    vim.b[buf].forge = { state = u.state }
+    vim.b[buf].forge = vim.tbl_extend('force', vim.b[buf].forge or {}, { state = u.state })
   end
 
   return buf
@@ -284,6 +302,7 @@ function M.up()
   if not u or not (u.number or u.draft) then
     return
   end
+  --- @type forge.BufVar
   local came_from = vim.b[vim.api.nvim_get_current_buf()].forge or {}
   M.open({
     owner = u.owner,

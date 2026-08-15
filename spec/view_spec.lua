@@ -26,22 +26,37 @@ describe('view.render', function()
 end)
 
 describe('where a list got to', function()
-  it('survives the buffer variable it is kept in', function()
+  it('keeps a page number as a page number', function()
     local buf = vim.api.nvim_create_buf(false, true)
-    vim.b[buf].forge = { page = 1, cursors = { [view.at(2)] = 'CURSOR2' }, has_next = true }
+    view.paged(buf, 2, { [2] = 'CURSOR2' }, true)
 
     local paging = view.paging(buf)
-    assert.is_nil(paging.cursors[view.at(1)])
-    assert.equals('CURSOR2', paging.cursors[view.at(2)])
+    assert.equals(2, paging.page)
+    assert.is_nil(paging.cursors[1])
+    assert.equals('CURSOR2', paging.cursors[2])
+    assert.is_true(paging.has_next)
   end)
 
-  it('would not, keyed by number: the first page has no cursor', function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.b[buf].forge = { cursors = { [2] = 'CURSOR2' } }
+  it('starts at the first page for a buffer it has never seen', function()
+    local paging = view.paging(vim.api.nvim_create_buf(false, true))
+    assert.equals(1, paging.page)
+    assert.same({}, paging.cursors)
+    assert.is_false(paging.has_next)
+  end)
 
-    local cursors = view.paging(buf).cursors
-    assert.equals(vim.NIL, cursors[1])
-    assert.is_truthy(cursors[1])
+  it('is not a buffer variable, so nothing serialises the hole at page one', function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    view.paged(buf, 1, { [2] = 'CURSOR2' }, true)
+
+    assert.is_nil(vim.b[buf].forge)
+    assert.is_nil(view.paging(buf).cursors[1])
+  end)
+
+  it('is dropped with the buffer', function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    view.paged(buf, 3, {}, false)
+    view.forget(buf)
+    assert.equals(1, view.paging(buf).page)
   end)
 end)
 

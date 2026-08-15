@@ -40,8 +40,8 @@ function M.list(spec, t, o)
   local state = t.state == 'CLOSED' and 'closed' or 'open'
   local owner, repo = gh.slug(t)
   local variables = { owner = owner, repo = repo, states = spec.states[t.state or 'OPEN'] }
-  if cursors[view.at(page)] then
-    variables.after = cursors[view.at(page)]
+  if cursors[page] then
+    variables.after = cursors[page]
   end
 
   gh.graphql({
@@ -90,9 +90,9 @@ function M.list(spec, t, o)
     view.place(o)
     local buf = view.render(u, lines, winbar, marks, spec.list_maps)
     if info.hasNextPage and info.endCursor then
-      cursors[view.at(page + 1)] = info.endCursor
+      cursors[page + 1] = info.endCursor
     end
-    vim.b[buf].forge = { page = page, cursors = cursors, has_next = info.hasNextPage or false }
+    view.paged(buf, page, cursors, info.hasNextPage or false)
   end)
 end
 
