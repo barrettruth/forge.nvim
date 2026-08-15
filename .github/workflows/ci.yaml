@@ -16,6 +16,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The devShell's Neovim comes from neovim-nightly-overlay, which publishes to
+# nix-community's cache. Without it as a substituter a runner compiles Neovim
+# and ten tree-sitter grammars from source, which is the whole of the CI time.
 jobs:
   format:
     name: Format
@@ -23,6 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://nix-community.cachix.org
+            extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
       - run: nix develop .#ci --command just format
 
   lint:
@@ -31,6 +38,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://nix-community.cachix.org
+            extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
       - run: nix develop .#ci --command just lint
 
   # Only format and lint need the flake, for stylua, selene and the two language
