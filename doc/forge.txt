@@ -194,16 +194,18 @@ ga                      Start something new in the collection you are looking
                         every pull request template, is called after its file.
 
                         A draft is an ordinary buffer holding the markdown
-                        that will be filed. Guidance a form carries is shown
-                        beside it rather than written into it, so there is
-                        nothing to delete before filing, and a "*" marks an
-                        answer github will insist on.
+                        that will be filed. The first line is its title, said
+                        beside the line rather than in it. Guidance a form
+                        carries is shown the same way, so there is nothing to
+                        delete before filing, and a "*" marks an answer github
+                        will insist on. The winbar names the template.
 
                         A pull request also needs two branches. The one you
                         are on is proposed, and github says what it merges
-                        into; the winbar names both. Being on that branch
-                        already, with nothing to propose, is refused rather
-                        than sent.
+                        into. The winbar names the branch being proposed, and
+                        names what it merges into only when that is not the
+                        repository's default. Being on that branch already,
+                        with nothing to propose, is refused rather than sent.
 
                         Writing the buffer files it: "ZZ" creates and closes,
                         ":w" creates and leaves you on what you made, and "ZQ"
