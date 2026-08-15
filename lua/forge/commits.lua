@@ -55,7 +55,7 @@ function M.show()
     if vim.api.nvim_win_is_valid(from) then
       vim.api.nvim_set_current_win(from)
     end
-    vim.cmd(('Git log --oneline --no-decorate --reverse %s..%s'):format(base, head))
+    vim.cmd(('Git log --stat --no-decorate --reverse %s..%s'):format(base, head))
   end)
 end
 
