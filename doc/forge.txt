@@ -307,6 +307,16 @@ is what can be reached and the total is what was found: >
 An unknown qualifier is not an error to github; it is searched for as text,
 and the answer is usually nothing found.
 
+                                                     *forge-search-completion*
+|c_CTRL-D| and <Tab> complete a qualifier, and its value where github's set of
+them is closed — "is:", "no:", "in:", "state:", "reason:", "review:",
+"status:", "linked:", "draft:", "archived:" and "sort:". A qualifier naming a
+person completes to "@me" and nothing else. A negation completes the same.
+
+Nothing else completes, and nothing asks github. A repository's labels,
+milestones and people cannot be known without a request, and a request behind
+<Tab> is either slow or answering from a copy that has gone stale.
+
 ==============================================================================
 9. HEALTH                                                       *forge-health*
 
