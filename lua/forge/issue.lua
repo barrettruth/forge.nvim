@@ -98,7 +98,7 @@ local ISSUES = {
     { '[i', '<Plug>(forge-prev-page)', 'the previous page of issues' },
   },
   item_maps = {
-    { 'c', '<Plug>(forge-act)', 'do something to this issue' },
+    { 'cc', '<Plug>(forge-act)', 'do something to this issue' },
   },
   remember = function(node)
     return { id = node.id, can_update = node.viewerCanUpdate }

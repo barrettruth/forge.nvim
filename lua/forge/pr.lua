@@ -135,7 +135,7 @@ local PRS = {
   --- here rather than everywhere. An issue has no CI, and a key that exists
   --- only to refuse is worse than no key.
   item_maps = {
-    { 'c', '<Plug>(forge-act)', 'do something to this pull request' },
+    { 'cc', '<Plug>(forge-act)', 'do something to this pull request' },
     { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this pull request's diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this pull request's commits in fugitive" },
