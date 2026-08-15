@@ -51,8 +51,17 @@ without them, and |forge-health| reports which is missing.
     is not an error — "@" opens the page one arrives on, and gh pushes the
     branch on the way there.
 
+    :Issue . and :PR . open the reference under the cursor, from anywhere: a
+    source file, a commit message, a |:terminal| running `gh search`. A
+    reference is what github itself would have made a link of — "#41138",
+    "neovim/neovim#41138", a github.com URL, a forge:// URI — and nothing
+    else. A bare "owner/repo" is not one, because that is also how a path is
+    spelled, and neither is a mention. Inside a view |gf| does the same thing
+    without the command; see |forge-gf|.
+
     {target} is any of: >
         :PR @
+        :Issue .
         :Issue 41138
         :Issue #41138
         :Issue neovim/neovim#41138
@@ -76,6 +85,10 @@ without them, and |forge-health| reports which is missing.
     The window is made once github has answered, and in the window the
     command was given in. A request that fails leaves no window behind, and
     one overtaken by a later command does not take the window from it.
+
+    A |:range| is accepted and thrown away. Neither command has anything to
+    do with lines, but ":" from Visual mode writes one for you, and a
+    selection you happened to be holding should not be an error.
 
 ==============================================================================
 4. REPOSITORY                                               *forge-repository*
@@ -176,6 +189,7 @@ know nothing about forge. A number is "Tag", a repository "Directory", a state
 
     <CR>     <Plug>(forge-open)        Open the item under the cursor.
     o        <Plug>(forge-open-split)  The same, beside the list.
+    gf       (see |forge-gf|)          Follow the reference under the cursor.
     -        <Plug>(forge-up)          Leave an item for its list.
     R        <Plug>(forge-refresh)     Fetch this view again, in place.
     g.       <Plug>(forge-state)       Toggle open and closed.
@@ -233,6 +247,26 @@ from a diff is |CTRL-O|.
 from your object store rather than from a patch. The refs land under
 refs/forge/, which nothing else writes; no branch, tag or working tree is
 touched. This is the only thing forge writes to a repository.
+
+                                                                    *forge-gf*
+|gf| follows the reference under the cursor, |CTRL-W_f| follows it into a
+split, and in Visual mode |gf| takes the selection instead. Nothing here is
+bound: 'includeexpr' turns a reference into the name of the buffer that holds
+it, and |gf| is Neovim's own key opening a name. A reference that names no
+repository means the one whose view you read it in.
+
+The reference is read with |<cfile>| rather than the WORD, so 'isfname' leaves
+behind the brackets, quotes and trailing punctuation prose wraps one in:
+"(#123)", "`#123`" and "#123." all arrive as "#123", and either half of a
+markdown link answers for itself.
+
+A github.com URL is the one reference |gf| cannot follow, because Neovim
+recognises a URL before 'includeexpr' is consulted and opens it as itself.
+":Issue ." and ":PR ." take one.
+
+<CR> and |gf| are not the same key twice. In a list <CR> opens the item the
+line describes, wherever on the line the cursor sits; gf opens the reference
+the cursor is actually on, which inside a title may be another issue entirely.
 
 ==============================================================================
 8. HEALTH                                                       *forge-health*

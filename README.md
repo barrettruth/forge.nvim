@@ -22,13 +22,16 @@ vim.pack.add({ 'https://github.com/barrettruth/forge.nvim' })
 :Issue 41310                                      " an issue by number
 :Issue neovim/neovim#41310                        " in another repo
 :Issue https://github.com/neovim/neovim/issues/41310
+:Issue .                                          " the reference under the cursor
 
-:PR                                               " the PR for this branch
+:PR                                               " open pull requests in this repo
+:PR @                                             " the PR for the change you are on
 :PR 41138                                         " a pull request by number
 :PR neovim/neovim                                 " open pull requests there
 ```
 
-In a list, `<CR>` opens the item under the cursor, `-` navigates to the parent.
+In a list, `<CR>` opens the item under the cursor; `-` takes an item back up to
+its list. In either, `gf` follows the reference under the cursor.
 
 See `:help forge.nvim` for more information.
 
