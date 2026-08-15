@@ -16,7 +16,7 @@ local function noon(epoch)
   return os.time({ year = d.year, month = d.month, day = d.day, hour = 12 })
 end
 
---- How long ago, roughly. Precision past a month is not worth the words.
+--- How long ago, in words for the first month and as a date after that.
 --- @param iso string?
 --- @return string
 function M.age(iso)
@@ -43,12 +43,8 @@ function M.age(iso)
     return 'yesterday'
   elseif days < 30 then
     return days .. ' days ago'
-  elseif days < 365 then
-    local months = math.floor(days / 30)
-    return months .. (months == 1 and ' month ago' or ' months ago')
   end
-  local years = math.floor(days / 365)
-  return years .. (years == 1 and ' year ago' or ' years ago')
+  return os.date('%Y-%m-%d', then_) --[[@as string]]
 end
 
 --- @param lines string[]
