@@ -100,15 +100,13 @@ Buffers are named with a "forge://" URI. Every view has exactly one name, and
 that name is enough to rebuild it. >
 
     forge://{owner}/{repo}/issues           every issue
-    forge://{owner}/{repo}/issues/closed    the closed ones
     forge://{owner}/{repo}/issues/{number}  a single issue
     forge://{owner}/{repo}/prs              every pull request
-    forge://{owner}/{repo}/prs/closed       the closed and merged ones
     forge://{owner}/{repo}/prs/{number}     a single pull request
 <
 |:edit| on one of these opens it from anywhere, and reloads it from inside. A
-list holds every state unless its name says otherwise; the page is not part of
-the name, so a reload returns to the first. "R" keeps the page.
+list holds every state there is; the page is not part of the name, so a reload
+returns to the first. "R" keeps the page.
 
 ==============================================================================
 6. BUFFERS                                                     *forge-buffers*
@@ -133,8 +131,6 @@ it, and a user mapping may read it. Present in both shapes: >
     kind       "list" or "item"
     label      what the winbar calls it, e.g. "PR"
     repo       "owner/repo"
-    state      the state as shown, e.g. "OPEN", "MERGED", "all"
-    state_hl   the highlight group that state is drawn in
 <
 In a list, and only in one: >
 
@@ -145,14 +141,15 @@ In an item, and only in one. The last two are a pull request's: >
 
     tag        its number, e.g. "#41138"
     title      its title
+    state      the state as shown, e.g. "OPEN", "MERGED"
+    state_hl   the highlight group that state is drawn in
     badges     its extra winbar segments
-    from       which half of a list it was opened from
     base       the branch it merges into
     head       the branch it merges from
 <
 Every view sets a 'winbar': >
 
-    ISSUES barrettruth/forge-fixture all 1/2 (124)
+    ISSUES barrettruth/forge-fixture 1/2 (124)
     ISSUE #27 OPEN | a title that fits
     PR #151 MERGED +10 -2 | another one
 <
@@ -194,8 +191,7 @@ existing mapping stands. To rebind, map the |<Plug>| target: >lua
     vim.keymap.set('n', '<C-]>', '<Plug>(forge-open)')
 <
 
-"-" goes to the half of the list the item was opened from. An item opened by
-name goes to the open list. "-" in a list does nothing.
+"-" in a list does nothing: a list is the top.
 
 "R" keeps the current page and cursor position; |:edit| and a new page both
 start at the first line.

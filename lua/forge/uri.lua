@@ -10,7 +10,6 @@
 --- @field owner string?
 --- @field repo string?
 --- @field number integer? nil for a list
---- @field state 'OPEN'|'CLOSED'? a list holding one state; unset holds them all
 --- @field head boolean? the pull request for the change you are on
 
 --- A view forge can address, which is a target github has already answered.
@@ -28,8 +27,8 @@ local SCHEME = 'forge://'
 --- plural for an issue list and a single issue, plural for a pull request
 --- list and singular for a single pull request; ours are always "prs".
 local WEB = {
-  issues = { list = 'issues', member = 'issues', filter = 'issue' },
-  prs = { list = 'pulls', member = 'pull', filter = 'pr' },
+  issues = { list = 'issues', member = 'issues' },
+  prs = { list = 'pulls', member = 'pull' },
 }
 
 --- The view a response describes, named by the repository github answered for.
@@ -51,7 +50,6 @@ function M.of(slug, t)
     repo = repo,
     collection = t.collection,
     number = t.number,
-    state = t.state,
   }
 end
 
@@ -62,17 +60,14 @@ function M.tostring(uri)
   if uri.number then
     return ('%s/%d'):format(base, uri.number)
   end
-  if uri.state == 'CLOSED' then
-    return base .. '/closed'
-  end
   return base
 end
 
 --- The github.com page a view corresponds to.
 ---
 --- Close to the path with the scheme swapped, but not a translation forge
---- avoids: github spells a closed list as a query, names a single pull
---- request in the singular, and calls the collection "pulls".
+--- avoids: github names a single pull request in the singular, and calls the
+--- collection "pulls".
 --- @param uri forge.Uri
 --- @return string
 function M.web(uri)
@@ -80,9 +75,6 @@ function M.web(uri)
   local web = WEB[uri.collection]
   if uri.number then
     return ('%s/%s/%d'):format(base, web.member, uri.number)
-  end
-  if uri.state == 'CLOSED' then
-    return ('%s/%s?q=is%%3A%s+is%%3Aclosed'):format(base, web.list, web.filter)
   end
   return ('%s/%s'):format(base, web.list)
 end
@@ -103,11 +95,6 @@ function M.parse(str)
       collection = collection,
       number = tonumber(number),
     }
-  end
-
-  owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)/closed$')
-  if owner and WEB[collection] then
-    return { owner = owner, repo = repo, collection = collection, state = 'CLOSED' }
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')

@@ -21,7 +21,6 @@ local M = {}
 --- @field list_key string the response field holding the connection
 --- @field item_query string
 --- @field list_query string
---- @field states table<string, string|string[]> what a half of the list is to github
 --- @field state_hl table<string, string>
 --- @field list_maps [string, string, string][]
 --- @field item_maps [string, string, string][]?
@@ -37,17 +36,15 @@ local M = {}
 function M.list(spec, t, o)
   local page = o.page or 1
   local cursors = o.cursors or {}
-  local state = t.state == 'CLOSED' and 'closed' or t.state == 'OPEN' and 'open' or 'all'
   local owner, repo = gh.slug(t)
-  --- An unsent `states` is a null one, which is every state.
-  local variables = { owner = owner, repo = repo, states = t.state and spec.states[t.state] }
+  local variables = { owner = owner, repo = repo }
   if cursors[page] then
     variables.after = cursors[page]
   end
 
   local settle = view.busy(t)
   gh.graphql({
-    desc = ('%s %s in %s'):format(state, spec.many, view.where(t)),
+    desc = ('%s in %s'):format(spec.many, view.where(t)),
     query = spec.list_query,
     variables = variables,
     cwd = o.cwd,
@@ -80,7 +77,7 @@ function M.list(spec, t, o)
       }
     end
     if #lines == 0 then
-      lines = { ('No %s %s.'):format(state, spec.many) }
+      lines = { ('No %s.'):format(spec.many) }
       marks = { { row = 0, col = 0, end_col = #lines[1], group = 'Comment' } }
     end
 
@@ -93,8 +90,6 @@ function M.list(spec, t, o)
       kind = 'list',
       label = spec.list_title,
       repo = ('%s/%s'):format(u.owner, u.repo),
-      state = state,
-      state_hl = spec.state_hl[u.state] or 'Normal',
       pages = ('%d/%d'):format(page, last),
       total = tostring(total),
     }
