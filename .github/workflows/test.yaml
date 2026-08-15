@@ -20,3 +20,12 @@ jobs:
       - uses: nvim-neorocks/nvim-busted-action@v1
         with:
           nvim_version: ${{ matrix.nvim }}
+          # Neovim bundles no yaml parser and this runner has no nix, so the
+          # one the dev shell hands to spec/helpers.lua is absent here. Built
+          # into the site directory instead, where the default runtimepath
+          # already looks, so nothing needs to know it arrived this way.
+          before: |
+            git clone --depth 1 https://github.com/tree-sitter-grammars/tree-sitter-yaml /tmp/ts-yaml
+            cd /tmp/ts-yaml && cc -shared -fPIC -o yaml.so -I./src src/parser.c src/scanner.c
+            mkdir -p ~/.local/share/nvim/site/parser
+            cp yaml.so ~/.local/share/nvim/site/parser/
