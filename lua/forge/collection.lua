@@ -124,10 +124,16 @@ local function mutate(var, action)
   end
   local win = vim.api.nvim_get_current_win()
   local cwd = vcs.dir()
+  --- The head a document asks for is the one the view was drawn from, so a
+  --- branch that moved since then is refused rather than merged unseen.
+  local variables = { id = var.id }
+  if action.query:find('$oid', 1, true) then
+    variables.oid = var.oid
+  end
   gh.graphql({
     desc = ('%s %s'):format(var.tag, action.said),
     query = action.query,
-    variables = { id = var.id },
+    variables = variables,
     cwd = cwd,
   }, function()
     view.open(u, { keep = true, win = win, cwd = cwd })

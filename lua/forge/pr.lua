@@ -48,9 +48,17 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
     url
+    viewerPermission
+    mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed
     pullRequest(number: $number) {
       id number title state body createdAt isDraft mergeable url
-      viewerCanUpdate
+      viewerCanUpdate headRefOid isMergeQueueEnabled
+      baseRef {
+        rules(first: 50) {
+          totalCount
+          nodes { parameters { ... on PullRequestParameters { allowedMergeMethods } } }
+        }
+      }
       additions deletions changedFiles
       baseRefName headRefName
       author { login }
@@ -89,6 +97,68 @@ mutation($id: ID!) {
   reopenPullRequest(input: {pullRequestId: $id}) { clientMutationId }
 }
 ]]
+
+--- `expectedHeadOid` refuses the merge if the branch moved since the view was
+--- drawn, which is the one thing `gh pr merge` cannot do.
+local function merging(method)
+  return ([[
+mutation($id: ID!, $oid: GitObjectID!) {
+  mergePullRequest(input: {pullRequestId: $id, mergeMethod: %s, expectedHeadOid: $oid}) {
+    clientMutationId
+  }
+}
+]]):format(method)
+end
+
+local SQUASH, COMMIT, REBASE = merging('SQUASH'), merging('MERGE'), merging('REBASE')
+
+local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
+
+--- Which merge methods github would accept on this pull request, now.
+---
+--- Three things have to agree, and there is no single field for it: there is no
+--- `viewerCanMerge`. `viewerCanUpdate` cannot stand in, because an author with
+--- no write access has it — that is how you end up offering to merge a stranger's
+--- repository. `viewerCanMergeAsAdmin` is about bypassing protection and is false
+--- for an admin with nothing to bypass. So write access comes from the
+--- repository, the methods from its switches narrowed by whatever ruleset governs
+--- the base, and `mergeStateStatus` is left out of it entirely: github computes it
+--- lazily and answers UNKNOWN on a pull request it has not looked at lately, which
+--- would hide the action rather than explain it.
+---
+--- A ruleset too long for one page is ignored rather than guessed at. github
+--- refuses the merge either way and names the reason.
+--- @param node table
+--- @param repo table
+--- @return table<string, boolean>
+local function merges(node, repo)
+  local ok = {}
+  if
+    not WRITES[repo.viewerPermission]
+    or node.isMergeQueueEnabled
+    or node.mergeable == 'CONFLICTING'
+  then
+    return ok
+  end
+  ok.MERGE = repo.mergeCommitAllowed == true
+  ok.SQUASH = repo.squashMergeAllowed == true
+  ok.REBASE = repo.rebaseMergeAllowed == true
+
+  local rules = vim.tbl_get(node, 'baseRef', 'rules') or {}
+  local nodes = rules.nodes or {}
+  if (rules.totalCount or 0) > #nodes then
+    return ok
+  end
+  for _, rule in ipairs(nodes) do
+    local allowed = vim.tbl_get(rule, 'parameters', 'allowedMergeMethods')
+    if allowed then
+      for method in pairs(ok) do
+        ok[method] = ok[method] and vim.tbl_contains(allowed, method)
+      end
+    end
+  end
+  return ok
+end
 
 --- What a rollup state is worth saying, and how. A repository with no checks
 --- has no rollup at all, and one that passed has nothing to report.
@@ -145,9 +215,14 @@ local PRS = {
   --- them to ask diffs.nvim for the right merge base. The repository github
   --- named is what "dd" and "dl" fetch from, so it comes too.
   remember = function(node, repo)
+    local ok = merges(node, repo)
     return {
       id = node.id,
       can_update = node.viewerCanUpdate,
+      oid = node.headRefOid,
+      can_squash = ok.SQUASH == true,
+      can_merge_commit = ok.MERGE == true,
+      can_rebase = ok.REBASE == true,
       base = node.baseRefName,
       head = node.headRefName,
       remote = repo.url,
@@ -224,6 +299,33 @@ local PRS = {
       query = REOPEN,
       when = function(var)
         return var.state == 'CLOSED' and var.can_update == true
+      end,
+    },
+    --- Last, and each already weighed by `merges`: what is left to ask here is
+    --- only whether the pull request is open, since a draft cannot be merged
+    --- and DRAFT is resolved before any of this is read.
+    {
+      label = 'Squash and merge',
+      said = 'squashed and merged',
+      query = SQUASH,
+      when = function(var)
+        return var.state == 'OPEN' and var.can_squash == true
+      end,
+    },
+    {
+      label = 'Create a merge commit',
+      said = 'merged',
+      query = COMMIT,
+      when = function(var)
+        return var.state == 'OPEN' and var.can_merge_commit == true
+      end,
+    },
+    {
+      label = 'Rebase and merge',
+      said = 'rebased and merged',
+      query = REBASE,
+      when = function(var)
+        return var.state == 'OPEN' and var.can_rebase == true
       end,
     },
   },

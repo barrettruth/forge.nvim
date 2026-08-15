@@ -403,6 +403,31 @@ describe('what a pull request can be asked to do', function()
   it('still edits a merged one, which github allows and nothing else does', function()
     assert.same({ 'Edit title and body' }, offered('MERGED'))
   end)
+
+  --- @return string[]
+  local function merges(var)
+    return vim.tbl_filter(
+      function(label)
+        return label:find('merge') ~= nil
+      end,
+      vim.tbl_map(function(action)
+        return action.label
+      end, pr.actions(var))
+    )
+  end
+
+  it('offers a merge once per method github would take', function()
+    assert.same(
+      { 'Squash and merge', 'Rebase and merge' },
+      merges({ state = 'OPEN', can_update = true, can_squash = true, can_rebase = true })
+    )
+  end)
+
+  it('offers no merge where github would take none', function()
+    assert.same({}, merges({ state = 'OPEN', can_update = true }))
+    assert.same({}, merges({ state = 'DRAFT', can_update = true, can_squash = true }))
+    assert.same({}, merges({ state = 'CLOSED', can_update = true, can_squash = true }))
+  end)
 end)
 
 describe('view.field', function()

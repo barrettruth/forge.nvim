@@ -164,6 +164,10 @@ In an item, and only in one. The last three are a pull request's: >
     stat       what it measures, drawn against the right edge
     id         what a mutation names it by
     can_update whether github will let you change it
+    oid        the head it was drawn from
+    can_squash        whether github would take each of the three
+    can_merge_commit  merges, weighed before the menu is drawn
+    can_rebase
     base       the branch it merges into
     head       the branch it merges from
     remote     the repository "dd" and "dl" fetch it from
@@ -251,11 +255,21 @@ is |vim.ui.select()|, so it is whichever picker you already use. >
     any of them            edit title and body
     an open issue          close as completed, close as not planned
     a closed issue         reopen
-    an open pull request   convert to draft, close
+    an open pull request   convert to draft, close, merge
     a draft                mark ready for review, close
     a closed pull request  reopen
     a merged pull request  nothing
 <
+A merge is offered once per method the repository allows and its base branch's
+ruleset permits, named as github names them: "Squash and merge", "Create a
+merge commit", "Rebase and merge". A pull request with conflicts offers none
+of them, and neither does one whose base branch is governed by a merge queue.
+github writes the commit message, as it would from the web page.
+
+The merge names the head the view was drawn from, so a branch that moved since
+then is refused rather than merged unseen. Everything else github decides when
+asked: a merge it blocks is refused with its own reason.
+
 An issue closes with a reason because github records one either way, and a
 plain close means "completed" whether or not that is true. Closing as a
 duplicate is left to github's own page, which asks which issue.
