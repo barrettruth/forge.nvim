@@ -77,9 +77,6 @@ Optional, one mapping each:
     The window is made once github answers, in the window the command was
     given in, so a request that fails leaves no window behind.
 
-    A |:range| is accepted and ignored, so ":" from Visual mode is not an
-    error.
-
 ==============================================================================
 4. REPOSITORY                                               *forge-repository*
 

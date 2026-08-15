@@ -63,7 +63,6 @@ vim.api.nvim_create_user_command('Issue', function(opts)
 end, {
   nargs = '?',
   bar = true,
-  range = true,
   desc = 'open a GitHub issue, or the issue list',
 })
 
@@ -72,7 +71,6 @@ vim.api.nvim_create_user_command('PR', function(opts)
 end, {
   nargs = '?',
   bar = true,
-  range = true,
   desc = 'open a GitHub pull request, or the pull request list',
 })
 
