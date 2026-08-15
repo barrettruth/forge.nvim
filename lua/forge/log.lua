@@ -18,7 +18,9 @@ end
 --- an unreachable remote never reaches the user as a Lua traceback.
 --- @param msg string
 function M.err(msg)
-  vim.notify(PREFIX .. msg, vim.log.levels.ERROR)
+  vim.schedule(function()
+    vim.notify(PREFIX .. msg, vim.log.levels.ERROR)
+  end)
 end
 
 --- Announce that something is in flight, and return how to end it.
