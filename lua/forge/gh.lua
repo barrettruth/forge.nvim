@@ -62,7 +62,8 @@ end
 --- GraphQL Ints, anything else a String. Errors are reported, never raised.
 --- @param req forge.Request
 --- @param on_done fun(data: table)
-function M.graphql(req, on_done)
+--- @param on_fail fun()? so a caller that said it was working can stop saying it
+function M.graphql(req, on_done, on_fail)
   local desc, variables = req.desc, req.variables
   local cmd = { 'gh', 'api', 'graphql', '-f', 'query=' .. req.query }
   fields(cmd, variables)
@@ -74,6 +75,9 @@ function M.graphql(req, on_done)
       local function fail(msg)
         done('failed', msg)
         log.err(msg)
+        if on_fail then
+          on_fail()
+        end
       end
 
       if out.code ~= 0 then
