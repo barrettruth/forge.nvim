@@ -16,10 +16,9 @@ end
 
 --- Show this pull request's commits in fugitive.
 ---
---- A split, where the checks and the diff take the window: fugitive's "-" is
---- the parent tree object rather than the way back, so the pull request left
---- beside the log is the only way back there is. Both ends are fetched first,
---- sharing the fetch "dd" makes.
+--- A split, where the checks and the diff take the window: a log is a place to
+--- work from rather than end up. Both ends are fetched first, sharing the
+--- fetch "dd" makes.
 function M.show()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then
