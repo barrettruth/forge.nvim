@@ -198,7 +198,8 @@ ga                      Start something new in the collection you are looking
                         A draft is an ordinary buffer holding the markdown
                         that will be filed. The first line is its title, said
                         beside the line rather than in it. Guidance a form
-                        carries is shown the same way, so there is nothing to
+                        carries is shown the same way, under the heading it
+                        belongs to as github shows it, so there is nothing to
                         delete before filing, and a "*" marks an answer github
                         will insist on. The winbar names the template when
                         there was more than one to choose between.
