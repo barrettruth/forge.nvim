@@ -15,7 +15,7 @@ query($owner: String!, $repo: String!, $states: [IssueState!], $after: String) {
     ) {
       totalCount
       pageInfo { hasNextPage endCursor }
-      nodes { number title }
+      nodes { number title state }
     }
   }
 }

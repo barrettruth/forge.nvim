@@ -19,7 +19,7 @@ query($owner: String!, $repo: String!, $states: [PullRequestState!], $after: Str
     ) {
       totalCount
       pageInfo { hasNextPage endCursor }
-      nodes { number title }
+      nodes { number title state isDraft }
     }
   }
 }

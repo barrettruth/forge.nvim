@@ -215,9 +215,12 @@ describe('a list github answered with', function()
   end)
 
   it('marks each number rather than matching one out of the title afterwards', function()
-    answering(response({ { number = 7, title = 'a title mentioning #12' } }), function()
-      show('OPEN')
-    end)
+    answering(
+      response({ { number = 7, title = 'a title mentioning #12', state = 'OPEN' } }),
+      function()
+        show('OPEN')
+      end
+    )
     local buf = vim.api.nvim_get_current_buf()
     local ns = vim.api.nvim_get_namespaces()['forge']
     local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })
@@ -225,7 +228,7 @@ describe('a list github answered with', function()
     assert.equals(0, marks[1][2])
     assert.equals(0, marks[1][3])
     assert.equals(2, marks[1][4].end_col)
-    assert.equals('Tag', marks[1][4].hl_group)
+    assert.equals('OkMsg', marks[1][4].hl_group)
   end)
 
   it('says so, once, when a half of the collection is empty', function()
@@ -246,5 +249,58 @@ describe('a list github answered with', function()
     assert.equals('open', info.state)
     assert.equals('1/3', info.pages)
     assert.equals('250', info.total)
+  end)
+end)
+
+describe('a pull request list github answered with', function()
+  local function response(nodes)
+    return {
+      repository = {
+        nameWithOwner = 'neovim/neovim',
+        pullRequests = {
+          totalCount = #nodes,
+          pageInfo = { hasNextPage = false },
+          nodes = nodes,
+        },
+      },
+    }
+  end
+
+  local function groups()
+    local buf = vim.api.nvim_get_current_buf()
+    local ns = vim.api.nvim_get_namespaces()['forge']
+    return vim.tbl_map(function(mark)
+      return mark[4].hl_group
+    end, vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true }))
+  end
+
+  local function show(state)
+    pr.show({ owner = 'neovim', repo = 'neovim', collection = 'prs', state = state }, {})
+  end
+
+  it('draws a merged number apart from a closed one, in the half holding both', function()
+    answering(
+      response({
+        { number = 1, title = 'landed', state = 'MERGED', isDraft = false },
+        { number = 2, title = 'abandoned', state = 'CLOSED', isDraft = false },
+      }),
+      function()
+        show('CLOSED')
+      end
+    )
+    assert.same({ 'Special', 'ErrorMsg' }, groups())
+  end)
+
+  it('draws a draft as a draft, not as the open it really is', function()
+    answering(
+      response({
+        { number = 3, title = 'ready', state = 'OPEN', isDraft = false },
+        { number = 4, title = 'not ready', state = 'OPEN', isDraft = true },
+      }),
+      function()
+        show('OPEN')
+      end
+    )
+    assert.same({ 'OkMsg', 'Normal' }, groups())
   end)
 end)
