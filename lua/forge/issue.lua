@@ -10,7 +10,7 @@ query($owner: String!, $repo: String!, $after: String) {
     issues(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       totalCount
       pageInfo { hasNextPage endCursor }
-      nodes { number title state }
+      nodes { number title state stateReason }
     }
   }
 }
@@ -21,7 +21,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
     issue(number: $number) {
-      number title state body createdAt
+      number title state stateReason body createdAt
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
@@ -44,7 +44,15 @@ local ISSUES = {
   list_key = 'issues',
   item_query = ISSUE_QUERY,
   list_query = LIST_QUERY,
-  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg' },
+  --- Closed is where an issue ends up either way, so the reason carries the
+  --- weight: done is drawn like a merge, and abandoned is dimmed. This is what
+  --- gh draws too, though only in a list.
+  state_hl = { OPEN = 'OkMsg', CLOSED = 'Special', ['NOT PLANNED'] = 'Comment' },
+  --- github keeps a reason on every closed issue, backfilling COMPLETED on the
+  --- ones closed before it asked; DUPLICATE counts as done.
+  state = function(node)
+    return node.stateReason == 'NOT_PLANNED' and 'NOT PLANNED' or node.state
+  end,
   list_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the issue under the cursor' },
     { 'o', '<Plug>(forge-open-split)', 'open the issue under the cursor in a split' },
