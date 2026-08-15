@@ -22,7 +22,8 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
     issue(number: $number) {
-      number title state stateReason body createdAt url
+      id number title state stateReason body createdAt url
+      viewerCanUpdate
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
@@ -43,6 +44,28 @@ local REASON = {
   DUPLICATE = 'DUPLICATE',
   NOT_PLANNED = 'NOT PLANNED',
 }
+
+--- The reason is written into the document rather than passed, because two
+--- named closings read better in a menu than one closing and a second question.
+--- DUPLICATE is left out: it takes the id of the issue duplicated, which is
+--- another prompt, and github asks for it the same way.
+local COMPLETED = [[
+mutation($id: ID!) {
+  closeIssue(input: {issueId: $id, stateReason: COMPLETED}) { clientMutationId }
+}
+]]
+
+local NOT_PLANNED = [[
+mutation($id: ID!) {
+  closeIssue(input: {issueId: $id, stateReason: NOT_PLANNED}) { clientMutationId }
+}
+]]
+
+local REOPEN = [[
+mutation($id: ID!) {
+  reopenIssue(input: {issueId: $id}) { clientMutationId }
+}
+]]
 
 --- @type forge.Spec
 local ISSUES = {
@@ -73,7 +96,53 @@ local ISSUES = {
     { ']i', '<Plug>(forge-next-page)', 'the next page of issues' },
     { '[i', '<Plug>(forge-prev-page)', 'the previous page of issues' },
   },
+  item_maps = {
+    { 'c', '<Plug>(forge-act)', 'do something to this issue' },
+  },
+  remember = function(node)
+    return { id = node.id, can_update = node.viewerCanUpdate }
+  end,
+  --- A closed issue's state is the reason it closed, never "CLOSED", so open is
+  --- the one state to test for and everything else is closed.
+  actions = {
+    {
+      label = 'Close as completed',
+      said = 'closed as completed',
+      query = COMPLETED,
+      when = function(var)
+        return var.state == 'OPEN' and var.can_update == true
+      end,
+    },
+    {
+      label = 'Close as not planned',
+      said = 'closed as not planned',
+      query = NOT_PLANNED,
+      when = function(var)
+        return var.state == 'OPEN' and var.can_update == true
+      end,
+    },
+    {
+      label = 'Reopen issue',
+      said = 'reopened',
+      query = REOPEN,
+      when = function(var)
+        return var.state ~= 'OPEN' and var.can_update == true
+      end,
+    },
+  },
 }
+
+--- What this issue can be asked to do, as it stands.
+--- @param var forge.ItemVar
+--- @return forge.Action[]
+function M.actions(var)
+  return collection.actions(ISSUES, var)
+end
+
+--- Offer those, and do the one chosen.
+function M.act()
+  collection.act(ISSUES)
+end
 
 --- Draw the issue view `t` names.
 --- @param t forge.Target

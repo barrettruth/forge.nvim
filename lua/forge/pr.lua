@@ -178,73 +178,43 @@ local PRS = {
       view.hl('Removed', ('-%d'):format(node.deletions or 0)),
     }
   end,
-}
-
---- @param var forge.ItemVar
---- @param query string
---- @param said string
-local function mutate(var, query, said)
-  local u = view.current()
-  local win = vim.api.nvim_get_current_win()
-  local cwd = vcs.dir()
-  if not u then
-    return
-  end
-  gh.graphql({ desc = said, query = query, variables = { id = var.id }, cwd = cwd }, function()
-    view.open(u, { keep = true, win = win, cwd = cwd })
-  end)
-end
-
---- @class forge.Action
---- @field label string
---- @field when fun(var: forge.ItemVar): boolean
---- @field run fun(var: forge.ItemVar)
-
---- Labelled in github's own words, and filtered rather than greyed: a picker
---- has no third state. What a viewer may do is github's answer rather than a
---- rule forge keeps: `viewerCanUpdate` has already weighed authorship against
---- write access against whatever the repository allows.
---- @type forge.Action[]
-local ACTIONS = {
-  {
-    label = 'Convert to draft',
-    when = function(var)
-      return var.state == 'OPEN' and var.can_update == true
-    end,
-    run = function(var)
-      mutate(var, DRAFT, ('%s to a draft'):format(var.tag))
-    end,
-  },
-  {
-    label = 'Ready for review',
-    when = function(var)
-      return var.state == 'DRAFT' and var.can_update == true
-    end,
-    run = function(var)
-      mutate(var, READY, ('%s ready for review'):format(var.tag))
-    end,
-  },
-  --- After the reversible one, so a mistyped pick is the harmless one.
-  {
-    label = 'Close pull request',
-    when = function(var)
-      return (var.state == 'OPEN' or var.state == 'DRAFT') and var.can_update == true
-    end,
-    run = function(var)
-      mutate(var, CLOSE, ('%s closed'):format(var.tag))
-    end,
-  },
-  --- `viewerCanReopen` is deliberately not asked for. It is false once the head
-  --- branch is gone, but an empty menu cannot say that, and github's own
+  --- Closing comes after the reversible one, so a mistyped pick is the harmless
+  --- one. `viewerCanReopen` is deliberately not asked for: it is false once the
+  --- head branch is gone, but an empty menu cannot say that, and github's own
   --- refusal names the branch.
-  {
-    label = 'Reopen pull request',
-    when = function(var)
-      return var.state == 'CLOSED' and var.can_update == true
-    end,
-    run = function(var)
-      mutate(var, REOPEN, ('%s reopened'):format(var.tag))
-    end,
+  actions = {
+    {
+      label = 'Convert to draft',
+      said = 'to a draft',
+      query = DRAFT,
+      when = function(var)
+        return var.state == 'OPEN' and var.can_update == true
+      end,
+    },
+    {
+      label = 'Ready for review',
+      said = 'ready for review',
+      query = READY,
+      when = function(var)
+        return var.state == 'DRAFT' and var.can_update == true
+      end,
+    },
+    {
+      label = 'Close pull request',
+      said = 'closed',
+      query = CLOSE,
+      when = function(var)
+        return (var.state == 'OPEN' or var.state == 'DRAFT') and var.can_update == true
+      end,
+    },
+    {
+      label = 'Reopen pull request',
+      said = 'reopened',
+      query = REOPEN,
+      when = function(var)
+        return var.state == 'CLOSED' and var.can_update == true
+      end,
+    },
   },
 }
 
@@ -252,36 +222,12 @@ local ACTIONS = {
 --- @param var forge.ItemVar
 --- @return forge.Action[]
 function M.actions(var)
-  return vim.tbl_filter(function(action)
-    return action.when(var)
-  end, ACTIONS)
+  return collection.actions(PRS, var)
 end
 
---- Offer those, and do the one chosen. A menu rather than a key each, because
---- naming the action is the only confirmation a state flip gets.
+--- Offer those, and do the one chosen.
 function M.act()
-  local var = vim.b.forge or {}
-  local can = M.actions(var)
-  --- Refused and finished are different things: one is worth a warning, the
-  --- other is just how a merged pull request is.
-  if #can == 0 then
-    if var.can_update == false then
-      log.warn('github does not let you change this pull request')
-    else
-      log.info(('nothing to do to a %s pull request'):format((var.state or '?'):lower()))
-    end
-    return
-  end
-  vim.ui.select(can, {
-    prompt = ('%s %s'):format(var.label or 'PR', var.tag or ''),
-    format_item = function(action)
-      return action.label
-    end,
-  }, function(action)
-    if action then
-      action.run(var)
-    end
-  end)
+  collection.act(PRS)
 end
 
 --- Open the pull request for the branch checked out here.

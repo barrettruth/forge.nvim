@@ -2,9 +2,21 @@ local gh = require('forge.gh')
 local log = require('forge.log')
 local text = require('forge.text')
 local uri = require('forge.uri')
+local vcs = require('forge.vcs')
 local view = require('forge.view')
 
 local M = {}
+
+--- Something an item can be asked to do, and when it can be asked.
+---
+--- Data rather than a closure: every one of them is the same round trip with a
+--- different document, and the reason a state can be written into the document
+--- rather than passed is that github spells its enums in the query.
+--- @class forge.Action
+--- @field label string what the picker shows, in github's own words
+--- @field said string what the progress message says of it
+--- @field query string the mutation to send
+--- @field when fun(var: forge.ItemVar): boolean
 
 --- Everything that distinguishes one collection from another.
 ---
@@ -31,6 +43,66 @@ local M = {}
 --- @field stat? fun(node: table): string[] winbar segments for the right edge
 --- @field remember? fun(node: table, repo: table): table what the buffer should
 --- keep of it
+--- @field actions? forge.Action[] what "c" offers
+
+--- Where the answer goes is settled before the round trip, since by the time
+--- one comes back the current window is wherever you wandered to.
+--- @param var forge.ItemVar
+--- @param action forge.Action
+local function mutate(var, action)
+  local u = view.current()
+  if not u then
+    return
+  end
+  local win = vim.api.nvim_get_current_win()
+  local cwd = vcs.dir()
+  gh.graphql({
+    desc = ('%s %s'):format(var.tag, action.said),
+    query = action.query,
+    variables = { id = var.id },
+    cwd = cwd,
+  }, function()
+    view.open(u, { keep = true, win = win, cwd = cwd })
+  end)
+end
+
+--- What `spec`'s item can be asked to do, as it stands.
+--- @param spec forge.Spec
+--- @param var forge.ItemVar
+--- @return forge.Action[]
+function M.actions(spec, var)
+  return vim.tbl_filter(function(action)
+    return action.when(var)
+  end, spec.actions or {})
+end
+
+--- Offer those, and do the one chosen. A menu rather than a key each, because
+--- naming the action is the only confirmation a state flip gets.
+--- @param spec forge.Spec
+function M.act(spec)
+  local var = vim.b.forge or {}
+  local can = M.actions(spec, var)
+  --- Refused and finished are different things: one is worth a warning, the
+  --- other is just how a merged pull request is.
+  if #can == 0 then
+    if var.can_update == false then
+      log.warn(('github does not let you change this %s'):format(spec.one))
+    else
+      log.info(('nothing to do to a %s %s'):format((var.state or '?'):lower(), spec.one))
+    end
+    return
+  end
+  vim.ui.select(can, {
+    prompt = ('%s %s'):format(var.label or '', var.tag or ''),
+    format_item = function(action)
+      return action.label
+    end,
+  }, function(action)
+    if action then
+      mutate(var, action)
+    end
+  end)
+end
 
 --- Draw a page of `spec`'s list.
 --- @param spec forge.Spec

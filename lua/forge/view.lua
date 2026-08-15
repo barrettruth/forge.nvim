@@ -432,6 +432,13 @@ function M.render(u, lines, info, marks, maps, o)
   return buf
 end
 
+--- The module answering for a collection.
+--- @param collection forge.Collection
+--- @return table
+local function collected(collection)
+  return require(collection == 'prs' and 'forge.pr' or 'forge.issue')
+end
+
 --- Show a view, whichever collection it belongs to.
 --- @param t forge.Target
 --- @param o forge.Open?
@@ -442,8 +449,15 @@ function M.open(t, o)
   o.win = o.win or vim.api.nvim_get_current_win()
   o.cwd = o.cwd or require('forge.vcs').dir()
 
-  local module = t.collection == 'prs' and 'forge.pr' or 'forge.issue'
-  require(module).show(t, o)
+  collected(t.collection).show(t, o)
+end
+
+--- Do something to the item this buffer shows. Only an item has anything to do.
+function M.act()
+  local u = M.current()
+  if u and u.number then
+    collected(u.collection).act()
+  end
 end
 
 --- Open whatever `target` names, so long as it names `collection`.

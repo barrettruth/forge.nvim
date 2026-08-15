@@ -318,6 +318,31 @@ describe('view.yank', function()
   end)
 end)
 
+describe('what an issue can be asked to do', function()
+  local issue = require('forge.issue')
+
+  local function offered(state, can_update)
+    return vim.tbl_map(function(action)
+      return action.label
+    end, issue.actions({ state = state, can_update = can_update ~= false }))
+  end
+
+  it('names the reason, because github records one either way', function()
+    assert.same({ 'Close as completed', 'Close as not planned' }, offered('OPEN'))
+  end)
+
+  it('reopens from every way an issue can be closed', function()
+    for _, state in ipairs({ 'CLOSED', 'COMPLETED', 'DUPLICATE', 'NOT PLANNED' }) do
+      assert.same({ 'Reopen issue' }, offered(state))
+    end
+  end)
+
+  it('offers nothing github would refuse', function()
+    assert.same({}, offered('OPEN', false))
+    assert.same({}, offered('COMPLETED', false))
+  end)
+end)
+
 describe('what a pull request can be asked to do', function()
   local pr = require('forge.pr')
 

@@ -138,7 +138,7 @@ In a list, and only in one: >
     pages      the current page, e.g. "1/3"
     total      how many the list holds in all
 <
-In an item, and only in one. The last four are a pull request's: >
+In an item, and only in one. The last three are a pull request's: >
 
     tag        its number, e.g. "#41138"
     title      its title
@@ -184,7 +184,7 @@ Highlighting uses builtin |group-name| groups only.
     ga       <Plug>(forge-create)      Start something new, on github.com.
     gX       <Plug>(forge-web)         Open this view on github.com.
     gy       <Plug>(forge-yank)        Yank this view's URL.
-    c        <Plug>(forge-act)         Do something to a pull request.
+    c        <Plug>(forge-act)         Do something to this item.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
     dl       <Plug>(forge-log)         Its commits, in fugitive.
@@ -224,16 +224,24 @@ branch to what it forked.
 the URL it would have opened. "gy" takes the register it is given, so `"+gy`
 reaches the system clipboard.
 
-"c" offers what the pull request can be asked to do as it stands, and does the
-one picked. What you may do is github's answer, not forge's guess at its
-rules. An open pull request can be converted to a draft or closed, a draft can
-be marked ready for review or closed, and a closed one can be reopened. A
-merged one is told there is nothing to do. The menu is |vim.ui.select()|, so
-it is whichever picker you already use.
+"c" offers what the item can be asked to do as it stands, and does the one
+picked. What you may do is github's answer, not forge's guess at its rules.
+The menu is |vim.ui.select()|, so it is whichever picker you already use. >
 
-"c", "dc", "dd" and "dl" are bound only in a pull request. "dc" and "dd"
-replace the view; ci.nvim returns with "-", and the way back from a diff is
-|CTRL-O|.
+    an open issue          close as completed, close as not planned
+    a closed issue         reopen
+    an open pull request   convert to draft, close
+    a draft                mark ready for review, close
+    a closed pull request  reopen
+    a merged pull request  nothing
+<
+An issue closes with a reason because github records one either way, and a
+plain close means "completed" whether or not that is true. Closing as a
+duplicate is left to github's own page, which asks which issue.
+
+"c" is bound in an item; "dc", "dd" and "dl" only in a pull request. "dc" and
+"dd" replace the view; ci.nvim returns with "-", and the way back from a diff
+is |CTRL-O|.
 
 "dl" splits instead. The log is >
     git log --stat --reverse base..head
