@@ -201,8 +201,7 @@ ga                      Start something new in the collection you are looking
                         carries is shown the same way, under the heading it
                         belongs to as github shows it, so there is nothing to
                         delete before filing, and a "*" marks an answer github
-                        will insist on. The winbar names the template when
-                        there was more than one to choose between.
+                        will insist on.
 
                         A pull request also needs two branches. The one you
                         are on is proposed, and github says what it merges
