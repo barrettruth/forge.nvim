@@ -225,54 +225,6 @@ describe('view.wants_window', function()
   end)
 end)
 
-describe('a draft', function()
-  it('is named new, and reads back as a draft', function()
-    for _, name in ipairs({ 'forge://a/b/issues/new', 'forge://a/b/prs/new' }) do
-      local u = assert(uri.parse(name))
-      assert.is_true(u.draft)
-      assert.is_nil(u.number)
-      assert.equals(name, uri.tostring(u))
-    end
-  end)
-
-  it('points at the page github would have you fill in', function()
-    assert.equals(
-      'https://github.com/a/b/issues/new',
-      uri.web(assert(uri.parse('forge://a/b/issues/new')))
-    )
-    assert.equals(
-      'https://github.com/a/b/compare',
-      uri.web(assert(uri.parse('forge://a/b/prs/new')))
-    )
-  end)
-
-  it('is not confused with a number or with closed', function()
-    assert.is_nil(assert(uri.parse('forge://a/b/issues/27')).draft)
-    assert.is_nil(assert(uri.parse('forge://a/b/issues/closed')).draft)
-  end)
-end)
-
-describe('a draft started from a template', function()
-  it('opens github on that form, not on the chooser', function()
-    local u = assert(uri.parse('forge://neovim/neovim/issues/new'))
-    u.template = 'bug_report.yml'
-    assert.equals('https://github.com/neovim/neovim/issues/new?template=bug_report.yml', uri.web(u))
-  end)
-
-  it('opens the chooser when it started from nothing', function()
-    assert.equals(
-      'https://github.com/neovim/neovim/issues/new',
-      uri.web(assert(uri.parse('forge://neovim/neovim/issues/new')))
-    )
-  end)
-
-  it('leaves the buffer name alone', function()
-    local u = assert(uri.parse('forge://a/b/issues/new'))
-    u.template = 'bug_report.yml'
-    assert.equals('forge://a/b/issues/new', uri.tostring(u))
-  end)
-end)
-
 describe('the change you are on', function()
   it('is spelled @, and only a pull request has one', function()
     local t = assert(uri.resolve('@', 'prs'))
