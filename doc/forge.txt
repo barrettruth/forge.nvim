@@ -149,9 +149,8 @@ Both are scratch buffers: 'buftype' is "nofile", 'readonly' is set, and
 'modeline' is off, because a body is text written by a stranger.
 
 Window options are applied wherever a view appears, in the buffer-local scope,
-so a window releases them when it shows something else. An item sets 'wrap',
-'linebreak' and 'breakindent'; a list sets 'nowrap' and 'cursorline', because
-in a list one line is one item.
+so a window releases them when it shows something else. An item is set up to
+read as prose, a list to hold one item to a line.
 
 A buffer being fetched again sets 'busy' until the reply lands.
 
@@ -189,9 +188,7 @@ A finished load echoes nothing, because the winbar already reports it.
 Messages are for problems.
 
 Highlighting uses builtin |group-name| groups only, so no colorscheme needs to
-know about forge: "Title" for the label, "Directory" for a repository, "Tag"
-for a number, "Added" and "Removed" for a diffstat, "OkMsg", "ErrorMsg" or
-"Special" for a state, and "Comment" for anything secondary.
+know about forge.
 
 ==============================================================================
 7. MAPPINGS                                                   *forge-mappings*
@@ -286,9 +283,8 @@ the cursor is on, which inside a title may be another issue entirely.
 ==============================================================================
 8. HEALTH                                                       *forge-health*
 
-`:checkhealth forge` reports the Neovim version, whether "gh" is present and
-authenticated, and whether each plugin in |forge-requirements| is available. A
-missing optional plugin is a warning rather than an error, and names the
-mapping that stops working without it.
+`:checkhealth forge` checks everything in |forge-requirements|. A missing
+optional plugin is a warning rather than an error, and names the mapping it
+would have backed.
 
  vim:tw=78:ts=8:ft=help:norl:
