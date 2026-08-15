@@ -2,10 +2,6 @@
 
 GitHub issues and pull requests in Neovim.
 
-Two commands, no configuration, no `setup()`. Forge delegates to the `gh` CLI
-and renders what comes back; everything you do with a view is a mapping inside
-it rather than another command to type.
-
 ## Requirements
 
 - Neovim 0.11+
