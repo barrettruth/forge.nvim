@@ -115,6 +115,24 @@ describe('an issue github answered with', function()
     end
   end)
 
+  it('draws a closed issue like a merge, since closed is usually done', function()
+    answering(response({ state = 'CLOSED', stateReason = 'COMPLETED' }), function()
+      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+    end)
+    local _, info = drawn()
+    assert.equals('CLOSED', info.state)
+    assert.equals('Special', info.state_hl)
+  end)
+
+  it('says so, and dims it, when nobody is going to do it', function()
+    answering(response({ state = 'CLOSED', stateReason = 'NOT_PLANNED' }), function()
+      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+    end)
+    local _, info = drawn()
+    assert.equals('NOT PLANNED', info.state)
+    assert.equals('Comment', info.state_hl)
+  end)
+
   it('calls an author nobody claims a ghost', function()
     local anonymous = response()
     anonymous.repository.issue.author = nil
@@ -239,6 +257,25 @@ describe('a list github answered with', function()
     assert.equals(0, marks[1][3])
     assert.equals(2, marks[1][4].end_col)
     assert.equals('OkMsg', marks[1][4].hl_group)
+  end)
+
+  it('draws a closed number by the reason it was closed', function()
+    answering(
+      response({
+        { number = 1, title = 'done', state = 'CLOSED', stateReason = 'COMPLETED' },
+        { number = 2, title = 'a repeat', state = 'CLOSED', stateReason = 'DUPLICATE' },
+        { number = 3, title = 'never', state = 'CLOSED', stateReason = 'NOT_PLANNED' },
+      }),
+      function()
+        show()
+      end
+    )
+    local buf = vim.api.nvim_get_current_buf()
+    local ns = vim.api.nvim_get_namespaces()['forge']
+    local groups = vim.tbl_map(function(mark)
+      return mark[4].hl_group
+    end, vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true }))
+    assert.same({ 'Special', 'Special', 'Comment' }, groups)
   end)
 
   it('asks github to filter nothing out', function()

@@ -141,7 +141,7 @@ In an item, and only in one. The last two are a pull request's: >
 
     tag        its number, e.g. "#41138"
     title      its title
-    state      the state as shown, e.g. "OPEN", "MERGED"
+    state      the state as shown, e.g. "OPEN", "MERGED", "NOT PLANNED"
     state_hl   the highlight group that state is drawn in
     badges     its extra winbar segments
     base       the branch it merges into
