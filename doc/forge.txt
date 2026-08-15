@@ -228,6 +228,10 @@ dc                      In a pull request, hand it to ci.nvim and show its
                         the pull request, so the way out is the key that
                         already means out.
 
+                        Forge does not draw CI; ci.nvim owns that. The pull
+                        request is handed over as its github.com URL, which is
+                        a target ":CI" already accepts.
+
                                                           *<Plug>(forge-diff)*
 dd                      In a pull request, hand it to diffs.nvim and show its
                         diff. Bound only there, for the same reason as "dc".
@@ -247,9 +251,18 @@ dd                      In a pull request, hand it to diffs.nvim and show its
                         belongs to is not always the one "origin" points at,
                         and in a fork it never is.
 
-                        Forge does not draw CI; ci.nvim owns that. The pull
-                        request is handed over as its github.com URL, which is
-                        a target ":CI" already accepts.
+                        Forge does not draw diffs; diffs.nvim owns that. The
+                        diff takes this window rather than splitting off it,
+                        as the checks do: it is the same pull request seen
+                        differently, and a review map is the widest and
+                        longest thing forge hands anywhere, so half a window
+                        is the worst place for it. The window is named before
+                        the fetch, because by the time one comes back the
+                        current window is whatever you wandered to.
+
+                        Going back is |CTRL-O|. diffs.nvim has no notion of
+                        the view something was opened from, so unlike "dc"
+                        there is no "-" to press.
 
 ==============================================================================
 7. HEALTH                                                       *forge-health*

@@ -31,6 +31,12 @@ end
 --- than from a patch, and a pull request you did not write is never already
 --- there: refusing on that would refuse on almost every pull request worth
 --- looking at.
+---
+--- The diff takes this window rather than splitting off it, as the checks do.
+--- It is the same pull request seen differently, and a review map is the
+--- widest and longest thing forge hands anywhere: half a window is the worst
+--- place for it. The window is named before the fetch, because by the time
+--- one comes back the current window is whatever you wandered to.
 function M.show()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then
@@ -49,9 +55,14 @@ function M.show()
     return
   end
 
+  local from = vim.api.nvim_get_current_win()
   local url = ('https://github.com/%s/%s'):format(u.owner, u.repo)
   vcs.fetch_pull(vcs.dir(), url, u.number, refs.base, function(base, head)
-    vim.cmd({ cmd = 'Diff', args = { 'review', ('%s...%s'):format(base, head) } })
+    require('diffs').open_review({
+      base = base,
+      target = head,
+      mode = 'merge-base',
+    }, { replace_win = vim.api.nvim_win_is_valid(from) and from or nil })
   end)
 end
 
