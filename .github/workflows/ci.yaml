@@ -1,0 +1,117 @@
+name: ci
+
+# One workflow, because GitHub has no cross-workflow "needs". Splitting quality
+# from the deploys means either calling quality (which runs it a second time) or
+# polling it, as the Forgejo side has to. Here the deploys are jobs that need the
+# rest, so everything runs once and nothing publishes unless all of it passed.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop .#ci --command just format
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop .#ci --command just lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop .#ci --command just test
+
+  # The nix shell pins one Neovim; these are the two everyone else runs.
+  neovim:
+    name: Test (Neovim ${{ matrix.nvim }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim: [stable, nightly]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nvim-neorocks/nvim-busted-action@v1
+        with:
+          nvim_version: ${{ matrix.nvim }}
+          before: |
+            git clone --depth 1 https://github.com/tree-sitter-grammars/tree-sitter-yaml /tmp/ts-yaml
+            cd /tmp/ts-yaml && cc -shared -fPIC -o yaml.so -I./src src/parser.c src/scanner.c
+            mkdir -p ~/.local/share/nvim/site/parser
+            cp yaml.so ~/.local/share/nvim/site/parser/
+
+  # Both deploys upload the rockspec in this repository rather than generating
+  # one. It already names the source correctly, and a generated rockspec is a
+  # second description of the package that can disagree with the first.
+  nightly:
+    name: LuaRocks (nightly)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [format, lint, test, neovim]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: luarocks/gh-actions-lua@v11
+        with:
+          luaVersion: '5.1'
+      - uses: luarocks/gh-actions-luarocks@v6
+
+      # The specrev counts commits, so it rises with every push and a consumer
+      # can pin or roll back a dev version.
+      - name: Publish scm
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        run: |
+          specrev=$(git rev-list --count HEAD)
+          rockspec="forge.nvim-scm-$specrev.rockspec"
+          sed -E "s/^version = '.*'$/version = 'scm-$specrev'/" forge.nvim-scm-1.rockspec > "$rockspec"
+          luarocks lint "$rockspec"
+          luarocks upload --api-key="$LUAROCKS_API_KEY" --force "$rockspec"
+
+  release:
+    name: LuaRocks (release)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [format, lint, test, neovim]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: luarocks/gh-actions-lua@v11
+        with:
+          luaVersion: '5.1'
+      - uses: luarocks/gh-actions-luarocks@v6
+
+      # new_version pins source.tag to the tag being released, so the rock is
+      # built from that commit rather than from whatever main holds later.
+      - name: Publish tag
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          luarocks new_version forge.nvim-scm-1.rockspec "$version" --tag "$tag"
+          rockspec="forge.nvim-$version-1.rockspec"
+          luarocks lint "$rockspec"
+          luarocks upload --api-key="$LUAROCKS_API_KEY" "$rockspec"
