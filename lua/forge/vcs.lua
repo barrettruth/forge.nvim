@@ -31,6 +31,12 @@ function M.dir()
   return vim.fs.dirname(name)
 end
 
+--- @param dir string
+--- @return string?
+function M.git_dir(dir)
+  return run(dir, { 'git', 'rev-parse', '--absolute-git-dir' })
+end
+
 --- Bring a pull request into this repository, without disturbing it.
 ---
 --- github publishes every pull request as `refs/pull/N/head` on the base
