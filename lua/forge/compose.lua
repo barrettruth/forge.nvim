@@ -33,6 +33,11 @@ end
 --- A form's prose belongs on screen but not in the issue, and github drops it
 --- when rendering a submission. Holding it as virtual lines means there is
 --- nothing to strip on the way out, and so nothing that can strip too much.
+---
+--- It hangs below the heading, where github puts it, and above the line you
+--- answer on, which is the next real line: typing pushes text in beneath the
+--- guidance rather than through it. The heading is the anchor because it is
+--- the one line here nobody edits.
 --- @param marks table[]
 --- @param row integer
 --- @param text string?
@@ -44,7 +49,7 @@ local function guide(marks, row, text)
   for _, line in ipairs(vim.split(text, '\n', { plain = true })) do
     virt[#virt + 1] = { { line, 'Comment' } }
   end
-  marks[#marks + 1] = { row, 0, { virt_lines = virt, virt_lines_above = true } }
+  marks[#marks + 1] = { row, 0, { virt_lines = virt } }
 end
 
 --- Mark an answer github will insist on.
@@ -109,7 +114,7 @@ function M.skeleton(found)
     end
   end
 
-  guide(marks, #lines, found.guidance[#found.fields + 1])
+  guide(marks, #lines - 1, found.guidance[#found.fields + 1])
 
   return lines, marks
 end
