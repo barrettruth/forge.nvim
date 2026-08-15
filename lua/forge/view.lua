@@ -1,5 +1,6 @@
 local log = require('forge.log')
 local map = require('forge.map')
+local ref = require('forge.ref')
 local uri = require('forge.uri')
 
 local M = {}
@@ -260,7 +261,9 @@ end
 --- own.
 ---
 --- Mappings are set here rather than in an ftplugin: an item is markdown, and
---- an ftplugin/markdown.lua would reach every markdown file you open.
+--- an ftplugin/markdown.lua would reach every markdown file you open. So is
+--- 'includeexpr', last of all, so that a filetype plugin of your own cannot
+--- have set it after us and left |gf| pointing at nothing.
 ---
 --- The buffer is replaced in place rather than wiped and rebuilt, so a window
 --- handle held by a caller stays valid across a refresh.
@@ -349,6 +352,7 @@ function M.render(u, lines, info, marks, maps, o)
   end
 
   vim.bo[buf].filetype = u.number and 'markdown' or 'forge'
+  vim.bo[buf].includeexpr = 'v:lua.require("forge.ref").include(v:fname)'
 
   return buf
 end
@@ -369,12 +373,23 @@ end
 
 --- Open whatever `target` names, so long as it names `collection`.
 ---
---- Both commands arrive here. The window and the directory are read now, while
---- the user is still standing in them; everything else waits for github.
+--- Both commands arrive here. The window, the directory and the cursor are
+--- read now, while the user is still standing in them; everything else waits
+--- for github. "." is the only target read off the editor rather than parsed,
+--- so it is spent here and the grammar below never sees it.
 --- @param target string?
 --- @param collection forge.Collection
 --- @param opts vim.api.keyset.create_user_command.command_args?
 function M.command(target, collection, opts)
+  if vim.trim(target or '') == '.' then
+    local token, why = ref.at_cursor()
+    if not token then
+      log.err(why or 'nothing under the cursor')
+      return
+    end
+    target = token
+  end
+
   local t, err = uri.resolve(target, collection)
   if not t then
     log.err(err or 'cannot resolve target')
