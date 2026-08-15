@@ -10,8 +10,7 @@ it rather than another command to type.
 
 - Neovim 0.11+
 - [`gh`](https://cli.github.com), authenticated
-- Optional: [ci.nvim](https://github.com/barrettruth/ci.nvim), for `dc` on a
-  pull request. Without it every other key still works.
+- (Optionally) [ci.nvim](https://github.com/barrettruth/ci.nvim) to view PR checks
 
 ## Installation
 
