@@ -83,8 +83,9 @@ describe('the winbar', function()
 
     local seen = {}
     for _, win in ipairs(wins) do
-      seen[#seen + 1] =
+      seen[#seen + 1] = vim.trim(
         vim.api.nvim_eval_statusline(vim.wo[win].winbar, { winid = win, use_winbar = true }).str
+      )
     end
     assert.equals('PR #41 OPEN', seen[1])
     assert.equals(seen[1], seen[2])
@@ -107,6 +108,7 @@ describe('the winbar', function()
 
     local str =
       vim.api.nvim_eval_statusline(vim.wo[other].winbar, { winid = other, use_winbar = true }).str
+    str = vim.trim(str)
     assert.equals('PR #42 MERGED', str)
     vim.cmd('only')
   end)
@@ -118,8 +120,9 @@ describe('the winbar', function()
       info('list', { repo = '100% of %{system("id")} %#ErrorMsg#x%*' })
     )
     local win = vim.fn.win_findbuf(buf)[1]
-    local str =
+    local str = vim.trim(
       vim.api.nvim_eval_statusline(vim.wo[win].winbar, { winid = win, use_winbar = true }).str
+    )
     assert.equals('ISSUES 100% of %{system("id")} %#ErrorMsg#x%* 1/1 (1)', str)
   end)
 end)
@@ -257,7 +260,7 @@ local function drawn()
   vim.cmd('redraw!')
   local bar = vim.wo.winbar
   local shown = vim.api.nvim_eval_statusline(bar, { winid = 0, use_winbar = true })
-  return shown.str, bar ~= ''
+  return vim.trim(shown.str), bar ~= ''
 end
 
 describe("a view's winbar", function()

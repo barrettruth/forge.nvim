@@ -134,9 +134,13 @@ local PRS = {
     if checks then
       badges[#badges + 1] = view.hl(checks[2], checks[1])
     end
-    badges[#badges + 1] = view.hl('Added', ('+%d'):format(node.additions or 0))
-    badges[#badges + 1] = view.hl('Removed', ('-%d'):format(node.deletions or 0))
     return badges
+  end,
+  stat = function(node)
+    return {
+      view.hl('Added', ('+%d'):format(node.additions or 0)),
+      view.hl('Removed', ('-%d'):format(node.deletions or 0)),
+    }
   end,
 }
 

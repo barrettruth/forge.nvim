@@ -27,6 +27,7 @@ local M = {}
 --- @field state? fun(node: table): string the state to show, when not node.state
 --- @field header? fun(node: table): string[] extra lines under State
 --- @field badges? fun(node: table): string[] extra winbar segments
+--- @field stat? fun(node: table): string[] winbar segments for the right edge
 --- @field remember? fun(node: table): table what the buffer should keep of it
 
 --- Draw a page of `spec`'s list.
@@ -147,6 +148,7 @@ function M.item(spec, t, o)
     text.append_comments(lines, node.comments)
 
     local badges = (spec.badges and spec.badges(node)) or {}
+    local stat = (spec.stat and spec.stat(node)) or {}
 
     --- @type forge.ItemVar
     local info = {
@@ -158,6 +160,7 @@ function M.item(spec, t, o)
       tag = '#' .. node.number,
       title = node.title or '',
       badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
+      stat = table.concat(stat, ' '),
     }
     if spec.remember then
       info = vim.tbl_extend('force', info, spec.remember(node))
