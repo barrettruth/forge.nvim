@@ -24,6 +24,8 @@ what it returns; there is nothing to configure and no setup() to call.
 
   - Neovim 0.11 or newer
   - the "gh" CLI, authenticated (https://cli.github.com)
+  - optionally ci.nvim (https://github.com/barrettruth/ci.nvim), which "dc"
+    hands a pull request to. Every other key works without it.
 
 ==============================================================================
 3. COMMANDS                                                   *forge-commands*
@@ -220,10 +222,28 @@ gX                      Open this view on github.com: what the buffer shows,
                         name. A draft opens the form it started from, rather
                         than the chooser.
 
+                                                        *<Plug>(forge-checks)*
+dc                      In a pull request, hand it to ci.nvim and show its
+                        checks. Bound only there: an issue has no CI, and a
+                        key that exists only to refuse is worse than no key.
+
+                        The checks replace the view rather than splitting
+                        beside it, because they are the same pull request seen
+                        differently, which is the relationship |<CR>| already
+                        has with a list. ci.nvim's own "-" is pointed back at
+                        the pull request, so the way out is the key that
+                        already means out.
+
+                        Forge does not draw CI; ci.nvim owns that. The pull
+                        request is handed over as its github.com URL, which is
+                        a target ":CI" already accepts.
+
 ==============================================================================
 7. HEALTH                                                       *forge-health*
 
-`:checkhealth forge` reports the Neovim version, whether "gh" is present, and
-whether it is authenticated.
+`:checkhealth forge` reports the Neovim version, whether "gh" is present and
+authenticated, whether a yaml parser is available for issue forms, and whether
+ci.nvim is installed. The last two are warnings rather than errors: both are
+optional, and forge says which key stops working without them.
 
  vim:tw=78:ts=8:ft=help:norl:
