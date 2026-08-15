@@ -211,6 +211,24 @@ describe('a pull request github answered with', function()
     end
   end)
 
+  it('says how the checks went, unless they passed or there are none', function()
+    local function badges_for(state)
+      local over = state
+          and { commits = { nodes = { { commit = { statusCheckRollup = { state = state } } } } } }
+        or { commits = { nodes = {} } }
+      answering(response(over), show)
+      local _, info = drawn()
+      return info.badges
+    end
+
+    assert.equals(' %#ErrorMsg#FAILING%* %#Added#+10%* %#Removed#-2%*', badges_for('FAILURE'))
+    assert.equals(' %#ErrorMsg#FAILING%* %#Added#+10%* %#Removed#-2%*', badges_for('ERROR'))
+    assert.equals(' %#WarningMsg#PENDING%* %#Added#+10%* %#Removed#-2%*', badges_for('PENDING'))
+    assert.equals(' %#WarningMsg#EXPECTED%* %#Added#+10%* %#Removed#-2%*', badges_for('EXPECTED'))
+    assert.equals(' %#Added#+10%* %#Removed#-2%*', badges_for('SUCCESS'))
+    assert.equals(' %#Added#+10%* %#Removed#-2%*', badges_for(nil))
+  end)
+
   it('shows a draft as a draft, not as the open it really is', function()
     answering(response({ state = 'OPEN', isDraft = true }), show)
     local _, info = drawn()

@@ -152,10 +152,11 @@ Every view sets a 'winbar': >
     ISSUES barrettruth/forge-fixture 1/2 (124)
     ISSUE #27 OPEN | a title that fits
     PR #151 MERGED +10 -2 | another one
-    PR #152 OPEN CONFLICT +7 -0 | one that will not merge
+    PR #152 OPEN CONFLICT FAILING +7 -0 | one in trouble
 <
 A badge appears only when it has something to say, so a pull request that
-merges cleanly carries no "CONFLICT".
+merges cleanly and whose checks passed carries neither of those two. Its
+checks are "FAILING", "PENDING" or "EXPECTED"; "dc" shows which.
 
 Highlighting uses builtin |group-name| groups only.
 

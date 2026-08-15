@@ -53,6 +53,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
+      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
       comments(first: 100) {
         totalCount
         nodes { author { login } authorAssociation createdAt body }
@@ -61,6 +62,22 @@ query($owner: String!, $repo: String!, $number: Int!) {
   }
 }
 ]]
+
+--- What a rollup state is worth saying, and how. A repository with no checks
+--- has no rollup at all, and one that passed has nothing to report.
+local CHECKS = {
+  ERROR = { 'FAILING', view.HL.bad },
+  FAILURE = { 'FAILING', view.HL.bad },
+  PENDING = { 'PENDING', view.HL.waiting },
+  EXPECTED = { 'EXPECTED', view.HL.waiting },
+}
+
+--- @param node table
+--- @return string? state of the head commit's checks, if it has any
+local function rollup(node)
+  local commits = vim.tbl_get(node, 'commits', 'nodes') or {}
+  return vim.tbl_get(commits[1] or {}, 'commit', 'statusCheckRollup', 'state')
+end
 
 --- @type forge.Spec
 local PRS = {
@@ -112,6 +129,10 @@ local PRS = {
     local badges = {}
     if node.mergeable == 'CONFLICTING' then
       badges[#badges + 1] = view.hl(view.HL.bad, 'CONFLICT')
+    end
+    local checks = CHECKS[rollup(node) or '']
+    if checks then
+      badges[#badges + 1] = view.hl(checks[2], checks[1])
     end
     badges[#badges + 1] = view.hl('Added', ('+%d'):format(node.additions or 0))
     badges[#badges + 1] = view.hl('Removed', ('-%d'):format(node.deletions or 0))
