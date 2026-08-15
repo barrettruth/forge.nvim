@@ -79,12 +79,12 @@ local WINBAR = {
     .. ' %#Comment#('
     .. at('total')
     .. ')%*',
-  --- The title is the first line of the buffer, so the winbar leaves it there.
-  --- What is wrong sits by the state; what is only a measure goes to the far
-  --- edge, where it can be ignored.
+  --- What it is and how it stands, then the title with whatever room is left:
+  --- `%<` after the bar makes the title the only thing that can be cut, so the
+  --- state can never be pushed off the end.
   item = '%#Title#' .. at('label') .. '%* %#Tag#' .. at('tag') .. '%* ' .. STATE .. '%{%' .. call(
     'badges'
-  ) .. '%}%=%{%' .. call('stat') .. '%}',
+  ) .. '%}%( | %<' .. at('title') .. '%)%=%{%' .. call('stat') .. '%}',
 }
 
 --- Where a view was last being read, kept for buffers no window is showing.
