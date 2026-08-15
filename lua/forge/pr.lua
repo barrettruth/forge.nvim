@@ -1,6 +1,6 @@
+local collection = require('forge.collection')
 local gh = require('forge.gh')
 local log = require('forge.log')
-local text = require('forge.text')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
 local view = require('forge.view')
@@ -67,144 +67,47 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 ]]
 
---- A draft is OPEN with a flag, so it is resolved before this is consulted.
-local STATE_HL = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = '' }
-
---- A closed pull request is either closed or merged, which is the split
---- github's own Closed tab makes.
-local STATES = { OPEN = 'OPEN', CLOSED = { 'CLOSED', 'MERGED' } }
-
---- A pull request is the only view with checks behind it, so "dc" is bound
---- here rather than everywhere. An issue has no CI, and a key that exists only
---- to refuse is worse than no key.
-local ITEM_MAPS = {
-  { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
-}
-
-local LIST_MAPS = {
-  { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
-  { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
-  { ']p', '<Plug>(forge-next-page)', 'the next page of pull requests' },
-  { '[p', '<Plug>(forge-prev-page)', 'the previous page of pull requests' },
-  { 'g.', '<Plug>(forge-state)', 'toggle open and closed pull requests' },
-}
-
---- @param t forge.Target
---- @param o forge.Open
-local function open_list(t, o)
-  local page = o.page or 1
-  local cursors = o.cursors or {}
-  local state = t.state == 'CLOSED' and 'closed' or 'open'
-  local owner, repo = gh.slug(t)
-  local variables = { owner = owner, repo = repo, states = STATES[t.state or 'OPEN'] }
-  if cursors[view.at(page)] then
-    variables.after = cursors[view.at(page)]
-  end
-
-  gh.graphql({
-    desc = ('%s pull requests in %s'):format(state, view.where(t)),
-    query = LIST_QUERY,
-    variables = variables,
-    cwd = o.cwd,
-  }, function(data)
-    local prs = vim.tbl_get(data, 'repository', 'pullRequests')
-    local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
-    if not prs or not u then
-      log.err(('no pull requests in %s'):format(view.where(t)))
-      return
-    end
-
-    local nodes = prs.nodes or {}
-    local width = 1
-    for _, pr in ipairs(nodes) do
-      width = math.max(width, #tostring(pr.number))
-    end
-    local format = ('#%%-%dd %%s'):format(width)
-
-    local lines, marks = {}, {}
-    for _, pr in ipairs(nodes) do
-      local row = #lines
-      lines[row + 1] = format:format(pr.number, pr.title)
-      marks[#marks + 1] = { row = row, col = 0, end_col = 1 + #tostring(pr.number), group = 'Tag' }
-    end
-    if #lines == 0 then
-      lines = { ('No %s pull requests.'):format(state) }
-      marks = { { row = 0, col = 0, end_col = #lines[1], group = 'Comment' } }
-    end
-
-    local info = prs.pageInfo or {}
-    local total = prs.totalCount or #lines
-    local pages = math.max(1, math.ceil(total / view.PER_PAGE))
-    local winbar = table.concat({
-      view.hl('Title', 'PRS'),
-      view.hl('Directory', ('%s/%s'):format(view.escape(u.owner), view.escape(u.repo))),
-      view.hl(STATE_HL[u.state or 'OPEN'] or '', state),
-      ('%d/%d'):format(page, pages),
-      view.hl('Comment', ('(%d)'):format(total)),
-    }, ' ')
-
-    view.place(o)
-    local buf = view.render(u, lines, winbar, marks, LIST_MAPS)
-    if info.hasNextPage and info.endCursor then
-      cursors[view.at(page + 1)] = info.endCursor
-    end
-    vim.b[buf].forge = { page = page, cursors = cursors, has_next = info.hasNextPage or false }
-  end)
-end
-
---- @param t forge.Target
---- @param o forge.Open
-local function open_pr(t, o)
-  local owner, repo = gh.slug(t)
-  gh.graphql({
-    desc = ('pull request #%d in %s'):format(t.number, view.where(t)),
-    query = PR_QUERY,
-    variables = { owner = owner, repo = repo, number = t.number },
-    cwd = o.cwd,
-  }, function(data)
-    local pr = vim.tbl_get(data, 'repository', 'pullRequest')
-    local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
-    if not pr or not u then
-      log.err(('no pull request #%d in %s'):format(t.number, view.where(t)))
-      return
-    end
-
-    local state = pr.isDraft and 'DRAFT' or (pr.state or '?')
-    local labels = {}
-    for _, label in ipairs(vim.tbl_get(pr, 'labels', 'nodes') or {}) do
-      labels[#labels + 1] = label.name
-    end
-
-    local lines = {
-      ('# %s'):format(pr.title),
-      '',
-      ('- Author: %s (%s)'):format(
-        vim.tbl_get(pr, 'author', 'login') or 'ghost',
-        pr.authorAssociation or 'NONE'
-      ),
-      ('- State: %s, opened %s'):format(state, text.age(pr.createdAt)),
-      ('- Branch: %s into %s'):format(pr.headRefName or '?', pr.baseRefName or '?'),
+--- @type forge.Spec
+local PRS = {
+  one = 'pull request',
+  many = 'pull requests',
+  item_title = 'PR',
+  list_title = 'PRS',
+  item_key = 'pullRequest',
+  list_key = 'pullRequests',
+  item_query = PR_QUERY,
+  list_query = LIST_QUERY,
+  --- A closed pull request is either closed or merged, which is the split
+  --- github's own Closed tab makes.
+  states = { OPEN = 'OPEN', CLOSED = { 'CLOSED', 'MERGED' } },
+  --- A draft is OPEN with a flag, so it is resolved before this is consulted.
+  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = '' },
+  list_maps = {
+    { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
+    { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
+    { ']p', '<Plug>(forge-next-page)', 'the next page of pull requests' },
+    { '[p', '<Plug>(forge-prev-page)', 'the previous page of pull requests' },
+    { 'g.', '<Plug>(forge-state)', 'toggle open and closed pull requests' },
+  },
+  --- A pull request is the only view with checks behind it, so "dc" is bound
+  --- here rather than everywhere. An issue has no CI, and a key that exists
+  --- only to refuse is worse than no key.
+  item_maps = {
+    { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
+  },
+  state = function(node)
+    return node.isDraft and 'DRAFT' or node.state
+  end,
+  header = function(node)
+    return { ('- Branch: %s into %s'):format(node.headRefName or '?', node.baseRefName or '?') }
+  end,
+  badges = function(node)
+    return {
+      view.hl('Added', ('+%d'):format(node.additions or 0)),
+      view.hl('Removed', ('-%d'):format(node.deletions or 0)),
     }
-    if #labels > 0 then
-      lines[#lines + 1] = ('- Labels: %s'):format(table.concat(labels, ', '))
-    end
-    lines[#lines + 1] = ''
-    text.append_body(lines, pr.body)
-    text.append_comments(lines, pr.comments)
-
-    local winbar = table.concat({
-      view.hl('Title', 'PR'),
-      view.hl('Tag', '#' .. pr.number),
-      view.hl(STATE_HL[state] or '', state),
-      view.hl('Added', ('+%d'):format(pr.additions or 0)),
-      view.hl('Removed', ('-%d'):format(pr.deletions or 0)),
-    }, ' ')
-
-    view.place(o)
-    view.render(u, lines, winbar, nil, ITEM_MAPS)
-    view.check_truncated(pr.comments, 'comments')
-  end)
-end
+  end,
+}
 
 --- Open the pull request for the branch checked out here.
 ---
@@ -241,7 +144,7 @@ local function open_head(t, o)
       return
     end
     local item = { collection = 'prs', number = found.number }
-    open_pr(uri.of(slug, item) or item, o)
+    collection.item(PRS, uri.of(slug, item) or item, o)
   end)
 end
 
@@ -252,9 +155,9 @@ function M.show(t, o)
   if t.head then
     open_head(t, o)
   elseif t.number then
-    open_pr(t, o)
+    collection.item(PRS, t, o)
   else
-    open_list(t, o)
+    collection.list(PRS, t, o)
   end
 end
 
