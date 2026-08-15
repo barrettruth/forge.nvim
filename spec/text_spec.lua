@@ -32,14 +32,15 @@ describe('how long ago', function()
     assert.equals('5 days ago', text.age(ago(5)))
   end)
 
-  it('counts in months, and says one of them in the singular', function()
-    assert.equals('1 month ago', text.age(ago(45)))
-    assert.equals('6 months ago', text.age(ago(200)))
+  it('gives a date once "ago" stops telling you anything', function()
+    for _, days in ipairs({ 45, 200, 400, 2800 }) do
+      local epoch = os.time() - days * 86400
+      assert.equals(os.date('%Y-%m-%d', epoch), text.age(ago(days)))
+    end
   end)
 
-  it('stops counting months before the number stops meaning anything', function()
-    assert.equals('1 year ago', text.age(ago(400)))
-    assert.equals('7 years ago', text.age(ago(2800)))
+  it('writes that date the one way nobody reads backwards', function()
+    assert.is_truthy(text.age('2019-01-02T12:00:00Z'):match('^2019%-01%-0[123]$'))
   end)
 
   it('says so when it cannot tell', function()
