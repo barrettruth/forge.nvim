@@ -248,7 +248,7 @@ reaches the system clipboard.
 picked. Everything in that menu writes, which is what the prompt says: >
 
     Change issue #27:
-    Change PR #151:
+    Change pull request #151:
 < What you may do is github's answer, not forge's guess at its rules. The menu
 is |vim.ui.select()|, so it is whichever picker you already use. >
 

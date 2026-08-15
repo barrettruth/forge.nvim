@@ -503,18 +503,8 @@ function M.command(target, collection, opts)
   M.open(t, { mods = opts and opts.mods, smods = opts and opts.smods })
 end
 
---- Leave a thing for whatever it belongs to: an item for its list, and the
---- buffer editing an item for the item.
----
---- The editor is not a view, so it has no name |uri.parse| will read. It does
---- have the item's own name with "/edit" after it, which is what forge wrote
---- there, so that is what is read back.
+--- Leave an item for the list it belongs to.
 function M.up()
-  local edited = uri.parse((vim.api.nvim_buf_get_name(0):gsub('/edit$', '')))
-  if edited and not M.current() then
-    M.open(edited, { keep = true })
-    return
-  end
   local u = M.current()
   if not u or not u.number then
     return

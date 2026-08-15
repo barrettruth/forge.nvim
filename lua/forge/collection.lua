@@ -78,7 +78,6 @@ end
 --- rather than passed is that github spells its enums in the query.
 --- @class forge.Action
 --- @field label string what the picker shows, in github's own words
---- @field said? string what the progress message says of it, where one is sent
 --- @field query? string the mutation to send
 --- @field run? fun(var: forge.ItemVar) what to do instead of sending one
 --- @field when fun(var: forge.ItemVar): boolean
@@ -91,8 +90,6 @@ end
 --- function here rather than a branch there.
 --- @class forge.Spec
 --- @field one string the singular, as said to a person
---- @field short string the singular as a prompt says it: an initialism shouts,
---- a word does not
 --- @field many string the plural, as said to a person
 --- @field item_title string what the winbar calls one
 --- @field list_title string what the winbar calls the list
@@ -131,7 +128,7 @@ local function mutate(var, action)
     variables.oid = var.oid
   end
   gh.graphql({
-    desc = ('%s %s'):format(var.tag, action.said),
+    desc = ('%s %s'):format(var.tag, action.label),
     query = action.query,
     variables = variables,
     cwd = cwd,
@@ -170,7 +167,7 @@ function M.act(spec)
     --- The verb is "cc" itself, and what every choice below has in common:
     --- each one writes, and each is gated on the same permission. A colon
     --- because a list follows, not a question nothing here answers.
-    prompt = ('Change %s %s:'):format(spec.short, var.tag or ''),
+    prompt = ('Change %s %s:'):format(spec.one, var.tag or ''),
     format_item = function(action)
       return action.label
     end,

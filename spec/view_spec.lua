@@ -367,7 +367,7 @@ describe('the menu those are offered in', function()
       prompting(require('forge.issue'), { tag = '#27', state = 'OPEN', can_update = true })
     )
     assert.equals(
-      'Change PR #42:',
+      'Change pull request #42:',
       prompting(require('forge.pr'), { tag = '#42', state = 'OPEN', can_update = true })
     )
   end)

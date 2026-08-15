@@ -70,7 +70,6 @@ mutation($id: ID!) {
 --- @type forge.Spec
 local ISSUES = {
   one = 'issue',
-  short = 'issue',
   many = 'issues',
   item_title = 'ISSUE',
   list_title = 'ISSUES',
@@ -118,7 +117,6 @@ local ISSUES = {
     },
     {
       label = 'Close as completed',
-      said = 'closed as completed',
       query = COMPLETED,
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
@@ -126,7 +124,6 @@ local ISSUES = {
     },
     {
       label = 'Close as not planned',
-      said = 'closed as not planned',
       query = NOT_PLANNED,
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
@@ -134,7 +131,6 @@ local ISSUES = {
     },
     {
       label = 'Reopen issue',
-      said = 'reopened',
       query = REOPEN,
       when = function(var)
         return var.state ~= 'OPEN' and var.can_update == true

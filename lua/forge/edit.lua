@@ -15,7 +15,6 @@
 
 local gh = require('forge.gh')
 local log = require('forge.log')
-local map = require('forge.map')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
 local view = require('forge.view')
@@ -124,7 +123,6 @@ function M.open(var)
     var.label or '',
     var.tag or ''
   )
-  map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go back to the item this edits')
 end
 
 return M

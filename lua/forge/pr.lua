@@ -179,7 +179,6 @@ end
 --- @type forge.Spec
 local PRS = {
   one = 'pull request',
-  short = 'PR',
   many = 'pull requests',
   item_title = 'PR',
   list_title = 'PRS',
@@ -271,7 +270,6 @@ local PRS = {
     },
     {
       label = 'Convert to draft',
-      said = 'to a draft',
       query = DRAFT,
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
@@ -279,7 +277,6 @@ local PRS = {
     },
     {
       label = 'Ready for review',
-      said = 'ready for review',
       query = READY,
       when = function(var)
         return var.state == 'DRAFT' and var.can_update == true
@@ -287,7 +284,6 @@ local PRS = {
     },
     {
       label = 'Close pull request',
-      said = 'closed',
       query = CLOSE,
       when = function(var)
         return (var.state == 'OPEN' or var.state == 'DRAFT') and var.can_update == true
@@ -295,7 +291,6 @@ local PRS = {
     },
     {
       label = 'Reopen pull request',
-      said = 'reopened',
       query = REOPEN,
       when = function(var)
         return var.state == 'CLOSED' and var.can_update == true
@@ -306,7 +301,6 @@ local PRS = {
     --- and DRAFT is resolved before any of this is read.
     {
       label = 'Squash and merge',
-      said = 'squashed and merged',
       query = SQUASH,
       when = function(var)
         return var.state == 'OPEN' and var.can_squash == true
@@ -314,7 +308,6 @@ local PRS = {
     },
     {
       label = 'Create a merge commit',
-      said = 'merged',
       query = COMMIT,
       when = function(var)
         return var.state == 'OPEN' and var.can_merge_commit == true
@@ -322,7 +315,6 @@ local PRS = {
     },
     {
       label = 'Rebase and merge',
-      said = 'rebased and merged',
       query = REBASE,
       when = function(var)
         return var.state == 'OPEN' and var.can_rebase == true
