@@ -95,6 +95,7 @@ local PRS = {
   item_maps = {
     { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this pull request's diff in diffs.nvim" },
+    { 'dl', '<Plug>(forge-log)', "show this pull request's commits in fugitive" },
   },
   --- Which branches it joins cannot be read back off the view, and "dd" needs
   --- them to ask diffs.nvim for the right merge base.

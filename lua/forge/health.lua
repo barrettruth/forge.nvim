@@ -40,6 +40,15 @@ function M.check()
       'Optional. Install it from https://forge.barrettruth.com/barrettruth/diffs.nvim'
     )
   end
+
+  if require('forge.commits').available() then
+    vim.health.ok('vim-fugitive loaded, so dl can show a pull request its commits')
+  else
+    vim.health.warn(
+      'vim-fugitive not available, so dl has nothing to show commits with',
+      'Optional. Install it from https://github.com/tpope/vim-fugitive'
+    )
+  end
 end
 
 return M
