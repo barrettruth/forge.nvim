@@ -12,7 +12,8 @@ CONTENTS                                                      *forge-contents*
   5. URIs ................................................... |forge-uris|
   6. Buffers ............................................. |forge-buffers|
   7. Mappings ........................................... |forge-mappings|
-  8. Health ............................................... |forge-health|
+  8. Search ............................................... |forge-search|
+  9. Health ............................................... |forge-health|
 
 ==============================================================================
 1. INTRODUCTION                                                  *forge-intro*
@@ -52,6 +53,14 @@ Optional, one mapping each:
     buffer. A reference is "#41138", "neovim/neovim#41138", a github.com URL
     or a forge:// URI; a bare "owner/repo" is not one, and neither is a
     mention. Inside a view |gf| does the same; see |forge-gf|.
+
+    Anything naming nothing forge knows is a github search, narrowing the
+    list rather than opening one thing: >
+        :Issue label:bug is:open
+        :PR review-requested:@me
+        :Issue label:"good first issue" no:assignee
+<
+    See |forge-search|.
 
     {target} is any of: >
         :PR @
@@ -100,10 +109,16 @@ Buffers are named with a "forge://" URI. Every view has exactly one name, and
 that name is enough to rebuild it. >
 
     forge://{owner}/{repo}/issues           every issue
+    forge://{owner}/{repo}/issues?q={query} the ones a search matches
     forge://{owner}/{repo}/issues/{number}  a single issue
     forge://{owner}/{repo}/prs              every pull request
+    forge://{owner}/{repo}/prs?q={query}    the ones a search matches
     forge://{owner}/{repo}/prs/{number}     a single pull request
 <
+A query is percent-encoded in the name, so |:edit| on one by hand wants the
+"%" escaped: `:edit forge://a/b/issues?q=is:open\%20label:bug`. Nothing that
+opens a view for you needs that.
+
 |:edit| on one of these opens it from anywhere, and reloads it from inside. A
 list holds every state there is; the page is not part of the name, so a reload
 returns to the first. "R" keeps the page.
@@ -137,6 +152,7 @@ In a list, and only in one: >
 
     pages      the current page, e.g. "1/3"
     total      how many the list holds in all
+    query      the search narrowing it, empty when there is none
 <
 In an item, and only in one. The last three are a pull request's: >
 
@@ -267,7 +283,32 @@ In a list <CR> opens the item the line describes; |gf| opens the reference the
 cursor is on, which inside a title may be another issue.
 
 ==============================================================================
-8. HEALTH                                                       *forge-health*
+8. SEARCH                                                       *forge-search*
+
+A {target} that names nothing else is passed to github as a search, in
+github's own syntax and byte for byte, quoting and negation included. See
+https://docs.github.com/en/search-github/searching-issues-and-pull-requests
+
+Two qualifiers are forge's rather than yours, and are dropped from whatever
+you type: "repo:", "org:" and "user:", because a second repository would widen
+a list past the one its name claims; and "is:issue", "is:pr", "type:issue" and
+"type:pr", because |:Issue| showing pull requests would make the command a
+lie. Repeating either of those in github's syntax widens rather than narrows,
+which is why they cannot simply be added to.
+
+"sort:updated-desc" is added when you give no "sort:" of your own, so a
+narrowed list is ordered like a whole one.
+
+A search reaches a thousand results however many it matches, so the page count
+is what can be reached and the total is what was found: >
+
+    ISSUES neovim/neovim is:issue 1/10 (14478)
+<
+An unknown qualifier is not an error to github; it is searched for as text,
+and the answer is usually nothing found.
+
+==============================================================================
+9. HEALTH                                                       *forge-health*
 
 `:checkhealth forge` checks everything in |forge-requirements|. A missing
 optional plugin is a warning rather than an error, and names the mapping it

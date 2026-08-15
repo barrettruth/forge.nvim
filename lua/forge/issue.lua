@@ -76,6 +76,7 @@ local ISSUES = {
   item_key = 'issue',
   list_key = 'issues',
   list_path = 'issues',
+  kind = 'is:issue',
   item_query = ISSUE_QUERY,
   list_query = LIST_QUERY,
   --- CLOSED is the fallback for one github gave no reason, which it backfilled

@@ -32,6 +32,41 @@ describe('uri.parse', function()
   end)
 end)
 
+describe('a search', function()
+  it('is what anything forge cannot otherwise name means', function()
+    local t = assert(uri.resolve('label:bug is:open', 'issues'))
+    assert.equals('label:bug is:open', t.query)
+    assert.is_nil(t.number)
+  end)
+
+  it('never swallows a form that names something', function()
+    for _, target in ipairs({ '41310', '#41310', 'a/b', 'a/b#1', 'forge://a/b/issues' }) do
+      assert.is_nil(assert(uri.resolve(target, 'issues')).query, target)
+    end
+  end)
+
+  it('survives being written to a name and read back', function()
+    for _, query in ipairs({
+      'label:bug is:open',
+      'label:"good first issue"',
+      'author:@me -label:lsp',
+      'label:"unicode  \u{1F4A9}"',
+      '100% of it',
+    }) do
+      local u = assert(uri.of('a/b', { collection = 'issues', query = query }))
+      local name = uri.tostring(u)
+      assert.equals(query, assert(uri.parse(name), name).query)
+    end
+  end)
+
+  it('keeps out of a name what a command line would eat', function()
+    local u = assert(uri.of('a/b', { collection = 'issues', query = 'a % and a # and a space' }))
+    local name = uri.tostring(u)
+    assert.is_nil(name:find('[ #]'), name)
+    assert.equals('forge://a/b/issues?q=a%20%25%20and%20a%20%23%20and%20a%20space', name)
+  end)
+end)
+
 describe('uri.resolve', function()
   it('accepts every form that carries a repository', function()
     local cases = {

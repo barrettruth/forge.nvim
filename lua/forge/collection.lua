@@ -7,6 +7,70 @@ local view = require('forge.view')
 
 local M = {}
 
+--- One document for both collections: `type: ISSUE` searches issues and pull
+--- requests alike, and which of them come back is decided by the `is:` forge
+--- puts in the query. The repository is asked for alongside, since a search
+--- answers for no particular one and a view still needs the name github
+--- spells it with.
+local SEARCH_QUERY = [[
+query($owner: String!, $repo: String!, $q: String!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    nameWithOwner
+    url
+  }
+  search(query: $q, type: ISSUE, first: 100, after: $after) {
+    issueCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      ... on Issue { number title state stateReason }
+      ... on PullRequest { number title state isDraft }
+    }
+  }
+}
+]]
+
+--- Search reaches a thousand results and no further, however many it reports.
+local REACHABLE = 1000
+
+--- Qualifiers forge owns, because repeating one of these widens a search
+--- rather than narrowing it: two `repo:` are two repositories, and `is:issue`
+--- beside `is:pr` is both. The name a view carries would stop being true.
+local OWNED = { org = true, repo = true, user = true }
+local KINDS = { ['is:issue'] = true, ['is:pr'] = true, ['type:issue'] = true, ['type:pr'] = true }
+
+--- What to send github for `query`, given what the user typed.
+---
+--- Their string is passed through byte for byte apart from the qualifiers
+--- above, so quoting, negation and commas are github's to read rather than
+--- ours to parse. Only the whole words forge owns are dropped, which leaves
+--- the spaces inside a quoted value where they were.
+--- @param spec forge.Spec
+--- @param t forge.Target
+--- @return string
+local function searching(spec, t)
+  local sorted = false
+  local kept = (t.query or ''):gsub('%S+', function(word)
+    local key = word:match('^%-?([%w-]+):')
+    if key == 'sort' then
+      sorted = true
+    end
+    if OWNED[key] or KINDS[word:lower()] then
+      return ''
+    end
+    return nil
+  end)
+  local owner, repo = gh.slug(t)
+  --- Ordered like the plain list unless they asked otherwise: `search` takes
+  --- no orderBy, so the only way to say it is in the query, and its own
+  --- default is relevance.
+  local parts = { ('repo:%s/%s'):format(owner, repo), spec.kind }
+  if not sorted then
+    parts[#parts + 1] = 'sort:updated-desc'
+  end
+  parts[#parts + 1] = kept
+  return table.concat(parts, ' ')
+end
+
 --- Something an item can be asked to do, and when it can be asked.
 ---
 --- Data rather than a closure: every one of them is the same round trip with a
@@ -32,6 +96,7 @@ local M = {}
 --- @field item_key string the response field holding one
 --- @field list_key string the response field holding the connection
 --- @field list_path string what github calls the list in a url
+--- @field kind string the `is:` that keeps a search to this collection
 --- @field item_query string
 --- @field list_query string
 --- @field state_hl table<string, string>
@@ -113,6 +178,9 @@ function M.list(spec, t, o)
   local cursors = o.cursors or {}
   local owner, repo = gh.slug(t)
   local variables = { owner = owner, repo = repo }
+  if t.query then
+    variables.q = searching(spec, t)
+  end
   if cursors[page] then
     variables.after = cursors[page]
   end
@@ -120,12 +188,12 @@ function M.list(spec, t, o)
   local settle = view.busy(t)
   gh.graphql({
     desc = ('%s in %s'):format(spec.many, view.where(t)),
-    query = spec.list_query,
+    query = t.query and SEARCH_QUERY or spec.list_query,
     variables = variables,
     cwd = o.cwd,
   }, function(data)
     settle()
-    local conn = vim.tbl_get(data, 'repository', spec.list_key)
+    local conn = t.query and data.search or vim.tbl_get(data, 'repository', spec.list_key)
     local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
     if not conn or not u then
       log.err(('no %s in %s'):format(spec.many, view.where(t)))
@@ -156,15 +224,21 @@ function M.list(spec, t, o)
     end
 
     local page_info = conn.pageInfo or {}
-    local total = conn.totalCount or #lines
-    local last = math.max(1, math.ceil(total / view.PER_PAGE))
+    local total = conn.totalCount or conn.issueCount or #lines
+    --- A search reports every match and hands over the first thousand, so the
+    --- page count is of what can be reached and the total says how much was
+    --- found.
+    local last =
+      math.max(1, math.ceil(math.min(total, t.query and REACHABLE or total) / view.PER_PAGE))
 
     --- @type forge.ListVar
     local info = {
       kind = 'list',
       label = spec.list_title,
       repo = ('%s/%s'):format(u.owner, u.repo),
-      url = ('%s/%s'):format(data.repository.url, spec.list_path),
+      url = ('%s/%s'):format(data.repository.url, spec.list_path)
+        .. (t.query and ('?q=' .. vim.uri_encode(searching(spec, t))) or ''),
+      query = t.query or '',
       pages = ('%d/%d'):format(page, last),
       total = tostring(total),
     }

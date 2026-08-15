@@ -10,6 +10,7 @@
 --- @field owner string?
 --- @field repo string?
 --- @field number integer? nil for a list
+--- @field query string? a github search, for a list narrowed by one
 --- @field head boolean? the pull request for the change you are on
 
 --- A view forge can address, which is a target github has already answered.
@@ -27,6 +28,27 @@ local SCHEME = 'forge://'
 --- a pull request list and singular for one of them — is never needed here: a
 --- view carries the url github gave it.
 local COLLECTIONS = { issues = true, prs = true }
+
+--- What survives into a name unescaped. Everything else is percent-encoded,
+--- and `%` and `#` above all: Neovim expands both in a command line, so a
+--- name carrying one raw cannot be typed at |:edit| without a backslash.
+local SAFE = '[^%w._~:/@,+-]'
+
+--- @param query string
+--- @return string
+local function encode(query)
+  return (query:gsub(SAFE, function(c)
+    return ('%%%02X'):format(c:byte())
+  end))
+end
+
+--- @param encoded string
+--- @return string
+local function decode(encoded)
+  return (encoded:gsub('%%(%x%x)', function(hex)
+    return string.char(tonumber(hex, 16))
+  end))
+end
 
 --- The view a response describes, named by the repository github answered for.
 ---
@@ -47,6 +69,7 @@ function M.of(slug, t)
     repo = repo,
     collection = t.collection,
     number = t.number,
+    query = t.query,
   }
 end
 
@@ -56,6 +79,9 @@ function M.tostring(uri)
   local base = ('%s%s/%s/%s'):format(SCHEME, uri.owner, uri.repo, uri.collection)
   if uri.number then
     return ('%s/%d'):format(base, uri.number)
+  end
+  if uri.query then
+    return ('%s?q=%s'):format(base, encode(uri.query))
   end
   return base
 end
@@ -76,6 +102,12 @@ function M.parse(str)
       collection = collection,
       number = tonumber(number),
     }
+  end
+
+  local query
+  owner, repo, collection, query = rest:match('^([^/]+)/([^/]+)/(%a+)%?q=(.+)$')
+  if owner and COLLECTIONS[collection] then
+    return { owner = owner, repo = repo, collection = collection, query = decode(query) }
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')
@@ -146,7 +178,10 @@ function M.resolve(target, collection)
   if target:match('^#?%d+$') then
     return { collection = collection, number = tonumber(target:match('%d+')) }
   end
-  return nil, 'cannot resolve: ' .. target
+  --- Anything that names nothing forge knows is a search. github's own syntax
+  --- needs no sigil to tell it from a number or a slug, since neither of those
+  --- reaches here.
+  return { collection = collection, query = target }
 end
 
 return M

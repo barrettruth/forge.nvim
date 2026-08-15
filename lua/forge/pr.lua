@@ -115,6 +115,7 @@ local PRS = {
   item_key = 'pullRequest',
   list_key = 'pullRequests',
   list_path = 'pulls',
+  kind = 'is:pr',
   item_query = PR_QUERY,
   list_query = LIST_QUERY,
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.

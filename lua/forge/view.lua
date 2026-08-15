@@ -24,6 +24,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @class forge.ListVar : forge.BufVar
 --- @field pages string "1/2"
 --- @field total string how many the list holds in all
+--- @field query string the search narrowing it, empty when it is the whole list
 
 --- The last three are a pull request's; an issue joins no branches.
 --- @class forge.ItemVar : forge.BufVar
@@ -78,7 +79,9 @@ local WINBAR = {
     .. at('label')
     .. '%* %#Directory#'
     .. at('repo')
-    .. '%* '
+    .. '%*%( '
+    .. at('query')
+    .. '%) '
     .. at('pages')
     .. ' %#Comment#('
     .. at('total')

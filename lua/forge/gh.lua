@@ -32,7 +32,7 @@ end
 --- @param value string|integer
 --- @return '-f'|'-F'
 local function flag(value)
-  if type(value) == 'number' or tostring(value):find('^{%a+}$') then
+  if type(value) == 'number' or tostring(value):find('{%a+}') then
     return '-F'
   end
   return '-f'

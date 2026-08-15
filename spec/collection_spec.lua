@@ -364,6 +364,63 @@ describe('a list github answered with', function()
   end)
 end)
 
+describe('a list narrowed by a search', function()
+  local function response(nodes, over)
+    return {
+      repository = { nameWithOwner = 'neovim/neovim', url = 'https://github.com/neovim/neovim' },
+      search = vim.tbl_extend('force', {
+        issueCount = #nodes,
+        pageInfo = { hasNextPage = false },
+        nodes = nodes,
+      }, over or {}),
+    }
+  end
+
+  local function ask(query, collection)
+    answering(response({ { number = 1, title = 'a', state = 'OPEN' } }), function()
+      local module = collection == 'prs' and pr or issue
+      module.show({ collection = collection or 'issues', query = query }, {})
+    end)
+    return asked.q
+  end
+
+  it('names the repository and the kind, and leaves gh to say which', function()
+    assert.equals('repo:{owner}/{repo} is:issue sort:updated-desc label:bug', ask('label:bug'))
+    assert.equals('repo:{owner}/{repo} is:pr sort:updated-desc label:bug', ask('label:bug', 'prs'))
+  end)
+
+  it('drops the qualifiers that would widen it past its own name', function()
+    assert.equals(
+      'repo:{owner}/{repo} is:issue sort:updated-desc   is:open',
+      ask('repo:vim/vim is:pr is:open')
+    )
+  end)
+
+  it('leaves a sort alone when they gave one', function()
+    assert.equals('repo:{owner}/{repo} is:issue sort:created-asc', ask('sort:created-asc'))
+  end)
+
+  it('passes quoting through untouched, spaces and all', function()
+    assert.equals(
+      'repo:{owner}/{repo} is:issue sort:updated-desc label:"unicode  x"',
+      ask('label:"unicode  x"')
+    )
+  end)
+
+  it('counts the pages it can reach, and says how many it found', function()
+    answering(
+      response({ { number = 1, title = 'a', state = 'OPEN' } }, { issueCount = 14478 }),
+      function()
+        issue.show({ collection = 'issues', query = 'is:issue' }, {})
+      end
+    )
+    local _, info = drawn()
+    assert.equals('1/10', info.pages)
+    assert.equals('14478', info.total)
+    assert.equals('is:issue', info.query)
+  end)
+end)
+
 describe('a pull request list github answered with', function()
   local function response(nodes)
     return {

@@ -65,7 +65,7 @@ end, { desc = 'the previous page' })
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {
-  nargs = '?',
+  nargs = '*',
   bar = true,
   desc = 'open a GitHub issue, or the issue list',
 })
@@ -73,7 +73,7 @@ end, {
 vim.api.nvim_create_user_command('PR', function(opts)
   require('forge.pr').open(opts.args, opts)
 end, {
-  nargs = '?',
+  nargs = '*',
   bar = true,
   desc = 'open a GitHub pull request, or the pull request list',
 })
