@@ -391,6 +391,7 @@ function M.render(u, lines, info, marks, maps, o)
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
   map.buf_default(buf, 'n', 'R', '<Plug>(forge-refresh)', 'fetch this view again')
   map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
+  map.buf_default(buf, 'n', 'gy', '<Plug>(forge-yank)', "yank this view's url")
   map.buf_default(buf, 'n', 'ga', '<Plug>(forge-create)', 'start something new in this collection')
   for _, m in ipairs(maps or {}) do
     map.buf_default(buf, 'n', m[1], m[2], m[3])
@@ -543,6 +544,18 @@ function M.web()
     return
   end
   vim.ui.open(uri.web(u))
+end
+
+--- Yank this view's URL.
+function M.yank()
+  local u = M.current()
+  if not u then
+    log.warn('no url for this buffer')
+    return
+  end
+  local url = uri.web(u)
+  vim.fn.setreg(vim.v.register, url, 'v')
+  log.info(url)
 end
 
 --- Step `delta` pages through a list.

@@ -289,6 +289,32 @@ describe("a view's winbar", function()
   end)
 end)
 
+describe('view.yank', function()
+  local log = require('forge.log')
+  local real = log.info
+
+  before_each(function()
+    --- @diagnostic disable-next-line: duplicate-set-field
+    log.info = function() end
+  end)
+  after_each(function()
+    log.info = real
+  end)
+
+  it('yanks what the buffer shows, not what the cursor is on', function()
+    view.render(uri('prs', 71), { '#70 another' }, info('item'))
+    view.yank()
+    assert.equals('https://github.com/a/b/pull/71', vim.fn.getreg('"'))
+  end)
+
+  it('takes the register it was given', function()
+    vim.keymap.set('n', '<Plug>(forge-yank)', view.yank)
+    view.render(uri('issues'), { '#1 x' }, info('list'))
+    vim.cmd('normal "agy')
+    assert.equals('https://github.com/a/b/issues', vim.fn.getreg('a'))
+  end)
+end)
+
 describe('view.field', function()
   it('is empty for anything b:forge does not hold', function()
     vim.b.forge = { tag = '#7' }

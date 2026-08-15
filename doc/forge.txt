@@ -181,6 +181,7 @@ Highlighting uses builtin |group-name| groups only.
              <Plug>(forge-prev-page)   request list uses ]p and [p.
     ga       <Plug>(forge-create)      Start something new, on github.com.
     gX       <Plug>(forge-web)         Open this view on github.com.
+    gy       <Plug>(forge-yank)        Yank this view's URL.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
     dl       <Plug>(forge-log)         Its commits, in fugitive.
@@ -195,6 +196,7 @@ Highlighting uses builtin |group-name| groups only.
                                                      *<Plug>(forge-prev-page)*
                                                         *<Plug>(forge-create)*
                                                            *<Plug>(forge-web)*
+                                                          *<Plug>(forge-yank)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -214,7 +216,9 @@ start at the first line.
 is the one the view names rather than the current one, so a fork can propose a
 branch to what it forked.
 
-"gX" opens what the buffer shows, not what the cursor is on.
+"gX" opens what the buffer shows, not what the cursor is on, and "gy" yanks
+the URL it would have opened. "gy" takes the register it is given, so `"+gy`
+reaches the system clipboard.
 
 "dc", "dd" and "dl" are bound only in a pull request. "dc" and "dd" replace
 the view; ci.nvim returns with "-", and the way back from a diff is |CTRL-O|.
