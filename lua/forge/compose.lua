@@ -265,8 +265,7 @@ end
 --- @param found forge.Template?
 --- @param o forge.Open
 --- @param refs { head: string, base: string, default: string }? a pull request's branches
---- @param among integer how many templates there were to choose between
-local function open_buffer(u, found, o, refs, among)
+local function open_buffer(u, found, o, refs)
   view.place(o)
 
   local name = uri.tostring(u)
@@ -313,9 +312,6 @@ local function open_buffer(u, found, o, refs, among)
     view.hl('Tag', 'new'),
     view.hl('Directory', ('%s/%s'):format(view.escape(u.owner), view.escape(u.repo))),
   }
-  if found and among > 1 then
-    bar[#bar + 1] = view.hl('Comment', view.escape(found.name))
-  end
   if refs then
     bar[#bar + 1] = view.hl('Comment', view.escape(refs.head))
     if refs.base ~= refs.default then
@@ -353,7 +349,7 @@ local function choose(u, o, refs)
     log.warn(err)
   end
   if #found <= 1 then
-    return open_buffer(u, found[1], o, refs, #found)
+    return open_buffer(u, found[1], o, refs)
   end
 
   local choices = {}
@@ -366,7 +362,7 @@ local function choose(u, o, refs)
     if not index then
       return
     end
-    open_buffer(u, found[index], o, refs, #found)
+    open_buffer(u, found[index], o, refs)
   end)
 end
 
