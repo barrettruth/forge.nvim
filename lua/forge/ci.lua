@@ -4,14 +4,23 @@ local view = require('forge.view')
 
 local M = {}
 
---- ci.nvim, if it is installed.
+--- ci.nvim, if it is there to be used.
 ---
 --- An optional dependency. Forge delegates CI rather than drawing it, so the
 --- honest thing when there is nothing to delegate to is to say so.
+---
+--- Requiring the module is not enough to know that. What a handover needs is
+--- the `ci://` |BufReadCmd|, and that lives in ci.nvim's plugin file rather
+--- than its module: with one loaded and not the other, `:CI` would open a
+--- buffer nothing ever fills. The require comes first regardless, since for a
+--- lazily loaded plugin it is what sources the plugin file.
 --- @return table?
 function M.available()
   local ok, ci = pcall(require, 'ci')
-  return ok and ci or nil
+  if not ok or not vim.g.loaded_ci then
+    return nil
+  end
+  return ci
 end
 
 --- Hand this pull request to ci.nvim.
@@ -33,7 +42,7 @@ function M.checks()
 
   local ci = M.available()
   if not ci then
-    log.err('ci.nvim is not installed')
+    log.err('ci.nvim is not available')
     return
   end
 

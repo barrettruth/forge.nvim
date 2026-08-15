@@ -243,7 +243,11 @@ dc                      In a pull request, hand it to ci.nvim and show its
 
 `:checkhealth forge` reports the Neovim version, whether "gh" is present and
 authenticated, whether a yaml parser is available for issue forms, and whether
-ci.nvim is installed. The last two are warnings rather than errors: both are
+ci.nvim is loaded. The last two are warnings rather than errors: both are
 optional, and forge says which key stops working without them.
+
+ci.nvim counts as loaded only when its plugin file has been sourced, not
+merely when its module can be required: the "ci://" |BufReadCmd| lives in the
+former, and without it "dc" would open a buffer nothing ever fills.
 
  vim:tw=78:ts=8:ft=help:norl:

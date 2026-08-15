@@ -33,10 +33,10 @@ function M.check()
   end
 
   if require('forge.ci').available() then
-    vim.health.ok('ci.nvim found, so dc can show a pull request its checks')
+    vim.health.ok('ci.nvim loaded, so dc can show a pull request its checks')
   else
     vim.health.warn(
-      'ci.nvim not found, so dc has nothing to show checks with',
+      'ci.nvim not available, so dc has nothing to show checks with',
       'Optional. Install it from https://github.com/barrettruth/ci.nvim'
     )
   end
