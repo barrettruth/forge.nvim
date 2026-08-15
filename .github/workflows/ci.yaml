@@ -33,16 +33,10 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - run: nix develop .#ci --command just lint
 
+  # Only format and lint need the flake, for stylua, selene and the two language
+  # servers. The Neovim it pins is a stale nightly, so running the specs under it
+  # as well would be the nightly job again, a year late and ten times slower.
   test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
-      - run: nix develop .#ci --command just test
-
-  # The nix shell pins one Neovim; these are the two everyone else runs.
-  neovim:
     name: Test (Neovim ${{ matrix.nvim }})
     runs-on: ubuntu-latest
     strategy:
@@ -66,7 +60,7 @@ jobs:
   nightly:
     name: LuaRocks (nightly)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [format, lint, test, neovim]
+    needs: [format, lint, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +87,7 @@ jobs:
   release:
     name: LuaRocks (release)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [format, lint, test, neovim]
+    needs: [format, lint, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
