@@ -210,15 +210,15 @@ describe('a list github answered with', function()
     }
   end
 
-  local function show(state)
-    issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', state = state }, {})
+  local function show()
+    issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues' }, {})
   end
 
   it('lines the numbers up so the titles start in one column', function()
     answering(
       response({ { number = 7, title = 'short' }, { number = 1234, title = 'long' } }),
       function()
-        show('OPEN')
+        show()
       end
     )
     assert.same({ '#7    short', '#1234 long' }, drawn())
@@ -228,7 +228,7 @@ describe('a list github answered with', function()
     answering(
       response({ { number = 7, title = 'a title mentioning #12', state = 'OPEN' } }),
       function()
-        show('OPEN')
+        show()
       end
     )
     local buf = vim.api.nvim_get_current_buf()
@@ -241,31 +241,28 @@ describe('a list github answered with', function()
     assert.equals('OkMsg', marks[1][4].hl_group)
   end)
 
-  it('asks for every state unless the name names one', function()
+  it('asks github to filter nothing out', function()
     answering(response({ { number = 1, title = 'a', state = 'CLOSED' } }), function()
-      show(nil)
+      show()
     end)
     assert.is_nil(asked.states)
-    local _, info = drawn()
-    assert.equals('all', info.state)
   end)
 
-  it('says so, once, when a half of the collection is empty', function()
+  it('says so, once, when the collection is empty', function()
     answering(response({}), function()
-      show('CLOSED')
+      show()
     end)
-    assert.same({ 'No closed issues.' }, drawn())
+    assert.same({ 'No issues.' }, drawn())
   end)
 
   it('counts the pages from the total, not from what came back', function()
     answering(response({ { number = 1, title = 'a' } }, { totalCount = 250 }), function()
-      show('OPEN')
+      show()
     end)
     local _, info = drawn()
     assert.equals('list', info.kind)
     assert.equals('ISSUES', info.label)
     assert.equals('neovim/neovim', info.repo)
-    assert.equals('open', info.state)
     assert.equals('1/3', info.pages)
     assert.equals('250', info.total)
   end)
@@ -293,11 +290,11 @@ describe('a pull request list github answered with', function()
     end, vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true }))
   end
 
-  local function show(state)
-    pr.show({ owner = 'neovim', repo = 'neovim', collection = 'prs', state = state }, {})
+  local function show()
+    pr.show({ owner = 'neovim', repo = 'neovim', collection = 'prs' }, {})
   end
 
-  it('draws a merged number apart from a closed one, in the half holding both', function()
+  it('draws a merged number apart from a closed one', function()
     answering(
       response({
         { number = 1, title = 'landed', state = 'MERGED', isDraft = false },
@@ -305,7 +302,7 @@ describe('a pull request list github answered with', function()
         { number = 3, title = 'abandoned early', state = 'CLOSED', isDraft = true },
       }),
       function()
-        show('CLOSED')
+        show()
       end
     )
     assert.same({ 'Special', 'ErrorMsg', 'ErrorMsg' }, groups())
@@ -318,7 +315,7 @@ describe('a pull request list github answered with', function()
         { number = 4, title = 'not ready', state = 'OPEN', isDraft = true },
       }),
       function()
-        show('OPEN')
+        show()
       end
     )
     assert.same({ 'OkMsg', 'Normal' }, groups())

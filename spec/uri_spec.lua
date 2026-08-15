@@ -4,17 +4,15 @@ describe('uri.parse', function()
   it('reads every form it writes', function()
     for _, name in ipairs({
       'forge://neovim/neovim/issues',
-      'forge://neovim/neovim/issues/closed',
       'forge://neovim/neovim/issues/41310',
     }) do
       assert.equals(name, uri.tostring(assert(uri.parse(name))))
     end
   end)
 
-  it('tells a number from a state', function()
+  it('tells a list from an item by whether it is numbered', function()
     assert.equals(41310, assert(uri.parse('forge://a/b/issues/41310')).number)
-    assert.is_nil(assert(uri.parse('forge://a/b/issues/closed')).number)
-    assert.equals('CLOSED', assert(uri.parse('forge://a/b/issues/closed')).state)
+    assert.is_nil(assert(uri.parse('forge://a/b/issues')).number)
   end)
 
   it('refuses what it cannot address', function()
@@ -23,6 +21,7 @@ describe('uri.parse', function()
       'forge://owner',
       'forge://owner/repo',
       'forge://owner/repo/bogus',
+      'forge://owner/repo/issues/closed',
       'forge://owner/repo/issues/abc',
       'forge://owner/repo/issues/27/extra',
       'https://github.com/neovim/neovim/issues/1',
@@ -40,7 +39,6 @@ describe('uri.resolve', function()
       ['neovim/neovim#41310'] = 'forge://neovim/neovim/issues/41310',
       ['https://github.com/neovim/neovim/issues'] = 'forge://neovim/neovim/issues',
       ['https://github.com/neovim/neovim/issues/41310'] = 'forge://neovim/neovim/issues/41310',
-      ['forge://neovim/neovim/issues/closed'] = 'forge://neovim/neovim/issues/closed',
     }
     for target, want in pairs(cases) do
       local got, err = uri.resolve(target, 'issues')
@@ -122,11 +120,6 @@ describe('uri.of', function()
     )
   end)
 
-  it('keeps which half of a list the target asked for', function()
-    local t = { collection = 'prs', state = 'CLOSED' }
-    assert.equals('forge://a/b/prs/closed', uri.tostring(assert(uri.of('a/b', t))))
-  end)
-
   it("prefers github's spelling to the one that was typed", function()
     local t = { collection = 'issues', owner = 'Neovim', repo = 'Neovim' }
     assert.equals('forge://neovim/neovim/issues', uri.tostring(assert(uri.of('neovim/neovim', t))))
@@ -156,11 +149,10 @@ describe('gh.slug', function()
 end)
 
 describe('uri.web', function()
-  it('is github.com with the scheme swapped, except for a filter', function()
+  it('is github.com with the scheme swapped', function()
     local cases = {
       ['forge://neovim/neovim/issues'] = 'https://github.com/neovim/neovim/issues',
       ['forge://neovim/neovim/issues/41310'] = 'https://github.com/neovim/neovim/issues/41310',
-      ['forge://neovim/neovim/issues/closed'] = 'https://github.com/neovim/neovim/issues?q=is%3Aissue+is%3Aclosed',
     }
     for name, want in pairs(cases) do
       assert.equals(want, uri.web(assert(uri.parse(name))))
@@ -172,7 +164,6 @@ describe('uri for pull requests', function()
   it('uses our own word, and the same grammar as issues', function()
     for _, name in ipairs({
       'forge://neovim/neovim/prs',
-      'forge://neovim/neovim/prs/closed',
       'forge://neovim/neovim/prs/41138',
     }) do
       assert.equals(name, uri.tostring(assert(uri.parse(name))))

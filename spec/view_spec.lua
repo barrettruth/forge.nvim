@@ -1,7 +1,7 @@
 local view = require('forge.view')
 
 local function uri(collection, number)
-  return { owner = 'a', repo = 'b', collection = collection, number = number, state = 'OPEN' }
+  return { owner = 'a', repo = 'b', collection = collection, number = number }
 end
 
 --- @param kind 'list'|'item'
@@ -217,28 +217,6 @@ describe('where a list got to', function()
   end)
 end)
 
-describe('an item opened from a list', function()
-  it('remembers which half of the collection it came from', function()
-    local buf = view.render(
-      { owner = 'a', repo = 'b', collection = 'issues', number = 5, state = 'CLOSED' },
-      { 'x' },
-      info('item')
-    )
-    assert.equals('CLOSED', vim.b[buf].forge.from)
-  end)
-
-  it('does not forget it when refreshed by name', function()
-    local from_list =
-      { owner = 'a', repo = 'b', collection = 'issues', number = 6, state = 'CLOSED' }
-    local by_name = { owner = 'a', repo = 'b', collection = 'issues', number = 6 }
-
-    local buf = view.render(from_list, { 'x' }, info('item'))
-    view.render(by_name, { 'x again' }, info('item'))
-
-    assert.equals('CLOSED', vim.b[buf].forge.from)
-  end)
-end)
-
 describe('a capped connection', function()
   local log = require('forge.log')
 
@@ -289,10 +267,10 @@ describe("a view's winbar", function()
     assert.is_true(kept)
     assert.equals('ISSUE #1 OPEN x | a title', text)
 
-    view.render(uri('issues'), { '#1 x' }, info('list', { state = 'open', total = '124' }))
+    view.render(uri('issues'), { '#1 x' }, info('list', { total = '124' }))
     text, kept = drawn()
     assert.is_true(kept)
-    assert.equals('ISSUES a/b open 1/1 (124)', text)
+    assert.equals('ISSUES a/b 1/1 (124)', text)
   end)
 
   it('survives a shape it was not given, rather than emptying itself', function()

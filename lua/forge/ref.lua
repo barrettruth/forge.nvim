@@ -85,7 +85,6 @@ function M.include(fname)
     repo = t.repo or here.repo,
     collection = t.collection,
     number = t.number,
-    state = t.state,
   }
   return uri.tostring(there)
 end

@@ -9,16 +9,13 @@ local NS = vim.api.nvim_create_namespace('forge')
 
 --- What a view buffer remembers about itself, and what a reader may rely on.
 ---
---- Kept in `b:forge` because all of it is worth seeing: which half of a list
---- an item came from, and the branches a pull request joins. Bookkeeping that
---- would mean nothing to a reader is not here — see `paged` below.
+--- Kept in `b:forge` because all of it is worth seeing: the state an item is
+--- in, and the branches a pull request joins. Bookkeeping that would mean
+--- nothing to a reader is not here — see `paged` below.
 --- @class forge.BufVar
 --- @field kind 'list'|'item' which of the two shapes a view has
 --- @field label string what the winbar calls it
 --- @field repo string "owner/repo"
---- @field state string the state to show, as a person reads it
---- @field state_hl string the group that state is drawn in
---- @field from 'OPEN'|'CLOSED'? which half of the list an item was opened from
 
 --- Split from the shape above rather than made optional on it: a winbar needs
 --- the whole of its own half, and one class of optionals says a partial table
@@ -31,6 +28,8 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @class forge.ItemVar : forge.BufVar
 --- @field tag string "#27"
 --- @field title string
+--- @field state string the state to show, as a person reads it
+--- @field state_hl string the group that state is drawn in
 --- @field badges string winbar segments an item adds, already highlighted
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
@@ -75,8 +74,6 @@ local WINBAR = {
     .. '%* %#Directory#'
     .. at('repo')
     .. '%* '
-    .. STATE
-    .. ' '
     .. at('pages')
     .. ' %#Comment#('
     .. at('total')
@@ -374,9 +371,6 @@ function M.render(u, lines, info, marks, maps, o)
     })
   end
 
-  --- @type forge.BufVar
-  local prev = vim.b[buf].forge or {}
-  info.from = (u.number and u.state) or prev.from
   vim.b[buf].forge = info
 
   map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
@@ -460,24 +454,13 @@ end
 
 --- Leave an item for the list it belongs to.
 ---
---- Which half of the collection that is cannot be read off an item's name, so
---- an item opened from a list remembers where it came from. One opened by
---- name came from nowhere, and goes to the open list.
----
 --- A list is the top: there is nothing above a list to go up to.
 function M.up()
   local u = M.current()
   if not u or not u.number then
     return
   end
-  --- @type forge.BufVar
-  local came_from = vim.b[vim.api.nvim_get_current_buf()].forge or {}
-  M.open({
-    owner = u.owner,
-    repo = u.repo,
-    collection = u.collection,
-    state = came_from.from or 'OPEN',
-  }, { keep = true })
+  M.open({ owner = u.owner, repo = u.repo, collection = u.collection }, { keep = true })
 end
 
 --- Fetch this view again, where it stands.
@@ -584,7 +567,6 @@ function M.open_at_cursor(split)
     repo = u.repo,
     collection = u.collection,
     number = tonumber(number),
-    state = u.state,
   }, { keep = true, split = split })
 end
 

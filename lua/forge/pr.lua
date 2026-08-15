@@ -8,15 +8,10 @@ local view = require('forge.view')
 local M = {}
 
 local LIST_QUERY = [[
-query($owner: String!, $repo: String!, $states: [PullRequestState!], $after: String) {
+query($owner: String!, $repo: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
-    pullRequests(
-      first: 100
-      states: $states
-      after: $after
-      orderBy: {field: UPDATED_AT, direction: DESC}
-    ) {
+    pullRequests(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       totalCount
       pageInfo { hasNextPage endCursor }
       nodes { number title state isDraft }
@@ -77,9 +72,6 @@ local PRS = {
   list_key = 'pullRequests',
   item_query = PR_QUERY,
   list_query = LIST_QUERY,
-  --- A closed pull request is either closed or merged, which is the split
-  --- github's own Closed tab makes.
-  states = { OPEN = 'OPEN', CLOSED = { 'CLOSED', 'MERGED' } },
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.
   state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = 'Normal' },
   list_maps = {

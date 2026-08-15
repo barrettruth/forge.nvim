@@ -4,15 +4,10 @@ local view = require('forge.view')
 local M = {}
 
 local LIST_QUERY = [[
-query($owner: String!, $repo: String!, $states: [IssueState!], $after: String) {
+query($owner: String!, $repo: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
-    issues(
-      first: 100
-      states: $states
-      after: $after
-      orderBy: {field: UPDATED_AT, direction: DESC}
-    ) {
+    issues(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       totalCount
       pageInfo { hasNextPage endCursor }
       nodes { number title state }
@@ -49,7 +44,6 @@ local ISSUES = {
   list_key = 'issues',
   item_query = ISSUE_QUERY,
   list_query = LIST_QUERY,
-  states = { OPEN = 'OPEN', CLOSED = 'CLOSED' },
   state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg' },
   list_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the issue under the cursor' },
