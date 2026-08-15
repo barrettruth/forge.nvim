@@ -80,6 +80,22 @@ vim.api.nvim_create_autocmd('BufReadCmd', {
   end,
 })
 
+vim.api.nvim_create_autocmd('BufLeave', {
+  group = group,
+  pattern = 'forge://*',
+  callback = function(args)
+    require('forge.view').remember(args.buf)
+  end,
+})
+
+vim.api.nvim_create_autocmd('BufWipeout', {
+  group = group,
+  pattern = 'forge://*',
+  callback = function(args)
+    require('forge.view').forget(args.buf)
+  end,
+})
+
 -- 'winbar' is a window option, so a view shown in a second window would lose
 -- the one set when it was drawn.
 vim.api.nvim_create_autocmd('BufWinEnter', {
