@@ -161,14 +161,20 @@ it, and a mapping of your own may read it: >
     repo       "owner/repo"
     state      the state as shown, e.g. "OPEN", "MERGED", "open"
     state_hl   the highlight group that state is drawn in
-    tag        an item's number, e.g. "#41138"
-    title      an item's title
-    badges     an item's extra winbar segments
-    pages      which page of a list, e.g. "1/3"
+<
+In a list, and only in one: >
+
+    pages      which page you are on, e.g. "1/3"
     total      how many the list holds in all
-    from       which half of a list an item was opened from
-    base       the branch a pull request merges into
-    head       the branch a pull request merges from
+<
+In an item, and only in one. The last two are a pull request's: >
+
+    tag        its number, e.g. "#41138"
+    title      its title
+    badges     its extra winbar segments
+    from       which half of a list it was opened from
+    base       the branch it merges into
+    head       the branch it merges from
 <
 Every view sets a 'winbar' saying what it is and where in it you are: >
 
