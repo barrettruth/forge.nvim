@@ -34,6 +34,10 @@ vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.view').web()
 end, { desc = 'open this view on github.com' })
 
+vim.keymap.set('n', '<Plug>(forge-checks)', function()
+  require('forge.ci').checks()
+end, { desc = "show this pull request's checks in ci.nvim" })
+
 vim.keymap.set('n', '<Plug>(forge-next-page)', function()
   require('forge.view').page(1)
 end, { desc = 'the next page' })

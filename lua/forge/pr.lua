@@ -74,6 +74,13 @@ local STATE_HL = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAF
 --- github's own Closed tab makes.
 local STATES = { OPEN = 'OPEN', CLOSED = { 'CLOSED', 'MERGED' } }
 
+--- A pull request is the only view with checks behind it, so "dc" is bound
+--- here rather than everywhere. An issue has no CI, and a key that exists only
+--- to refuse is worse than no key.
+local ITEM_MAPS = {
+  { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
+}
+
 local LIST_MAPS = {
   { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
   { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
@@ -194,7 +201,7 @@ local function open_pr(t, o)
     }, ' ')
 
     view.place(o)
-    view.render(u, lines, winbar)
+    view.render(u, lines, winbar, nil, ITEM_MAPS)
     view.check_truncated(pr.comments, 'comments')
   end)
 end

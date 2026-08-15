@@ -11,17 +11,16 @@ function M.check()
 
   if vim.fn.executable('gh') == 0 then
     vim.health.error('gh not found', 'Install the GitHub CLI: https://cli.github.com')
-    return
-  end
-
-  local version = vim.system({ 'gh', '--version' }, { text = true }):wait()
-  vim.health.ok(vim.split(vim.trim(version.stdout), '\n')[1])
-
-  local auth = vim.system({ 'gh', 'auth', 'status' }, { text = true }):wait()
-  if auth.code == 0 then
-    vim.health.ok('gh is authenticated')
   else
-    vim.health.error('gh is not authenticated', 'Run: gh auth login')
+    local version = vim.system({ 'gh', '--version' }, { text = true }):wait()
+    vim.health.ok(vim.split(vim.trim(version.stdout), '\n')[1])
+
+    local auth = vim.system({ 'gh', 'auth', 'status' }, { text = true }):wait()
+    if auth.code == 0 then
+      vim.health.ok('gh is authenticated')
+    else
+      vim.health.error('gh is not authenticated', 'Run: gh auth login')
+    end
   end
 
   if pcall(vim.treesitter.get_string_parser, '', 'yaml') then
@@ -30,6 +29,15 @@ function M.check()
     vim.health.warn(
       'no yaml parser, so issue forms will be skipped',
       'Install one, for example :TSInstall yaml. Markdown templates still work.'
+    )
+  end
+
+  if require('forge.ci').available() then
+    vim.health.ok('ci.nvim found, so dc can show a pull request its checks')
+  else
+    vim.health.warn(
+      'ci.nvim not found, so dc has nothing to show checks with',
+      'Optional. Install it from https://github.com/barrettruth/ci.nvim'
     )
   end
 end
