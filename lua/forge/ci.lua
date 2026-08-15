@@ -51,7 +51,7 @@ function M.checks()
   end
 
   local from = uri.tostring(u)
-  ci.run(uri.web(u))
+  ci.run(view.field('url'))
 
   local buf = vim.api.nvim_get_current_buf()
   if vim.api.nvim_buf_get_name(buf) ~= from then

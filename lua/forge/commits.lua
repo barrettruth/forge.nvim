@@ -33,7 +33,7 @@ function M.show()
   local buf = vim.api.nvim_get_current_buf()
   --- @type forge.ItemVar
   local refs = vim.b[buf].forge or {}
-  if not refs.base then
+  if not refs.base or not refs.remote then
     log.err('this pull request did not say what it merges into')
     return
   end
@@ -49,8 +49,7 @@ function M.show()
   vim.b[buf].git_dir = git_dir
 
   local from = vim.api.nvim_get_current_win()
-  local url = ('https://github.com/%s/%s'):format(u.owner, u.repo)
-  vcs.fetch_pull(dir, url, u.number, refs.base, function(base, head)
+  vcs.fetch_pull(dir, refs.remote, u.number, refs.base, function(base, head)
     if vim.api.nvim_win_is_valid(from) then
       vim.api.nvim_set_current_win(from)
     end

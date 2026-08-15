@@ -23,13 +23,10 @@ local M = {}
 
 local SCHEME = 'forge://'
 
---- github.com's own path segments, which forge does not borrow. Theirs are
---- plural for an issue list and a single issue, plural for a pull request
---- list and singular for a single pull request; ours are always "prs".
-local WEB = {
-  issues = { list = 'issues', member = 'issues' },
-  prs = { list = 'pulls', member = 'pull' },
-}
+--- What a forge:// name may hold. github's own spelling of these — plural for
+--- a pull request list and singular for one of them — is never needed here: a
+--- view carries the url github gave it.
+local COLLECTIONS = { issues = true, prs = true }
 
 --- The view a response describes, named by the repository github answered for.
 ---
@@ -63,22 +60,6 @@ function M.tostring(uri)
   return base
 end
 
---- The github.com page a view corresponds to.
----
---- Close to the path with the scheme swapped, but not a translation forge
---- avoids: github names a single pull request in the singular, and calls the
---- collection "pulls".
---- @param uri forge.Uri
---- @return string
-function M.web(uri)
-  local base = ('https://github.com/%s/%s'):format(uri.owner, uri.repo)
-  local web = WEB[uri.collection]
-  if uri.number then
-    return ('%s/%s/%d'):format(base, web.member, uri.number)
-  end
-  return ('%s/%s'):format(base, web.list)
-end
-
 --- @param str string
 --- @return forge.Uri?
 function M.parse(str)
@@ -88,7 +69,7 @@ function M.parse(str)
   end
 
   local owner, repo, collection, number = rest:match('^([^/]+)/([^/]+)/(%a+)/(%d+)$')
-  if owner and WEB[collection] then
+  if owner and COLLECTIONS[collection] then
     return {
       owner = owner,
       repo = repo,
@@ -98,7 +79,7 @@ function M.parse(str)
   end
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')
-  if owner and WEB[collection] then
+  if owner and COLLECTIONS[collection] then
     return { owner = owner, repo = repo, collection = collection }
   end
 

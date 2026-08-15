@@ -12,6 +12,7 @@ local function info(kind, over)
     kind = kind,
     label = kind == 'item' and 'ISSUE' or 'ISSUES',
     repo = 'a/b',
+    url = 'https://github.com/a/b',
     state = 'OPEN',
     state_hl = 'OkMsg',
     tag = '#1',
@@ -302,16 +303,17 @@ describe('view.yank', function()
   end)
 
   it('yanks what the buffer shows, not what the cursor is on', function()
-    view.render(uri('prs', 71), { '#70 another' }, info('item'))
+    local url = 'https://github.example.com/a/b/pull/71'
+    view.render(uri('prs', 71), { '#70 another' }, info('item', { url = url }))
     view.yank()
-    assert.equals('https://github.com/a/b/pull/71', vim.fn.getreg('"'))
+    assert.equals(url, vim.fn.getreg('"'))
   end)
 
   it('takes the register it was given', function()
     vim.keymap.set('n', '<Plug>(forge-yank)', view.yank)
     view.render(uri('issues'), { '#1 x' }, info('list'))
     vim.cmd('normal "agy')
-    assert.equals('https://github.com/a/b/issues', vim.fn.getreg('a'))
+    assert.equals('https://github.com/a/b', vim.fn.getreg('a'))
   end)
 end)
 

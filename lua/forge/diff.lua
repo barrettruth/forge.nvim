@@ -50,14 +50,13 @@ function M.show()
 
   --- @type forge.ItemVar
   local refs = vim.b[vim.api.nvim_get_current_buf()].forge or {}
-  if not refs.base then
+  if not refs.base or not refs.remote then
     log.err('this pull request did not say what it merges into')
     return
   end
 
   local from = vim.api.nvim_get_current_win()
-  local url = ('https://github.com/%s/%s'):format(u.owner, u.repo)
-  vcs.fetch_pull(vcs.dir(), url, u.number, refs.base, function(base, head)
+  vcs.fetch_pull(vcs.dir(), refs.remote, u.number, refs.base, function(base, head)
     require('diffs').open_review({
       base = base,
       target = head,

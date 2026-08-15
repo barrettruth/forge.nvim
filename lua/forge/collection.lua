@@ -19,6 +19,7 @@ local M = {}
 --- @field list_title string what the winbar calls the list
 --- @field item_key string the response field holding one
 --- @field list_key string the response field holding the connection
+--- @field list_path string what github calls the list in a url
 --- @field item_query string
 --- @field list_query string
 --- @field state_hl table<string, string>
@@ -28,7 +29,8 @@ local M = {}
 --- @field header? fun(node: table): string[] extra lines under State
 --- @field badges? fun(node: table): string[] extra winbar segments
 --- @field stat? fun(node: table): string[] winbar segments for the right edge
---- @field remember? fun(node: table): table what the buffer should keep of it
+--- @field remember? fun(node: table, repo: table): table what the buffer should
+--- keep of it
 
 --- Draw a page of `spec`'s list.
 --- @param spec forge.Spec
@@ -90,6 +92,7 @@ function M.list(spec, t, o)
       kind = 'list',
       label = spec.list_title,
       repo = ('%s/%s'):format(u.owner, u.repo),
+      url = ('%s/%s'):format(data.repository.url, spec.list_path),
       pages = ('%d/%d'):format(page, last),
       total = tostring(total),
     }
@@ -155,6 +158,7 @@ function M.item(spec, t, o)
       kind = 'item',
       label = spec.item_title,
       repo = ('%s/%s'):format(u.owner, u.repo),
+      url = node.url,
       state = state,
       state_hl = spec.state_hl[state] or 'Normal',
       tag = '#' .. node.number,
@@ -163,7 +167,7 @@ function M.item(spec, t, o)
       stat = table.concat(stat, ' '),
     }
     if spec.remember then
-      info = vim.tbl_extend('force', info, spec.remember(node))
+      info = vim.tbl_extend('force', info, spec.remember(node, data.repository))
     end
 
     view.place(o)

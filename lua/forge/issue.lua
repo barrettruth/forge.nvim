@@ -7,6 +7,7 @@ local LIST_QUERY = [[
 query($owner: String!, $repo: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
+    url
     issues(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       totalCount
       pageInfo { hasNextPage endCursor }
@@ -21,7 +22,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
     issue(number: $number) {
-      number title state stateReason body createdAt
+      number title state stateReason body createdAt url
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
@@ -51,6 +52,7 @@ local ISSUES = {
   list_title = 'ISSUES',
   item_key = 'issue',
   list_key = 'issues',
+  list_path = 'issues',
   item_query = ISSUE_QUERY,
   list_query = LIST_QUERY,
   --- CLOSED is the fallback for one github gave no reason, which it backfilled

@@ -148,18 +148,6 @@ describe('gh.slug', function()
   end)
 end)
 
-describe('uri.web', function()
-  it('is github.com with the scheme swapped', function()
-    local cases = {
-      ['forge://neovim/neovim/issues'] = 'https://github.com/neovim/neovim/issues',
-      ['forge://neovim/neovim/issues/41310'] = 'https://github.com/neovim/neovim/issues/41310',
-    }
-    for name, want in pairs(cases) do
-      assert.equals(want, uri.web(assert(uri.parse(name))))
-    end
-  end)
-end)
-
 describe('uri for pull requests', function()
   it('uses our own word, and the same grammar as issues', function()
     for _, name in ipairs({
@@ -168,17 +156,6 @@ describe('uri for pull requests', function()
     }) do
       assert.equals(name, uri.tostring(assert(uri.parse(name))))
     end
-  end)
-
-  it('follows github into the singular only on the web', function()
-    assert.equals(
-      'https://github.com/neovim/neovim/pull/41138',
-      uri.web(assert(uri.parse('forge://neovim/neovim/prs/41138')))
-    )
-    assert.equals(
-      'https://github.com/neovim/neovim/pulls',
-      uri.web(assert(uri.parse('forge://neovim/neovim/prs')))
-    )
   end)
 
   it('believes a target that names its own collection', function()

@@ -131,13 +131,14 @@ it, and a user mapping may read it. Present in both shapes: >
     kind       "list" or "item"
     label      what the winbar calls it, e.g. "PR"
     repo       "owner/repo"
+    url        the address github gave it
 <
 In a list, and only in one: >
 
     pages      the current page, e.g. "1/3"
     total      how many the list holds in all
 <
-In an item, and only in one. The last two are a pull request's: >
+In an item, and only in one. The last three are a pull request's: >
 
     tag        its number, e.g. "#41138"
     title      its title
@@ -147,6 +148,7 @@ In an item, and only in one. The last two are a pull request's: >
     stat       what it measures, drawn against the right edge
     base       the branch it merges into
     head       the branch it merges from
+    remote     the repository "dd" and "dl" fetch it from
 <
 Every view sets a 'winbar': >
 

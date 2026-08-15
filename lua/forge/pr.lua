@@ -11,6 +11,7 @@ local LIST_QUERY = [[
 query($owner: String!, $repo: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
+    url
     pullRequests(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       totalCount
       pageInfo { hasNextPage endCursor }
@@ -46,8 +47,9 @@ local PR_QUERY = [[
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     nameWithOwner
+    url
     pullRequest(number: $number) {
-      number title state body createdAt isDraft mergeable
+      number title state body createdAt isDraft mergeable url
       additions deletions changedFiles
       baseRefName headRefName
       author { login }
@@ -87,6 +89,7 @@ local PRS = {
   list_title = 'PRS',
   item_key = 'pullRequest',
   list_key = 'pullRequests',
+  list_path = 'pulls',
   item_query = PR_QUERY,
   list_query = LIST_QUERY,
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.
@@ -111,9 +114,10 @@ local PRS = {
     { 'dl', '<Plug>(forge-log)', "show this pull request's commits in fugitive" },
   },
   --- Which branches it joins cannot be read back off the view, and "dd" needs
-  --- them to ask diffs.nvim for the right merge base.
-  remember = function(node)
-    return { base = node.baseRefName, head = node.headRefName }
+  --- them to ask diffs.nvim for the right merge base. The repository github
+  --- named is what "dd" and "dl" fetch from, so it comes too.
+  remember = function(node, repo)
+    return { base = node.baseRefName, head = node.headRefName, remote = repo.url }
   end,
   --- Draft is a flag on an open pull request, and github leaves it set when
   --- one is closed; a closed draft is closed.

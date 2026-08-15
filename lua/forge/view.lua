@@ -16,6 +16,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field kind 'list'|'item' which of the two shapes a view has
 --- @field label string what the winbar calls it
 --- @field repo string "owner/repo"
+--- @field url string the address github gave it, on whichever host answered
 
 --- Split from the shape above rather than made optional on it: a winbar needs
 --- the whole of its own half, and one class of optionals says a partial table
@@ -24,7 +25,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field pages string "1/2"
 --- @field total string how many the list holds in all
 
---- The last two are a pull request's; an issue joins no branches.
+--- The last three are a pull request's; an issue joins no branches.
 --- @class forge.ItemVar : forge.BufVar
 --- @field tag string "#27"
 --- @field title string
@@ -34,6 +35,7 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field stat string what it measures, drawn against the right edge
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
+--- @field remote string? the repository "dd" and "dl" fetch a pull request from
 
 --- Read one field of `b:forge`, for the templates below to call.
 ---
@@ -538,22 +540,21 @@ end
 --- What the buffer shows, not what the cursor is on: the buffer already knows
 --- what it is, and <CR> is how you follow a line.
 function M.web()
-  local u = M.current()
-  if not u then
+  local url = M.field('url')
+  if url == '' then
     log.warn('no url for this buffer')
     return
   end
-  vim.ui.open(uri.web(u))
+  vim.ui.open(url)
 end
 
 --- Yank this view's URL.
 function M.yank()
-  local u = M.current()
-  if not u then
+  local url = M.field('url')
+  if url == '' then
     log.warn('no url for this buffer')
     return
   end
-  local url = uri.web(u)
   vim.fn.setreg(vim.v.register, url, 'v')
   log.info(url)
 end
