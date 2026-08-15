@@ -48,7 +48,7 @@ function M.show()
     return
   end
 
-  --- @type forge.BufVar
+  --- @type forge.ItemVar
   local refs = vim.b[vim.api.nvim_get_current_buf()].forge or {}
   if not refs.base then
     log.err('this pull request did not say what it merges into')

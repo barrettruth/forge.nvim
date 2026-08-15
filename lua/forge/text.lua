@@ -1,5 +1,6 @@
 local M = {}
 
+--- github's timestamps are UTC; `os.time` reads a table as local.
 --- @param t osdateparam
 --- @return integer
 local function from_utc(t)
@@ -9,6 +10,7 @@ local function from_utc(t)
   return math.floor(guess + os.difftime(guess, os.time(round_tripped)))
 end
 
+--- Midday, so that two of these subtract to calendar days and not 24-hour spans.
 --- @param epoch integer
 --- @return integer
 local function noon(epoch)

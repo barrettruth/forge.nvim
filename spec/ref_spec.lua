@@ -21,6 +21,9 @@ local function inside(collection)
     repo = 'a/b',
     state = 'OPEN',
     state_hl = 'OkMsg',
+    tag = '#1',
+    title = '',
+    badges = '',
   })
   vim.api.nvim_win_set_buf(0, buf)
 end
@@ -132,6 +135,9 @@ describe('a rendered buffer', function()
       repo = 'a/b',
       state = 'OPEN',
       state_hl = 'OkMsg',
+      tag = '#5',
+      title = '',
+      badges = '',
     })
     assert.equals('v:lua.require("forge.ref").include(v:fname)', vim.bo[buf].includeexpr)
   end)

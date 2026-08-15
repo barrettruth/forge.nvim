@@ -18,25 +18,72 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field repo string "owner/repo"
 --- @field state string the state to show, as a person reads it
 --- @field state_hl string the group that state is drawn in
---- @field tag string? "#27", for an item
---- @field title string? an item's title
---- @field badges string? winbar segments an item adds, already highlighted
---- @field pages string? "1/2", for a list
---- @field total string? how many a list holds in all
 --- @field from 'OPEN'|'CLOSED'? which half of the list an item was opened from
+
+--- Split from the shape above rather than made optional on it: a winbar needs
+--- the whole of its own half, and one class of optionals says a partial table
+--- is allowed.
+--- @class forge.ListVar : forge.BufVar
+--- @field pages string "1/2"
+--- @field total string how many the list holds in all
+
+--- The last two are a pull request's; an issue joins no branches.
+--- @class forge.ItemVar : forge.BufVar
+--- @field tag string "#27"
+--- @field title string
+--- @field badges string winbar segments an item adds, already highlighted
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
 
-local STATE = [[%{%'%#' .. b:forge.state_hl .. '#' .. b:forge.state .. '%*'%}]]
+--- Read one field of `b:forge`, for the templates below to call.
+---
+--- They never index `b:forge` themselves. A missing key raises E716 out of a
+--- redraw, and Neovim answers an error in a 'winbar' by emptying the option,
+--- so one field got wrong costs the view the only thing naming it — again on
+--- every redraw. Read through here it costs a blank.
+--- @param field string
+--- @return string
+function M.field(field)
+  local var = vim.b.forge
+  local value = type(var) == 'table' and var[field] or nil
+  return value == nil and '' or tostring(value)
+end
 
+--- @param field string
+--- @return string the expression reading it
+local function call(field)
+  return ('v:lua.require("forge.view").field("%s")'):format(field)
+end
+
+--- @param field string
+--- @return string a plain `%{}` item, which is not re-parsed
+local function at(field)
+  return '%{' .. call(field) .. '}'
+end
+
+--- `%{%…%}` is re-parsed as format items, so only closed sets forge writes may
+--- go through it. Every other field is user text, and uses plain `%{}`.
+local STATE = "%{%'%#' .. " .. call('state_hl') .. " .. '#' .. " .. call('state') .. " .. '%*'%}"
+
+--- A template over `b:forge`, as ci.nvim's is, rather than a rendered string:
+--- `%{}` evaluates against the window being drawn, so a second window showing
+--- a view cannot go stale.
 --- @type table<'list'|'item', string>
 local WINBAR = {
-  list = [[%#Title#%{b:forge.label}%* %#Directory#%{b:forge.repo}%* ]]
+  list = '%#Title#'
+    .. at('label')
+    .. '%* %#Directory#'
+    .. at('repo')
+    .. '%* '
     .. STATE
-    .. [[ %{b:forge.pages} %#Comment#(%{b:forge.total})%*]],
-  item = [[%#Title#%{b:forge.label}%* %#Tag#%{b:forge.tag}%* ]]
-    .. STATE
-    .. [[%{%b:forge.badges%}%( | %{b:forge.title}%)%<]],
+    .. ' '
+    .. at('pages')
+    .. ' %#Comment#('
+    .. at('total')
+    .. ')%*',
+  item = '%#Title#' .. at('label') .. '%* %#Tag#' .. at('tag') .. '%* ' .. STATE .. '%{%' .. call(
+    'badges'
+  ) .. '%}%( | ' .. at('title') .. '%)%<',
 }
 
 --- Where a view was last being read, kept for buffers no window is showing.
@@ -56,6 +103,8 @@ local placed = {}
 --- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean }>
 local pages = {}
 
+--- Replies do not come back in the order they were asked for: the counter says
+--- which is still wanted, the table stops an overtaken one painting over it.
 --- @type integer
 local seq = 0
 
@@ -126,6 +175,8 @@ function M.hl(group, text)
   return ('%%#%s#%s%%*'):format(group, text)
 end
 
+--- An overtaken reply still draws into its own buffer; it may not take the
+--- window, because the answer to a later question is already there.
 --- @param o forge.Open?
 --- @return boolean
 function M.newest(o)
@@ -168,6 +219,8 @@ function M.buffer_named(name)
   end
 end
 
+--- Say a view is being fetched again, and return how to stop saying it. Only
+--- one already on screen can: a buffer that does not exist yet has no 'busy'.
 --- @param t forge.Target
 --- @return fun()
 function M.busy(t)
@@ -224,6 +277,9 @@ function M.place(o)
   M.split_for(o)
 end
 
+--- Window options do not follow a buffer into a second window, so they are set
+--- wherever a view turns up. The `vim.wo[win][0]` scope, which core's own
+--- ftplugins use, is what gives them back when the window shows something else.
 --- @param buf integer
 --- @param win integer
 function M.dress(buf, win)
@@ -269,7 +325,7 @@ end
 --- handle held by a caller stays valid across a refresh.
 --- @param u forge.Uri
 --- @param lines string[]
---- @param info forge.BufVar
+--- @param info forge.ListVar|forge.ItemVar
 --- @param marks forge.Mark[]?
 --- @param maps [string, string, string][]? extra mappings, as lhs/plug/desc
 --- @param o forge.Open? whose `keep` says whether this is a redraw of what
