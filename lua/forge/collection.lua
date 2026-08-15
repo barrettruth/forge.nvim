@@ -88,7 +88,7 @@ function M.list(spec, t, o)
     }, ' ')
 
     view.place(o)
-    local buf = view.render(u, lines, winbar, marks, spec.list_maps)
+    local buf = view.render(u, lines, winbar, marks, spec.list_maps, o)
     if info.hasNextPage and info.endCursor then
       cursors[page + 1] = info.endCursor
     end
@@ -146,7 +146,7 @@ function M.item(spec, t, o)
     vim.list_extend(segments, (spec.badges and spec.badges(node)) or {})
 
     view.place(o)
-    local buf = view.render(u, lines, table.concat(segments, ' '), nil, spec.item_maps)
+    local buf = view.render(u, lines, table.concat(segments, ' '), nil, spec.item_maps, o)
     if spec.remember then
       vim.b[buf].forge = vim.tbl_extend('force', vim.b[buf].forge or {}, spec.remember(node))
     end

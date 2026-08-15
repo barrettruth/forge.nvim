@@ -71,6 +71,7 @@ local OTHER = {
 --- @field mods string? see |:command-modifiers|
 --- @field smods table?
 --- @field cwd string? the directory the request is made from
+--- @field keep boolean? this is the content you were already reading
 
 --- The repository a target names, for saying out loud while it is in flight.
 --- @param t forge.Target
@@ -190,23 +191,25 @@ end
 --- @param winbar string
 --- @param marks forge.Mark[]?
 --- @param maps [string, string, string][]? extra mappings, as lhs/plug/desc
+--- @param o forge.Open? whose `keep` says whether this is a redraw of what
+--- was already being read, rather than different content under the same name
 --- @return integer buf
-function M.render(u, lines, winbar, marks, maps)
+function M.render(u, lines, winbar, marks, maps, o)
   local name = uri.tostring(u)
   local buf = M.buffer_named(name)
-  local first = not buf
+  local keep = buf ~= nil and o ~= nil and o.keep == true
   if not buf then
     buf = vim.api.nvim_create_buf(true, true)
     vim.api.nvim_buf_set_name(buf, name)
   end
 
   local looking = {}
-  if not first then
+  if keep then
     for _, win in ipairs(vim.fn.win_findbuf(buf)) do
       looking[#looking + 1] = { win = win, view = vim.api.nvim_win_call(win, vim.fn.winsaveview) }
     end
   end
-  local hidden = #looking == 0 and placed[buf] or nil
+  local hidden = keep and #looking == 0 and placed[buf] or nil
 
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -235,7 +238,7 @@ function M.render(u, lines, winbar, marks, maps)
   end
 
   vim.api.nvim_win_set_buf(0, buf)
-  if first then
+  if not keep then
     vim.api.nvim_win_set_cursor(0, { 1, 0 })
   elseif hidden then
     vim.fn.winrestview(hidden)
@@ -309,7 +312,7 @@ function M.up()
     repo = u.repo,
     collection = u.collection,
     state = came_from.state or 'OPEN',
-  })
+  }, { keep = true })
 end
 
 --- Fetch this view again, where it stands.
@@ -322,11 +325,11 @@ function M.refresh()
     return
   end
   if u.number then
-    M.open(u)
+    M.open(u, { keep = true })
     return
   end
   local paging = M.paging(vim.api.nvim_get_current_buf())
-  M.open(u, { page = paging.page, cursors = paging.cursors })
+  M.open(u, { page = paging.page, cursors = paging.cursors, keep = true })
 end
 
 --- Open this view on github.com.
@@ -396,7 +399,7 @@ function M.open_at_cursor(split)
     collection = u.collection,
     number = tonumber(number),
     state = u.state,
-  })
+  }, { keep = true })
 end
 
 --- Warn when a connection came back truncated.
