@@ -78,6 +78,18 @@ mutation($id: ID!) {
 }
 ]]
 
+local CLOSE = [[
+mutation($id: ID!) {
+  closePullRequest(input: {pullRequestId: $id}) { clientMutationId }
+}
+]]
+
+local REOPEN = [[
+mutation($id: ID!) {
+  reopenPullRequest(input: {pullRequestId: $id}) { clientMutationId }
+}
+]]
+
 --- What a rollup state is worth saying, and how. A repository with no checks
 --- has no rollup at all, and one that passed has nothing to report.
 local CHECKS = {
@@ -212,6 +224,28 @@ local ACTIONS = {
       mutate(var, READY, ('%s ready for review'):format(var.tag))
     end,
   },
+  --- After the reversible one, so a mistyped pick is the harmless one.
+  {
+    label = 'Close pull request',
+    when = function(var)
+      return (var.state == 'OPEN' or var.state == 'DRAFT') and var.can_update == true
+    end,
+    run = function(var)
+      mutate(var, CLOSE, ('%s closed'):format(var.tag))
+    end,
+  },
+  --- `viewerCanReopen` is deliberately not asked for. It is false once the head
+  --- branch is gone, but an empty menu cannot say that, and github's own
+  --- refusal names the branch.
+  {
+    label = 'Reopen pull request',
+    when = function(var)
+      return var.state == 'CLOSED' and var.can_update == true
+    end,
+    run = function(var)
+      mutate(var, REOPEN, ('%s reopened'):format(var.tag))
+    end,
+  },
 }
 
 --- What this pull request can be asked to do, as it stands.
@@ -228,8 +262,14 @@ end
 function M.act()
   local var = vim.b.forge or {}
   local can = M.actions(var)
+  --- Refused and finished are different things: one is worth a warning, the
+  --- other is just how a merged pull request is.
   if #can == 0 then
-    log.info(('nothing to do to a %s pull request'):format((var.state or '?'):lower()))
+    if var.can_update == false then
+      log.warn('github does not let you change this pull request')
+    else
+      log.info(('nothing to do to a %s pull request'):format((var.state or '?'):lower()))
+    end
     return
   end
   vim.ui.select(can, {

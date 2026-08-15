@@ -327,19 +327,20 @@ describe('what a pull request can be asked to do', function()
     end, pr.actions({ state = state, can_update = can_update ~= false }))
   end
 
-  it('offers only the way the state can go', function()
-    assert.same({ 'Convert to draft' }, offered('OPEN'))
-    assert.same({ 'Ready for review' }, offered('DRAFT'))
+  it('offers only the ways the state can go, the reversible one first', function()
+    assert.same({ 'Convert to draft', 'Close pull request' }, offered('OPEN'))
+    assert.same({ 'Ready for review', 'Close pull request' }, offered('DRAFT'))
+    assert.same({ 'Reopen pull request' }, offered('CLOSED'))
   end)
 
   it('offers nothing github would refuse, whatever the state', function()
     assert.same({}, offered('OPEN', false))
     assert.same({}, offered('DRAFT', false))
+    assert.same({}, offered('CLOSED', false))
   end)
 
-  it('offers nothing once it is over', function()
+  it('offers nothing once it is merged, the one state with no way out', function()
     assert.same({}, offered('MERGED'))
-    assert.same({}, offered('CLOSED'))
   end)
 end)
 

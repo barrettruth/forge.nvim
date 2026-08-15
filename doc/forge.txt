@@ -226,9 +226,10 @@ reaches the system clipboard.
 
 "c" offers what the pull request can be asked to do as it stands, and does the
 one picked. What you may do is github's answer, not forge's guess at its
-rules. An open pull request can be converted to a draft and a draft can be
-marked ready for review; a merged or closed one is told it has nothing to do.
-The menu is |vim.ui.select()|, so it is whichever picker you already use.
+rules. An open pull request can be converted to a draft or closed, a draft can
+be marked ready for review or closed, and a closed one can be reopened. A
+merged one is told there is nothing to do. The menu is |vim.ui.select()|, so
+it is whichever picker you already use.
 
 "c", "dc", "dd" and "dl" are bound only in a pull request. "dc" and "dd"
 replace the view; ci.nvim returns with "-", and the way back from a diff is
