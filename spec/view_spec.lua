@@ -66,3 +66,36 @@ describe('an item opened from a list', function()
     assert.equals('CLOSED', vim.b[buf].forge.state)
   end)
 end)
+
+describe('a capped connection', function()
+  local log = require('forge.log')
+
+  --- @return string[] warnings, fun() restore
+  local function capture()
+    local said = {}
+    local real = log.warn
+    --- @diagnostic disable-next-line: duplicate-set-field
+    log.warn = function(msg)
+      said[#said + 1] = msg
+    end
+    return said, function()
+      log.warn = real
+    end
+  end
+
+  it('says so when the tail was lost', function()
+    local said, restore = capture()
+    view.check_truncated({ nodes = { 1, 2 }, totalCount = 25 }, 'labels')
+    restore()
+    assert.same({ 'showing 2 of 25 labels' }, said)
+  end)
+
+  it('stays quiet when nothing was lost', function()
+    local said, restore = capture()
+    view.check_truncated({ nodes = { 1, 2 }, totalCount = 2 }, 'labels')
+    view.check_truncated({ nodes = {} }, 'comments')
+    view.check_truncated(nil, 'comments')
+    restore()
+    assert.same({}, said)
+  end)
+end)

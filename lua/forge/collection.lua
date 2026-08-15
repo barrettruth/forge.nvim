@@ -150,6 +150,7 @@ function M.item(spec, t, o)
     if spec.remember then
       vim.b[buf].forge = vim.tbl_extend('force', vim.b[buf].forge or {}, spec.remember(node))
     end
+    view.check_truncated(node.labels, 'labels')
     view.check_truncated(node.comments, 'comments')
   end)
 end
