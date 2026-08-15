@@ -73,7 +73,9 @@ local PRS = {
   item_query = PR_QUERY,
   list_query = LIST_QUERY,
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.
-  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = 'Normal' },
+  --- Dimmed rather than uncoloured, as `gh pr list` and github's own badge draw
+  --- it: a draft is not asking to be read yet.
+  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = 'Comment' },
   list_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
     { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
