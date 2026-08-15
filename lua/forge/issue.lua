@@ -56,7 +56,6 @@ local ISSUES = {
     { 'o', '<Plug>(forge-open-split)', 'open the issue under the cursor in a split' },
     { ']i', '<Plug>(forge-next-page)', 'the next page of issues' },
     { '[i', '<Plug>(forge-prev-page)', 'the previous page of issues' },
-    { 'g.', '<Plug>(forge-state)', 'toggle open and closed issues' },
   },
 }
 

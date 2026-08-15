@@ -37,9 +37,10 @@ local M = {}
 function M.list(spec, t, o)
   local page = o.page or 1
   local cursors = o.cursors or {}
-  local state = t.state == 'CLOSED' and 'closed' or 'open'
+  local state = t.state == 'CLOSED' and 'closed' or t.state == 'OPEN' and 'open' or 'all'
   local owner, repo = gh.slug(t)
-  local variables = { owner = owner, repo = repo, states = spec.states[t.state or 'OPEN'] }
+  --- An unsent `states` is a null one, which is every state.
+  local variables = { owner = owner, repo = repo, states = t.state and spec.states[t.state] }
   if cursors[page] then
     variables.after = cursors[page]
   end
@@ -93,7 +94,7 @@ function M.list(spec, t, o)
       label = spec.list_title,
       repo = ('%s/%s'):format(u.owner, u.repo),
       state = state,
-      state_hl = spec.state_hl[u.state or 'OPEN'] or 'Normal',
+      state_hl = spec.state_hl[u.state] or 'Normal',
       pages = ('%d/%d'):format(page, last),
       total = tostring(total),
     }

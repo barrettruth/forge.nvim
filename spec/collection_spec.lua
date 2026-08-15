@@ -4,13 +4,16 @@ local pr = require('forge.pr')
 
 local NOW = os.date('!%Y-%m-%dT%H:%M:%SZ') --[[@as string]]
 
+local asked --- @type table? the variables the last request carried
+
 --- Answer the next request with `data`, whatever was asked.
 --- @param data table
 --- @param fn fun()
 local function answering(data, fn)
   local real = gh.graphql
   --- @diagnostic disable-next-line: duplicate-set-field
-  gh.graphql = function(_, on_done)
+  gh.graphql = function(req, on_done)
+    asked = req.variables
     on_done(data)
   end
   local ok, err = pcall(fn)
@@ -236,6 +239,15 @@ describe('a list github answered with', function()
     assert.equals(0, marks[1][3])
     assert.equals(2, marks[1][4].end_col)
     assert.equals('OkMsg', marks[1][4].hl_group)
+  end)
+
+  it('asks for every state unless the name names one', function()
+    answering(response({ { number = 1, title = 'a', state = 'CLOSED' } }), function()
+      show(nil)
+    end)
+    assert.is_nil(asked.states)
+    local _, info = drawn()
+    assert.equals('all', info.state)
   end)
 
   it('says so, once, when a half of the collection is empty', function()

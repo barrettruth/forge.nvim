@@ -568,16 +568,6 @@ function M.page(delta)
   M.open(u, { page = page, cursors = paging.cursors })
 end
 
---- Swap a list between open and closed, from the first page.
-function M.toggle_state()
-  local u = M.current()
-  if not u or u.number then
-    return
-  end
-  u.state = u.state == 'CLOSED' and 'OPEN' or 'CLOSED'
-  M.open(u)
-end
-
 --- Open the item under the cursor in a list.
 --- @param split boolean? open it beside the list rather than over it
 function M.open_at_cursor(split)

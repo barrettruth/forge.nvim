@@ -10,7 +10,7 @@
 --- @field owner string?
 --- @field repo string?
 --- @field number integer? nil for a list
---- @field state 'OPEN'|'CLOSED'? which half a list holds; unused by an item
+--- @field state 'OPEN'|'CLOSED'? a list holding one state; unset holds them all
 --- @field head boolean? the pull request for the change you are on
 
 --- A view forge can address, which is a target github has already answered.
@@ -112,7 +112,7 @@ function M.parse(str)
 
   owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')
   if owner and WEB[collection] then
-    return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
+    return { owner = owner, repo = repo, collection = collection }
   end
 
   return nil
@@ -160,7 +160,7 @@ function M.resolve(target, collection)
   owner, repo, member = target:match('^https?://github%.com/([^/]+)/([^/]+)/(%a+)/?$')
   if owner and (member == 'issues' or member == 'pulls') then
     local named = member == 'pulls' and 'prs' or 'issues'
-    return { owner = owner, repo = repo, collection = named, state = 'OPEN' }
+    return { owner = owner, repo = repo, collection = named }
   end
 
   owner, repo, number = target:match('^([%w._-]+)/([%w._-]+)#(%d+)$')
@@ -169,7 +169,7 @@ function M.resolve(target, collection)
   end
   owner, repo = target:match('^([%w._-]+)/([%w._-]+)$')
   if owner then
-    return { owner = owner, repo = repo, collection = collection, state = 'OPEN' }
+    return { owner = owner, repo = repo, collection = collection }
   end
 
   if target == '@' then
@@ -179,7 +179,7 @@ function M.resolve(target, collection)
     return { collection = 'prs', head = true }
   end
   if target == '' then
-    return { collection = collection, state = 'OPEN' }
+    return { collection = collection }
   end
   if target:match('^#?%d+$') then
     return { collection = collection, number = tonumber(target:match('%d+')) }

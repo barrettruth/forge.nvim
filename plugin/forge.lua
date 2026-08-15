@@ -54,10 +54,6 @@ vim.keymap.set('n', '<Plug>(forge-prev-page)', function()
   require('forge.view').page(-1)
 end, { desc = 'the previous page' })
 
-vim.keymap.set('n', '<Plug>(forge-state)', function()
-  require('forge.view').toggle_state()
-end, { desc = 'toggle open and closed' })
-
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {
