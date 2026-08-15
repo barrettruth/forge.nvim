@@ -91,6 +91,8 @@ end
 --- function here rather than a branch there.
 --- @class forge.Spec
 --- @field one string the singular, as said to a person
+--- @field short string the singular as a prompt says it: an initialism shouts,
+--- a word does not
 --- @field many string the plural, as said to a person
 --- @field item_title string what the winbar calls one
 --- @field list_title string what the winbar calls the list
@@ -159,7 +161,10 @@ function M.act(spec)
     return
   end
   vim.ui.select(can, {
-    prompt = ('%s %s'):format(var.label or '', var.tag or ''),
+    --- The verb is "cc" itself, and what every choice below has in common:
+    --- each one writes, and each is gated on the same permission. A colon
+    --- because a list follows, not a question nothing here answers.
+    prompt = ('Change %s %s:'):format(spec.short, var.tag or ''),
     format_item = function(action)
       return action.label
     end,

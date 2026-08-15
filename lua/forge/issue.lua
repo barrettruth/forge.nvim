@@ -70,6 +70,7 @@ mutation($id: ID!) {
 --- @type forge.Spec
 local ISSUES = {
   one = 'issue',
+  short = 'issue',
   many = 'issues',
   item_title = 'ISSUE',
   list_title = 'ISSUES',

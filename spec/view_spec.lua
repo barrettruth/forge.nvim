@@ -346,6 +346,33 @@ describe('what an issue can be asked to do', function()
   end)
 end)
 
+describe('the menu those are offered in', function()
+  --- @return string prompt
+  local function prompting(module, var)
+    local asked
+    local real = vim.ui.select
+    --- @diagnostic disable-next-line: duplicate-set-field
+    vim.ui.select = function(_, opts)
+      asked = opts.prompt
+    end
+    vim.b.forge = var
+    module.act()
+    vim.ui.select = real
+    return asked
+  end
+
+  it('names the change, the thing, and that a list follows', function()
+    assert.equals(
+      'Change issue #27:',
+      prompting(require('forge.issue'), { tag = '#27', state = 'OPEN', can_update = true })
+    )
+    assert.equals(
+      'Change PR #42:',
+      prompting(require('forge.pr'), { tag = '#42', state = 'OPEN', can_update = true })
+    )
+  end)
+end)
+
 describe('what a pull request can be asked to do', function()
   local pr = require('forge.pr')
 

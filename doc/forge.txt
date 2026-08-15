@@ -241,8 +241,12 @@ the URL it would have opened. "gy" takes the register it is given, so `"+gy`
 reaches the system clipboard.
 
 "cc" offers what the item can be asked to do as it stands, and does the one
-picked. What you may do is github's answer, not forge's guess at its rules.
-The menu is |vim.ui.select()|, so it is whichever picker you already use. >
+picked. Everything in that menu writes, which is what the prompt says: >
+
+    Change issue #27:
+    Change PR #151:
+< What you may do is github's answer, not forge's guess at its rules. The menu
+is |vim.ui.select()|, so it is whichever picker you already use. >
 
     any of them            edit title and body
     an open issue          close as completed, close as not planned

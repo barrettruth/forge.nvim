@@ -109,6 +109,7 @@ end
 --- @type forge.Spec
 local PRS = {
   one = 'pull request',
+  short = 'PR',
   many = 'pull requests',
   item_title = 'PR',
   list_title = 'PRS',
