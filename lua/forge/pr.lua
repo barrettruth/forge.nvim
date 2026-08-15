@@ -81,7 +81,7 @@ local PRS = {
   --- github's own Closed tab makes.
   states = { OPEN = 'OPEN', CLOSED = { 'CLOSED', 'MERGED' } },
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.
-  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = '' },
+  state_hl = { OPEN = 'OkMsg', CLOSED = 'ErrorMsg', MERGED = 'Special', DRAFT = 'Normal' },
   list_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
     { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },

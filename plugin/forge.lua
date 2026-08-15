@@ -102,6 +102,6 @@ vim.api.nvim_create_autocmd('BufWinEnter', {
   group = group,
   pattern = 'forge://*',
   callback = function(args)
-    vim.wo.winbar = vim.b[args.buf].forge_winbar or ''
+    require('forge.view').dress(args.buf, vim.api.nvim_get_current_win())
   end,
 })
