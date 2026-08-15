@@ -122,3 +122,17 @@ describe('ref.include', function()
     assert.equals('#123', ref.include('#123'))
   end)
 end)
+
+describe('a rendered buffer', function()
+  it("points 'includeexpr' at forge, so gf follows a reference", function()
+    local u = { owner = 'a', repo = 'b', collection = 'issues', number = 5, state = 'OPEN' }
+    local buf = view.render(u, { 'closes #123' }, {
+      kind = 'item',
+      label = 'ISSUE',
+      repo = 'a/b',
+      state = 'OPEN',
+      state_hl = 'OkMsg',
+    })
+    assert.equals('v:lua.require("forge.ref").include(v:fname)', vim.bo[buf].includeexpr)
+  end)
+end)
