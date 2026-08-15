@@ -66,7 +66,8 @@ vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {
   nargs = '*',
-  bar = true,
+  --- Not `bar`: it would make a `"` start a comment, and github's own advice
+  --- for a label of more than one word is to quote it.
   complete = function(lead)
     return require('forge.search').complete(lead)
   end,
@@ -77,7 +78,8 @@ vim.api.nvim_create_user_command('PR', function(opts)
   require('forge.pr').open(opts.args, opts)
 end, {
   nargs = '*',
-  bar = true,
+  --- Not `bar`: it would make a `"` start a comment, and github's own advice
+  --- for a label of more than one word is to quote it.
   complete = function(lead)
     return require('forge.search').complete(lead)
   end,

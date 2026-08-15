@@ -51,3 +51,35 @@ describe('completing a search', function()
     assert.is_false(ran)
   end)
 end)
+
+describe('a query on the command line', function()
+  before_each(function()
+    vim.g.loaded_forge = nil
+    vim.cmd('source ./plugin/forge.lua')
+  end)
+
+  --- @return string what the command handed the collection
+  local function given(cmdline)
+    local issue = require('forge.issue')
+    local real, got = issue.open, nil
+    --- @diagnostic disable-next-line: duplicate-set-field
+    issue.open = function(target)
+      got = target
+    end
+    vim.cmd(cmdline)
+    issue.open = real
+    return got
+  end
+
+  it('keeps a quoted value, which github asks for on any label of two words', function()
+    assert.equals(
+      'label:"good first issue" is:open',
+      given([[Issue label:"good first issue" is:open]])
+    )
+  end)
+
+  it("keeps the rest of what github's syntax spells with punctuation", function()
+    assert.equals('-label:lsp author:@me', given([[Issue -label:lsp author:@me]]))
+    assert.equals('label:a,b in:title', given([[Issue label:a,b in:title]]))
+  end)
+end)
