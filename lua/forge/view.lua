@@ -6,6 +6,27 @@ local M = {}
 
 local NS = vim.api.nvim_create_namespace('forge')
 
+--- Where a view was last being read, kept for buffers no window is showing.
+---
+--- A visible buffer can be asked directly; one left behind by |<CR>| cannot,
+--- and replacing its lines forgets the cursor it had.
+--- @type table<integer, vim.fn.winsaveview.ret>
+local placed = {}
+
+--- Note where `buf` is being read, before something else takes the window.
+--- @param buf integer
+function M.remember(buf)
+  if vim.api.nvim_win_get_buf(0) == buf then
+    placed[buf] = vim.fn.winsaveview()
+  end
+end
+
+--- Stop keeping a place for a buffer that no longer exists.
+--- @param buf integer
+function M.forget(buf)
+  placed[buf] = nil
+end
+
 --- How many items a list asks github for at once.
 M.PER_PAGE = 100
 
@@ -155,10 +176,20 @@ end
 function M.render(u, lines, winbar, marks, maps)
   local name = uri.tostring(u)
   local buf = M.buffer_named(name)
+  local first = not buf
   if not buf then
     buf = vim.api.nvim_create_buf(true, true)
     vim.api.nvim_buf_set_name(buf, name)
   end
+
+  local looking = {}
+  if not first then
+    for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+      looking[#looking + 1] = { win = win, view = vim.api.nvim_win_call(win, vim.fn.winsaveview) }
+    end
+  end
+  local hidden = #looking == 0 and placed[buf] or nil
+
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
@@ -186,7 +217,18 @@ function M.render(u, lines, winbar, marks, maps)
   end
 
   vim.api.nvim_win_set_buf(0, buf)
-  vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  if first then
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  elseif hidden then
+    vim.fn.winrestview(hidden)
+  end
+  for _, seen in ipairs(looking) do
+    if vim.api.nvim_win_is_valid(seen.win) then
+      vim.api.nvim_win_call(seen.win, function()
+        vim.fn.winrestview(seen.view)
+      end)
+    end
+  end
   vim.b[buf].forge_winbar = winbar
   vim.wo.winbar = winbar
 

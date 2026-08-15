@@ -167,9 +167,16 @@ o                       In an issue list, open the issue under the cursor in
                         is the top, so "-" in a list does nothing.
 
                                                        *<Plug>(forge-refresh)*
-R                       Fetch this view again, keeping the page you are on.
-                        |:edit| also refetches, but rebuilds from the name and
-                        so returns to the first page.
+R                       Fetch this view again, keeping the page you are on and
+                        where you were reading it. |:edit| also refetches, but
+                        rebuilds from the name and so returns to the first
+                        page.
+
+                        A view keeps its place whenever it is drawn again, not
+                        only on a refresh, so leaving a long list for an item
+                        and coming back with "-" returns you to the line you
+                        left. Only the first sight of a view starts at the
+                        top.
 
                                                      *<Plug>(forge-next-page)*
                                                      *<Plug>(forge-prev-page)*
