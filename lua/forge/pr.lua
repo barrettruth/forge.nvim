@@ -50,6 +50,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
     url
     pullRequest(number: $number) {
       id number title state body createdAt isDraft mergeable url
+      viewerCanUpdate
       additions deletions changedFiles
       baseRefName headRefName
       author { login }
@@ -132,6 +133,7 @@ local PRS = {
   remember = function(node, repo)
     return {
       id = node.id,
+      can_update = node.viewerCanUpdate,
       base = node.baseRefName,
       head = node.headRefName,
       remote = repo.url,
@@ -187,13 +189,15 @@ end
 --- @field run fun(var: forge.ItemVar)
 
 --- Labelled in github's own words, and filtered rather than greyed: a picker
---- has no third state.
+--- has no third state. What a viewer may do is github's answer rather than a
+--- rule forge keeps: `viewerCanUpdate` has already weighed authorship against
+--- write access against whatever the repository allows.
 --- @type forge.Action[]
 local ACTIONS = {
   {
     label = 'Convert to draft',
     when = function(var)
-      return var.state == 'OPEN'
+      return var.state == 'OPEN' and var.can_update == true
     end,
     run = function(var)
       mutate(var, DRAFT, ('%s to a draft'):format(var.tag))
@@ -202,7 +206,7 @@ local ACTIONS = {
   {
     label = 'Ready for review',
     when = function(var)
-      return var.state == 'DRAFT'
+      return var.state == 'DRAFT' and var.can_update == true
     end,
     run = function(var)
       mutate(var, READY, ('%s ready for review'):format(var.tag))

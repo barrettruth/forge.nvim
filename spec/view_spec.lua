@@ -321,15 +321,20 @@ end)
 describe('what a pull request can be asked to do', function()
   local pr = require('forge.pr')
 
-  local function offered(state)
+  local function offered(state, can_update)
     return vim.tbl_map(function(action)
       return action.label
-    end, pr.actions({ state = state }))
+    end, pr.actions({ state = state, can_update = can_update ~= false }))
   end
 
   it('offers only the way the state can go', function()
     assert.same({ 'Convert to draft' }, offered('OPEN'))
     assert.same({ 'Ready for review' }, offered('DRAFT'))
+  end)
+
+  it('offers nothing github would refuse, whatever the state', function()
+    assert.same({}, offered('OPEN', false))
+    assert.same({}, offered('DRAFT', false))
   end)
 
   it('offers nothing once it is over', function()

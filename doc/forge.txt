@@ -147,6 +147,7 @@ In an item, and only in one. The last four are a pull request's: >
     badges     its extra winbar segments
     stat       what it measures, drawn against the right edge
     id         what a mutation names it by
+    can_update whether github will let you change it
     base       the branch it merges into
     head       the branch it merges from
     remote     the repository "dd" and "dl" fetch it from
@@ -224,9 +225,10 @@ the URL it would have opened. "gy" takes the register it is given, so `"+gy`
 reaches the system clipboard.
 
 "c" offers what the pull request can be asked to do as it stands, and does the
-one picked. An open pull request can be converted to a draft and a draft can
-be marked ready for review; a merged or closed one is told it has nothing to
-do. The menu is |vim.ui.select()|, so it is whichever picker you already use.
+one picked. What you may do is github's answer, not forge's guess at its
+rules. An open pull request can be converted to a draft and a draft can be
+marked ready for review; a merged or closed one is told it has nothing to do.
+The menu is |vim.ui.select()|, so it is whichever picker you already use.
 
 "c", "dc", "dd" and "dl" are bound only in a pull request. "dc" and "dd"
 replace the view; ci.nvim returns with "-", and the way back from a diff is
