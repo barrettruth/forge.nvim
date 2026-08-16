@@ -35,6 +35,21 @@ its list. In either, `gf` follows the reference under the cursor.
 
 See `:help forge.nvim` for more information.
 
+## Known limitations
+
+- **GitHub only.** No GitLab, Forgejo, or Gitea. Other forges may come later.
+- **No review surface.** You can read a pull request and its comments, but not
+  its review threads, and there is no way to approve, request changes, or
+  comment on a line.
+- **No notifications.** There is no inbox. Every view starts from a repository
+  you name or are standing in.
+- **No stacks yet.** A stacked pull request shows nothing about the stack it
+  belongs to.
+- **Long conversations truncate.** What github returns is capped. forge says so
+  when a tail was lost, but cannot yet page past the cap to fetch it.
+- **Creating happens in the browser.** `ga` opens github's own form, on
+  purpose, so templates and required fields are theirs to enforce.
+
 ## Acknowledgements
 
 - [guh.nvim](https://github.com/justinmk/guh.nvim)
