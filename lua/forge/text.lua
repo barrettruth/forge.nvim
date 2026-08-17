@@ -64,10 +64,22 @@ function M.append_body(lines, body)
   end
 end
 
+--- What starts a comment.
+---
+--- Not a heading, because a body is markdown somebody else wrote and can spell
+--- anything forge spells. One in a hundred of neovim's carries a line like
+--- "### Implementation Summary" outside a fence, which at the level a comment
+--- header would use is indistinguishable from the start of another comment,
+--- and "====" under a line promotes it over the item's own title. A bar has no
+--- twin in prose, and guh takes the same way out: it also searches backwards
+--- for one to say which comment the cursor is in.
+local BAR = '▎'
+
 --- Append a conversation, if there is one.
 --- @param lines string[]
+--- @param marks forge.Mark[]
 --- @param comments table?
-function M.append_comments(lines, comments)
+function M.append_comments(lines, marks, comments)
   if not comments then
     return
   end
@@ -78,12 +90,23 @@ function M.append_comments(lines, comments)
   lines[#lines + 1] = ''
   lines[#lines + 1] = ('## Comments (%d)'):format(comments.totalCount or #nodes)
   for _, comment in ipairs(nodes) do
+    --- NONE is what github says of a passer-by, which is most people and worth
+    --- saying nothing about.
+    local association = comment.authorAssociation
+    local who = { vim.tbl_get(comment, 'author', 'login') or 'ghost' }
+    if association and association ~= 'NONE' then
+      who[#who + 1] = association
+    end
+    who[#who + 1] = M.age(comment.createdAt)
+
     lines[#lines + 1] = ''
-    lines[#lines + 1] = ('### %s (%s) — %s'):format(
-      vim.tbl_get(comment, 'author', 'login') or 'ghost',
-      comment.authorAssociation or 'NONE',
-      M.age(comment.createdAt)
-    )
+    local row = #lines
+    lines[row + 1] = ('%s %s'):format(BAR, table.concat(who, '  '))
+    --- The bar dimmed and the rest in the emphasis a colourscheme already
+    --- has, so the header reads as an aside without being one in the text.
+    marks[#marks + 1] = { row = row, col = 0, end_col = #BAR, group = 'Comment' }
+    marks[#marks + 1] =
+      { row = row, col = #BAR + 1, end_col = #lines[row + 1], group = '@markup.italic' }
     lines[#lines + 1] = ''
     M.append_body(lines, comment.body)
   end

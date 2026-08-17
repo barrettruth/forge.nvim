@@ -61,29 +61,60 @@ describe('a conversation', function()
     }
   end
 
-  it('heads each comment, so markdown can navigate between them', function()
-    local lines = {}
-    text.append_comments(lines, { totalCount = 1, nodes = { comment('hello') } })
+  it('starts each comment with a bar, not a heading', function()
+    local lines, marks = {}, {}
+    text.append_comments(lines, marks, { totalCount = 1, nodes = { comment('hello') } })
     assert.same({
       '',
       '## Comments (1)',
       '',
-      '### someone (OWNER) — today',
+      '▎ someone  OWNER  today',
       '',
       'hello',
     }, lines)
   end)
 
+  it('dims the bar and emphasises what follows it', function()
+    local lines, marks = {}, {}
+    text.append_comments(lines, marks, { totalCount = 1, nodes = { comment('hello') } })
+    assert.same({
+      { row = 3, col = 0, end_col = 3, group = 'Comment' },
+      { row = 3, col = 4, end_col = #lines[4], group = '@markup.italic' },
+    }, marks)
+  end)
+
+  it('says nothing of the association github gives a passer-by', function()
+    local lines, marks = {}, {}
+    local anyone = vim.tbl_extend('force', comment('hi'), { authorAssociation = 'NONE' })
+    text.append_comments(lines, marks, { totalCount = 1, nodes = { anyone } })
+    assert.equals('▎ someone  today', lines[4])
+  end)
+
+  --- A body is markdown somebody else wrote, and one in a hundred of neovim's
+  --- carries a heading. Nothing in it may look like the start of a comment.
+  it('is not something a body can spell for itself', function()
+    local lines, marks = {}, {}
+    text.append_comments(lines, marks, {
+      totalCount = 1,
+      nodes = { comment('### Implementation Summary\n\n- a point\n\n===') },
+    })
+    local bars = vim.tbl_filter(function(l)
+      return l:sub(1, 3) == '▎'
+    end, lines)
+    assert.equals(1, #bars)
+    assert.equals(2, #marks)
+  end)
+
   it('strips the carriage returns out of a comment too', function()
     local lines = {}
-    text.append_comments(lines, { totalCount = 1, nodes = { comment('one\r\ntwo') } })
+    text.append_comments(lines, {}, { totalCount = 1, nodes = { comment('one\r\ntwo') } })
     assert.equals('one', lines[#lines - 1])
     assert.equals('two', lines[#lines])
   end)
 
   it('says nothing when nobody replied', function()
     local lines = {}
-    text.append_comments(lines, { totalCount = 0, nodes = {} })
+    text.append_comments(lines, {}, { totalCount = 0, nodes = {} })
     text.append_comments(lines, nil)
     assert.same({}, lines)
   end)

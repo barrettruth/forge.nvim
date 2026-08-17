@@ -75,7 +75,7 @@ describe('an issue github answered with', function()
       '',
       '## Comments (1)',
       '',
-      '### other (NONE) — today',
+      '▎ other  today',
       '',
       'a reply',
     }, lines)

@@ -308,7 +308,10 @@ function M.item(spec, t, o)
     end
     lines[#lines + 1] = ''
     text.append_body(lines, node.body)
-    text.append_comments(lines, node.comments)
+
+    --- @type forge.Mark[]
+    local marks = {}
+    text.append_comments(lines, marks, node.comments)
 
     local badges = (spec.badges and spec.badges(node)) or {}
     local stat = (spec.stat and spec.stat(node)) or {}
@@ -336,7 +339,7 @@ function M.item(spec, t, o)
     end
 
     view.place(o)
-    view.render(u, lines, info, nil, spec.item_maps, o)
+    view.render(u, lines, info, marks, spec.item_maps, o)
     view.check_truncated(node.labels, 'labels')
     view.check_truncated(node.comments, 'comments')
   end, settle)
