@@ -412,12 +412,20 @@ function M.render(u, lines, info, marks, maps, o)
   vim.bo[buf].modified = false
 
   vim.api.nvim_buf_clear_namespace(buf, NS, 0, -1)
+  --- One extmark per group rather than the list `hl_group` also takes: a
+  --- composed one silently drops `url`, and core's |gx| reads the url off the
+  --- mark. Stacking them applies every group and keeps it.
   for _, mark in ipairs(marks or {}) do
-    vim.api.nvim_buf_set_extmark(buf, NS, mark.row, mark.col, {
-      end_col = mark.end_col,
-      hl_group = mark.group,
-      url = mark.url,
-    })
+    local groups = type(mark.group) == 'table' and mark.group or { mark.group }
+    for i, group in
+      ipairs(groups --[[@as string[] ]])
+    do
+      vim.api.nvim_buf_set_extmark(buf, NS, mark.row, mark.col, {
+        end_col = mark.end_col,
+        hl_group = group,
+        url = i == 1 and mark.url or nil,
+      })
+    end
   end
 
   vim.b[buf].forge = info
