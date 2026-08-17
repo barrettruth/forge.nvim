@@ -90,10 +90,16 @@ M.LOGIN = '@markup.italic'
 --- @return string[]
 function M.logins(connection)
   local out = {}
-  for _, node in ipairs(vim.tbl_get(connection or {}, 'nodes') or {}) do
+  --- Not `connection or {}`: |vim.tbl_get| guards what it finds on the way but
+  --- indexes what it is handed, and `vim.NIL` is truthy enough to be handed on.
+  local nodes = type(connection) == 'table' and connection.nodes or nil
+  for _, node in ipairs(type(nodes) == 'table' and nodes or {}) do
     --- A requested reviewer is a user, a team or a mannequin, and github
-    --- answers null for one whose type went unasked for.
-    local name = node.login or node.name or vim.tbl_get(node, 'author', 'login')
+    --- answers null for one whose type went unasked for. A null in a list
+    --- stays `vim.NIL` whatever the decoder is told, since dropping it would
+    --- leave a hole for `ipairs` to stop at.
+    local name = type(node) == 'table'
+      and (node.login or node.name or vim.tbl_get(node, 'author', 'login'))
     if name then
       out[#out + 1] = name
     end

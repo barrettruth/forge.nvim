@@ -111,6 +111,35 @@ describe('an issue github answered with', function()
     }, drawn())
   end)
 
+  --- `vim.NIL` is userdata, userdata is truthy, and github answers null for
+  --- every one of these on most issues.
+  it('reads a null github answered with as nothing, not as something', function()
+    local nulls = response()
+    nulls.repository.issue.issueType = vim.NIL
+    nulls.repository.issue.parent = vim.NIL
+    nulls.repository.issue.milestone = vim.NIL
+    nulls.repository.issue.assignees = vim.NIL
+
+    answering(nulls, function()
+      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+    end)
+    assert.same({
+      '# Something broke',
+      '',
+      '▎ someone  CONTRIBUTOR  today',
+      '  Labels:  bug, ui',
+      '',
+      'Line one',
+      'Line two',
+      '',
+      '## Comments (1)',
+      '',
+      '▎ other  today',
+      '',
+      'a reply',
+    }, drawn())
+  end)
+
   it('is filed under the name github spelled, not the one asked for', function()
     answering(response(), function()
       issue.show({ owner = 'Neovim', repo = 'Neovim', collection = 'issues', number = 41310 }, {})

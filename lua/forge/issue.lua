@@ -90,11 +90,15 @@ local ISSUES = {
   --- rather than a name: "#32280" is what |gf| already follows, and the title
   --- it stands for is one keystroke away.
   rows = function(node)
+    local number = vim.tbl_get(node, 'parent', 'number')
     return {
       { key = 'Type', values = { vim.tbl_get(node, 'issueType', 'name') }, group = 'Tag' },
       {
         key = 'Parent',
-        values = { node.parent and ('#%d'):format(node.parent.number) },
+        --- Through |vim.tbl_get| like the rest: github answers null for an
+        --- issue with no parent, and a decoder that left that as `vim.NIL`
+        --- would make it read as present and then index nothing.
+        values = { number and ('#%d'):format(number) },
         group = 'Tag',
       },
     }

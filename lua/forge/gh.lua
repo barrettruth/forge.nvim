@@ -1,5 +1,12 @@
 local log = require('forge.log')
 
+--- Absent rather than `vim.NIL`, for every field github answers null for.
+---
+--- `vim.NIL` is userdata and userdata is truthy, so `node.parent and
+--- node.parent.number` reads as present and then indexes nothing. Objects
+--- only: a null inside a list would leave a hole, and `ipairs` stops at one.
+local DECODE = { luanil = { object = true } }
+
 local M = {}
 
 --- A request to make of github.
@@ -83,7 +90,7 @@ function M.graphql(req, on_done, on_fail)
         local stderr = vim.trim(out.stderr or '')
         return fail(stderr ~= '' and stderr or 'gh api graphql failed')
       end
-      local ok, body = pcall(vim.json.decode, out.stdout)
+      local ok, body = pcall(vim.json.decode, out.stdout, DECODE)
       if not ok or type(body) ~= 'table' then
         return fail('could not read gh output')
       end
@@ -122,7 +129,7 @@ function M.rest(req, on_done, on_fail)
 
   vim.system(cmd, { text = true, cwd = req.cwd }, function(out)
     vim.schedule(function()
-      local ok, body = pcall(vim.json.decode, out.stdout)
+      local ok, body = pcall(vim.json.decode, out.stdout, DECODE)
       if out.code ~= 0 then
         local message = nil
         if ok and type(body) == 'table' then
