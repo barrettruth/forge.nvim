@@ -1,5 +1,9 @@
 local text = require('forge.text')
 
+local function profile(login)
+  return 'https://github.com/' .. login
+end
+
 --- @param days integer
 --- @return string
 local function ago(days)
@@ -17,6 +21,52 @@ describe('a body github wrote', function()
     local lines = {}
     text.append_body(lines, {}, 'plain\nlf')
     assert.same({ 'plain', 'lf' }, lines)
+  end)
+
+  it('marks what github itself would have linked in it', function()
+    local lines, marks = {}, {}
+    text.append_body(lines, marks, 'thanks @clason, see #123 and o/r#4')
+    assert.same({
+      {
+        row = 0,
+        col = 7,
+        end_col = 14,
+        group = { '@markup.italic', '@markup.link' },
+        url = 'https://github.com/clason',
+      },
+      --- The qualified form is looked for before the bare one, so "o/r#4" is
+      --- one reference and not a "#4" with a repository in front of it.
+      { row = 0, col = 29, end_col = 34, group = { 'Tag', '@markup.link' } },
+      { row = 0, col = 20, end_col = 24, group = { 'Tag', '@markup.link' } },
+    }, marks)
+  end)
+
+  --- "@param" is not a person and "#!/bin/sh" is not an item.
+  it('marks nothing inside a fence, where github links nothing either', function()
+    local lines, marks = {}, {}
+    text.append_body(
+      lines,
+      marks,
+      table.concat({
+        'ask @clason',
+        '```lua',
+        '--- @param x see #1',
+        '```',
+        'or @justinmk',
+      }, '\n')
+    )
+    assert.same(
+      { 0, 4 },
+      vim.tbl_map(function(m)
+        return m.row
+      end, marks)
+    )
+  end)
+
+  it('leaves a mention alone when it is part of a word', function()
+    local lines, marks = {}, {}
+    text.append_body(lines, marks, 'mail me@example.com about x#1')
+    assert.same({}, marks)
   end)
 
   it('says what it was given to say for an empty one, dimmed', function()
@@ -78,8 +128,8 @@ describe('a conversation', function()
   it('aligns what is known in a column, and leaves out what is not', function()
     local lines, marks = {}, {}
     text.append_rows(lines, marks, {
-      { key = 'Assignees', values = { 'clason' }, group = text.LOGIN },
-      { key = 'Reviewers', values = {}, group = text.LOGIN },
+      { key = 'Assignees', values = { 'clason' }, group = text.LOGIN, link = profile },
+      { key = 'Reviewers', values = {}, group = text.LOGIN, link = profile },
       { key = 'Labels', values = { 'bug', 'ui' }, group = 'Tag' },
       { key = 'Milestone', values = { nil }, group = 'Tag' },
     })
@@ -89,11 +139,20 @@ describe('a conversation', function()
       '  Assignees:  clason',
       '  Labels:     bug, ui',
     }, lines)
+    --- A value each, so a comma is not underlined and a login carries the url
+    --- core's |gx| reads off the mark.
     assert.same({
       { row = 0, col = 0, end_col = 12, group = 'Comment' },
-      { row = 0, col = 14, end_col = 20, group = '@markup.italic' },
+      {
+        row = 0,
+        col = 14,
+        end_col = 20,
+        group = { '@markup.italic', '@markup.link' },
+        url = 'https://github.com/clason',
+      },
       { row = 1, col = 0, end_col = 9, group = 'Comment' },
-      { row = 1, col = 14, end_col = 21, group = 'Tag' },
+      { row = 1, col = 14, end_col = 17, group = 'Tag' },
+      { row = 1, col = 19, end_col = 21, group = 'Tag' },
     }, marks)
   end)
 
@@ -121,7 +180,13 @@ describe('a conversation', function()
     assert.equals('▎ someone  OWNER  today', lines[4])
     assert.same({
       { row = 3, col = 0, end_col = 3, group = 'Comment' },
-      { row = 3, col = 4, end_col = 11, group = '@markup.italic' },
+      {
+        row = 3,
+        col = 4,
+        end_col = 11,
+        group = { '@markup.italic', '@markup.link' },
+        url = 'https://github.com/someone',
+      },
       { row = 3, col = 13, end_col = #lines[4], group = 'Comment' },
     }, marks)
   end)

@@ -55,6 +55,69 @@ function M.age(iso)
   return os.date('%Y-%m-%d', then_) --[[@as string]]
 end
 
+--- What starts a comment. Not a heading: a body is markdown and can spell one
+--- itself, which would read as another comment starting. guh uses the same
+--- bar, and searches back for it to say which comment the cursor is in.
+local BAR = '▎'
+
+--- A login wherever one appears. A label or a milestone is `Tag`, and
+--- everything structural is `Comment`. Underline is added to whatever it is
+--- when it can be followed, so what a thing is and what it does are separate.
+M.LOGIN = '@markup.italic'
+local LINK = '@markup.link'
+
+--- Where |gx| goes from a login. forge has no view of a person.
+--- @param login string
+--- @return string
+local function profile(login)
+  return 'https://github.com/' .. login
+end
+
+--- What github links inside a body someone wrote, in the order it wins ties.
+---
+--- A mention leaves the editor, a reference does not: `gf` follows "#123"
+--- through 'includeexpr' and core's `gx` reads a url off the mark itself.
+--- The qualified form comes before the bare one so that "o/r#4" is one
+--- reference rather than a repository with another inside it.
+local INLINE = {
+  { pattern = '@([%w][%w%-]*)', group = { M.LOGIN, LINK }, url = profile },
+  { pattern = '[%w._%-]+/[%w._%-]+#%d+', group = { 'Tag', LINK } },
+  { pattern = '#%d+', group = { 'Tag', LINK } },
+}
+
+--- Mark what github would have linked in a line of prose.
+--- @param line string
+--- @param row integer
+--- @param marks forge.Mark[]
+local function inline(line, row, marks)
+  local taken = {}
+  for _, kind in ipairs(INLINE) do
+    local from = 1
+    while true do
+      local at, to, name = line:find(kind.pattern, from)
+      if not at or not to then
+        break
+      end
+      from = to + 1
+      --- Not mid-word, so an email address is no mention and "abc#1" no
+      --- reference, and not inside something already claimed.
+      local edge = at == 1 or not line:sub(at - 1, at - 1):match('[%w_]')
+      if edge and not taken[at] then
+        for i = at, to do
+          taken[i] = true
+        end
+        marks[#marks + 1] = {
+          row = row,
+          col = at - 1,
+          end_col = to,
+          group = kind.group,
+          url = kind.url and kind.url(name) or nil,
+        }
+      end
+    end
+  end
+end
+
 --- Append a body, or `instead` if there is none.
 ---
 --- The caller supplies the words: github has some for an item and none for a
@@ -72,24 +135,24 @@ function M.append_body(lines, marks, body, instead)
     end
     return
   end
+  --- github links nothing inside a fence, and "@param" in one is not a person.
+  local fenced = false
   for _, line in ipairs(vim.split(text, '\n', { plain = true })) do
-    lines[#lines + 1] = line
+    local row = #lines
+    lines[row + 1] = line
+    if line:match('^%s*```') or line:match('^%s*~~~') then
+      fenced = not fenced
+    elseif not fenced then
+      inline(line, row, marks)
+    end
   end
 end
-
---- What starts a comment. Not a heading: a body is markdown and can spell one
---- itself, which would read as another comment starting. guh uses the same
---- bar, and searches back for it to say which comment the cursor is in.
-local BAR = '▎'
-
---- A login wherever one appears. A label or a milestone is `Tag`, and
---- everything structural is `Comment`.
-M.LOGIN = '@markup.italic'
 
 --- @class forge.Row
 --- @field key string what it is, said in the plural github allows
 --- @field values string[] what it is, empty for a row not worth drawing
 --- @field group string the group its values take
+--- @field link? fun(value: string): string where |gx| goes from one
 
 --- The logins in a connection, in the order github gave them.
 --- @param connection table?
@@ -130,7 +193,13 @@ function M.append_author(lines, marks, node)
   lines[row + 1] = ('%s %s  %s'):format(BAR, who, table.concat(meta, '  '))
   local said = #BAR + 1
   marks[#marks + 1] = { row = row, col = 0, end_col = #BAR, group = 'Comment' }
-  marks[#marks + 1] = { row = row, col = said, end_col = said + #who, group = '@markup.italic' }
+  marks[#marks + 1] = {
+    row = row,
+    col = said,
+    end_col = said + #who,
+    group = { M.LOGIN, LINK },
+    url = profile(who),
+  }
   marks[#marks + 1] =
     { row = row, col = said + #who + 2, end_col = #lines[row + 1], group = 'Comment' }
 end
@@ -149,7 +218,8 @@ function M.append_rows(lines, marks, rows)
       return v ~= nil and v ~= ''
     end, row.values or {})
     if #values > 0 then
-      said[#said + 1] = { key = row.key .. ':', values = values, group = row.group }
+      said[#said + 1] =
+        { key = row.key .. ':', values = values, group = row.group, link = row.link }
       width = math.max(width, #row.key + 1)
     end
   end
@@ -163,7 +233,18 @@ function M.append_rows(lines, marks, rows)
       table.concat(row.values, ', ')
     )
     marks[#marks + 1] = { row = at, col = 0, end_col = 2 + #row.key, group = 'Comment' }
-    marks[#marks + 1] = { row = at, col = col, end_col = #lines[at + 1], group = row.group }
+    --- Each value its own mark, so one that can be followed carries the url
+    --- and the comma between two of them stays unmarked.
+    for _, value in ipairs(row.values) do
+      marks[#marks + 1] = {
+        row = at,
+        col = col,
+        end_col = col + #value,
+        group = row.link and { row.group, LINK } or row.group,
+        url = row.link and row.link(value) or nil,
+      }
+      col = col + #value + 2
+    end
   end
 end
 

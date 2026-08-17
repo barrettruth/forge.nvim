@@ -205,6 +205,14 @@ A bar starts anything somebody wrote, item and comment alike, because a body
 is markdown and a heading in one would otherwise read as the start of another
 comment. A login is drawn in the emphasis a colourscheme gives markdown, a
 label or a milestone as a tag, and everything else on those lines is dimmed.
+Underline is added to whatever can be followed, so what a thing is and what it
+does are said separately.
+
+What github would have linked in a body is marked there too: "@someone",
+"#123", and "owner/repo#4". Nothing inside a fenced block is, since github
+links nothing there either and "@param" is not a person. A reference is
+followed with |gf|; a mention leaves the editor, and |gx| takes it, reading
+the address off the mark rather than the text.
 
 Every view sets a 'winbar': >
 

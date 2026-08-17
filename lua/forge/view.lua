@@ -200,7 +200,8 @@ end
 --- @field row integer zero-based
 --- @field col integer byte column, inclusive
 --- @field end_col integer byte column, exclusive
---- @field group string
+--- @field group string|string[]
+--- @field url string? where |gx| goes from here, core reading it off the mark
 
 --- What a state means, rather than what colour it is. Builtin groups only.
 --- @enum forge.Hl
@@ -415,6 +416,7 @@ function M.render(u, lines, info, marks, maps, o)
     vim.api.nvim_buf_set_extmark(buf, NS, mark.row, mark.col, {
       end_col = mark.end_col,
       hl_group = mark.group,
+      url = mark.url,
     })
   end
 
