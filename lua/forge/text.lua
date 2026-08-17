@@ -93,20 +93,25 @@ function M.append_comments(lines, marks, comments)
     --- NONE is what github says of a passer-by, which is most people and worth
     --- saying nothing about.
     local association = comment.authorAssociation
-    local who = { vim.tbl_get(comment, 'author', 'login') or 'ghost' }
+    local who = vim.tbl_get(comment, 'author', 'login') or 'ghost'
+    local meta = {}
     if association and association ~= 'NONE' then
-      who[#who + 1] = association
+      meta[#meta + 1] = association
     end
-    who[#who + 1] = M.age(comment.createdAt)
+    meta[#meta + 1] = M.age(comment.createdAt)
 
     lines[#lines + 1] = ''
     local row = #lines
-    lines[row + 1] = ('%s %s'):format(BAR, table.concat(who, '  '))
-    --- The bar dimmed and the rest in the emphasis a colourscheme already
-    --- has, so the header reads as an aside without being one in the text.
+    lines[row + 1] = ('%s %s  %s'):format(BAR, who, table.concat(meta, '  '))
+    --- Who said it carries the emphasis a colourscheme already defines, and
+    --- everything either side of that is dimmed: the bar is a boundary rather
+    --- than a word, and when they said it and what github calls them are worth
+    --- having to hand without competing with the name for the eye.
+    local said = #BAR + 1
     marks[#marks + 1] = { row = row, col = 0, end_col = #BAR, group = 'Comment' }
+    marks[#marks + 1] = { row = row, col = said, end_col = said + #who, group = '@markup.italic' }
     marks[#marks + 1] =
-      { row = row, col = #BAR + 1, end_col = #lines[row + 1], group = '@markup.italic' }
+      { row = row, col = said + #who + 2, end_col = #lines[row + 1], group = 'Comment' }
     lines[#lines + 1] = ''
     M.append_body(lines, comment.body)
   end

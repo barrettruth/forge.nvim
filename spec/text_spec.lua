@@ -74,12 +74,14 @@ describe('a conversation', function()
     }, lines)
   end)
 
-  it('dims the bar and emphasises what follows it', function()
+  it('emphasises who said it and dims everything either side', function()
     local lines, marks = {}, {}
     text.append_comments(lines, marks, { totalCount = 1, nodes = { comment('hello') } })
+    assert.equals('▎ someone  OWNER  today', lines[4])
     assert.same({
       { row = 3, col = 0, end_col = 3, group = 'Comment' },
-      { row = 3, col = 4, end_col = #lines[4], group = '@markup.italic' },
+      { row = 3, col = 4, end_col = 11, group = '@markup.italic' },
+      { row = 3, col = 13, end_col = #lines[4], group = 'Comment' },
     }, marks)
   end)
 
@@ -102,7 +104,7 @@ describe('a conversation', function()
       return l:sub(1, 3) == '▎'
     end, lines)
     assert.equals(1, #bars)
-    assert.equals(2, #marks)
+    assert.equals(3, #marks)
   end)
 
   it('strips the carriage returns out of a comment too', function()
