@@ -296,9 +296,8 @@ function M.item(spec, t, o)
       labels[#labels + 1] = label.name
     end
 
-    --- Who it is on, then what it is: people first, and within each the order
-    --- is fixed rather than sorted by what happens to be there, so a fact is
-    --- always in the same place and the shape is learned once.
+    --- People, then what it is, in a fixed order so a fact is always in the
+    --- same place.
     --- @type forge.Row[]
     local rows = {
       { key = 'Assignees', values = text.logins(node.assignees), group = text.LOGIN },
@@ -308,16 +307,14 @@ function M.item(spec, t, o)
     rows[#rows + 1] =
       { key = 'Milestone', values = { vim.tbl_get(node, 'milestone', 'title') }, group = 'Tag' }
 
-    --- The state is the winbar's and is always on screen, so saying it here as
-    --- well would be saying it twice.
+    --- Not the state: the winbar has it, and always on screen.
     local lines = { ('# %s'):format(node.title), '' }
     --- @type forge.Mark[]
     local marks = {}
     text.append_author(lines, marks, node)
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''
-    --- github's own sentence for an item nobody described. A comment has no
-    --- description to be missing, so it says nothing when it is empty.
+    --- github's sentence. A comment has no description to be missing.
     text.append_body(lines, marks, node.body, 'No description provided.')
     text.append_comments(lines, marks, node.comments)
 
@@ -339,11 +336,8 @@ function M.item(spec, t, o)
       --- shape they are written back in.
       edit = ('%s\n\n%s'):format(node.title or '', node.body or ''),
       badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
-      --- Its bar belongs to the value: a `%(…%)` group wrapped round a
-      --- `%{%…%}` is dropped whole, taking the separator with it.
-      --- The bar goes between the two, so it is neither's alone: with no
-      --- badge to divide from, it would be a divider marooned at the end of
-      --- whatever gap `%=` opened.
+      --- The bar divides the two, so with no badge there is nothing to
+      --- divide and it would be marooned at the end of the gap `%=` opened.
       stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
     }
     if spec.remember then

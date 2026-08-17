@@ -1,10 +1,7 @@
 local log = require('forge.log')
 
---- Absent rather than `vim.NIL`, for every field github answers null for.
----
---- `vim.NIL` is userdata and userdata is truthy, so `node.parent and
---- node.parent.number` reads as present and then indexes nothing. Objects
---- only: a null inside a list would leave a hole, and `ipairs` stops at one.
+--- Absent rather than `vim.NIL`, which is userdata and so reads as present.
+--- Objects only: a null dropped from a list leaves a hole `ipairs` stops at.
 local DECODE = { luanil = { object = true } }
 
 local M = {}

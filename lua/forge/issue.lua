@@ -85,19 +85,14 @@ local ISSUES = {
   list_query = LIST_QUERY,
   --- CLOSED is the fallback for one github gave no reason, which it backfilled
   --- COMPLETED on every issue closed before it started asking.
-  --- What only an issue has. A type is github's own classification and not a
-  --- label, however alike they look on its page, and a parent is a reference
-  --- rather than a name: "#32280" is what |gf| already follows, and the title
-  --- it stands for is one keystroke away.
+  --- What only an issue has. A type is github's classification, not a label,
+  --- and a parent is written as the reference |gf| already follows.
   rows = function(node)
     local number = vim.tbl_get(node, 'parent', 'number')
     return {
       { key = 'Type', values = { vim.tbl_get(node, 'issueType', 'name') }, group = 'Tag' },
       {
         key = 'Parent',
-        --- Through |vim.tbl_get| like the rest: github answers null for an
-        --- issue with no parent, and a decoder that left that as `vim.NIL`
-        --- would make it read as present and then index nothing.
         values = { number and ('#%d'):format(number) },
         group = 'Tag',
       },

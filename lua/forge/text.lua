@@ -55,15 +55,10 @@ function M.age(iso)
   return os.date('%Y-%m-%d', then_) --[[@as string]]
 end
 
---- github's own words for one nobody described, dimmed as an empty list is.
 --- Append a body, or `instead` if there is none.
 ---
---- The words belong to the caller, because github's differ by what is empty
---- and for most of them there are none: it says nothing of a review submitted
---- without one, and an empty review is the ordinary case, every inline comment
---- opening one of its own to hang from. Only at render, wherever they come
---- from: `b:forge.edit` reads the same field, and "cc" would otherwise offer
---- the substitute as text worth keeping.
+--- The caller supplies the words: github has some for an item and none for a
+--- review. Substituted at render, since `b:forge.edit` reads the same field.
 --- @param lines string[]
 --- @param marks forge.Mark[]
 --- @param body string?
@@ -82,20 +77,13 @@ function M.append_body(lines, marks, body, instead)
   end
 end
 
---- What starts a comment.
----
---- Not a heading, because a body is markdown somebody else wrote and can spell
---- anything forge spells. One in a hundred of neovim's carries a line like
---- "### Implementation Summary" outside a fence, which at the level a comment
---- header would use is indistinguishable from the start of another comment,
---- and "====" under a line promotes it over the item's own title. A bar has no
---- twin in prose, and guh takes the same way out: it also searches backwards
---- for one to say which comment the cursor is in.
+--- What starts a comment. Not a heading: a body is markdown and can spell one
+--- itself, which would read as another comment starting. guh uses the same
+--- bar, and searches back for it to say which comment the cursor is in.
 local BAR = '▎'
 
---- A login is drawn the same wherever one appears: an author, an assignee, a
---- reviewer, whoever said a thing. A label or a milestone is `Tag`, and
---- everything structural is `Comment`; those three cover the whole header.
+--- A login wherever one appears. A label or a milestone is `Tag`, and
+--- everything structural is `Comment`.
 M.LOGIN = '@markup.italic'
 
 --- @class forge.Row
@@ -108,14 +96,10 @@ M.LOGIN = '@markup.italic'
 --- @return string[]
 function M.logins(connection)
   local out = {}
-  --- Not `connection or {}`: |vim.tbl_get| guards what it finds on the way but
-  --- indexes what it is handed, and `vim.NIL` is truthy enough to be handed on.
+  --- By type throughout: a null in a list stays `vim.NIL`, which is truthy.
   local nodes = type(connection) == 'table' and connection.nodes or nil
   for _, node in ipairs(type(nodes) == 'table' and nodes or {}) do
-    --- A requested reviewer is a user, a team or a mannequin, and github
-    --- answers null for one whose type went unasked for. A null in a list
-    --- stays `vim.NIL` whatever the decoder is told, since dropping it would
-    --- leave a hole for `ipairs` to stop at.
+    --- A requested reviewer is a user, a team or a mannequin.
     local name = type(node) == 'table'
       and (node.login or node.name or vim.tbl_get(node, 'author', 'login'))
     if name then
@@ -127,18 +111,13 @@ end
 
 --- Who wrote a thing and when, on one line.
 ---
---- The same for the item as for a comment beneath it, because github treats a
---- description as authored, dated and editable exactly like one. The login
---- carries the emphasis a colourscheme already defines and everything either
---- side of it is dimmed: the bar because it is a boundary rather than a word,
---- the association and the age because they are worth having to hand without
---- competing with the name for the eye.
+--- The same line for an item as for a comment under it, github treating a
+--- description as authored and dated like one. Only the login is emphasised.
 --- @param lines string[]
 --- @param marks forge.Mark[]
 --- @param node table anything with an author, an association and a createdAt
 function M.append_author(lines, marks, node)
-  --- NONE is what github says of a passer-by, which is most people and worth
-  --- saying nothing about.
+  --- NONE is what github calls a passer-by, and worth saying nothing about.
   local association = node.authorAssociation
   local who = vim.tbl_get(node, 'author', 'login') or 'ghost'
   local meta = {}
@@ -158,9 +137,7 @@ end
 
 --- Append what is known about an item, a row to a line, aligned in a column.
 ---
---- A row with nothing in it is not drawn, so the column is only ever as wide
---- as what is actually there: most items have no milestone and nobody
---- assigned, and a key standing over an empty value is a field, not a fact.
+--- An empty row is not drawn, so the column is only as wide as what is there.
 --- @param lines string[]
 --- @param marks forge.Mark[]
 --- @param rows forge.Row[]

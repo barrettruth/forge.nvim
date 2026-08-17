@@ -19,8 +19,7 @@ local LINKED = {
   '^#%d+$',
   '^[%w._-]+/[%w._-]+#%d+$',
   '^forge://',
-  --- The frontier ends the word: without it "/issuesfoo" reads as "/issues"
-  --- with something after it, and `%z` is what stands for the end of a string.
+  --- The frontier ends the word, `%z` standing for the end of the string.
   '^https?://github%.com/[^/]+/[^/]+/issues%f[%z/?#]',
   '^https?://github%.com/[^/]+/[^/]+/pulls?%f[%z/?#]',
 }

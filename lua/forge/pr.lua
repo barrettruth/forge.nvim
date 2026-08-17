@@ -231,10 +231,7 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       base = node.baseRefName,
-      --- What github's own page puts under a title, in its order: what is
-      --- merged into, then what merges, the arrow pointing the way the code
-      --- travels. Git takes them that way round too, as "base...head". A fork
-      --- says whose branch it is, because the name alone does not.
+      --- A fork says whose branch it is, the name alone not saying.
       head = node.isCrossRepository and ('%s:%s'):format(
         vim.tbl_get(node, 'headRepositoryOwner', 'login') or '?',
         node.headRefName or '?'
@@ -252,9 +249,8 @@ local PRS = {
   about = function()
     return ''
   end,
-  --- Only the ones still being waited on. Github drops a request the moment
-  --- its reviewer answers, so what is left is what is outstanding, and anyone
-  --- who has spoken says so in the winbar and again in the conversation.
+  --- Only the outstanding ones: github drops a request when its reviewer
+  --- answers, and the answer shows in the winbar and in the conversation.
   rows = function(node)
     local asked = {}
     for _, request in ipairs(vim.tbl_get(node, 'reviewRequests', 'nodes') or {}) do

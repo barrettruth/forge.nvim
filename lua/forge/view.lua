@@ -645,8 +645,7 @@ end
 --- @param connection table?
 --- @param what string
 function M.check_truncated(connection, what)
-  --- By type, not by truth: a connection github answered null for arrives as
-  --- `vim.NIL`, which is userdata and passes a plain check for presence.
+  --- By type: a null connection arrives as `vim.NIL`, which reads as present.
   if type(connection) ~= 'table' then
     return
   end
