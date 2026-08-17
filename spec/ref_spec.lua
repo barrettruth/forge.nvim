@@ -62,6 +62,18 @@ describe('ref.at_cursor', function()
     assert.is_nil(ref.at_cursor())
   end)
 
+  it('refuses a github url that names no item, which most of them do not', function()
+    for _, case in ipairs({
+      { 'shot https://github.com/user-attachments/assets/9d1d-4c is here', 12 },
+      { 'see https://github.com/o/r/blob/main/README.md there', 12 },
+      { 'in https://github.com/o/r/releases/tag/v1.0 now', 12 },
+      { 'over at https://github.com/o/r itself', 16 },
+    }) do
+      reading(case[1], case[2])
+      assert.is_nil(ref.at_cursor(), case[1])
+    end
+  end)
+
   it('says so when the cursor is on nothing', function()
     reading('   ', 1)
     local token, err = ref.at_cursor()
@@ -116,6 +128,17 @@ describe('ref.include', function()
   it('hands back anything it cannot address, so gf still opens a file', function()
     inside('issues')
     for _, fname in ipairs({ 'spec/helpers.lua', 'lua/forge/ref.lua', './notes.md', 'word' }) do
+      assert.equals(fname, ref.include(fname), fname)
+    end
+  end)
+
+  it('hands back a github url that names no item, rather than its list', function()
+    inside('issues')
+    for _, fname in ipairs({
+      'https://github.com/user-attachments/assets/9d1d-4c',
+      'https://github.com/o/r/blob/main/README.md',
+      'https://github.com/o/r',
+    }) do
       assert.equals(fname, ref.include(fname), fname)
     end
   end)

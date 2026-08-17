@@ -10,11 +10,17 @@ local M = {}
 ---
 --- Leaving it out settles a mention too, which arrives looking exactly like a
 --- repository.
+---
+--- The github.com forms name a path rather than the host, because most of what
+--- github serves is not an item: an attachment, a blob, a release tag. A url
+--- `uri.resolve` does not recognise becomes a search, and a search arriving
+--- here opens the bare list with its query dropped. |gx| answers for those.
 local LINKED = {
   '^#%d+$',
   '^[%w._-]+/[%w._-]+#%d+$',
   '^forge://',
-  '^https?://github%.com/',
+  '^https?://github%.com/[^/]+/[^/]+/issues',
+  '^https?://github%.com/[^/]+/[^/]+/pulls?/?',
 }
 
 --- @param token string
