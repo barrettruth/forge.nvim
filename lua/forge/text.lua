@@ -55,10 +55,23 @@ function M.age(iso)
   return os.date('%Y-%m-%d', then_) --[[@as string]]
 end
 
+--- github's own words for one nobody described, dimmed as an empty list is.
+local NOTHING = 'No description provided.'
+
+--- Append a body, or say there is none.
+---
+--- Only at render: `b:forge.edit` reads the same field, and "cc" would
+--- otherwise write this sentence back as a real description.
 --- @param lines string[]
+--- @param marks forge.Mark[]
 --- @param body string?
-function M.append_body(lines, body)
+function M.append_body(lines, marks, body)
   local text = vim.trim(((body or ''):gsub('\r\n?', '\n')))
+  if text == '' then
+    marks[#marks + 1] = { row = #lines, col = 0, end_col = #NOTHING, group = 'Comment' }
+    lines[#lines + 1] = NOTHING
+    return
+  end
   for _, line in ipairs(vim.split(text, '\n', { plain = true })) do
     lines[#lines + 1] = line
   end
@@ -190,7 +203,7 @@ function M.append_comments(lines, marks, comments)
     lines[#lines + 1] = ''
     M.append_author(lines, marks, comment)
     lines[#lines + 1] = ''
-    M.append_body(lines, comment.body)
+    M.append_body(lines, marks, comment.body)
   end
 end
 

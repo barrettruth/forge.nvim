@@ -316,7 +316,7 @@ function M.item(spec, t, o)
     text.append_author(lines, marks, node)
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''
-    text.append_body(lines, node.body)
+    text.append_body(lines, marks, node.body)
     text.append_comments(lines, marks, node.comments)
 
     local badges = (spec.badges and spec.badges(node)) or {}

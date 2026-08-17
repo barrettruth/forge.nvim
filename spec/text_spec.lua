@@ -9,20 +9,24 @@ end
 describe('a body github wrote', function()
   it('loses the carriage returns a browser put in it', function()
     local lines = {}
-    text.append_body(lines, 'first\r\nsecond\r\n\r\nthird')
+    text.append_body(lines, {}, 'first\r\nsecond\r\n\r\nthird')
     assert.same({ 'first', 'second', '', 'third' }, lines)
   end)
 
   it('is unharmed when it had none', function()
     local lines = {}
-    text.append_body(lines, 'plain\nlf')
+    text.append_body(lines, {}, 'plain\nlf')
     assert.same({ 'plain', 'lf' }, lines)
   end)
 
-  it('is nothing at all when there is no body', function()
-    local lines = {}
-    text.append_body(lines, nil)
-    assert.same({ '' }, lines)
+  it('says so when there is none, dimmed, rather than leaving a blank behind', function()
+    local said = 'No description provided.'
+    for _, body in ipairs({ { '' }, { '  \r\n\n ' }, {} }) do
+      local lines, marks = {}, {}
+      text.append_body(lines, marks, body[1])
+      assert.same({ said }, lines)
+      assert.same({ { row = 0, col = 0, end_col = #said, group = 'Comment' } }, marks)
+    end
   end)
 end)
 
