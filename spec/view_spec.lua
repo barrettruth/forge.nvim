@@ -17,6 +17,7 @@ local function info(kind, over)
     state_hl = 'OkMsg',
     tag = '#1',
     title = '',
+    about = '',
     badges = '',
     pages = '1/1',
     total = '1',
@@ -118,7 +119,7 @@ describe('the winbar', function()
     local buf = view.render(
       uri('issues', 43),
       { 'x' },
-      info('item', { tag = '#43', title = '100% of %{system("id")} %#ErrorMsg#x%*' })
+      info('item', { tag = '#43', about = '100% of %{system("id")} %#ErrorMsg#x%*' })
     )
     local win = vim.fn.win_findbuf(buf)[1]
     local str = vim.trim(
@@ -266,7 +267,7 @@ end
 
 describe("a view's winbar", function()
   it('says what the view is', function()
-    view.render(uri('issues', 27), { 'body' }, info('item', { title = 'a title', badges = ' x' }))
+    view.render(uri('issues', 27), { 'body' }, info('item', { about = 'a title', badges = ' x' }))
     local text, kept = drawn()
     assert.is_true(kept)
     --- The gap `%=` opens is collapsed here; where it falls is what matters.

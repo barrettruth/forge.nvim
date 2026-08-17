@@ -103,7 +103,8 @@ end
 --- @field list_maps [string, string, string][]
 --- @field item_maps [string, string, string][]?
 --- @field state? fun(node: table): string the state to show, when not node.state
---- @field header? fun(node: table): string[] extra lines under State
+--- @field about? fun(node: table): string what the winbar says after the
+--- state, when something other than the title belongs there
 --- @field badges? fun(node: table): string[] extra winbar segments
 --- @field stat? fun(node: table): string[] winbar segments for the right edge
 --- @field remember? fun(node: table, repo: table): table what the buffer should
@@ -293,24 +294,22 @@ function M.item(spec, t, o)
       labels[#labels + 1] = label.name
     end
 
-    local lines = {
-      ('# %s'):format(node.title),
-      '',
-      ('- Author: %s (%s)'):format(
-        vim.tbl_get(node, 'author', 'login') or 'ghost',
-        node.authorAssociation or 'NONE'
-      ),
-      ('- State: %s, opened %s'):format(state, text.age(node.createdAt)),
-    }
-    vim.list_extend(lines, (spec.header and spec.header(node)) or {})
+    --- The state is the winbar's and is always on screen, so saying it here
+    --- as well would be saying it twice. What is left needs no keys: a login,
+    --- a list of labels and a date each say what they are.
+    local lines = { ('# %s'):format(node.title), '' }
+    --- @type forge.Mark[]
+    local marks = {}
+    text.append_author(lines, marks, node)
     if #labels > 0 then
-      lines[#lines + 1] = ('- Labels: %s'):format(table.concat(labels, ', '))
+      local row = #lines
+      lines[row + 1] = ('  %s'):format(table.concat(labels, '  '))
+      --- Not dimmed with the rest: a label is often the most consequential
+      --- thing about an item, and Tag is already what forge draws "#27" in.
+      marks[#marks + 1] = { row = row, col = 0, end_col = #lines[row + 1], group = 'Tag' }
     end
     lines[#lines + 1] = ''
     text.append_body(lines, node.body)
-
-    --- @type forge.Mark[]
-    local marks = {}
     text.append_comments(lines, marks, node.comments)
 
     local badges = (spec.badges and spec.badges(node)) or {}
@@ -322,6 +321,7 @@ function M.item(spec, t, o)
       label = spec.item_title,
       repo = ('%s/%s'):format(u.owner, u.repo),
       url = node.url,
+      about = spec.about and spec.about(node) or (node.title or ''),
       state = state,
       state_hl = spec.state_hl[state] or 'Normal',
       tag = '#' .. node.number,

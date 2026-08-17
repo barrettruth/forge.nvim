@@ -75,6 +75,37 @@ end
 --- for one to say which comment the cursor is in.
 local BAR = '▎'
 
+--- Who wrote a thing and when, on one line.
+---
+--- The same for the item as for a comment beneath it, because github treats a
+--- description as authored, dated and editable exactly like one. The login
+--- carries the emphasis a colourscheme already defines and everything either
+--- side of it is dimmed: the bar because it is a boundary rather than a word,
+--- the association and the age because they are worth having to hand without
+--- competing with the name for the eye.
+--- @param lines string[]
+--- @param marks forge.Mark[]
+--- @param node table anything with an author, an association and a createdAt
+function M.append_author(lines, marks, node)
+  --- NONE is what github says of a passer-by, which is most people and worth
+  --- saying nothing about.
+  local association = node.authorAssociation
+  local who = vim.tbl_get(node, 'author', 'login') or 'ghost'
+  local meta = {}
+  if association and association ~= 'NONE' then
+    meta[#meta + 1] = association
+  end
+  meta[#meta + 1] = M.age(node.createdAt)
+
+  local row = #lines
+  lines[row + 1] = ('%s %s  %s'):format(BAR, who, table.concat(meta, '  '))
+  local said = #BAR + 1
+  marks[#marks + 1] = { row = row, col = 0, end_col = #BAR, group = 'Comment' }
+  marks[#marks + 1] = { row = row, col = said, end_col = said + #who, group = '@markup.italic' }
+  marks[#marks + 1] =
+    { row = row, col = said + #who + 2, end_col = #lines[row + 1], group = 'Comment' }
+end
+
 --- Append a conversation, if there is one.
 --- @param lines string[]
 --- @param marks forge.Mark[]
@@ -90,28 +121,8 @@ function M.append_comments(lines, marks, comments)
   lines[#lines + 1] = ''
   lines[#lines + 1] = ('## Comments (%d)'):format(comments.totalCount or #nodes)
   for _, comment in ipairs(nodes) do
-    --- NONE is what github says of a passer-by, which is most people and worth
-    --- saying nothing about.
-    local association = comment.authorAssociation
-    local who = vim.tbl_get(comment, 'author', 'login') or 'ghost'
-    local meta = {}
-    if association and association ~= 'NONE' then
-      meta[#meta + 1] = association
-    end
-    meta[#meta + 1] = M.age(comment.createdAt)
-
     lines[#lines + 1] = ''
-    local row = #lines
-    lines[row + 1] = ('%s %s  %s'):format(BAR, who, table.concat(meta, '  '))
-    --- Who said it carries the emphasis a colourscheme already defines, and
-    --- everything either side of that is dimmed: the bar is a boundary rather
-    --- than a word, and when they said it and what github calls them are worth
-    --- having to hand without competing with the name for the eye.
-    local said = #BAR + 1
-    marks[#marks + 1] = { row = row, col = 0, end_col = #BAR, group = 'Comment' }
-    marks[#marks + 1] = { row = row, col = said, end_col = said + #who, group = '@markup.italic' }
-    marks[#marks + 1] =
-      { row = row, col = said + #who + 2, end_col = #lines[row + 1], group = 'Comment' }
+    M.append_author(lines, marks, comment)
     lines[#lines + 1] = ''
     M.append_body(lines, comment.body)
   end

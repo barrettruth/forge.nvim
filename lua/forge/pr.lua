@@ -60,7 +60,8 @@ query($owner: String!, $repo: String!, $number: Int!) {
         }
       }
       additions deletions changedFiles
-      baseRefName headRefName
+      baseRefName headRefName isCrossRepository
+      headRepositoryOwner { login }
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
@@ -223,7 +224,14 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       base = node.baseRefName,
-      head = node.headRefName,
+      --- What github's own page puts under a title, in its order: what is
+      --- merged into, then what merges, the arrow pointing the way the code
+      --- travels. Git takes them that way round too, as "base...head". A fork
+      --- says whose branch it is, because the name alone does not.
+      head = node.isCrossRepository and ('%s:%s'):format(
+        vim.tbl_get(node, 'headRepositoryOwner', 'login') or '?',
+        node.headRefName or '?'
+      ) or node.headRefName,
       remote = repo.url,
     }
   end,
@@ -232,8 +240,10 @@ local PRS = {
   state = function(node)
     return (node.state == 'OPEN' and node.isDraft) and 'DRAFT' or node.state
   end,
-  header = function(node)
-    return { ('- Branch: %s into %s'):format(node.headRefName or '?', node.baseRefName or '?') }
+  --- The branches take the room a title would, so there is nothing to say
+  --- here: |b:forge| carries them and the winbar draws them itself.
+  about = function()
+    return ''
   end,
   --- Of `mergeStateStatus`'s seven values only DIRTY is actionable, and this
   --- is it, so that enum is left unasked for.

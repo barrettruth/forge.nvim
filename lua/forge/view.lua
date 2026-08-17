@@ -32,6 +32,8 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field title string
 --- @field state string the state to show, as a person reads it
 --- @field state_hl string the group that state is drawn in
+--- @field about string free text for the winbar after the state, empty for
+--- anything that fills that room another way
 --- @field badges string winbar segments an item adds, already highlighted
 --- @field stat string what it measures, its own bar included, drawn right
 --- @field id string? what a mutation names a pull request by
@@ -91,17 +93,26 @@ local WINBAR = {
     .. ' %#Comment#('
     .. at('total')
     .. ')%*',
-  --- What it is and how it stands, the title with whatever room is left, then
-  --- what only some of them have. `%<` after the first bar makes the title the
-  --- one thing that can be cut, so nothing else is ever pushed off.
+  --- What it is and how it stands, then either the branches it joins or what
+  --- it is about, then what only some of them have. Exactly one of those two
+  --- is ever filled and `%(…%)` drops whichever is not.
+  ---
+  --- The colours are written here and the words arrive through a plain `%{}`,
+  --- which is not parsed again: a branch name and a title are both somebody
+  --- else's text, and neither may be handed to a `%{%…%}`. `%<` marks what to
+  --- cut first, so nothing else is ever pushed off.
   item = '%#Title#'
     .. at('label')
     .. '%* %#Tag#'
     .. at('tag')
     .. '%* '
     .. STATE
-    .. '%( | %<'
-    .. at('title')
+    .. '%( | %#Comment#'
+    .. at('base')
+    .. ' <- %*%#Directory#%<'
+    .. at('head')
+    .. '%*%)%( | %<'
+    .. at('about')
     .. '%)%=%{%'
     .. call('badges')
     .. '%}%{%'

@@ -66,9 +66,8 @@ describe('an issue github answered with', function()
     assert.same({
       '# Something broke',
       '',
-      '- Author: someone (CONTRIBUTOR)',
-      '- State: OPEN, opened today',
-      '- Labels: bug, ui',
+      '▎ someone  CONTRIBUTOR  today',
+      '  bug  ui',
       '',
       'Line one',
       'Line two',
@@ -159,7 +158,7 @@ describe('an issue github answered with', function()
     answering(anonymous, function()
       issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
     end)
-    assert.equals('- Author: ghost (NONE)', drawn()[3])
+    assert.equals('▎ ghost  today', drawn()[3])
   end)
 end)
 
@@ -193,17 +192,26 @@ describe('a pull request github answered with', function()
     pr.show({ owner = 'neovim', repo = 'neovim', collection = 'prs', number = 41138 }, {})
   end
 
-  it('says which branches it joins, under the state', function()
+  it('leaves the branches to the winbar and says who wrote it', function()
     answering(response(), show)
     assert.same({
       '# Fix the thing',
       '',
-      '- Author: someone (MEMBER)',
-      '- State: MERGED, opened today',
-      '- Branch: fix-the-thing into master',
+      '▎ someone  MEMBER  today',
       '',
       'the body',
     }, drawn())
+  end)
+
+  --- github's own order, and git's: what is merged into, then what merges.
+  it("names the owner of a branch that is somebody else's", function()
+    answering(
+      response({ isCrossRepository = true, headRepositoryOwner = { login = 'them' } }),
+      show
+    )
+    local _, info = drawn()
+    assert.equals('master', info.base)
+    assert.equals('them:fix-the-thing', info.head)
   end)
 
   it('carries its diffstat and its branches into the buffer variable', function()
@@ -253,7 +261,7 @@ describe('a pull request github answered with', function()
     vim.cmd('redraw!')
     local drew = vim.api.nvim_eval_statusline(vim.wo.winbar, { winid = 0, use_winbar = true }).str
     assert.equals(
-      'PR #41138 MERGED | Fix the thing CONFLICT | +10 -2',
+      'PR #41138 MERGED | master <- fix-the-thing CONFLICT | +10 -2',
       (vim.trim(drew):gsub('%s%s+', ' '))
     )
   end)
