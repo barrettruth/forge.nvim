@@ -27,6 +27,10 @@ query($owner: String!, $repo: String!, $number: Int!) {
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
+      assignees(first: 10) { totalCount nodes { login } }
+      milestone { title }
+      issueType { name }
+      parent { number }
       comments(first: 100) {
         totalCount
         nodes { author { login } authorAssociation createdAt body }
@@ -81,6 +85,20 @@ local ISSUES = {
   list_query = LIST_QUERY,
   --- CLOSED is the fallback for one github gave no reason, which it backfilled
   --- COMPLETED on every issue closed before it started asking.
+  --- What only an issue has. A type is github's own classification and not a
+  --- label, however alike they look on its page, and a parent is a reference
+  --- rather than a name: "#32280" is what |gf| already follows, and the title
+  --- it stands for is one keystroke away.
+  rows = function(node)
+    return {
+      { key = 'Type', values = { vim.tbl_get(node, 'issueType', 'name') }, group = 'Tag' },
+      {
+        key = 'Parent',
+        values = { node.parent and ('#%d'):format(node.parent.number) },
+        group = 'Tag',
+      },
+    }
+  end,
   state_hl = {
     OPEN = view.HL.live,
     CLOSED = view.HL.done,

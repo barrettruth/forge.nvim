@@ -182,8 +182,9 @@ it, then its body and the conversation under it: >
 
     ▎ superatomic  MEMBER  4 days ago
       Assignees:  clason
-      Reviewers:  ribru17, echasnovski
-      Labels:     enhancement, uri
+      Type:       Enhancement
+      Parent:     #32280
+      Labels:     uri, lifecycle
       Milestone:  0.13
 
     Nvim supports opening files with file:// syntax.
@@ -195,8 +196,10 @@ it, then its body and the conversation under it: >
     As file:// are just urls this should be added to net.lua.
 <
 A row appears only when there is something in it, and the column is as wide as
-the widest row drawn. Reviewers are the ones still being waited on; github
-drops a request when its reviewer answers.
+the widest row drawn. A pull request says "Reviewers" instead of "Type" and
+"Parent", and those are the ones still being waited on: github drops a request
+when its reviewer answers. A parent is written as the reference |gf| follows,
+not as the title it stands for.
 
 A bar starts anything somebody wrote, item and comment alike, because a body
 is markdown and a heading in one would otherwise read as the start of another

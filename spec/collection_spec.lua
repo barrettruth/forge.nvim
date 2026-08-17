@@ -80,6 +80,37 @@ describe('an issue github answered with', function()
     }, lines)
   end)
 
+  it('says what github classes it as and what it hangs under', function()
+    local tracked = response()
+    tracked.repository.issue.issueType = { name = 'Enhancement' }
+    tracked.repository.issue.parent = { number = 32280 }
+    tracked.repository.issue.assignees = { totalCount = 1, nodes = { { login = 'clason' } } }
+    tracked.repository.issue.milestone = { title = '0.13' }
+
+    answering(tracked, function()
+      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+    end)
+    assert.same({
+      '# Something broke',
+      '',
+      '▎ someone  CONTRIBUTOR  today',
+      '  Assignees:  clason',
+      '  Type:       Enhancement',
+      '  Parent:     #32280',
+      '  Labels:     bug, ui',
+      '  Milestone:  0.13',
+      '',
+      'Line one',
+      'Line two',
+      '',
+      '## Comments (1)',
+      '',
+      '▎ other  today',
+      '',
+      'a reply',
+    }, drawn())
+  end)
+
   it('is filed under the name github spelled, not the one asked for', function()
     answering(response(), function()
       issue.show({ owner = 'Neovim', repo = 'Neovim', collection = 'issues', number = 41310 }, {})
