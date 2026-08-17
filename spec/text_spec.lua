@@ -19,14 +19,24 @@ describe('a body github wrote', function()
     assert.same({ 'plain', 'lf' }, lines)
   end)
 
-  it('says so when there is none, dimmed, rather than leaving a blank behind', function()
+  it('says what it was given to say for an empty one, dimmed', function()
     local said = 'No description provided.'
     for _, body in ipairs({ { '' }, { '  \r\n\n ' }, {} }) do
       local lines, marks = {}, {}
-      text.append_body(lines, marks, body[1])
+      text.append_body(lines, marks, body[1], said)
       assert.same({ said }, lines)
       assert.same({ { row = 0, col = 0, end_col = #said, group = 'Comment' } }, marks)
     end
+  end)
+
+  --- github lets a review through with no body at all, and one arrives for
+  --- every inline comment made, so a substitute would be said hundreds of
+  --- times over a pull request that had never been described as empty.
+  it('says nothing for an empty one when given no words for it', function()
+    local lines, marks = {}, {}
+    text.append_body(lines, marks, '', nil)
+    assert.same({}, lines)
+    assert.same({}, marks)
   end)
 end)
 
@@ -136,6 +146,15 @@ describe('a conversation', function()
     end, lines)
     assert.equals(1, #bars)
     assert.equals(3, #marks)
+  end)
+
+  it('leaves an empty comment empty, having no description to be missing', function()
+    local lines, marks = {}, {}
+    text.append_comments(lines, marks, {
+      totalCount = 1,
+      nodes = { { author = { login = 'someone' }, createdAt = ago(0), body = '' } },
+    })
+    assert.same({ '', '## Comments (1)', '', '▎ someone  today', '' }, lines)
   end)
 
   it('strips the carriage returns out of a comment too', function()

@@ -316,7 +316,9 @@ function M.item(spec, t, o)
     text.append_author(lines, marks, node)
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''
-    text.append_body(lines, marks, node.body)
+    --- github's own sentence for an item nobody described. A comment has no
+    --- description to be missing, so it says nothing when it is empty.
+    text.append_body(lines, marks, node.body, 'No description provided.')
     text.append_comments(lines, marks, node.comments)
 
     local badges = (spec.badges and spec.badges(node)) or {}

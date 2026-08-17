@@ -56,20 +56,25 @@ function M.age(iso)
 end
 
 --- github's own words for one nobody described, dimmed as an empty list is.
-local NOTHING = 'No description provided.'
-
---- Append a body, or say there is none.
+--- Append a body, or `instead` if there is none.
 ---
---- Only at render: `b:forge.edit` reads the same field, and "cc" would
---- otherwise write this sentence back as a real description.
+--- The words belong to the caller, because github's differ by what is empty
+--- and for most of them there are none: it says nothing of a review submitted
+--- without one, and an empty review is the ordinary case, every inline comment
+--- opening one of its own to hang from. Only at render, wherever they come
+--- from: `b:forge.edit` reads the same field, and "cc" would otherwise offer
+--- the substitute as text worth keeping.
 --- @param lines string[]
 --- @param marks forge.Mark[]
 --- @param body string?
-function M.append_body(lines, marks, body)
+--- @param instead string? what github says of an empty one, where it says any
+function M.append_body(lines, marks, body, instead)
   local text = vim.trim(((body or ''):gsub('\r\n?', '\n')))
   if text == '' then
-    marks[#marks + 1] = { row = #lines, col = 0, end_col = #NOTHING, group = 'Comment' }
-    lines[#lines + 1] = NOTHING
+    if instead then
+      marks[#marks + 1] = { row = #lines, col = 0, end_col = #instead, group = 'Comment' }
+      lines[#lines + 1] = instead
+    end
     return
   end
   for _, line in ipairs(vim.split(text, '\n', { plain = true })) do
