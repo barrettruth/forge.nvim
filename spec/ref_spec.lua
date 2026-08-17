@@ -68,6 +68,8 @@ describe('ref.at_cursor', function()
       { 'see https://github.com/o/r/blob/main/README.md there', 12 },
       { 'in https://github.com/o/r/releases/tag/v1.0 now', 12 },
       { 'over at https://github.com/o/r itself', 16 },
+      { 'nor https://github.com/o/r/issuesfoo, which is a word', 12 },
+      { 'nor https://github.com/o/r/pullover either', 12 },
     }) do
       reading(case[1], case[2])
       assert.is_nil(ref.at_cursor(), case[1])
