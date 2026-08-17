@@ -61,6 +61,33 @@ describe('a conversation', function()
     }
   end
 
+  it('aligns what is known in a column, and leaves out what is not', function()
+    local lines, marks = {}, {}
+    text.append_rows(lines, marks, {
+      { key = 'Assignees', values = { 'clason' }, group = text.LOGIN },
+      { key = 'Reviewers', values = {}, group = text.LOGIN },
+      { key = 'Labels', values = { 'bug', 'ui' }, group = 'Tag' },
+      { key = 'Milestone', values = { nil }, group = 'Tag' },
+    })
+    --- The column is as wide as the widest key drawn, not the widest asked
+    --- for: no milestone and nobody reviewing means no room kept for either.
+    assert.same({
+      '  Assignees:  clason',
+      '  Labels:     bug, ui',
+    }, lines)
+    assert.same({
+      { row = 0, col = 0, end_col = 12, group = 'Comment' },
+      { row = 0, col = 14, end_col = 20, group = '@markup.italic' },
+      { row = 1, col = 0, end_col = 9, group = 'Comment' },
+      { row = 1, col = 14, end_col = 21, group = 'Tag' },
+    }, marks)
+  end)
+
+  it('reads a login out of whichever shape github answered with', function()
+    assert.same({ 'a', 'b' }, text.logins({ nodes = { { login = 'a' }, {}, { name = 'b' } } }))
+    assert.same({}, text.logins(nil))
+  end)
+
   it('starts each comment with a bar, not a heading', function()
     local lines, marks = {}, {}
     text.append_comments(lines, marks, { totalCount = 1, nodes = { comment('hello') } })

@@ -75,6 +75,32 @@ end
 --- for one to say which comment the cursor is in.
 local BAR = '▎'
 
+--- A login is drawn the same wherever one appears: an author, an assignee, a
+--- reviewer, whoever said a thing. A label or a milestone is `Tag`, and
+--- everything structural is `Comment`; those three cover the whole header.
+M.LOGIN = '@markup.italic'
+
+--- @class forge.Row
+--- @field key string what it is, said in the plural github allows
+--- @field values string[] what it is, empty for a row not worth drawing
+--- @field group string the group its values take
+
+--- The logins in a connection, in the order github gave them.
+--- @param connection table?
+--- @return string[]
+function M.logins(connection)
+  local out = {}
+  for _, node in ipairs(vim.tbl_get(connection or {}, 'nodes') or {}) do
+    --- A requested reviewer is a user, a team or a mannequin, and github
+    --- answers null for one whose type went unasked for.
+    local name = node.login or node.name or vim.tbl_get(node, 'author', 'login')
+    if name then
+      out[#out + 1] = name
+    end
+  end
+  return out
+end
+
 --- Who wrote a thing and when, on one line.
 ---
 --- The same for the item as for a comment beneath it, because github treats a
@@ -104,6 +130,40 @@ function M.append_author(lines, marks, node)
   marks[#marks + 1] = { row = row, col = said, end_col = said + #who, group = '@markup.italic' }
   marks[#marks + 1] =
     { row = row, col = said + #who + 2, end_col = #lines[row + 1], group = 'Comment' }
+end
+
+--- Append what is known about an item, a row to a line, aligned in a column.
+---
+--- A row with nothing in it is not drawn, so the column is only ever as wide
+--- as what is actually there: most items have no milestone and nobody
+--- assigned, and a key standing over an empty value is a field, not a fact.
+--- @param lines string[]
+--- @param marks forge.Mark[]
+--- @param rows forge.Row[]
+function M.append_rows(lines, marks, rows)
+  local said = {}
+  local width = 0
+  for _, row in ipairs(rows) do
+    local values = vim.tbl_filter(function(v)
+      return v ~= nil and v ~= ''
+    end, row.values or {})
+    if #values > 0 then
+      said[#said + 1] = { key = row.key .. ':', values = values, group = row.group }
+      width = math.max(width, #row.key + 1)
+    end
+  end
+
+  for _, row in ipairs(said) do
+    local at = #lines
+    local col = 2 + width + 2
+    lines[at + 1] = ('  %s%s%s'):format(
+      row.key,
+      (' '):rep(col - 2 - #row.key),
+      table.concat(row.values, ', ')
+    )
+    marks[#marks + 1] = { row = at, col = 0, end_col = 2 + #row.key, group = 'Comment' }
+    marks[#marks + 1] = { row = at, col = col, end_col = #lines[at + 1], group = row.group }
+  end
 end
 
 --- Append a conversation, if there is one.

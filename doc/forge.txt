@@ -175,12 +175,40 @@ In an item, and only in one. The last three are a pull request's: >
                that is a fork
     remote     the repository "dd" and "dl" fetch it from
 <
+An item is its title, then who opened it and when, then what is known about
+it, then its body and the conversation under it: >
+
+    # Support file:// without netrw
+
+    ▎ superatomic  MEMBER  4 days ago
+      Assignees:  clason
+      Reviewers:  ribru17, echasnovski
+      Labels:     enhancement, uri
+      Milestone:  0.13
+
+    Nvim supports opening files with file:// syntax.
+
+    ## Comments (2)
+
+    ▎ yochem  CONTRIBUTOR  3 days ago
+
+    As file:// are just urls this should be added to net.lua.
+<
+A row appears only when there is something in it, and the column is as wide as
+the widest row drawn. Reviewers are the ones still being waited on; github
+drops a request when its reviewer answers.
+
+A bar starts anything somebody wrote, item and comment alike, because a body
+is markdown and a heading in one would otherwise read as the start of another
+comment. A login is drawn in the emphasis a colourscheme gives markdown, a
+label or a milestone as a tag, and everything else on those lines is dimmed.
+
 Every view sets a 'winbar': >
 
     ISSUES barrettruth/forge-fixture 1/2 (124)
     ISSUE #27 OPEN | a title that fits
     ISSUE #41309 NOT PLANNED | one nobody is going to do
-    PR #151 MERGED | master <- a-branch                       | +10 -2
+    PR #151 MERGED | master <- a-branch                         +10 -2
     PR #152 OPEN | master <- them:their-branch CONFLICT FAILING | +7 -0
 <
 A closed issue is drawn as the reason it closed, since each of those implies
@@ -192,8 +220,9 @@ in the buffer anyway, and a branch is what tells one pull request from
 another.
 
 Only that part is ever truncated, so what an item is and how it stands survive
-a narrow window. A diffstat is only a measure, so it goes to the right edge. A
-badge appears only when it has something to say, so a pull request that merges
+a narrow window. A diffstat is only a measure, so it goes to the right edge,
+with a bar before it only when there is a badge to divide it from. A badge
+appears only when it has something to say, so a pull request that merges
 cleanly and whose checks passed carries neither of those two. Its checks are
 "FAILING", "PENDING" or "EXPECTED"; "dc" shows which.
 
@@ -284,9 +313,9 @@ duplicate is left to github's own page, which asks which issue.
 
                                                                   *forge-edit*
 "Edit title and body" replaces the view, as "dd" and "dc" do, because nearly
-all of what an item shows is the two. "-" goes back to it, and so does
-|CTRL-O|. The buffer is laid out as a commit message is: the first line is the
-title, and the body follows a blank line.
+all of what an item shows is the two. |CTRL-O| goes back to it. The buffer is
+laid out as a commit message is: the first line is the title, and the body
+follows a blank line.
 
 Its 'winbar' is the item's own with the state swapped for the mode: >
 

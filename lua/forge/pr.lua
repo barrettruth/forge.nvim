@@ -1,6 +1,7 @@
 local collection = require('forge.collection')
 local gh = require('forge.gh')
 local log = require('forge.log')
+local text = require('forge.text')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
 local view = require('forge.view')
@@ -65,6 +66,12 @@ query($owner: String!, $repo: String!, $number: Int!) {
       author { login }
       authorAssociation
       labels(first: 20) { totalCount nodes { name } }
+      assignees(first: 10) { totalCount nodes { login } }
+      milestone { title }
+      reviewRequests(first: 10) {
+        totalCount
+        nodes { requestedReviewer { ... on User { login } ... on Team { name } } }
+      }
       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
       comments(first: 100) {
         totalCount
@@ -244,6 +251,18 @@ local PRS = {
   --- here: |b:forge| carries them and the winbar draws them itself.
   about = function()
     return ''
+  end,
+  --- Only the ones still being waited on. Github drops a request the moment
+  --- its reviewer answers, so what is left is what is outstanding, and anyone
+  --- who has spoken says so in the winbar and again in the conversation.
+  rows = function(node)
+    local asked = {}
+    for _, request in ipairs(vim.tbl_get(node, 'reviewRequests', 'nodes') or {}) do
+      asked[#asked + 1] = request.requestedReviewer
+    end
+    return {
+      { key = 'Reviewers', values = text.logins({ nodes = asked }), group = text.LOGIN },
+    }
   end,
   --- Of `mergeStateStatus`'s seven values only DIRTY is actionable, and this
   --- is it, so that enum is left unasked for.

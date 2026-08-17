@@ -67,7 +67,7 @@ describe('an issue github answered with', function()
       '# Something broke',
       '',
       '▎ someone  CONTRIBUTOR  today',
-      '  bug  ui',
+      '  Labels:  bug, ui',
       '',
       'Line one',
       'Line two',
@@ -214,6 +214,41 @@ describe('a pull request github answered with', function()
     assert.equals('them:fix-the-thing', info.head)
   end)
 
+  it('says who is still being waited on, and nothing of who answered', function()
+    answering(
+      response({
+        assignees = { totalCount = 1, nodes = { { login = 'clason' } } },
+        milestone = { title = '0.13' },
+        reviewRequests = {
+          totalCount = 2,
+          nodes = { { requestedReviewer = { login = 'ribru17' } }, { requestedReviewer = nil } },
+        },
+      }),
+      show
+    )
+    assert.same({
+      '# Fix the thing',
+      '',
+      '▎ someone  MEMBER  today',
+      '  Assignees:  clason',
+      '  Reviewers:  ribru17',
+      '  Milestone:  0.13',
+      '',
+      'the body',
+    }, drawn())
+  end)
+
+  --- The bar divides badges from the diffstat, so with no badge it would be a
+  --- divider with nothing on one side of it.
+  it('keeps the bar off the diffstat when no badge precedes it', function()
+    answering(response(), show)
+    local _, plain = drawn()
+    answering(response({ mergeable = 'CONFLICTING' }), show)
+    local _, badged = drawn()
+    assert.equals(' %#Added#+10%* %#Removed#-2%*', plain.stat)
+    assert.equals(' | %#Added#+10%* %#Removed#-2%*', badged.stat)
+  end)
+
   it('carries its diffstat and its branches into the buffer variable', function()
     answering(response(), show)
     local _, info = drawn()
@@ -221,7 +256,7 @@ describe('a pull request github answered with', function()
     assert.equals('MERGED', info.state)
     assert.equals('Special', info.state_hl)
     assert.equals('', info.badges)
-    assert.equals(' | %#Added#+10%* %#Removed#-2%*', info.stat)
+    assert.equals(' %#Added#+10%* %#Removed#-2%*', info.stat)
     assert.equals('master', info.base)
     assert.equals('fix-the-thing', info.head)
   end)

@@ -105,6 +105,8 @@ end
 --- @field state? fun(node: table): string the state to show, when not node.state
 --- @field about? fun(node: table): string what the winbar says after the
 --- state, when something other than the title belongs there
+--- @field rows? fun(node: table): forge.Row[] metadata only it has, drawn
+--- among the people it belongs with
 --- @field badges? fun(node: table): string[] extra winbar segments
 --- @field stat? fun(node: table): string[] winbar segments for the right edge
 --- @field remember? fun(node: table, repo: table): table what the buffer should
@@ -294,20 +296,25 @@ function M.item(spec, t, o)
       labels[#labels + 1] = label.name
     end
 
-    --- The state is the winbar's and is always on screen, so saying it here
-    --- as well would be saying it twice. What is left needs no keys: a login,
-    --- a list of labels and a date each say what they are.
+    --- Who it is on, then what it is: people first, and within each the order
+    --- is fixed rather than sorted by what happens to be there, so a fact is
+    --- always in the same place and the shape is learned once.
+    --- @type forge.Row[]
+    local rows = {
+      { key = 'Assignees', values = text.logins(node.assignees), group = text.LOGIN },
+    }
+    vim.list_extend(rows, (spec.rows and spec.rows(node)) or {})
+    rows[#rows + 1] = { key = 'Labels', values = labels, group = 'Tag' }
+    rows[#rows + 1] =
+      { key = 'Milestone', values = { vim.tbl_get(node, 'milestone', 'title') }, group = 'Tag' }
+
+    --- The state is the winbar's and is always on screen, so saying it here as
+    --- well would be saying it twice.
     local lines = { ('# %s'):format(node.title), '' }
     --- @type forge.Mark[]
     local marks = {}
     text.append_author(lines, marks, node)
-    if #labels > 0 then
-      local row = #lines
-      lines[row + 1] = ('  %s'):format(table.concat(labels, '  '))
-      --- Not dimmed with the rest: a label is often the most consequential
-      --- thing about an item, and Tag is already what forge draws "#27" in.
-      marks[#marks + 1] = { row = row, col = 0, end_col = #lines[row + 1], group = 'Tag' }
-    end
+    text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''
     text.append_body(lines, node.body)
     text.append_comments(lines, marks, node.comments)
@@ -332,7 +339,10 @@ function M.item(spec, t, o)
       badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
       --- Its bar belongs to the value: a `%(…%)` group wrapped round a
       --- `%{%…%}` is dropped whole, taking the separator with it.
-      stat = #stat > 0 and (' | ' .. table.concat(stat, ' ')) or '',
+      --- The bar goes between the two, so it is neither's alone: with no
+      --- badge to divide from, it would be a divider marooned at the end of
+      --- whatever gap `%=` opened.
+      stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
     }
     if spec.remember then
       info = vim.tbl_extend('force', info, spec.remember(node, data.repository))
@@ -341,6 +351,7 @@ function M.item(spec, t, o)
     view.place(o)
     view.render(u, lines, info, marks, spec.item_maps, o)
     view.check_truncated(node.labels, 'labels')
+    view.check_truncated(node.assignees, 'assignees')
     view.check_truncated(node.comments, 'comments')
   end, settle)
 end
