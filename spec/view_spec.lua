@@ -458,6 +458,42 @@ describe('what a pull request can be asked to do', function()
   end)
 end)
 
+describe('starting something new', function()
+  --- @return string[]? argv, string? opened
+  local function asked(collection, url)
+    local cmd, opened
+    local system, open = vim.system, vim.ui.open
+    vim.system = function(argv)
+      cmd = argv
+      return {}
+    end
+    vim.ui.open = function(target)
+      opened = target
+    end
+    view.render(uri(collection, 27), { 'x' }, info('item', { url = url }))
+    view.create()
+    vim.system, vim.ui.open = system, open
+    return cmd, opened
+  end
+
+  it('leaves a pull request to gh, which has a branch to push first', function()
+    local cmd, opened = asked('prs', 'https://github.com/a/b/pull/27')
+    assert.same({ 'gh', 'pr', 'create', '--repo', 'a/b', '--web' }, cmd)
+    assert.is_nil(opened)
+  end)
+
+  it('opens a new issue itself, there being nothing for gh to work out', function()
+    local cmd, opened = asked('issues', 'https://github.com/a/b/issues/27')
+    assert.is_nil(cmd)
+    assert.equals('https://github.com/a/b/issues/new', opened)
+  end)
+
+  it('keeps to the host that answered, and to what a search narrowed', function()
+    local _, opened = asked('issues', 'https://git.example.com/a/b/issues?q=is:open')
+    assert.equals('https://git.example.com/a/b/issues/new', opened)
+  end)
+end)
+
 describe('view.field', function()
   it('is empty for anything b:forge does not hold', function()
     vim.b.forge = { tag = '#7' }

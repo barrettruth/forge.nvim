@@ -557,9 +557,9 @@ end
 --- Start something new in a collection, on github.com.
 ---
 --- github's own page is the form, so templates and required fields stay
---- theirs to enforce, and gh pushes the branch on the way there. The
---- repository is the one asked about rather than the one you are standing in,
---- so a fork can propose a branch to what it forked.
+--- theirs to enforce, and gh pushes the branch on the way to a pull request's.
+--- The repository is the one asked about rather than the one you are standing
+--- in, so a fork can propose a branch to what it forked.
 --- @param t forge.Target? what to add to, or the view being looked at
 function M.create(t)
   t = t or M.current()
@@ -567,26 +567,43 @@ function M.create(t)
     return
   end
 
-  local what = t.collection == 'prs' and 'pr' or 'issue'
-  local said = t.collection == 'prs' and 'pull request' or 'issue'
-  local slug = ('%s/%s'):format(t.owner, t.repo)
-  local done = log.progress(('a new %s in %s'):format(said, slug))
-
-  vim.system(
-    { 'gh', what, 'create', '--repo', slug, '--web' },
-    { cwd = require('forge.vcs').dir(), text = true },
-    function(out)
-      vim.schedule(function()
-        if out.code ~= 0 then
-          local why = vim.trim((out.stderr or ''):gsub('\n.*', ''))
-          why = why ~= '' and why or ('gh %s create failed'):format(what)
-          done('failed', why)
-          return log.err(why)
-        end
-        done('success', ('a new %s in %s'):format(said, slug))
-      end)
+  --- A new issue is an address, and the view already carries the host that
+  --- answered for it, which is all gh would have been asked for. gh will not
+  --- start one without a terminal to prompt in, either.
+  if t.collection == 'issues' then
+    local repo = M.field('url'):match('^(https?://[^/]+/[^/]+/[^/]+)')
+    if not repo then
+      log.warn('no url for this buffer')
+      return
     end
-  )
+    vim.ui.open(repo .. '/issues/new')
+    return
+  end
+
+  --- A new pull request is not an address until gh has worked out what merges
+  --- into what from the branch you are on, and pushed it if the remote has
+  --- never seen it.
+  local slug = ('%s/%s'):format(t.owner, t.repo)
+  local done = log.progress(('a new pull request in %s'):format(slug))
+
+  vim.system({
+    'gh',
+    'pr',
+    'create',
+    '--repo',
+    slug,
+    '--web',
+  }, { cwd = require('forge.vcs').dir(), text = true }, function(out)
+    vim.schedule(function()
+      if out.code ~= 0 then
+        local why = vim.trim((out.stderr or ''):gsub('\n.*', ''))
+        why = why ~= '' and why or 'gh pr create failed'
+        done('failed', why)
+        return log.err(why)
+      end
+      done('success', ('a new pull request in %s'):format(slug))
+    end)
+  end)
 end
 
 --- Open this view on github.com.
