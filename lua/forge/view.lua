@@ -443,7 +443,7 @@ function M.render(u, lines, info, marks, maps, o)
   map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
   map.buf_default(buf, 'n', 'R', '<Plug>(forge-refresh)', 'fetch this view again')
-  map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', 'open this view on github.com')
+  map.buf_default(buf, 'n', 'gX', '<Plug>(forge-web)', ('open this view on %s'):format(u.host))
   map.buf_default(buf, 'n', 'gy', '<Plug>(forge-yank)', "yank this view's url")
   map.buf_default(buf, 'n', 'ga', '<Plug>(forge-create)', 'start something new in this collection')
   for _, m in ipairs(maps or {}) do
@@ -615,7 +615,7 @@ function M.create(t)
   end)
 end
 
---- Open this view on github.com.
+--- Open this view on the forge it came from.
 ---
 --- What the buffer shows, not what the cursor is on: the buffer already knows
 --- what it is, and <CR> is how you follow a line.

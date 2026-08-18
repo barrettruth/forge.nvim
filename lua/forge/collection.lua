@@ -160,7 +160,10 @@ function M.act(spec)
   --- other is just how a merged pull request is.
   if #can == 0 then
     if var.can_update == false then
-      log.warn(('github does not let you change this %s'):format(spec.one))
+      --- The forge is named out of the url it answered with, which on an
+      --- enterprise install is not the host its own name defaults to.
+      local host = (var.url or ''):match('^https?://([^/]+)') or 'the forge'
+      log.warn(('%s does not let you change this %s'):format(host, spec.one))
     else
       log.info(('nothing to do to a %s %s'):format((var.state or '?'):lower(), spec.one))
     end

@@ -261,7 +261,7 @@ Highlighting uses builtin |group-name| groups only.
     ]i  [i   <Plug>(forge-next-page)   Page through a list. A pull
              <Plug>(forge-prev-page)   request list uses ]p and [p.
     ga       <Plug>(forge-create)      Start something new, on github.com.
-    gX       <Plug>(forge-web)         Open this view on github.com.
+    gX       <Plug>(forge-web)         Open this view in a browser.
     gy       <Plug>(forge-yank)        Yank this view's URL.
     cc       <Plug>(forge-act)         Do something to this item.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.

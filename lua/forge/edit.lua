@@ -69,7 +69,7 @@ function M.open(var)
     name = ('%s/edit'):format(uri.tostring(u)),
     text = var.edit or '',
     filetype = 'markdown',
-    desc = 'send an edited title and body to github',
+    desc = ('send an edited title and body to %s'):format(u.host),
     label = var.label,
     tag = var.tag,
     mode = 'EDIT',

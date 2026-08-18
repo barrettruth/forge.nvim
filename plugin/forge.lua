@@ -32,7 +32,7 @@ end, { desc = 'start something new in this collection' })
 
 vim.keymap.set('n', '<Plug>(forge-web)', function()
   require('forge.view').web()
-end, { desc = 'open this view on github.com' })
+end, { desc = 'open this view in a browser' })
 
 vim.keymap.set('n', '<Plug>(forge-yank)', function()
   require('forge.view').yank()
