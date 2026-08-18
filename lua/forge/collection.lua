@@ -1,4 +1,4 @@
-local gh = require('forge.gh')
+local github = require('forge.github')
 local log = require('forge.log')
 local text = require('forge.text')
 local uri = require('forge.uri')
@@ -7,78 +7,90 @@ local view = require('forge.view')
 
 local M = {}
 
---- One document for both collections: `type: ISSUE` searches issues and pull
---- requests alike, and which of them come back is decided by the `is:` forge
---- puts in the query. The repository is asked for alongside, since a search
---- answers for no particular one and a view still needs the name github
---- spells it with.
-local SEARCH_QUERY = [[
-query($owner: String!, $repo: String!, $q: String!, $after: String) {
-  repository(owner: $owner, name: $repo) {
-    nameWithOwner
-    url
-  }
-  search(query: $q, type: ISSUE, first: 100, after: $after) {
-    issueCount
-    pageInfo { hasNextPage endCursor }
-    nodes {
-      ... on Issue { number title state stateReason }
-      ... on PullRequest { number title state isDraft }
-    }
-  }
-}
-]]
-
---- Search reaches a thousand results and no further, however many it reports.
-local REACHABLE = 1000
-
---- Qualifiers forge owns, because repeating one of these widens a search
---- rather than narrowing it: two `repo:` are two repositories, and `is:issue`
---- beside `is:pr` is both. The name a view carries would stop being true.
-local OWNED = { org = true, repo = true, user = true }
-local KINDS = { ['is:issue'] = true, ['is:pr'] = true, ['type:issue'] = true, ['type:pr'] = true }
-
---- What to send github for `query`, given what the user typed.
+--- What a forge calls a collection when it says it out loud.
 ---
---- Their string is passed through byte for byte apart from the qualifiers
---- above, so quoting, negation and commas are github's to read rather than
---- ours to parse. Only the whole words forge owns are dropped, which leaves
---- the spaces inside a quoted value where they were.
---- @param spec forge.Spec
---- @param t forge.Target
---- @return string
-local function searching(spec, t)
-  local sorted = false
-  local kept = (t.query or ''):gsub('%S+', function(word)
-    local key = word:match('^%-?([%w-]+):')
-    if key == 'sort' then
-      sorted = true
-    end
-    if OWNED[key] or KINDS[word:lower()] then
-      return ''
-    end
-    return nil
-  end)
-  local owner, repo = gh.slug(t)
-  --- Ordered like the plain list unless they asked otherwise: `search` takes
-  --- no orderBy, so the only way to say it is in the query, and its own
-  --- default is relevance.
-  local parts = { ('repo:%s/%s'):format(owner, repo), spec.kind }
-  if not sorted then
-    parts[#parts + 1] = 'sort:updated-desc'
-  end
-  parts[#parts + 1] = kept
-  return table.concat(parts, ' ')
-end
+--- gitlab says "merge request", writes "!2" where github writes "#2", and puts
+--- MRS in a winbar where github puts PRS. None of that is the collection's to
+--- decide, so all of it belongs to whichever forge answered.
+--- @class forge.Nouns
+--- @field one string the singular, as said to a person
+--- @field many string the plural, as said to a person
+--- @field item string what the winbar calls one
+--- @field list string what the winbar calls the list
+--- @field sigil string what the forge writes in front of a number
+
+--- What a fetch needs beyond the target it is for.
+--- @class forge.Fetch
+--- @field desc string what to say while it is in flight
+--- @field cwd string? where to run the CLI, which is where it resolves the repository
+--- @field after string? the cursor a page past the first is asked for with
+
+--- One page of a list, as the renderer reads one.
+--- @class forge.Page
+--- @field project string the path the forge spells the repository with
+--- @field nodes table[] a row each, holding at least a number, a title and a state
+--- @field total integer? how many the collection holds, where the forge counts them
+--- @field reach integer? how many of those can be paged to, where that is fewer
+--- @field cursor string? what to ask the page after this one for
+--- @field has_next boolean
+--- @field url string the list's own page on the forge, narrowed as this one is
+
+--- One item, as the renderer reads one.
+--- @class forge.Item
+--- @field project string the path the forge spells the repository with
+--- @field node table the item itself
+--- @field repo table what the forge said about the repository around it
+
+--- @class forge.Head
+--- @field project string? the path the forge spells the repository with
+--- @field number integer? absent where the branch has no pull request yet
+
+--- One change to send, in the words above the seam.
+---
+--- `kind` says which of the three shapes the rest is, since an action names
+--- its own write and the other two are composed from what was typed.
+--- @class forge.Write
+--- @field kind 'act'|'edit'|'merge'
+--- @field desc string what to say while it is in flight
+--- @field collection forge.Collection
+--- @field var forge.ItemVar the item being changed
+--- @field cwd string? where to run the CLI
+--- @field query string? for 'act', the write the action carried
+--- @field title string? for 'edit'
+--- @field body string? for 'edit' and 'merge'
+--- @field headline string? for 'merge', the subject of the commit it writes
+--- @field method 'SQUASH'|'MERGE'? for 'merge'
+--- @field auto boolean? for 'merge', wait for the forge to allow it rather than
+--- merging now
+
+--- One forge, as everything above here sees it.
+---
+--- Nothing outside a backend knows which forge answered: a call site that
+--- tests the host is the multiplication kernel idea 1 refuses. A capability
+--- is the presence of an optional method and never a flag, so a forge that
+--- cannot do something simply does not answer for it.
+--- @class forge.Backend
+--- @field nouns table<forge.Collection, forge.Nouns> its own words for each
+--- @field writes table<forge.Collection, table<string, string>> the write behind
+--- each change a menu offers, by the name |forge.Action| gives it
+--- @field list fun(t: forge.Target, f: forge.Fetch, on_done: fun(page: forge.Page?), on_fail: fun()?)
+--- @field item fun(t: forge.Target, f: forge.Fetch, on_done: fun(one: forge.Item?), on_fail: fun()?)
+--- @field head fun(t: forge.Target, branch: string, f: forge.Fetch, on_done: fun(found: forge.Head))
+--- @field write fun(w: forge.Write, on_done: fun(), on_fail: fun()?)
+--- @field create fun(t: forge.Target, host: string) start something new, however
+--- the forge is asked for one
+--- @field pull_ref fun(number: integer): string where it publishes a pull
+--- request's head, for git to fetch by
 
 --- Something an item can be asked to do, and when it can be asked.
 ---
 --- Data rather than a closure: every one of them is the same round trip with a
---- different document, and the reason a state can be written into the document
---- rather than passed is that github spells its enums in the query.
+--- different write, and the reason a state can be written into that write
+--- rather than passed is that a forge spells its own enums.
 --- @class forge.Action
---- @field label string what the picker shows, in github's own words
---- @field query? string the mutation to send
+--- @field label string what the picker shows, in the forge's own words
+--- @field write? string which of the backend's writes it sends
+--- @field query? string that write itself, filled in when the action is offered
 --- @field run? fun(var: forge.ItemVar) what to do instead of sending one
 --- @field when fun(var: forge.ItemVar): boolean
 
@@ -87,18 +99,10 @@ end
 --- Issues and pull requests are drawn by the same two functions below; a spec
 --- is the whole of the difference between them. Anything genuinely particular
 --- to one — a pull request's branch line, its draft state, its diffstat — is a
---- function here rather than a branch there.
+--- function here rather than a branch there. What is particular to a *forge*
+--- is not here at all; see |forge.Backend|.
 --- @class forge.Spec
---- @field one string the singular, as said to a person
---- @field many string the plural, as said to a person
---- @field item_title string what the winbar calls one
---- @field list_title string what the winbar calls the list
---- @field item_key string the response field holding one
---- @field list_key string the response field holding the connection
---- @field list_path string what github calls the list in a url
---- @field kind string the `is:` that keeps a search to this collection
---- @field item_query string
---- @field list_query string
+--- @field collection forge.Collection which of the two it is
 --- @field state_hl table<string, string>
 --- @field list_maps [string, string, string][]
 --- @field item_maps [string, string, string][]?
@@ -115,25 +119,22 @@ end
 
 --- Where the answer goes is settled before the round trip, since by the time
 --- one comes back the current window is wherever you wandered to.
+--- @param spec forge.Spec
 --- @param var forge.ItemVar
 --- @param action forge.Action
-local function mutate(var, action)
+local function mutate(spec, var, action)
   local u = view.current()
   if not u then
     return
   end
   local win = vim.api.nvim_get_current_win()
   local cwd = vcs.dir()
-  --- The head a document asks for is the one the view was drawn from, so a
-  --- branch that moved since then is refused rather than merged unseen.
-  local variables = { id = var.id }
-  if action.query:find('$oid', 1, true) then
-    variables.oid = var.oid
-  end
-  gh.graphql({
+  github.write({
+    kind = 'act',
     desc = ('%s %s'):format(var.tag, action.label),
+    collection = spec.collection,
+    var = var,
     query = action.query,
-    variables = variables,
     cwd = cwd,
   }, function()
     view.open(u, { keep = true, win = win, cwd = cwd })
@@ -141,13 +142,23 @@ local function mutate(var, action)
 end
 
 --- What `spec`'s item can be asked to do, as it stands.
+---
+--- The write comes back on the action rather than being looked up when one is
+--- picked, so what a menu offers is the whole of what it would send.
 --- @param spec forge.Spec
 --- @param var forge.ItemVar
 --- @return forge.Action[]
 function M.actions(spec, var)
-  return vim.tbl_filter(function(action)
-    return action.when(var)
-  end, spec.actions or {})
+  local writes = github.writes[spec.collection] or {}
+  local can = {}
+  for _, action in ipairs(spec.actions or {}) do
+    if action.when(var) then
+      can[#can + 1] = action.write
+          and vim.tbl_extend('force', action, { query = writes[action.write] }) --[[@as forge.Action]]
+        or action
+    end
+  end
+  return can
 end
 
 --- Offer those, and do the one chosen. A menu rather than a key each, because
@@ -155,6 +166,7 @@ end
 --- @param spec forge.Spec
 function M.act(spec)
   local var = vim.b.forge or {}
+  local nouns = github.nouns[spec.collection]
   local can = M.actions(spec, var)
   --- Refused and finished are different things: one is worth a warning, the
   --- other is just how a merged pull request is.
@@ -163,9 +175,9 @@ function M.act(spec)
       --- The forge is named out of the url it answered with, which on an
       --- enterprise install is not the host its own name defaults to.
       local host = (var.url or ''):match('^https?://([^/]+)') or 'the forge'
-      log.warn(('%s does not let you change this %s'):format(host, spec.one))
+      log.warn(('%s does not let you change this %s'):format(host, nouns.one))
     else
-      log.info(('nothing to do to a %s %s'):format((var.state or '?'):lower(), spec.one))
+      log.info(('nothing to do to a %s %s'):format((var.state or '?'):lower(), nouns.one))
     end
     return
   end
@@ -173,7 +185,7 @@ function M.act(spec)
     --- The verb is "cc" itself, and what every choice below has in common:
     --- each one writes, and each is gated on the same permission. A colon
     --- because a list follows, not a question nothing here answers.
-    prompt = ('Change %s %s:'):format(spec.one, var.tag or ''),
+    prompt = ('Change %s %s:'):format(nouns.one, var.tag or ''),
     format_item = function(action)
       return action.label
     end,
@@ -184,7 +196,7 @@ function M.act(spec)
     if action.run then
       action.run(var)
     else
-      mutate(var, action)
+      mutate(spec, var, action)
     end
   end)
 end
@@ -196,36 +208,27 @@ end
 function M.list(spec, t, o)
   local page = o.page or 1
   local cursors = o.cursors or {}
-  local owner, repo = gh.slug(t)
-  local variables = { owner = owner, repo = repo }
-  if t.query then
-    variables.q = searching(spec, t)
-  end
-  if cursors[page] then
-    variables.after = cursors[page]
-  end
+  local nouns = github.nouns[t.collection]
 
   local settle = view.busy(t)
-  gh.graphql({
-    desc = ('%s in %s'):format(spec.many, view.where(t)),
-    query = t.query and SEARCH_QUERY or spec.list_query,
-    variables = variables,
+  github.list(t, {
+    desc = ('%s in %s'):format(nouns.many, view.where(t)),
+    after = cursors[page],
     cwd = o.cwd,
-  }, function(data)
+  }, function(answer)
     settle()
-    local conn = t.query and data.search or vim.tbl_get(data, 'repository', spec.list_key)
-    local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
-    if not conn or not u then
-      log.err(('no %s in %s'):format(spec.many, view.where(t)))
+    local u = answer and uri.of(answer.project, t)
+    if not answer or not u then
+      log.err(('no %s in %s'):format(nouns.many, view.where(t)))
       return
     end
 
-    local nodes = conn.nodes or {}
+    local nodes = answer.nodes
     local width = 1
     for _, node in ipairs(nodes) do
       width = math.max(width, #tostring(node.number))
     end
-    local format = ('#%%-%dd %%s'):format(width)
+    local format = ('%s%%-%dd %%s'):format(nouns.sigil, width)
 
     local lines, marks = {}, {}
     for _, node in ipairs(nodes) do
@@ -234,47 +237,40 @@ function M.list(spec, t, o)
       marks[#marks + 1] = {
         row = row,
         col = 0,
-        end_col = 1 + #tostring(node.number),
+        end_col = #nouns.sigil + #tostring(node.number),
         group = spec.state_hl[(spec.state and spec.state(node)) or node.state] or 'Tag',
       }
     end
     if #lines == 0 then
-      lines = { ('No %s.'):format(spec.many) }
+      lines = { ('No %s.'):format(nouns.many) }
       marks = { { row = 0, col = 0, end_col = #lines[1], group = 'Comment' } }
     end
 
-    local page_info = conn.pageInfo or {}
-    --- Absent where a forge will not count a collection past some size of it,
-    --- and the count is also the only thing that says where the pages end.
-    local total = conn.totalCount or conn.issueCount
-    --- A search reports every match and hands over the first thousand, so the
-    --- page count is of what can be reached and the total says how much was
-    --- found.
-    local reached = total and math.min(total, t.query and REACHABLE or total)
-    local last = reached and math.max(1, math.ceil(reached / view.PER_PAGE))
+    --- The reach rather than the total: a forge that hands over only the first
+    --- so many of a search still reports how many it found.
+    local last = answer.reach and math.max(1, math.ceil(answer.reach / view.PER_PAGE))
 
     --- @type forge.ListVar
     local info = {
       kind = 'list',
-      label = spec.list_title,
+      label = nouns.list,
       repo = u.project,
-      url = ('%s/%s'):format(data.repository.url, spec.list_path)
-        .. (t.query and ('?q=' .. vim.uri_encode(searching(spec, t))) or ''),
+      url = answer.url,
       query = t.query or '',
       pages = last and ('%d/%d'):format(page, last) or ('%d/?'):format(page),
-      total = total and tostring(total) or nil,
+      total = answer.total and tostring(answer.total) or nil,
     }
 
     view.place(o)
     local buf = view.render(u, lines, info, marks, spec.list_maps, o)
-    if page_info.hasNextPage and page_info.endCursor then
-      cursors[page + 1] = page_info.endCursor
+    if answer.cursor then
+      cursors[page + 1] = answer.cursor
     end
-    view.paged(buf, page, cursors, page_info.hasNextPage or false)
+    view.paged(buf, page, cursors, answer.has_next)
   end, settle)
 end
 
---- What github answered about one message, as the renderer reads a message.
+--- What the forge answered about one message, as the renderer reads a message.
 --- @param node table anything with an author, an association and a createdAt
 --- @return forge.Comment
 local function said(node)
@@ -288,8 +284,8 @@ local function said(node)
   }
 end
 
---- A github comments connection, as the conversation it holds and how long
---- that conversation is.
+--- A comments connection, as the conversation it holds and how long that
+--- conversation is.
 --- @param connection table?
 --- @return forge.Comment[]
 --- @return integer? total
@@ -309,21 +305,18 @@ end
 --- @param t forge.Target
 --- @param o forge.Open
 function M.item(spec, t, o)
-  local owner, repo = gh.slug(t)
+  local nouns = github.nouns[t.collection]
+  local named = ('%s %s%d in %s'):format(nouns.one, nouns.sigil, t.number, view.where(t))
+
   local settle = view.busy(t)
-  gh.graphql({
-    desc = ('%s #%d in %s'):format(spec.one, t.number, view.where(t)),
-    query = spec.item_query,
-    variables = { owner = owner, repo = repo, number = t.number },
-    cwd = o.cwd,
-  }, function(data)
+  github.item(t, { desc = named, cwd = o.cwd }, function(answer)
     settle()
-    local node = vim.tbl_get(data, 'repository', spec.item_key)
-    local u = uri.of(vim.tbl_get(data, 'repository', 'nameWithOwner'), t)
-    if not node or not u then
-      log.err(('no %s #%d in %s'):format(spec.one, t.number, view.where(t)))
+    local u = answer and uri.of(answer.project, t)
+    if not answer or not u then
+      log.err(('no %s'):format(named))
       return
     end
+    local node = answer.node
 
     local state = (spec.state and spec.state(node)) or node.state or '?'
     local labels = {}
@@ -360,13 +353,13 @@ function M.item(spec, t, o)
     --- @type forge.ItemVar
     local info = {
       kind = 'item',
-      label = spec.item_title,
+      label = nouns.item,
       repo = u.project,
       url = node.url,
       about = spec.about and spec.about(node) or (node.title or ''),
       state = state,
       state_hl = spec.state_hl[state] or 'Normal',
-      tag = '#' .. node.number,
+      tag = nouns.sigil .. node.number,
       title = node.title or '',
       --- What "cc" hands the editor: the title and body as they stand, in the
       --- shape they are written back in.
@@ -377,7 +370,7 @@ function M.item(spec, t, o)
       stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
     }
     if spec.remember then
-      info = vim.tbl_extend('force', info, spec.remember(node, data.repository))
+      info = vim.tbl_extend('force', info, spec.remember(node, answer.repo))
     end
 
     view.place(o)

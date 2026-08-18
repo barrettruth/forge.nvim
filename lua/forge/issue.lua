@@ -3,43 +3,6 @@ local view = require('forge.view')
 
 local M = {}
 
-local LIST_QUERY = [[
-query($owner: String!, $repo: String!, $after: String) {
-  repository(owner: $owner, name: $repo) {
-    nameWithOwner
-    url
-    issues(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      totalCount
-      pageInfo { hasNextPage endCursor }
-      nodes { number title state stateReason }
-    }
-  }
-}
-]]
-
-local ISSUE_QUERY = [[
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    nameWithOwner
-    issue(number: $number) {
-      id number title state stateReason body createdAt url
-      viewerCanUpdate
-      author { login }
-      authorAssociation
-      labels(first: 20) { totalCount nodes { name } }
-      assignees(first: 10) { totalCount nodes { login } }
-      milestone { title }
-      issueType { name }
-      parent { number }
-      comments(first: 100) {
-        totalCount
-        nodes { author { login } authorAssociation createdAt body }
-      }
-    }
-  }
-}
-]]
-
 --- How a closed issue ended. Each of these implies closed, so the winbar says
 --- the reason and not both, as MERGED and DRAFT already do for a pull request.
 --- REOPENED is left out: that one is open, and says so.
@@ -49,40 +12,9 @@ local REASON = {
   NOT_PLANNED = 'NOT PLANNED',
 }
 
---- The reason is written into the document rather than passed, because two
---- named closings read better in a menu than one closing and a second question.
---- DUPLICATE is left out: it takes the id of the issue duplicated, which is
---- another prompt, and github asks for it the same way.
-local COMPLETED = [[
-mutation($id: ID!) {
-  closeIssue(input: {issueId: $id, stateReason: COMPLETED}) { clientMutationId }
-}
-]]
-
-local NOT_PLANNED = [[
-mutation($id: ID!) {
-  closeIssue(input: {issueId: $id, stateReason: NOT_PLANNED}) { clientMutationId }
-}
-]]
-
-local REOPEN = [[
-mutation($id: ID!) {
-  reopenIssue(input: {issueId: $id}) { clientMutationId }
-}
-]]
-
 --- @type forge.Spec
 local ISSUES = {
-  one = 'issue',
-  many = 'issues',
-  item_title = 'ISSUE',
-  list_title = 'ISSUES',
-  item_key = 'issue',
-  list_key = 'issues',
-  list_path = 'issues',
-  kind = 'is:issue',
-  item_query = ISSUE_QUERY,
-  list_query = LIST_QUERY,
+  collection = 'issues',
   --- CLOSED is the fallback for one github gave no reason, which it backfilled
   --- COMPLETED on every issue closed before it started asking.
   --- What only an issue has. A type is github's classification, not a label,
@@ -134,21 +66,21 @@ local ISSUES = {
     },
     {
       label = 'Close as completed',
-      query = COMPLETED,
+      write = 'complete',
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
       end,
     },
     {
       label = 'Close as not planned',
-      query = NOT_PLANNED,
+      write = 'not_planned',
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
       end,
     },
     {
       label = 'Reopen issue',
-      query = REOPEN,
+      write = 'reopen',
       when = function(var)
         return var.state ~= 'OPEN' and var.can_update == true
       end,

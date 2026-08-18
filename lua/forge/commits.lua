@@ -49,7 +49,8 @@ function M.show()
   vim.b[buf].git_dir = git_dir
 
   local from = vim.api.nvim_get_current_win()
-  vcs.fetch_pull(dir, refs.remote, u.number, refs.base, function(base, head)
+  local ref = require('forge.github').pull_ref(u.number)
+  vcs.fetch_pull(dir, refs.remote, u.number, refs.base, ref, function(base, head)
     if vim.api.nvim_win_is_valid(from) then
       vim.api.nvim_set_current_win(from)
     end

@@ -560,12 +560,11 @@ function M.refresh()
   M.open(u, { page = paging.page, cursors = paging.cursors, keep = true })
 end
 
---- Start something new in a collection, on github.com.
+--- Start something new in the collection this view holds.
 ---
---- github's own page is the form, so templates and required fields stay
---- theirs to enforce, and gh pushes the branch on the way to a pull request's.
 --- The repository is the one asked about rather than the one you are standing
---- in, so a fork can propose a branch to what it forked.
+--- in, so a fork can propose a branch to what it forked. How a forge is asked
+--- for a new one is the backend's; see |forge.Backend|.
 --- @param t forge.Target? what to add to, or the view being looked at
 function M.create(t)
   t = t or M.current()
@@ -573,46 +572,11 @@ function M.create(t)
     return
   end
 
-  --- A new issue is an address, and the view already carries the host that
-  --- answered for it, which is all gh would have been asked for. gh will not
-  --- start one without a terminal to prompt in, either.
-  if t.collection == 'issues' then
-    --- The url names the host, which on an enterprise install is not the one a
-    --- name defaults to; the target names the path, which a url cannot be
-    --- chopped down to once a project nests under groups.
-    local host = M.field('url'):match('^https?://([^/]+)') or t.host
-    if not host or not t.project then
-      log.warn('no url for this buffer')
-      return
-    end
-    vim.ui.open(('https://%s/%s/issues/new'):format(host, t.project))
-    return
-  end
-
-  --- A new pull request is not an address until gh has worked out what merges
-  --- into what from the branch you are on, and pushed it if the remote has
-  --- never seen it.
-  local slug = t.project
-  local done = log.progress(('a new pull request in %s'):format(slug))
-
-  vim.system({
-    'gh',
-    'pr',
-    'create',
-    '--repo',
-    slug,
-    '--web',
-  }, { cwd = require('forge.vcs').dir(), text = true }, function(out)
-    vim.schedule(function()
-      if out.code ~= 0 then
-        local why = vim.trim((out.stderr or ''):gsub('\n.*', ''))
-        why = why ~= '' and why or 'gh pr create failed'
-        done('failed', why)
-        return log.err(why)
-      end
-      done('success', ('a new pull request in %s'):format(slug))
-    end)
-  end)
+  --- The url names the host, which on an enterprise install is not the one a
+  --- name defaults to; the target names the path, which a url cannot be
+  --- chopped down to once a project nests under groups.
+  local host = M.field('url'):match('^https?://([^/]+)') or t.host
+  require('forge.github').create(t, host)
 end
 
 --- Open this view on the forge it came from.
@@ -666,7 +630,10 @@ function M.open_at_cursor(split)
   if not u or u.number then
     return
   end
-  local number = vim.api.nvim_get_current_line():match('^#(%d+)')
+  --- A line is drawn with the sigil the forge writes in front of a number, so
+  --- the same word reads it back.
+  local sigil = require('forge.github').nouns[u.collection].sigil
+  local number = vim.api.nvim_get_current_line():match(('^%s(%%d+)'):format(vim.pesc(sigil)))
   if not number then
     return
   end

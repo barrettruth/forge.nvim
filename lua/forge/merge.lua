@@ -2,32 +2,13 @@
 --- means is forge.compose's to say.
 
 local compose = require('forge.compose')
-local gh = require('forge.gh')
+local github = require('forge.github')
 local log = require('forge.log')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
 local view = require('forge.view')
 
 local M = {}
-
---- `enablePullRequestAutoMerge` takes the same input as `mergePullRequest`, so
---- a merge that waits is the same document under another name.
---- @param method 'SQUASH'|'MERGE'
---- @param auto boolean whether to wait for github to say the merge may happen
---- @return string
-local function merging(method, auto)
-  return ([[
-mutation($id: ID!, $oid: GitObjectID!, $headline: String!, $body: String!) {
-  %s(input: {
-    pullRequestId: $id
-    mergeMethod: %s
-    expectedHeadOid: $oid
-    commitHeadline: $headline
-    commitBody: $body
-  }) { clientMutationId }
-}
-]]):format(auto and 'enablePullRequestAutoMerge' or 'mergePullRequest', method)
-end
 
 --- github's enum spells a merge commit "MERGE", which alone would read badly
 --- in either place.
@@ -49,12 +30,15 @@ local function write(lines, buf, u, var, method, auto)
 
   local win = vim.api.nvim_get_current_win()
   local cwd = vcs.dir()
-  gh.graphql({
+  github.write({
+    kind = 'merge',
     desc = ('%s %s'):format(var.tag, auto and 'merging when it is ready' or 'merged'),
-    query = merging(method, auto),
-    --- An empty body is sent as one. Leaving the field out has github compose
-    --- the default this buffer was filled with and then discarded.
-    variables = { id = var.id, oid = var.oid, headline = headline, body = body },
+    collection = u.collection,
+    var = var,
+    method = method,
+    auto = auto,
+    headline = headline,
+    body = body,
     cwd = cwd,
   }, function()
     if vim.api.nvim_buf_is_valid(buf) then

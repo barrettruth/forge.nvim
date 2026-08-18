@@ -39,9 +39,9 @@ end
 
 --- Bring a pull request into this repository, without disturbing it.
 ---
---- github publishes every pull request as `refs/pull/N/head` on the base
---- repository, so a pull request nobody has fetched is still one commit away.
---- The base branch comes too, because a merge base needs both ends.
+--- The ref a forge publishes one under is the backend's to name, so a pull
+--- request nobody has fetched is still one commit away. The base branch comes
+--- too, because a merge base needs both ends.
 ---
 --- Fetching by URL rather than by remote name is deliberate: the repository a
 --- pull request belongs to is not always the one `origin` points at, and in a
@@ -51,8 +51,9 @@ end
 --- @param url string
 --- @param number integer
 --- @param base string
+--- @param ref string what the forge publishes the head as
 --- @param on_done fun(base: string, head: string)
-function M.fetch_pull(dir, url, number, base, on_done)
+function M.fetch_pull(dir, url, number, base, ref, on_done)
   local head_ref = ('refs/forge/%d/head'):format(number)
   local base_ref = ('refs/forge/%d/base'):format(number)
   local cmd = {
@@ -60,7 +61,7 @@ function M.fetch_pull(dir, url, number, base, on_done)
     'fetch',
     '--quiet',
     url,
-    ('+refs/pull/%d/head:%s'):format(number, head_ref),
+    ('+%s:%s'):format(ref, head_ref),
     ('+refs/heads/%s:%s'):format(base, base_ref),
   }
 

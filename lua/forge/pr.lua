@@ -1,5 +1,5 @@
 local collection = require('forge.collection')
-local gh = require('forge.gh')
+local github = require('forge.github')
 local log = require('forge.log')
 local text = require('forge.text')
 local uri = require('forge.uri')
@@ -7,160 +7,6 @@ local vcs = require('forge.vcs')
 local view = require('forge.view')
 
 local M = {}
-
-local LIST_QUERY = [[
-query($owner: String!, $repo: String!, $after: String) {
-  repository(owner: $owner, name: $repo) {
-    nameWithOwner
-    url
-    pullRequests(first: 100, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      totalCount
-      pageInfo { hasNextPage endCursor }
-      nodes { number title state isDraft }
-    }
-  }
-}
-]]
-
---- The open pull request whose head is a given branch.
----
---- A fork's pull request lives on the base repository, where a branch name is
---- not necessarily unique, so the viewer's own is preferred over a stranger's
---- that happens to share it.
-local HEAD_QUERY = [[
-query($owner: String!, $repo: String!, $head: String!) {
-  viewer { login }
-  repository(owner: $owner, name: $repo) {
-    nameWithOwner
-    pullRequests(
-      headRefName: $head
-      states: [OPEN]
-      first: 10
-      orderBy: {field: UPDATED_AT, direction: DESC}
-    ) {
-      nodes { number headRepositoryOwner { login } }
-    }
-  }
-}
-]]
-
-local PR_QUERY = [[
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    nameWithOwner
-    url
-    viewerPermission
-    mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed
-    pullRequest(number: $number) {
-      id number title state body createdAt isDraft mergeable url
-      viewerCanUpdate viewerCanMergeAsAdmin headRefOid isMergeQueueEnabled
-      viewerCanEnableAutoMerge viewerCanDisableAutoMerge isInMergeQueue
-      autoMergeRequest { mergeMethod }
-      baseRef {
-        rules(first: 50) {
-          totalCount
-          nodes { parameters { ... on PullRequestParameters { allowedMergeMethods } } }
-        }
-      }
-      squashHeadline: viewerMergeHeadlineText(mergeType: SQUASH)
-      squashBody: viewerMergeBodyText(mergeType: SQUASH)
-      commitHeadline: viewerMergeHeadlineText(mergeType: MERGE)
-      commitBody: viewerMergeBodyText(mergeType: MERGE)
-      additions deletions changedFiles
-      baseRefName headRefName isCrossRepository
-      headRepositoryOwner { login }
-      author { login }
-      authorAssociation
-      labels(first: 20) { totalCount nodes { name } }
-      assignees(first: 10) { totalCount nodes { login } }
-      milestone { title }
-      reviewRequests(first: 10) {
-        totalCount
-        nodes { requestedReviewer { ... on User { login } ... on Team { name } } }
-      }
-      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
-      comments(first: 100) {
-        totalCount
-        nodes { author { login } authorAssociation createdAt body }
-      }
-    }
-  }
-}
-]]
-
-local DRAFT = [[
-mutation($id: ID!) {
-  convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId }
-}
-]]
-
-local READY = [[
-mutation($id: ID!) {
-  markPullRequestReadyForReview(input: {pullRequestId: $id}) { clientMutationId }
-}
-]]
-
-local CLOSE = [[
-mutation($id: ID!) {
-  closePullRequest(input: {pullRequestId: $id}) { clientMutationId }
-}
-]]
-
-local REOPEN = [[
-mutation($id: ID!) {
-  reopenPullRequest(input: {pullRequestId: $id}) { clientMutationId }
-}
-]]
-
---- `expectedHeadOid` refuses the merge if the branch moved since the view was
---- drawn, which is the one thing `gh pr merge` cannot do.
----
---- The only one sent from here; forge.merge sends the other two, each with the
---- message written into it.
-local REBASE = [[
-mutation($id: ID!, $oid: GitObjectID!) {
-  mergePullRequest(input: {pullRequestId: $id, mergeMethod: REBASE, expectedHeadOid: $oid}) {
-    clientMutationId
-  }
-}
-]]
-
---- A rebase writes no commit either way, so it waits without a message.
-local AUTO_REBASE = [[
-mutation($id: ID!, $oid: GitObjectID!) {
-  enablePullRequestAutoMerge(input: {
-    pullRequestId: $id
-    mergeMethod: REBASE
-    expectedHeadOid: $oid
-  }) { clientMutationId }
-}
-]]
-
---- `disablePullRequestAutoMerge` takes only the pull request: whatever method
---- and message were waiting go with it.
-local UNAUTO = [[
-mutation($id: ID!) {
-  disablePullRequestAutoMerge(input: {pullRequestId: $id}) { clientMutationId }
-}
-]]
-
---- A queue takes no method and no message: how it merges is the queue's own
---- setting, which is the whole point of the base branch having one.
-local ENQUEUE = [[
-mutation($id: ID!, $oid: GitObjectID!) {
-  enqueuePullRequest(input: {pullRequestId: $id, expectedHeadOid: $oid}) {
-    clientMutationId
-  }
-}
-]]
-
---- `id` here is the pull request, not the entry it has in the queue, whatever
---- the name suggests.
-local DEQUEUE = [[
-mutation($id: ID!) {
-  dequeuePullRequest(input: {id: $id}) { clientMutationId }
-}
-]]
 
 --- @param method 'SQUASH'|'MERGE'
 --- @param auto boolean
@@ -271,16 +117,7 @@ end
 
 --- @type forge.Spec
 local PRS = {
-  one = 'pull request',
-  many = 'pull requests',
-  item_title = 'PR',
-  list_title = 'PRS',
-  item_key = 'pullRequest',
-  list_key = 'pullRequests',
-  list_path = 'pulls',
-  kind = 'is:pr',
-  item_query = PR_QUERY,
-  list_query = LIST_QUERY,
+  collection = 'prs',
   --- A draft is OPEN with a flag, so it is resolved before this is consulted.
   state_hl = {
     OPEN = view.HL.live,
@@ -400,28 +237,28 @@ local PRS = {
     },
     {
       label = 'Convert to draft',
-      query = DRAFT,
+      write = 'draft',
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
       end,
     },
     {
       label = 'Ready for review',
-      query = READY,
+      write = 'ready',
       when = function(var)
         return var.state == 'DRAFT' and var.can_update == true
       end,
     },
     {
       label = 'Close pull request',
-      query = CLOSE,
+      write = 'close',
       when = function(var)
         return (var.state == 'OPEN' or var.state == 'DRAFT') and var.can_update == true
       end,
     },
     {
       label = 'Reopen pull request',
-      query = REOPEN,
+      write = 'reopen',
       when = function(var)
         return var.state == 'CLOSED' and var.can_update == true
       end,
@@ -437,14 +274,14 @@ local PRS = {
     --- and leaving it is a keystroke, so these stand where the merges would.
     {
       label = 'Add to merge queue',
-      query = ENQUEUE,
+      write = 'enqueue',
       when = function(var)
         return var.state == 'OPEN' and var.queued == true and var.in_queue ~= true
       end,
     },
     {
       label = 'Remove from merge queue',
-      query = DEQUEUE,
+      write = 'dequeue',
       when = function(var)
         return var.in_queue == true
       end,
@@ -464,12 +301,12 @@ local PRS = {
     },
     {
       label = 'Enable auto-merge (rebase)',
-      query = AUTO_REBASE,
+      write = 'auto_rebase',
       when = waiting('can_rebase'),
     },
     {
       label = 'Disable auto-merge',
-      query = UNAUTO,
+      write = 'unauto',
       when = function(var)
         return var.auto ~= nil and var.can_unauto == true
       end,
@@ -488,8 +325,8 @@ local PRS = {
       run = committing,
       when = naming('can_merge_commit', true),
     },
-    { label = 'Rebase and merge', query = REBASE, when = naming('can_rebase', false) },
-    { label = 'Rebase and merge (bypass)', query = REBASE, when = naming('can_rebase', true) },
+    { label = 'Rebase and merge', write = 'rebase', when = naming('can_rebase', false) },
+    { label = 'Rebase and merge (bypass)', write = 'rebase', when = naming('can_rebase', true) },
   },
 }
 
@@ -518,30 +355,17 @@ local function open_head(t, o)
     return
   end
 
-  local owner, repo = gh.slug(t)
-  gh.graphql({
+  github.head(t, branch, {
     desc = ('the pull request for %s'):format(branch),
-    query = HEAD_QUERY,
-    variables = { owner = owner, repo = repo, head = branch },
     cwd = o.cwd,
-  }, function(data)
-    local slug = vim.tbl_get(data, 'repository', 'nameWithOwner')
-    local nodes = vim.tbl_get(data, 'repository', 'pullRequests', 'nodes') or {}
-    local me = vim.tbl_get(data, 'viewer', 'login')
-    local mine
-    for _, pr in ipairs(nodes) do
-      if vim.tbl_get(pr, 'headRepositoryOwner', 'login') == me then
-        mine = mine or pr
-      end
-    end
-    local found = mine or nodes[1]
-    if not found then
+  }, function(found)
+    if not found.number then
       log.info(('no pull request for %s yet, so opening a new one'):format(branch))
-      view.create(uri.of(slug, { collection = 'prs' }))
+      view.create(uri.of(found.project, { collection = 'prs' }))
       return
     end
     local item = { collection = 'prs', number = found.number }
-    collection.item(PRS, uri.of(slug, item) or item, o)
+    collection.item(PRS, uri.of(found.project, item) or item, o)
   end)
 end
 

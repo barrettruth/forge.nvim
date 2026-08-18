@@ -45,7 +45,8 @@ function M.show()
   end
 
   local from = vim.api.nvim_get_current_win()
-  vcs.fetch_pull(vcs.dir(), refs.remote, u.number, refs.base, function(base, head)
+  local ref = require('forge.github').pull_ref(u.number)
+  vcs.fetch_pull(vcs.dir(), refs.remote, u.number, refs.base, ref, function(base, head)
     require('diffs').open_review({
       base = base,
       target = head,

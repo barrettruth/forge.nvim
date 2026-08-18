@@ -2,25 +2,13 @@
 --- forge.compose's to say.
 
 local compose = require('forge.compose')
-local gh = require('forge.gh')
+local github = require('forge.github')
 local log = require('forge.log')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
 local view = require('forge.view')
 
 local M = {}
-
-local ISSUE = [[
-mutation($id: ID!, $title: String!, $body: String!) {
-  updateIssue(input: {id: $id, title: $title, body: $body}) { clientMutationId }
-}
-]]
-
-local PR = [[
-mutation($id: ID!, $title: String!, $body: String!) {
-  updatePullRequest(input: {pullRequestId: $id, title: $title, body: $body}) { clientMutationId }
-}
-]]
 
 --- @param lines string[]
 --- @param buf integer
@@ -34,10 +22,13 @@ local function write(lines, buf, u, var)
   end
 
   local cwd = vcs.dir()
-  gh.graphql({
+  github.write({
+    kind = 'edit',
     desc = ('%s edited'):format(var.tag),
-    query = u.collection == 'prs' and PR or ISSUE,
-    variables = { id = var.id, title = title, body = body },
+    collection = u.collection,
+    var = var,
+    title = title,
+    body = body,
     cwd = cwd,
   }, function()
     --- Only now: until github has said yes, what is in the buffer is the only
