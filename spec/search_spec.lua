@@ -58,11 +58,9 @@ describe('a query on the command line', function()
     vim.cmd('source ./plugin/forge.lua')
   end)
 
-  --- @return string what the command handed the collection
   local function given(cmdline)
     local issue = require('forge.issue')
     local real, got = issue.open, nil
-    --- @diagnostic disable-next-line: duplicate-set-field
     issue.open = function(target)
       got = target
     end

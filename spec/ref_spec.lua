@@ -1,9 +1,6 @@
 local ref = require('forge.ref')
 local view = require('forge.view')
 
---- Put one line in a scratch buffer and the cursor somewhere on it.
---- @param line string
---- @param col integer zero-based, as |nvim_win_set_cursor()| counts
 local function reading(line, col)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_win_set_buf(0, buf)
@@ -11,8 +8,6 @@ local function reading(line, col)
   vim.api.nvim_win_set_cursor(0, { 1, col })
 end
 
---- Stand in the view a reference is being read from.
---- @param collection forge.Collection
 local function inside(collection)
   local u = { owner = 'a', repo = 'b', collection = collection, number = 1, state = 'OPEN' }
   local buf = view.render(u, { 'body' }, {

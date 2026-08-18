@@ -1,8 +1,5 @@
 local gh = require('forge.gh')
 
---- Capture the argv rather than the request: which flag a variable is sent
---- under is the whole of what is being tested, and it is settled before gh runs.
---- @return string[][] sent, fun() restore
 local function watching()
   local sent = {}
   local real = vim.system
@@ -16,11 +13,6 @@ local function watching()
   end
 end
 
---- The flag `name` was sent under, and what went with it.
---- @param cmd string[]
---- @param name string
---- @return string? flag
---- @return string? value
 local function under(cmd, name)
   for i = 1, #cmd - 1 do
     local value = cmd[i + 1]:match('^' .. name .. '=(.*)$')
@@ -30,8 +22,6 @@ local function under(cmd, name)
   end
 end
 
---- @param variables table
---- @return string[] argv
 local function ask(variables)
   local sent, restore = watching()
   gh.graphql({ desc = 'x', query = 'query {}', variables = variables }, function() end)
@@ -41,8 +31,6 @@ end
 
 describe('how a variable reaches gh', function()
   it('sends what someone wrote as a string, whatever it holds', function()
-    --- "@" is a filename to --field, and "{owner}" is expanded by it. Neither
-    --- may be reachable from a body, a title or a search.
     for _, prose in ipairs({
       'handles {owner} correctly',
       '@notes.md and {ok}',

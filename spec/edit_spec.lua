@@ -2,11 +2,9 @@ local edit = require('forge.edit')
 local gh = require('forge.gh')
 local view = require('forge.view')
 
---- @return table sent, fun() restore
 local function watching(fail)
   local sent = {}
   local real = gh.graphql
-  --- @diagnostic disable-next-line: duplicate-set-field
   gh.graphql = function(req, on_done, on_fail)
     sent[#sent + 1] = req
     if fail then
@@ -22,17 +20,12 @@ local function watching(fail)
   end
 end
 
---- Of what was sent, the writes: drawing the item again is a request too.
---- @param sent table[]
---- @return table[]
 local function writes(sent)
   return vim.tbl_filter(function(req)
     return req.variables.title ~= nil
   end, sent)
 end
 
---- Stand in an item view, as "cc" would be.
---- @return forge.ItemVar
 local function showing()
   local var = {
     kind = 'item',
@@ -55,9 +48,6 @@ end
 
 describe('editing an item', function()
   after_each(function()
-    --- It is meant to refuse being abandoned while there is something unsent,
-    --- so a test that leaves one behind would fail every buffer switch after
-    --- it, in this file and the next.
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_get_name(buf):match('/edit$') then
         pcall(vim.api.nvim_buf_delete, buf, { force = true })

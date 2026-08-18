@@ -4,9 +4,6 @@ local function uri(collection, number)
   return { owner = 'a', repo = 'b', collection = collection, number = number }
 end
 
---- @param kind 'list'|'item'
---- @param over table?
---- @return forge.ListVar|forge.ItemVar
 local function info(kind, over)
   return vim.tbl_extend('force', {
     kind = kind,
@@ -225,11 +222,9 @@ end)
 describe('a capped connection', function()
   local log = require('forge.log')
 
-  --- @return string[] warnings, fun() restore
   local function capture()
     local said = {}
     local real = log.warn
-    --- @diagnostic disable-next-line: duplicate-set-field
     log.warn = function(msg)
       said[#said + 1] = msg
     end
@@ -255,9 +250,6 @@ describe('a capped connection', function()
   end)
 end)
 
---- What the 'winbar' of the current window draws to.
---- @return string text
---- @return boolean kept whether the option survived the redraw
 local function drawn()
   vim.cmd('redraw!')
   local bar = vim.wo.winbar
@@ -270,7 +262,6 @@ describe("a view's winbar", function()
     view.render(uri('issues', 27), { 'body' }, info('item', { about = 'a title', badges = ' x' }))
     local text, kept = drawn()
     assert.is_true(kept)
-    --- The gap `%=` opens is collapsed here; where it falls is what matters.
     assert.equals('ISSUE #1 OPEN | a title x', (text:gsub('%s%s+', ' ')))
 
     view.render(uri('issues'), { '#1 x' }, info('list', { total = '124' }))
@@ -297,7 +288,6 @@ describe('view.yank', function()
   local real = log.info
 
   before_each(function()
-    --- @diagnostic disable-next-line: duplicate-set-field
     log.info = function() end
   end)
   after_each(function()
@@ -348,7 +338,6 @@ describe('what an issue can be asked to do', function()
 end)
 
 describe('the menu those are offered in', function()
-  --- @return string prompt
   local function prompting(module, var)
     local asked
     local real = vim.ui.select
@@ -405,7 +394,6 @@ describe('what a pull request can be asked to do', function()
     assert.same({ 'Edit title and body' }, offered('MERGED'))
   end)
 
-  --- @return string[]
   local function merges(var)
     return vim.tbl_filter(
       function(label)

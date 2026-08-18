@@ -4,14 +4,10 @@ local pr = require('forge.pr')
 
 local NOW = os.date('!%Y-%m-%dT%H:%M:%SZ') --[[@as string]]
 
-local asked --- @type table? the variables the last request carried
+local asked --- @type table?
 
---- Answer the next request with `data`, whatever was asked.
---- @param data table
---- @param fn fun()
 local function answering(data, fn)
   local real = gh.graphql
-  --- @diagnostic disable-next-line: duplicate-set-field
   gh.graphql = function(req, on_done)
     asked = req.variables
     on_done(data)
@@ -21,7 +17,6 @@ local function answering(data, fn)
   assert(ok, err)
 end
 
---- @return string[] lines, forge.BufVar info
 local function drawn()
   local buf = vim.api.nvim_get_current_buf()
   return vim.api.nvim_buf_get_lines(buf, 0, -1, false), vim.b[buf].forge
@@ -111,8 +106,6 @@ describe('an issue github answered with', function()
     }, drawn())
   end)
 
-  --- `vim.NIL` is userdata, userdata is truthy, and github answers null for
-  --- every one of these on most issues.
   it('reads a null github answered with as nothing, not as something', function()
     local nulls = response()
     nulls.repository.issue.issueType = vim.NIL
@@ -263,7 +256,6 @@ describe('a pull request github answered with', function()
     }, drawn())
   end)
 
-  --- github's own order, and git's: what is merged into, then what merges.
   it("names the owner of a branch that is somebody else's", function()
     answering(
       response({ isCrossRepository = true, headRepositoryOwner = { login = 'them' } }),
@@ -298,8 +290,6 @@ describe('a pull request github answered with', function()
     }, drawn())
   end)
 
-  --- The bar divides badges from the diffstat, so with no badge it would be a
-  --- divider with nothing on one side of it.
   it('keeps the bar off the diffstat when no badge precedes it', function()
     answering(response(), show)
     local _, plain = drawn()

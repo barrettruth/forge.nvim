@@ -4,8 +4,6 @@ local function profile(login)
   return 'https://github.com/' .. login
 end
 
---- @param days integer
---- @return string
 local function ago(days)
   return os.date('!%Y-%m-%dT%H:%M:%SZ', os.time() - days * 86400) --[[@as string]]
 end
@@ -34,14 +32,11 @@ describe('a body github wrote', function()
         group = { '@markup.italic', '@markup.link' },
         url = 'https://github.com/clason',
       },
-      --- The qualified form is looked for before the bare one, so "o/r#4" is
-      --- one reference and not a "#4" with a repository in front of it.
       { row = 0, col = 29, end_col = 34, group = { 'Tag', '@markup.link' } },
       { row = 0, col = 20, end_col = 24, group = { 'Tag', '@markup.link' } },
     }, marks)
   end)
 
-  --- "@param" is not a person and "#!/bin/sh" is not an item.
   it('marks nothing inside a fence, where github links nothing either', function()
     local lines, marks = {}, {}
     text.append_body(
@@ -79,9 +74,6 @@ describe('a body github wrote', function()
     end
   end)
 
-  --- github lets a review through with no body at all, and one arrives for
-  --- every inline comment made, so a substitute would be said hundreds of
-  --- times over a pull request that had never been described as empty.
   it('says nothing for an empty one when given no words for it', function()
     local lines, marks = {}, {}
     text.append_body(lines, marks, '', nil)
@@ -114,8 +106,6 @@ describe('how long ago', function()
 end)
 
 describe('a conversation', function()
-  --- @param body string
-  --- @return table
   local function comment(body)
     return {
       author = { login = 'someone' },
@@ -133,14 +123,10 @@ describe('a conversation', function()
       { key = 'Labels', values = { 'bug', 'ui' }, group = 'Tag' },
       { key = 'Milestone', values = { nil }, group = 'Tag' },
     })
-    --- The column is as wide as the widest key drawn, not the widest asked
-    --- for: no milestone and nobody reviewing means no room kept for either.
     assert.same({
       '  Assignees:  clason',
       '  Labels:     bug, ui',
     }, lines)
-    --- A value each, so a comma is not underlined and a login carries the url
-    --- core's |gx| reads off the mark.
     assert.same({
       { row = 0, col = 0, end_col = 12, group = 'Comment' },
       {
@@ -198,8 +184,6 @@ describe('a conversation', function()
     assert.equals('▎ someone  today', lines[4])
   end)
 
-  --- A body is markdown somebody else wrote, and one in a hundred of neovim's
-  --- carries a heading. Nothing in it may look like the start of a comment.
   it('is not something a body can spell for itself', function()
     local lines, marks = {}, {}
     text.append_comments(lines, marks, {
