@@ -162,3 +162,29 @@ describe('a rendered buffer', function()
     assert.equals('v:lua.require("forge.ref").include(v:fname)', vim.bo[buf].includeexpr)
   end)
 end)
+
+describe('ref.include on a forge that numbers them apart', function()
+  local function under(name, fname)
+    vim.api.nvim_buf_set_name(0, name)
+    return ref.include(fname)
+  end
+
+  it('follows a merge request sigil to the pull request collection', function()
+    assert.equals('forge://gitlab.com/g/p/prs/12', under('forge://gitlab.com/g/p/issues/3', '!12'))
+  end)
+
+  it('reads a hash as an issue even from a merge request', function()
+    assert.equals('forge://gitlab.com/g/p/issues/4', under('forge://gitlab.com/g/p/prs/3', '#4'))
+  end)
+
+  it('keeps github reading a hash as whatever the view holds', function()
+    assert.equals('forge://github.com/a/b/prs/4', under('forge://github.com/a/b/prs/3', '#4'))
+  end)
+
+  it('carries a nested group path across a reference', function()
+    assert.equals(
+      'forge://gitlab.com/g/sub/deep/prs/9',
+      under('forge://gitlab.com/g/sub/deep/issues/1', '!9')
+    )
+  end)
+end)

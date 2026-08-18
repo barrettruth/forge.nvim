@@ -17,7 +17,11 @@ local M = {}
 --- here opens the bare list with its query dropped. |gx| answers for those.
 local LINKED = {
   '^#%d+$',
-  '^[%w._-]+/[%w._-]+#%d+$',
+  '^[%w._-]+/[%w._/-]+#%d+$',
+  --- gitlab's sigil for a merge request, and the one form that names which
+  --- collection it means without being asked.
+  '^!%d+$',
+  '^[%w._-]+/[%w._/-]+!%d+$',
   '^forge://',
   --- The frontier ends the word, `%z` standing for the end of the string.
   '^https?://github%.com/[^/]+/[^/]+/issues%f[%z/?#]',
@@ -45,11 +49,13 @@ end
 ---
 --- 'isfname' spells "@" as "any letter" rather than the character, so a
 --- mention arrives without its sigil. Core widens it the same way for its own
---- |gx|. |expand()| raises E446 on nothing at all, and nothing may raise out
---- of a mapping.
+--- |gx|. Neither "!" nor "&" is in it at all, which are gitlab's sigils for a
+--- merge request and an epic, so both would arrive as a bare number.
+--- |expand()| raises E446 on nothing at all, and nothing may raise out of a
+--- mapping.
 --- @return string
 local function token()
-  return vim._with({ go = { isfname = vim.go.isfname .. ',@-@' } }, function()
+  return vim._with({ go = { isfname = vim.go.isfname .. ',@-@,!,&' } }, function()
     local ok, found = pcall(vim.fn.expand, '<cfile>')
     return ok and found --[[@as string]] or ''
   end)
@@ -82,7 +88,11 @@ function M.include(fname)
   if not here or not linked(fname) then
     return fname
   end
-  local t = uri.resolve(fname, here.collection)
+  --- github draws issues and pull requests from one sequence, so "#123" there
+  --- means whichever the view is already showing. Everywhere else numbers them
+  --- apart, and "#" is the issue sigil whatever you are reading.
+  local meant = here.host == 'github.com' and here.collection or 'issues'
+  local t = uri.resolve(fname, meant)
   if not t then
     return fname
   end

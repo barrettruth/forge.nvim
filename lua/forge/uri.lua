@@ -149,6 +149,9 @@ local MEMBERS = {
   pull = 'prs',
   pulls = 'prs',
   merge_requests = 'prs',
+  --- gitlab is moving issues to work items, and does it per project: the same
+  --- api answers one project with a /-/issues/ url and another with this one.
+  work_items = 'issues',
 }
 
 --- The target a forge's own web address names.
@@ -217,7 +220,19 @@ function M.resolve(target, collection)
     return web
   end
 
-  local project, number = target:match('^([%w._/-]+)#(%d+)$')
+  --- gitlab numbers merge requests apart from issues and gives them a sigil of
+  --- their own, so "!" says which collection it means and the caller's intent
+  --- does not come into it.
+  local project, number = target:match('^([%w._/-]+)!(%d+)$')
+  if project and project:find('/') then
+    return { project = project, collection = 'prs', number = tonumber(number) }
+  end
+  number = target:match('^!(%d+)$')
+  if number then
+    return { collection = 'prs', number = tonumber(number) }
+  end
+
+  project, number = target:match('^([%w._/-]+)#(%d+)$')
   if project and project:find('/') then
     return { project = project, collection = collection, number = tonumber(number) }
   end

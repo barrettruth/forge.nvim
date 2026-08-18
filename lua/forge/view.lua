@@ -576,12 +576,15 @@ function M.create(t)
   --- answered for it, which is all gh would have been asked for. gh will not
   --- start one without a terminal to prompt in, either.
   if t.collection == 'issues' then
-    local repo = M.field('url'):match('^(https?://[^/]+/[^/]+/[^/]+)')
-    if not repo then
+    --- The url names the host, which on an enterprise install is not the one a
+    --- name defaults to; the target names the path, which a url cannot be
+    --- chopped down to once a project nests under groups.
+    local host = M.field('url'):match('^https?://([^/]+)') or t.host
+    if not host or not t.project then
       log.warn('no url for this buffer')
       return
     end
-    vim.ui.open(repo .. '/issues/new')
+    vim.ui.open(('https://%s/%s/issues/new'):format(host, t.project))
     return
   end
 
