@@ -53,7 +53,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
     mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed
     pullRequest(number: $number) {
       id number title state body createdAt isDraft mergeable url
-      viewerCanUpdate headRefOid isMergeQueueEnabled
+      viewerCanUpdate viewerCanMergeAsAdmin headRefOid isMergeQueueEnabled
       baseRef {
         rules(first: 50) {
           totalCount
@@ -121,6 +121,28 @@ end
 local SQUASH, COMMIT, REBASE = merging('SQUASH'), merging('MERGE'), merging('REBASE')
 
 local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
+
+--- When to offer one of the two namings a merge has.
+---
+--- Both send the same document: `mergePullRequest` has no bypass field — the
+--- whole schema has one only for *writing* a ruleset — and github applies a
+--- bypass server-side to whoever holds one. gh's `--admin` is the same, a
+--- client-side switch that suppresses gh's own refusal and never reaches the
+--- request. So what is being chosen here is a word, and the word is worth
+--- having: `viewerCanMergeAsAdmin` is true exactly when the merge would go
+--- through something that would otherwise stop it, and false for an admin with
+--- nothing to bypass, so the two are never offered together.
+---
+--- Nothing is refused on it. github decides that when asked, as it does for
+--- every other merge, and a stale false costs a warning rather than a merge.
+--- @param can string the field saying github would take this method at all
+--- @param bypass boolean which of the pair this is
+--- @return fun(var: forge.ItemVar): boolean
+local function naming(can, bypass)
+  return function(var)
+    return var.state == 'OPEN' and var[can] == true and (var.can_bypass == true) == bypass
+  end
+end
 
 --- Which merge methods github would accept on this pull request, now.
 ---
@@ -230,6 +252,7 @@ local PRS = {
       can_squash = ok.SQUASH == true,
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
+      can_bypass = node.viewerCanMergeAsAdmin == true,
       base = node.baseRefName,
       --- A fork says whose branch it is, the name alone not saying.
       head = node.isCrossRepository and ('%s:%s'):format(
@@ -324,27 +347,23 @@ local PRS = {
     --- Last, and each already weighed by `merges`: what is left to ask here is
     --- only whether the pull request is open, since a draft cannot be merged
     --- and DRAFT is resolved before any of this is read.
-    {
-      label = 'Squash and merge',
-      query = SQUASH,
-      when = function(var)
-        return var.state == 'OPEN' and var.can_squash == true
-      end,
-    },
+    ---
+    --- Named twice and offered once, as `naming` says. Interleaved so the pair
+    --- stands where the one entry did, whichever of them the answer is.
+    { label = 'Squash and merge', query = SQUASH, when = naming('can_squash', false) },
+    { label = 'Squash and merge (bypass)', query = SQUASH, when = naming('can_squash', true) },
     {
       label = 'Create a merge commit',
       query = COMMIT,
-      when = function(var)
-        return var.state == 'OPEN' and var.can_merge_commit == true
-      end,
+      when = naming('can_merge_commit', false),
     },
     {
-      label = 'Rebase and merge',
-      query = REBASE,
-      when = function(var)
-        return var.state == 'OPEN' and var.can_rebase == true
-      end,
+      label = 'Create a merge commit (bypass)',
+      query = COMMIT,
+      when = naming('can_merge_commit', true),
     },
+    { label = 'Rebase and merge', query = REBASE, when = naming('can_rebase', false) },
+    { label = 'Rebase and merge (bypass)', query = REBASE, when = naming('can_rebase', true) },
   },
 }
 

@@ -43,6 +43,8 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field can_squash boolean? whether github would take each merge, all three
 --- @field can_merge_commit boolean? weighed against the repository, its ruleset
 --- @field can_rebase boolean? and your access before the menu is drawn
+--- @field can_bypass boolean? whether a merge would go through something that
+--- would otherwise stop it, which is what names it rather than what allows it
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
 --- @field remote string? the repository "dd" and "dl" fetch a pull request from

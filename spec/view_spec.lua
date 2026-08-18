@@ -429,6 +429,45 @@ describe('what a pull request can be asked to do', function()
     assert.same({}, merges({ state = 'DRAFT', can_update = true, can_squash = true }))
     assert.same({}, merges({ state = 'CLOSED', can_update = true, can_squash = true }))
   end)
+
+  it('names a merge for the rule it would go past, where there is one', function()
+    assert.same(
+      { 'Squash and merge (bypass)', 'Rebase and merge (bypass)' },
+      merges({
+        state = 'OPEN',
+        can_update = true,
+        can_squash = true,
+        can_rebase = true,
+        can_bypass = true,
+      })
+    )
+  end)
+
+  it('offers each merge once however it is named', function()
+    for _, bypass in ipairs({ true, false }) do
+      local var = {
+        state = 'OPEN',
+        can_update = true,
+        can_squash = true,
+        can_merge_commit = true,
+        can_rebase = true,
+        can_bypass = bypass,
+      }
+      assert.equals(3, #merges(var))
+    end
+  end)
+
+  it('leaves a merge where it stood, whichever name it wears', function()
+    local var = { state = 'OPEN', can_update = true, can_squash = true, can_bypass = true }
+    local labels = vim.tbl_map(function(action)
+      return action.label
+    end, pr.actions(var))
+    assert.same(
+      { 'Edit title and body', 'Convert to draft', 'Close pull request' },
+      vim.list_slice(labels, 1, 3)
+    )
+    assert.equals('Squash and merge (bypass)', labels[#labels])
+  end)
 end)
 
 describe('view.field', function()
