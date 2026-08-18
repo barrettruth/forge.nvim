@@ -1,5 +1,5 @@
+local backend = require('forge.backend')
 local collection = require('forge.collection')
-local github = require('forge.github')
 local log = require('forge.log')
 local text = require('forge.text')
 local uri = require('forge.uri')
@@ -349,13 +349,17 @@ end
 --- @param t forge.Target
 --- @param o forge.Open
 local function open_head(t, o)
+  local be = backend.of(t.host)
+  if not be then
+    return
+  end
   local branch, err = vcs.branch(o.cwd or vim.fn.getcwd())
   if not branch then
     log.err(err or 'cannot tell which branch this is')
     return
   end
 
-  github.head(t, branch, {
+  be.head(t, branch, {
     desc = ('the pull request for %s'):format(branch),
     cwd = o.cwd,
   }, function(found)

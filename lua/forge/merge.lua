@@ -1,8 +1,8 @@
 --- Writing the commit message a merge will carry. What writing the buffer
 --- means is forge.compose's to say.
 
+local backend = require('forge.backend')
 local compose = require('forge.compose')
-local github = require('forge.github')
 local log = require('forge.log')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
@@ -28,9 +28,14 @@ local function write(lines, buf, u, var, method, auto)
     return
   end
 
+  local be = backend.of(u.host)
+  if not be then
+    return
+  end
+
   local win = vim.api.nvim_get_current_win()
   local cwd = vcs.dir()
-  github.write({
+  be.write({
     kind = 'merge',
     desc = ('%s %s'):format(var.tag, auto and 'merging when it is ready' or 'merged'),
     collection = u.collection,

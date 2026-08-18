@@ -572,11 +572,14 @@ function M.create(t)
     return
   end
 
+  local be = require('forge.backend').of(t.host)
+  if not be then
+    return
+  end
   --- The url names the host, which on an enterprise install is not the one a
   --- name defaults to; the target names the path, which a url cannot be
   --- chopped down to once a project nests under groups.
-  local host = M.field('url'):match('^https?://([^/]+)') or t.host
-  require('forge.github').create(t, host)
+  be.create(t, M.field('url'):match('^https?://([^/]+)') or t.host)
 end
 
 --- Open this view on the forge it came from.
@@ -630,9 +633,13 @@ function M.open_at_cursor(split)
   if not u or u.number then
     return
   end
+  local be = require('forge.backend').of(u.host)
+  if not be then
+    return
+  end
   --- A line is drawn with the sigil the forge writes in front of a number, so
   --- the same word reads it back.
-  local sigil = require('forge.github').nouns[u.collection].sigil
+  local sigil = be.nouns[u.collection].sigil
   local number = vim.api.nvim_get_current_line():match(('^%s(%%d+)'):format(vim.pesc(sigil)))
   if not number then
     return

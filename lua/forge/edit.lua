@@ -1,8 +1,8 @@
 --- Editing an item's title and body as text. What writing the buffer means is
 --- forge.compose's to say.
 
+local backend = require('forge.backend')
 local compose = require('forge.compose')
-local github = require('forge.github')
 local log = require('forge.log')
 local uri = require('forge.uri')
 local vcs = require('forge.vcs')
@@ -21,8 +21,13 @@ local function write(lines, buf, u, var)
     return
   end
 
+  local be = backend.of(u.host)
+  if not be then
+    return
+  end
+
   local cwd = vcs.dir()
-  github.write({
+  be.write({
     kind = 'edit',
     desc = ('%s edited'):format(var.tag),
     collection = u.collection,

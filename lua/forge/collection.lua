@@ -1,4 +1,4 @@
-local github = require('forge.github')
+local backend = require('forge.backend')
 local log = require('forge.log')
 local text = require('forge.text')
 local uri = require('forge.uri')
@@ -117,19 +117,31 @@ local M = {}
 --- keep of it
 --- @field actions? forge.Action[] what "c" offers
 
+--- The forge an item came from.
+---
+--- The url it answered with, rather than the host its name defaults to: on an
+--- enterprise install those are two different places, and only the url has
+--- been anywhere.
+--- @param var forge.ItemVar
+--- @return forge.Backend?
+local function answered(var)
+  return backend.of((var.url or ''):match('^https?://([^/]+)'))
+end
+
 --- Where the answer goes is settled before the round trip, since by the time
 --- one comes back the current window is wherever you wandered to.
+--- @param be forge.Backend
 --- @param spec forge.Spec
 --- @param var forge.ItemVar
 --- @param action forge.Action
-local function mutate(spec, var, action)
+local function mutate(be, spec, var, action)
   local u = view.current()
   if not u then
     return
   end
   local win = vim.api.nvim_get_current_win()
   local cwd = vcs.dir()
-  github.write({
+  be.write({
     kind = 'act',
     desc = ('%s %s'):format(var.tag, action.label),
     collection = spec.collection,
@@ -141,15 +153,14 @@ local function mutate(spec, var, action)
   end)
 end
 
---- What `spec`'s item can be asked to do, as it stands.
----
 --- The write comes back on the action rather than being looked up when one is
 --- picked, so what a menu offers is the whole of what it would send.
+--- @param be forge.Backend
 --- @param spec forge.Spec
 --- @param var forge.ItemVar
 --- @return forge.Action[]
-function M.actions(spec, var)
-  local writes = github.writes[spec.collection] or {}
+local function offering(be, spec, var)
+  local writes = be.writes[spec.collection] or {}
   local can = {}
   for _, action in ipairs(spec.actions or {}) do
     if action.when(var) then
@@ -161,13 +172,26 @@ function M.actions(spec, var)
   return can
 end
 
+--- What `spec`'s item can be asked to do, as it stands.
+--- @param spec forge.Spec
+--- @param var forge.ItemVar
+--- @return forge.Action[]
+function M.actions(spec, var)
+  local be = answered(var)
+  return be and offering(be, spec, var) or {}
+end
+
 --- Offer those, and do the one chosen. A menu rather than a key each, because
 --- naming the action is the only confirmation a state flip gets.
 --- @param spec forge.Spec
 function M.act(spec)
   local var = vim.b.forge or {}
-  local nouns = github.nouns[spec.collection]
-  local can = M.actions(spec, var)
+  local be = answered(var)
+  if not be then
+    return
+  end
+  local nouns = be.nouns[spec.collection]
+  local can = offering(be, spec, var)
   --- Refused and finished are different things: one is worth a warning, the
   --- other is just how a merged pull request is.
   if #can == 0 then
@@ -196,7 +220,7 @@ function M.act(spec)
     if action.run then
       action.run(var)
     else
-      mutate(spec, var, action)
+      mutate(be, spec, var, action)
     end
   end)
 end
@@ -206,12 +230,16 @@ end
 --- @param t forge.Target
 --- @param o forge.Open
 function M.list(spec, t, o)
+  local be = backend.of(t.host)
+  if not be then
+    return
+  end
   local page = o.page or 1
   local cursors = o.cursors or {}
-  local nouns = github.nouns[t.collection]
+  local nouns = be.nouns[t.collection]
 
   local settle = view.busy(t)
-  github.list(t, {
+  be.list(t, {
     desc = ('%s in %s'):format(nouns.many, view.where(t)),
     after = cursors[page],
     cwd = o.cwd,
@@ -305,11 +333,15 @@ end
 --- @param t forge.Target
 --- @param o forge.Open
 function M.item(spec, t, o)
-  local nouns = github.nouns[t.collection]
+  local be = backend.of(t.host)
+  if not be then
+    return
+  end
+  local nouns = be.nouns[t.collection]
   local named = ('%s %s%d in %s'):format(nouns.one, nouns.sigil, t.number, view.where(t))
 
   local settle = view.busy(t)
-  github.item(t, { desc = named, cwd = o.cwd }, function(answer)
+  be.item(t, { desc = named, cwd = o.cwd }, function(answer)
     settle()
     local u = answer and uri.of(answer.project, t)
     if not answer or not u then

@@ -38,6 +38,11 @@ function M.show()
     return
   end
 
+  local be = require('forge.backend').of(u.host)
+  if not be then
+    return
+  end
+
   -- Fugitive refuses `-C` and otherwise reads the working directory, so
   -- `b:git_dir` is the only way to aim it: at where the refs were fetched.
   local dir = vcs.dir()
@@ -49,7 +54,7 @@ function M.show()
   vim.b[buf].git_dir = git_dir
 
   local from = vim.api.nvim_get_current_win()
-  local ref = require('forge.github').pull_ref(u.number)
+  local ref = be.pull_ref(u.number)
   vcs.fetch_pull(dir, refs.remote, u.number, refs.base, ref, function(base, head)
     if vim.api.nvim_win_is_valid(from) then
       vim.api.nvim_set_current_win(from)
