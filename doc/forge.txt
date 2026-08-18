@@ -171,6 +171,8 @@ In an item, and only in one. The last three are a pull request's: >
     can_merge_commit  merges, weighed before the menu is drawn
     can_rebase
     can_bypass whether a merge would bypass something to happen
+    merge      the commit message github would write, keyed by the
+               method that would carry it
     base       the branch it merges into
     head       the branch it merges from, prefixed with the owner when
                that is a fork
@@ -313,17 +315,17 @@ A merge is offered once per method the repository allows and its base branch's
 ruleset permits, named as github names them: "Squash and merge", "Create a
 merge commit", "Rebase and merge". A pull request with conflicts offers none
 of them, and neither does one whose base branch is governed by a merge queue.
-github writes the commit message, as it would from the web page.
+
+A squash and a merge commit open the commit message to be written before they
+are sent; see |forge-merge|. A rebase writes no commit and goes straight out.
 
 A merge that would go past a rule rather than satisfy it is named for it: >
 
     Squash and merge (bypass)
-< That is a name and not another action. There is no such thing as an admin
-merge to choose: the mutation has no bypass field, and github applies one
-server-side to whoever holds it, so both names send the same request. The
-suffix appears when github says you hold one here and that there is something
-here to hold it against, and the plain name appears when it does not, so the
-two are never offered together.
+< That is a name and not another action: there is no separate admin merge, and
+both names send the same thing. The suffix appears when github says the merge
+would go past a rule you may bypass, and the plain name when it would not, so
+the two are never offered together.
 
 The merge names the head the view was drawn from, so a branch that moved since
 then is refused rather than merged unseen. Everything else github decides when
@@ -360,6 +362,25 @@ what you typed.
 It is not a view: its name cannot rebuild it, and "R" and |:edit| do nothing
 to it. The item is drawn again where it sits once the write lands, so it is
 current by the time you go back to it.
+
+                                                                 *forge-merge*
+"Squash and merge" and "Create a merge commit" open the commit message they
+would carry, in a split beside the pull request. It is laid out as a commit
+message is: the subject on the first line, the body after a blank line.
+
+It starts as the message github itself would write, so a repository that
+squashes to the pull request's description gets that, and one that squashes to
+the branch's commit messages gets those.
+
+Its 'winbar' says which method, and says when the merge bypasses: >
+
+    PR #151 SQUASH
+    PR #151 MERGE COMMIT
+    PR #174 SQUASH BYPASS
+<
+Writing sends it, as in |forge-edit|, and the buffer behaves as that one does.
+Nothing is sent for an empty subject. The pull request is drawn again in its
+place once the merge lands.
 
 "cc" is bound in an item; "dc", "dd" and "dl" only in a pull request. "dc" and
 "dd" replace the view; ci.nvim returns with "-", and the way back from a diff

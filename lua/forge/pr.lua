@@ -60,6 +60,10 @@ query($owner: String!, $repo: String!, $number: Int!) {
           nodes { parameters { ... on PullRequestParameters { allowedMergeMethods } } }
         }
       }
+      squashHeadline: viewerMergeHeadlineText(mergeType: SQUASH)
+      squashBody: viewerMergeBodyText(mergeType: SQUASH)
+      commitHeadline: viewerMergeHeadlineText(mergeType: MERGE)
+      commitBody: viewerMergeBodyText(mergeType: MERGE)
       additions deletions changedFiles
       baseRefName headRefName isCrossRepository
       headRepositoryOwner { login }
@@ -108,33 +112,36 @@ mutation($id: ID!) {
 
 --- `expectedHeadOid` refuses the merge if the branch moved since the view was
 --- drawn, which is the one thing `gh pr merge` cannot do.
-local function merging(method)
-  return ([[
+---
+--- The only one sent from here; forge.merge sends the other two, each with the
+--- message written into it.
+local REBASE = [[
 mutation($id: ID!, $oid: GitObjectID!) {
-  mergePullRequest(input: {pullRequestId: $id, mergeMethod: %s, expectedHeadOid: $oid}) {
+  mergePullRequest(input: {pullRequestId: $id, mergeMethod: REBASE, expectedHeadOid: $oid}) {
     clientMutationId
   }
 }
-]]):format(method)
+]]
+
+--- @param var forge.ItemVar
+local function squashing(var)
+  require('forge.merge').open(var, 'SQUASH')
 end
 
-local SQUASH, COMMIT, REBASE = merging('SQUASH'), merging('MERGE'), merging('REBASE')
+--- @param var forge.ItemVar
+local function committing(var)
+  require('forge.merge').open(var, 'MERGE')
+end
 
 local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
 
 --- When to offer one of the two namings a merge has.
 ---
---- Both send the same document: `mergePullRequest` has no bypass field — the
---- whole schema has one only for *writing* a ruleset — and github applies a
---- bypass server-side to whoever holds one. gh's `--admin` is the same, a
---- client-side switch that suppresses gh's own refusal and never reaches the
---- request. So what is being chosen here is a word, and the word is worth
---- having: `viewerCanMergeAsAdmin` is true exactly when the merge would go
---- through something that would otherwise stop it, and false for an admin with
---- nothing to bypass, so the two are never offered together.
----
---- Nothing is refused on it. github decides that when asked, as it does for
---- every other merge, and a stale false costs a warning rather than a merge.
+--- Both send the same document: `mergePullRequest` has no bypass field, and
+--- github applies one server-side to whoever holds it, so what is chosen here
+--- is a word. `viewerCanMergeAsAdmin` is false for an admin with nothing to
+--- bypass, so the two are never offered together, and nothing is refused on
+--- it either way: github decides that when asked, as it does for every merge.
 --- @param can string the field saying github would take this method at all
 --- @param bypass boolean which of the pair this is
 --- @return fun(var: forge.ItemVar): boolean
@@ -253,6 +260,13 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       can_bypass = node.viewerCanMergeAsAdmin == true,
+      --- The message github itself would write, honouring what the repository
+      --- sets its commit title and body to be. Rebase is asked for neither:
+      --- github answers "" for both, which is it saying there is no message.
+      merge = {
+        SQUASH = { headline = node.squashHeadline or '', body = node.squashBody or '' },
+        MERGE = { headline = node.commitHeadline or '', body = node.commitBody or '' },
+      },
       base = node.baseRefName,
       --- A fork says whose branch it is, the name alone not saying.
       head = node.isCrossRepository and ('%s:%s'):format(
@@ -350,16 +364,19 @@ local PRS = {
     ---
     --- Named twice and offered once, as `naming` says. Interleaved so the pair
     --- stands where the one entry did, whichever of them the answer is.
-    { label = 'Squash and merge', query = SQUASH, when = naming('can_squash', false) },
-    { label = 'Squash and merge (bypass)', query = SQUASH, when = naming('can_squash', true) },
+    ---
+    --- The two that write a commit open a buffer for its message; a rebase
+    --- writes none, so it goes straight out.
+    { label = 'Squash and merge', run = squashing, when = naming('can_squash', false) },
+    { label = 'Squash and merge (bypass)', run = squashing, when = naming('can_squash', true) },
     {
       label = 'Create a merge commit',
-      query = COMMIT,
+      run = committing,
       when = naming('can_merge_commit', false),
     },
     {
       label = 'Create a merge commit (bypass)',
-      query = COMMIT,
+      run = committing,
       when = naming('can_merge_commit', true),
     },
     { label = 'Rebase and merge', query = REBASE, when = naming('can_rebase', false) },
