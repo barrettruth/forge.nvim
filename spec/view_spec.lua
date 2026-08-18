@@ -1,7 +1,7 @@
 local view = require('forge.view')
 
 local function uri(collection, number)
-  return { owner = 'a', repo = 'b', collection = collection, number = number }
+  return { project = 'a/b', collection = collection, number = number }
 end
 
 local function info(kind, over)
@@ -27,8 +27,8 @@ describe('view.render', function()
     local list = view.render(uri('issues'), { 'the list' }, info('list'))
 
     assert.are_not.equal(item, list)
-    assert.equals('forge://a/b/issues/27', vim.api.nvim_buf_get_name(item))
-    assert.equals('forge://a/b/issues', vim.api.nvim_buf_get_name(list))
+    assert.equals('forge://github.com/a/b/issues/27', vim.api.nvim_buf_get_name(item))
+    assert.equals('forge://github.com/a/b/issues', vim.api.nvim_buf_get_name(list))
     assert.same({ 'the issue' }, vim.api.nvim_buf_get_lines(item, 0, -1, false))
     assert.same({ 'the list' }, vim.api.nvim_buf_get_lines(list, 0, -1, false))
   end)

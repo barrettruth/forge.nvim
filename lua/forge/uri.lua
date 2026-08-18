@@ -1,28 +1,33 @@
 --- @alias forge.Collection 'issues'|'prs'
 
---- What the user asked for, before github has said which repository that is.
+--- What the user asked for, before the forge has said which repository that is.
 ---
---- `owner` and `repo` are absent when the target did not name a repository.
---- Nothing here fills them in: gh resolves the repository, and the answer
---- comes back with the view.
+--- `project` is absent when the target did not name a repository. Nothing here
+--- fills it in: the CLI resolves the repository, and the answer comes back with
+--- the view. `host` is absent for the same reason, and defaults to github.com
+--- only once a backend has to be chosen.
 --- @class forge.Target
 --- @field collection forge.Collection
---- @field owner string?
---- @field repo string?
+--- @field host string? the forge, by hostname
+--- @field project string? the full path, which on gitlab may nest groups
 --- @field number integer? nil for a list
---- @field query string? a github search, for a list narrowed by one
+--- @field query string? a search, for a list narrowed by one
 --- @field head boolean? the pull request for the change you are on
 
---- A view forge can address, which is a target github has already answered.
+--- A view forge can address, which is a target a forge has already answered.
 ---
 --- An item is a collection with a number; without one it is the list itself.
 --- @class forge.Uri : forge.Target
---- @field owner string
---- @field repo string
+--- @field host string
+--- @field project string
 
 local M = {}
 
 local SCHEME = 'forge://'
+
+--- The forge a target that never named one belongs to. A name is always
+--- complete, so this is where an unanswered target acquires its host.
+local DEFAULT_HOST = 'github.com'
 
 --- What a forge:// name may hold. github's own spelling of these — plural for
 --- a pull request list and singular for one of them — is never needed here: a
@@ -50,23 +55,23 @@ local function decode(encoded)
   end))
 end
 
---- The view a response describes, named by the repository github answered for.
+--- The view a response describes, named by the repository the forge answered
+--- for.
 ---
---- A target that named no repository is sent with gh's placeholders, so the
---- name a view is filed under arrives with the view rather than being guessed
---- at beforehand. A target that named one is still filed under github's
---- spelling of it, which is the one that round-trips.
---- @param slug string? "owner/repo", as github spells it
+--- A target that named no repository is sent with the CLI's placeholders, so
+--- the name a view is filed under arrives with the view rather than being
+--- guessed at beforehand. A target that named one is still filed under the
+--- forge's spelling of it, which is the one that round-trips.
+--- @param path string? the project's full path, as the forge spells it
 --- @param t forge.Target
 --- @return forge.Uri?
-function M.of(slug, t)
-  local owner, repo = (slug or ''):match('^([^/]+)/([^/]+)$')
-  if not owner then
+function M.of(path, t)
+  if not path or not path:find('/') then
     return nil
   end
   return {
-    owner = owner,
-    repo = repo,
+    host = t.host or DEFAULT_HOST,
+    project = path,
     collection = t.collection,
     number = t.number,
     query = t.query,
@@ -76,7 +81,7 @@ end
 --- @param uri forge.Uri
 --- @return string
 function M.tostring(uri)
-  local base = ('%s%s/%s/%s'):format(SCHEME, uri.owner, uri.repo, uri.collection)
+  local base = ('%s%s/%s/%s'):format(SCHEME, uri.host or DEFAULT_HOST, uri.project, uri.collection)
   if uri.number then
     return ('%s/%d'):format(base, uri.number)
   end
@@ -86,6 +91,36 @@ function M.tostring(uri)
   return base
 end
 
+--- Split a name into host, project, collection and whichever of a number or a
+--- query followed it. The collection is the last segment once a trailing
+--- number is off, so a project holds as many segments as gitlab's groups nest
+--- and may itself be named after a collection.
+--- @param rest string
+--- @return string? host
+--- @return string? project
+--- @return forge.Collection? collection
+--- @return integer? number
+--- @return string? query
+local function split(rest)
+  local body, query = rest:match('^(.-)%?q=(.+)$')
+  body = body or rest
+
+  local number
+  local shorter, digits = body:match('^(.+)/(%d+)$')
+  if shorter then
+    body, number = shorter, tonumber(digits)
+  end
+
+  local segments = vim.split(body, '/', { plain = true })
+  local collection = segments[#segments]
+  if #segments < 3 or not COLLECTIONS[collection] then
+    return nil
+  end
+  local project = table.concat(vim.list_slice(segments, 2, #segments - 1), '/')
+  local named = collection --[[@as forge.Collection]]
+  return segments[1], project, named, number, query
+end
+
 --- @param str string
 --- @return forge.Uri?
 function M.parse(str)
@@ -93,35 +128,71 @@ function M.parse(str)
   if not rest then
     return nil
   end
+  local host, project, collection, number, query = split(rest)
+  if not host then
+    return nil
+  end
+  return {
+    host = host,
+    project = project,
+    collection = collection,
+    number = number,
+    query = query and decode(query) or nil,
+  }
+end
 
-  local owner, repo, collection, number = rest:match('^([^/]+)/([^/]+)/(%a+)/(%d+)$')
-  if owner and COLLECTIONS[collection] then
-    return {
-      owner = owner,
-      repo = repo,
-      collection = collection,
-      number = tonumber(number),
-    }
+--- What each forge calls a collection inside its own web addresses. github
+--- spells a single pull request singular and the list plural; gitlab spells
+--- both the same.
+local MEMBERS = {
+  issues = 'issues',
+  pull = 'prs',
+  pulls = 'prs',
+  merge_requests = 'prs',
+}
+
+--- The target a forge's own web address names.
+---
+--- gitlab puts `/-/` between a project's path and what follows, which is what
+--- makes an arbitrarily nested group path unambiguous. github has no such
+--- separator, so a path there is exactly two segments.
+--- @param url string
+--- @return forge.Target?
+function M.web(url)
+  local host, rest = url:match('^https?://([%w.-]+)/(.+)$')
+  if not host then
+    return nil
+  end
+  rest = rest:gsub('[#?].*$', ''):gsub('/$', '')
+
+  local project, member, number = rest:match('^(.+)/%-/([%a_]+)/(%d+)$')
+  if not project then
+    project, member = rest:match('^(.+)/%-/([%a_]+)$')
+  end
+  if not project then
+    local owner, repo
+    owner, repo, member, number = rest:match('^([^/]+)/([^/]+)/(%a+)/(%d+)$')
+    if not owner then
+      owner, repo, member = rest:match('^([^/]+)/([^/]+)/(%a+)$')
+    end
+    project = owner and ('%s/%s'):format(owner, repo) or nil
   end
 
-  local query
-  owner, repo, collection, query = rest:match('^([^/]+)/([^/]+)/(%a+)%?q=(.+)$')
-  if owner and COLLECTIONS[collection] then
-    return { owner = owner, repo = repo, collection = collection, query = decode(query) }
+  if not project or not MEMBERS[member] then
+    return nil
   end
-
-  owner, repo, collection = rest:match('^([^/]+)/([^/]+)/(%a+)$')
-  if owner and COLLECTIONS[collection] then
-    return { owner = owner, repo = repo, collection = collection }
-  end
-
-  return nil
+  return {
+    host = host,
+    project = project,
+    collection = MEMBERS[member],
+    number = tonumber(number),
+  }
 end
 
 --- Resolve what the user typed into a target. See |:Issue| for the forms.
 ---
---- A form naming no repository leaves `owner` and `repo` unset for gh to
---- answer, so this never shells out and never fails for want of a remote.
+--- A form naming no repository leaves `host` and `project` unset for the CLI
+--- to answer, so this never shells out and never fails for want of a remote.
 ---
 --- `collection` says which of issues or pull requests a bare number means; it
 --- is the only thing a caller's intent decides. Every other form says for
@@ -141,29 +212,17 @@ function M.resolve(target, collection)
     return parsed
   end
 
-  local owner, repo, member, number =
-    target:match('^https?://github%.com/([^/]+)/([^/]+)/(%a+)/(%d+)')
-  if owner and (member == 'issues' or member == 'pull') then
-    return {
-      owner = owner,
-      repo = repo,
-      collection = member == 'pull' and 'prs' or 'issues',
-      number = tonumber(number),
-    }
-  end
-  owner, repo, member = target:match('^https?://github%.com/([^/]+)/([^/]+)/(%a+)/?$')
-  if owner and (member == 'issues' or member == 'pulls') then
-    local named = member == 'pulls' and 'prs' or 'issues'
-    return { owner = owner, repo = repo, collection = named }
+  local web = M.web(target)
+  if web then
+    return web
   end
 
-  owner, repo, number = target:match('^([%w._-]+)/([%w._-]+)#(%d+)$')
-  if owner then
-    return { owner = owner, repo = repo, collection = collection, number = tonumber(number) }
+  local project, number = target:match('^([%w._/-]+)#(%d+)$')
+  if project and project:find('/') then
+    return { project = project, collection = collection, number = tonumber(number) }
   end
-  owner, repo = target:match('^([%w._-]+)/([%w._-]+)$')
-  if owner then
-    return { owner = owner, repo = repo, collection = collection }
+  if target:match('^[%w._/-]+$') and target:find('/') then
+    return { project = target, collection = collection }
   end
 
   if target == '@' then

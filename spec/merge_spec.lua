@@ -49,7 +49,7 @@ local function showing(over)
       MERGE = { headline = 'Merge pull request #151 from a/b', body = 'a title' },
     },
   }, over or {})
-  view.render({ owner = 'a', repo = 'b', collection = 'prs', number = 151 }, { 'x' }, var)
+  view.render({ project = 'a/b', collection = 'prs', number = 151 }, { 'x' }, var)
   return var
 end
 
@@ -68,7 +68,7 @@ describe('writing the message a merge carries', function()
     merge.open(showing(), 'SQUASH')
 
     assert.are_not.equal(win, vim.api.nvim_get_current_win())
-    assert.equals('forge://a/b/prs/151/merge/squash', vim.api.nvim_buf_get_name(0))
+    assert.equals('forge://github.com/a/b/prs/151/merge/squash', vim.api.nvim_buf_get_name(0))
     assert.equals('acwrite', vim.bo.buftype)
     assert.equals('gitcommit', vim.bo.filetype)
   end)
@@ -98,7 +98,7 @@ describe('writing the message a merge carries', function()
     local commit = vim.api.nvim_get_current_buf()
 
     assert.are_not.equal(squash, commit)
-    assert.equals('forge://a/b/prs/151/merge/commit', vim.api.nvim_buf_get_name(commit))
+    assert.equals('forge://github.com/a/b/prs/151/merge/commit', vim.api.nvim_buf_get_name(commit))
     assert.same(
       { 'Merge pull request #151 from a/b', '', 'a title' },
       vim.api.nvim_buf_get_lines(commit, 0, -1, false)
@@ -252,7 +252,7 @@ describe('a merge that waits', function()
 
   it('writes its message into its own buffer, and never says bypass', function()
     merge.open(showing({ can_bypass = true }), 'SQUASH', true)
-    assert.equals('forge://a/b/prs/151/automerge/squash', vim.api.nvim_buf_get_name(0))
+    assert.equals('forge://github.com/a/b/prs/151/automerge/squash', vim.api.nvim_buf_get_name(0))
     local bar = vim.api.nvim_eval_statusline(vim.wo.winbar, { winid = 0, use_winbar = true }).str
     assert.equals('PR #151 AUTO SQUASH', bar)
   end)

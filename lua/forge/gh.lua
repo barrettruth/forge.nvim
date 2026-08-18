@@ -24,7 +24,8 @@ local M = {}
 --- @return string owner
 --- @return string repo
 function M.slug(t)
-  return t.owner or '{owner}', t.repo or '{repo}'
+  local owner, repo = (t.project or ''):match('^([^/]+)/([^/]+)$')
+  return owner or '{owner}', repo or '{repo}'
 end
 
 local SLUG = { owner = true, repo = true }

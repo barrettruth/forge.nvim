@@ -42,7 +42,7 @@ local function showing()
     can_update = true,
     edit = 'a title\n\nthe body\n\nmore of it',
   }
-  view.render({ owner = 'a', repo = 'b', collection = 'issues', number = 27 }, { 'x' }, var)
+  view.render({ project = 'a/b', collection = 'issues', number = 27 }, { 'x' }, var)
   return var
 end
 
@@ -64,7 +64,7 @@ describe('editing an item', function()
 
     assert.equals(win, vim.api.nvim_get_current_win())
     assert.are_not.equal(item, vim.api.nvim_get_current_buf())
-    assert.equals('forge://a/b/issues/27/edit', vim.api.nvim_buf_get_name(0))
+    assert.equals('forge://github.com/a/b/issues/27/edit', vim.api.nvim_buf_get_name(0))
     assert.equals('acwrite', vim.bo.buftype)
     assert.equals('markdown', vim.bo.filetype)
   end)
@@ -87,7 +87,7 @@ describe('editing an item', function()
   it('leaves the item where CTRL-O reaches it', function()
     edit.open(showing())
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-o>', true, false, true), 'x', false)
-    assert.equals('forge://a/b/issues/27', vim.api.nvim_buf_get_name(0))
+    assert.equals('forge://github.com/a/b/issues/27', vim.api.nvim_buf_get_name(0))
   end)
 
   it('is gone once nothing shows it, having nothing left to keep', function()

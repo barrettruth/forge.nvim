@@ -54,7 +54,7 @@ describe('an issue github answered with', function()
 
   it('becomes a markdown document with a header and a conversation', function()
     answering(response(), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
 
     local lines = drawn()
@@ -83,7 +83,7 @@ describe('an issue github answered with', function()
     tracked.repository.issue.milestone = { title = '0.13' }
 
     answering(tracked, function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     assert.same({
       '# Something broke',
@@ -114,7 +114,7 @@ describe('an issue github answered with', function()
     nulls.repository.issue.assignees = vim.NIL
 
     answering(nulls, function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     assert.same({
       '# Something broke',
@@ -135,17 +135,17 @@ describe('an issue github answered with', function()
 
   it('is filed under the name github spelled, not the one asked for', function()
     answering(response(), function()
-      issue.show({ owner = 'Neovim', repo = 'Neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'Neovim/Neovim', collection = 'issues', number = 41310 }, {})
     end)
     assert.equals(
-      'forge://neovim/neovim/issues/41310',
+      'forge://github.com/neovim/neovim/issues/41310',
       vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
     )
   end)
 
   it('tells the winbar what it is', function()
     answering(response(), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
 
     local _, info = drawn()
@@ -160,7 +160,7 @@ describe('an issue github answered with', function()
 
   it('leaves out a label line when there are no labels', function()
     answering(response({ labels = { totalCount = 0, nodes = {} } }), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     for _, line in ipairs(drawn()) do
       assert.is_nil(line:match('^%- Labels:'))
@@ -169,7 +169,7 @@ describe('an issue github answered with', function()
 
   it('says how a closed issue ended rather than that it is closed', function()
     answering(response({ state = 'CLOSED', stateReason = 'COMPLETED' }), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     local _, info = drawn()
     assert.equals('COMPLETED', info.state)
@@ -178,7 +178,7 @@ describe('an issue github answered with', function()
 
   it('falls back to CLOSED for one github gave no reason', function()
     answering(response({ state = 'CLOSED', stateReason = nil }), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     local _, info = drawn()
     assert.equals('CLOSED', info.state)
@@ -187,7 +187,7 @@ describe('an issue github answered with', function()
 
   it('says a duplicate is one, which COMPLETED would not', function()
     answering(response({ state = 'CLOSED', stateReason = 'DUPLICATE' }), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     local _, info = drawn()
     assert.equals('DUPLICATE', info.state)
@@ -196,7 +196,7 @@ describe('an issue github answered with', function()
 
   it('says so, and dims it, when nobody is going to do it', function()
     answering(response({ state = 'CLOSED', stateReason = 'NOT_PLANNED' }), function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     local _, info = drawn()
     assert.equals('NOT PLANNED', info.state)
@@ -209,7 +209,7 @@ describe('an issue github answered with', function()
     anonymous.repository.issue.authorAssociation = nil
 
     answering(anonymous, function()
-      issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues', number = 41310 }, {})
+      issue.show({ project = 'neovim/neovim', collection = 'issues', number = 41310 }, {})
     end)
     assert.equals('▎ ghost  today', drawn()[3])
   end)
@@ -242,7 +242,7 @@ describe('a pull request github answered with', function()
   end
 
   local function show()
-    pr.show({ owner = 'neovim', repo = 'neovim', collection = 'prs', number = 41138 }, {})
+    pr.show({ project = 'neovim/neovim', collection = 'prs', number = 41138 }, {})
   end
 
   it('leaves the branches to the winbar and says who wrote it', function()
@@ -381,7 +381,7 @@ describe('a list github answered with', function()
   end
 
   local function show()
-    issue.show({ owner = 'neovim', repo = 'neovim', collection = 'issues' }, {})
+    issue.show({ project = 'neovim/neovim', collection = 'issues' }, {})
   end
 
   it('lines the numbers up so the titles start in one column', function()
@@ -537,7 +537,7 @@ describe('a pull request list github answered with', function()
   end
 
   local function show()
-    pr.show({ owner = 'neovim', repo = 'neovim', collection = 'prs' }, {})
+    pr.show({ project = 'neovim/neovim', collection = 'prs' }, {})
   end
 
   it('draws a merged number apart from a closed one', function()

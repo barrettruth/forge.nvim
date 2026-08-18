@@ -9,7 +9,7 @@ local function reading(line, col)
 end
 
 local function inside(collection)
-  local u = { owner = 'a', repo = 'b', collection = collection, number = 1, state = 'OPEN' }
+  local u = { project = 'a/b', collection = collection, number = 1, state = 'OPEN' }
   local buf = view.render(u, { 'body' }, {
     kind = 'item',
     label = 'ISSUE',
@@ -48,8 +48,8 @@ describe('ref.at_cursor', function()
     reading('blocked by neovim/neovim#41138 here', 15)
     assert.equals('neovim/neovim#41138', ref.at_cursor())
 
-    reading('at forge://neovim/neovim/prs/41138 there', 12)
-    assert.equals('forge://neovim/neovim/prs/41138', ref.at_cursor())
+    reading('at forge://github.com/neovim/neovim/prs/41138 there', 12)
+    assert.equals('forge://github.com/neovim/neovim/prs/41138', ref.at_cursor())
   end)
 
   it('does not read a url github would not have linked', function()
@@ -107,18 +107,18 @@ end)
 describe('ref.include', function()
   it('gives a bare number the repository of the view it was read in', function()
     inside('issues')
-    assert.equals('forge://a/b/issues/123', ref.include('#123'))
+    assert.equals('forge://github.com/a/b/issues/123', ref.include('#123'))
   end)
 
   it('reads a bare number as the collection it was read in', function()
     inside('prs')
-    assert.equals('forge://a/b/prs/123', ref.include('#123'))
+    assert.equals('forge://github.com/a/b/prs/123', ref.include('#123'))
   end)
 
   it('believes a reference that names its own repository', function()
     inside('issues')
-    assert.equals('forge://neovim/neovim/issues/7', ref.include('neovim/neovim#7'))
-    assert.equals('forge://o/r/prs/9', ref.include('https://github.com/o/r/pull/9'))
+    assert.equals('forge://github.com/neovim/neovim/issues/7', ref.include('neovim/neovim#7'))
+    assert.equals('forge://github.com/o/r/prs/9', ref.include('https://github.com/o/r/pull/9'))
     assert.equals('forge://o/r/issues/closed', ref.include('forge://o/r/issues/closed'))
   end)
 
@@ -148,7 +148,7 @@ end)
 
 describe('a rendered buffer', function()
   it("points 'includeexpr' at forge, so gf follows a reference", function()
-    local u = { owner = 'a', repo = 'b', collection = 'issues', number = 5, state = 'OPEN' }
+    local u = { project = 'a/b', collection = 'issues', number = 5, state = 'OPEN' }
     local buf = view.render(u, { 'closes #123' }, {
       kind = 'item',
       label = 'ISSUE',

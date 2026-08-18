@@ -88,8 +88,8 @@ function M.include(fname)
   end
   --- @type forge.Uri
   local there = {
-    owner = t.owner or here.owner,
-    repo = t.repo or here.repo,
+    host = t.host or here.host,
+    project = t.project or here.project,
     collection = t.collection,
     number = t.number,
   }

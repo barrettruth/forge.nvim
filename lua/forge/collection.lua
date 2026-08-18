@@ -252,7 +252,7 @@ function M.list(spec, t, o)
     local info = {
       kind = 'list',
       label = spec.list_title,
-      repo = ('%s/%s'):format(u.owner, u.repo),
+      repo = u.project,
       url = ('%s/%s'):format(data.repository.url, spec.list_path)
         .. (t.query and ('?q=' .. vim.uri_encode(searching(spec, t))) or ''),
       query = t.query or '',
@@ -325,7 +325,7 @@ function M.item(spec, t, o)
     local info = {
       kind = 'item',
       label = spec.item_title,
-      repo = ('%s/%s'):format(u.owner, u.repo),
+      repo = u.project,
       url = node.url,
       about = spec.about and spec.about(node) or (node.title or ''),
       state = state,

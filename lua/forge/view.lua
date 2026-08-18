@@ -202,7 +202,7 @@ local OTHER = {
 --- @param t forge.Target
 --- @return string
 function M.where(t)
-  return t.owner and ('%s/%s'):format(t.owner, t.repo) or 'this repository'
+  return t.project or 'this repository'
 end
 
 --- @class forge.Mark
@@ -279,7 +279,7 @@ end
 --- @param t forge.Target
 --- @return fun()
 function M.busy(t)
-  local buf = t.owner and M.buffer_named(uri.tostring(t --[[@as forge.Uri]])) or nil
+  local buf = t.project and M.buffer_named(uri.tostring(t --[[@as forge.Uri]])) or nil
   if not buf then
     return function() end
   end
@@ -539,7 +539,7 @@ function M.up()
   if not u or not u.number then
     return
   end
-  M.open({ owner = u.owner, repo = u.repo, collection = u.collection }, { keep = true })
+  M.open({ host = u.host, project = u.project, collection = u.collection }, { keep = true })
 end
 
 --- Fetch this view again, where it stands.
@@ -588,7 +588,7 @@ function M.create(t)
   --- A new pull request is not an address until gh has worked out what merges
   --- into what from the branch you are on, and pushed it if the remote has
   --- never seen it.
-  local slug = ('%s/%s'):format(t.owner, t.repo)
+  local slug = t.project
   local done = log.progress(('a new pull request in %s'):format(slug))
 
   vim.system({
@@ -667,8 +667,8 @@ function M.open_at_cursor(split)
     return
   end
   M.open({
-    owner = u.owner,
-    repo = u.repo,
+    host = u.host,
+    project = u.project,
     collection = u.collection,
     number = tonumber(number),
   }, { keep = true, split = split })
