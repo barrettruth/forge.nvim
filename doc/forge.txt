@@ -177,6 +177,8 @@ In an item, and only in one. The last three are a pull request's: >
     can_unauto already waiting may be called off
     auto       the method a waiting merge would use, absent when none
                is waiting
+    queued     whether the base branch merges through a queue, and
+    in_queue   whether this pull request is in it
     base       the branch it merges into
     head       the branch it merges from, prefixed with the owner when
                that is a fork
@@ -318,7 +320,12 @@ is |vim.ui.select()|, so it is whichever picker you already use. >
 A merge is offered once per method the repository allows and its base branch's
 ruleset permits, named as github names them: "Squash and merge", "Create a
 merge commit", "Rebase and merge". A pull request with conflicts offers none
-of them, and neither does one whose base branch is governed by a merge queue.
+of them.
+
+A base branch that merges through a queue refuses every direct merge, so none
+of the three is offered there either. "Add to merge queue" is offered instead,
+and "Remove from merge queue" once it is in one. Neither takes a method or a
+message: how the queue merges is the queue's own setting.
 
 A squash and a merge commit open the commit message to be written before they
 are sent; see |forge-merge|. A rebase writes no commit and goes straight out.

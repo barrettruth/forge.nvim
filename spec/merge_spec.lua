@@ -273,6 +273,41 @@ describe('a merge that waits', function()
   end)
 end)
 
+describe('a base branch that merges through a queue', function()
+  local function labels(var)
+    return vim.tbl_map(function(action)
+      return action.label
+    end, pr.actions(var))
+  end
+
+  it('offers the queue where the merges would have been', function()
+    assert.same({
+      'Edit title and body',
+      'Convert to draft',
+      'Close pull request',
+      'Add to merge queue',
+    }, labels({ state = 'OPEN', can_update = true, queued = true }))
+  end)
+
+  it('offers the way out once it is in', function()
+    local said = labels({
+      state = 'OPEN',
+      can_update = true,
+      queued = true,
+      in_queue = true,
+    })
+    assert.is_truthy(vim.tbl_contains(said, 'Remove from merge queue'))
+    assert.is_falsy(vim.tbl_contains(said, 'Add to merge queue'))
+  end)
+
+  it('offers neither where the base branch has no queue', function()
+    local said = labels({ state = 'OPEN', can_update = true, can_squash = true })
+    for _, label in ipairs(said) do
+      assert.is_falsy(label:find('merge queue', 1, true))
+    end
+  end)
+end)
+
 describe('which merges write a message first', function()
   local function acting(label, var)
     for _, action in ipairs(pr.actions(var)) do

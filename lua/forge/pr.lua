@@ -54,7 +54,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
     pullRequest(number: $number) {
       id number title state body createdAt isDraft mergeable url
       viewerCanUpdate viewerCanMergeAsAdmin headRefOid isMergeQueueEnabled
-      viewerCanEnableAutoMerge viewerCanDisableAutoMerge
+      viewerCanEnableAutoMerge viewerCanDisableAutoMerge isInMergeQueue
       autoMergeRequest { mergeMethod }
       baseRef {
         rules(first: 50) {
@@ -141,6 +141,24 @@ mutation($id: ID!, $oid: GitObjectID!) {
 local UNAUTO = [[
 mutation($id: ID!) {
   disablePullRequestAutoMerge(input: {pullRequestId: $id}) { clientMutationId }
+}
+]]
+
+--- A queue takes no method and no message: how it merges is the queue's own
+--- setting, which is the whole point of the base branch having one.
+local ENQUEUE = [[
+mutation($id: ID!, $oid: GitObjectID!) {
+  enqueuePullRequest(input: {pullRequestId: $id, expectedHeadOid: $oid}) {
+    clientMutationId
+  }
+}
+]]
+
+--- `id` here is the pull request, not the entry it has in the queue, whatever
+--- the name suggests.
+local DEQUEUE = [[
+mutation($id: ID!) {
+  dequeuePullRequest(input: {id: $id}) { clientMutationId }
 }
 ]]
 
@@ -303,6 +321,10 @@ local PRS = {
       --- the other answer to a merge being blocked, and the reversible one.
       can_auto = node.viewerCanEnableAutoMerge == true,
       can_unauto = node.viewerCanDisableAutoMerge == true,
+      --- A base branch with a queue refuses every direct merge, so `merges`
+      --- offers none and the queue is the only way in.
+      queued = node.isMergeQueueEnabled == true,
+      in_queue = node.isInMergeQueue == true,
       --- The method a merge already waiting would use, and nothing when none
       --- is waiting.
       auto = vim.tbl_get(node, 'autoMergeRequest', 'mergeMethod'),
@@ -411,6 +433,22 @@ local PRS = {
     --- Named twice and offered once, as `naming` says. Interleaved so the pair
     --- stands where the one entry did, whichever of them the answer is.
     ---
+    --- Joining a queue is not merging; the queue merges when it gets there,
+    --- and leaving it is a keystroke, so these stand where the merges would.
+    {
+      label = 'Add to merge queue',
+      query = ENQUEUE,
+      when = function(var)
+        return var.state == 'OPEN' and var.queued == true and var.in_queue ~= true
+      end,
+    },
+    {
+      label = 'Remove from merge queue',
+      query = DEQUEUE,
+      when = function(var)
+        return var.in_queue == true
+      end,
+    },
     --- Waiting comes before merging, for the same reason closing comes after
     --- editing: a merge that waits can be called off, and one that happens
     --- cannot. github calls it auto-merge, so this does too.
