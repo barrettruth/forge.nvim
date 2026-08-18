@@ -47,6 +47,9 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- would otherwise stop it, which is what names it rather than what allows it
 --- @field merge table<string, { headline: string, body: string }>? the commit
 --- message github would write for each method it writes one for
+--- @field can_auto boolean? whether github would take a merge that waits
+--- @field can_unauto boolean? whether one already waiting may be called off
+--- @field auto string? the method a merge already waiting would use
 --- @field base string? the branch a pull request merges into
 --- @field head string? the branch a pull request merges from
 --- @field remote string? the repository "dd" and "dl" fetch a pull request from

@@ -54,6 +54,8 @@ query($owner: String!, $repo: String!, $number: Int!) {
     pullRequest(number: $number) {
       id number title state body createdAt isDraft mergeable url
       viewerCanUpdate viewerCanMergeAsAdmin headRefOid isMergeQueueEnabled
+      viewerCanEnableAutoMerge viewerCanDisableAutoMerge
+      autoMergeRequest { mergeMethod }
       baseRef {
         rules(first: 50) {
           totalCount
@@ -123,15 +125,36 @@ mutation($id: ID!, $oid: GitObjectID!) {
 }
 ]]
 
---- @param var forge.ItemVar
-local function squashing(var)
-  require('forge.merge').open(var, 'SQUASH')
+--- A rebase writes no commit either way, so it waits without a message.
+local AUTO_REBASE = [[
+mutation($id: ID!, $oid: GitObjectID!) {
+  enablePullRequestAutoMerge(input: {
+    pullRequestId: $id
+    mergeMethod: REBASE
+    expectedHeadOid: $oid
+  }) { clientMutationId }
+}
+]]
+
+--- `disablePullRequestAutoMerge` takes only the pull request: whatever method
+--- and message were waiting go with it.
+local UNAUTO = [[
+mutation($id: ID!) {
+  disablePullRequestAutoMerge(input: {pullRequestId: $id}) { clientMutationId }
+}
+]]
+
+--- @param method 'SQUASH'|'MERGE'
+--- @param auto boolean
+--- @return fun(var: forge.ItemVar)
+local function writing(method, auto)
+  return function(var)
+    require('forge.merge').open(var, method, auto)
+  end
 end
 
---- @param var forge.ItemVar
-local function committing(var)
-  require('forge.merge').open(var, 'MERGE')
-end
+local squashing, committing = writing('SQUASH', false), writing('MERGE', false)
+local auto_squashing, auto_committing = writing('SQUASH', true), writing('MERGE', true)
 
 local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
 
@@ -148,6 +171,21 @@ local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
 local function naming(can, bypass)
   return function(var)
     return var.state == 'OPEN' and var[can] == true and (var.can_bypass == true) == bypass
+  end
+end
+
+--- When to offer a merge that waits for github to allow it.
+---
+--- `viewerCanEnableAutoMerge` answers the whole of whether github would take
+--- one, the repository's switch and your access included, and it is false on a
+--- pull request that could merge now. The method still has to be one the
+--- repository and its ruleset would take, since that is checked when the wait
+--- ends rather than when it starts.
+--- @param can string
+--- @return fun(var: forge.ItemVar): boolean
+local function waiting(can)
+  return function(var)
+    return var.state == 'OPEN' and var[can] == true and var.can_auto == true and var.auto == nil
   end
 end
 
@@ -260,6 +298,14 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       can_bypass = node.viewerCanMergeAsAdmin == true,
+      --- github only offers auto-merge on a pull request it will not merge
+      --- now, so this is true in much the same places `can_bypass` is: it is
+      --- the other answer to a merge being blocked, and the reversible one.
+      can_auto = node.viewerCanEnableAutoMerge == true,
+      can_unauto = node.viewerCanDisableAutoMerge == true,
+      --- The method a merge already waiting would use, and nothing when none
+      --- is waiting.
+      auto = vim.tbl_get(node, 'autoMergeRequest', 'mergeMethod'),
       --- The message github itself would write, honouring what the repository
       --- sets its commit title and body to be. Rebase is asked for neither:
       --- github answers "" for both, which is it saying there is no message.
@@ -365,6 +411,31 @@ local PRS = {
     --- Named twice and offered once, as `naming` says. Interleaved so the pair
     --- stands where the one entry did, whichever of them the answer is.
     ---
+    --- Waiting comes before merging, for the same reason closing comes after
+    --- editing: a merge that waits can be called off, and one that happens
+    --- cannot. github calls it auto-merge, so this does too.
+    {
+      label = 'Enable auto-merge (squash)',
+      run = auto_squashing,
+      when = waiting('can_squash'),
+    },
+    {
+      label = 'Enable auto-merge (merge commit)',
+      run = auto_committing,
+      when = waiting('can_merge_commit'),
+    },
+    {
+      label = 'Enable auto-merge (rebase)',
+      query = AUTO_REBASE,
+      when = waiting('can_rebase'),
+    },
+    {
+      label = 'Disable auto-merge',
+      query = UNAUTO,
+      when = function(var)
+        return var.auto ~= nil and var.can_unauto == true
+      end,
+    },
     --- The two that write a commit open a buffer for its message; a rebase
     --- writes none, so it goes straight out.
     { label = 'Squash and merge', run = squashing, when = naming('can_squash', false) },

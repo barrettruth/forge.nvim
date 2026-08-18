@@ -187,6 +187,92 @@ describe('writing the message a merge carries', function()
   end)
 end)
 
+describe('a merge that waits', function()
+  after_each(function()
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_get_name(buf):match('merge/%a+$') then
+        pcall(vim.api.nvim_buf_delete, buf, { force = true })
+      end
+    end
+    vim.cmd('silent! only')
+  end)
+
+  local function labels(var)
+    return vim.tbl_map(function(action)
+      return action.label
+    end, pr.actions(var))
+  end
+
+  local blocked = {
+    state = 'OPEN',
+    can_update = true,
+    can_squash = true,
+    can_rebase = true,
+    can_bypass = true,
+    can_auto = true,
+  }
+
+  it('is offered once per method, above the merges that happen now', function()
+    assert.same({
+      'Edit title and body',
+      'Convert to draft',
+      'Close pull request',
+      'Enable auto-merge (squash)',
+      'Enable auto-merge (rebase)',
+      'Squash and merge (bypass)',
+      'Rebase and merge (bypass)',
+    }, labels(blocked))
+  end)
+
+  it('is not offered where github would merge now', function()
+    local clean = vim.tbl_extend('force', vim.deepcopy(blocked), {
+      can_bypass = false,
+      can_auto = false,
+    })
+    assert.same({
+      'Edit title and body',
+      'Convert to draft',
+      'Close pull request',
+      'Squash and merge',
+      'Rebase and merge',
+    }, labels(clean))
+  end)
+
+  it('gives way to calling it off once one is waiting', function()
+    local var = vim.tbl_extend('force', vim.deepcopy(blocked), {
+      auto = 'SQUASH',
+      can_unauto = true,
+    })
+    local said = labels(var)
+    assert.is_truthy(vim.tbl_contains(said, 'Disable auto-merge'))
+    for _, label in ipairs(said) do
+      assert.is_falsy(label:find('Enable auto-merge', 1, true))
+    end
+  end)
+
+  it('writes its message into its own buffer, and never says bypass', function()
+    merge.open(showing({ can_bypass = true }), 'SQUASH', true)
+    assert.equals('forge://a/b/prs/151/automerge/squash', vim.api.nvim_buf_get_name(0))
+    local bar = vim.api.nvim_eval_statusline(vim.wo.winbar, { winid = 0, use_winbar = true }).str
+    assert.equals('PR #151 AUTO SQUASH', bar)
+  end)
+
+  it('asks github to wait rather than to merge', function()
+    merge.open(showing(), 'SQUASH', true)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a subject', '', 'a body' })
+    local sent, restore = watching()
+    vim.cmd('write')
+    restore()
+
+    local wrote = vim.tbl_filter(function(req)
+      return req.query:find('enablePullRequestAutoMerge', 1, true) ~= nil
+    end, sent)
+    assert.equals(1, #wrote)
+    assert.equals('a subject', wrote[1].variables.headline)
+    assert.equals('deadbeef', wrote[1].variables.oid)
+  end)
+end)
+
 describe('which merges write a message first', function()
   local function acting(label, var)
     for _, action in ipairs(pr.actions(var)) do

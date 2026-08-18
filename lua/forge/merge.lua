@@ -10,12 +10,15 @@ local view = require('forge.view')
 
 local M = {}
 
+--- `enablePullRequestAutoMerge` takes the same input as `mergePullRequest`, so
+--- a merge that waits is the same document under another name.
 --- @param method 'SQUASH'|'MERGE'
+--- @param auto boolean whether to wait for github to say the merge may happen
 --- @return string
-local function merging(method)
+local function merging(method, auto)
   return ([[
 mutation($id: ID!, $oid: GitObjectID!, $headline: String!, $body: String!) {
-  mergePullRequest(input: {
+  %s(input: {
     pullRequestId: $id
     mergeMethod: %s
     expectedHeadOid: $oid
@@ -23,7 +26,7 @@ mutation($id: ID!, $oid: GitObjectID!, $headline: String!, $body: String!) {
     commitBody: $body
   }) { clientMutationId }
 }
-]]):format(method)
+]]):format(auto and 'enablePullRequestAutoMerge' or 'mergePullRequest', method)
 end
 
 --- github's enum spells a merge commit "MERGE", which alone would read badly
@@ -36,7 +39,8 @@ local NAME = { SQUASH = 'squash', MERGE = 'commit' }
 --- @param u forge.Uri
 --- @param var forge.ItemVar
 --- @param method 'SQUASH'|'MERGE'
-local function write(lines, buf, u, var, method)
+--- @param auto boolean
+local function write(lines, buf, u, var, method, auto)
   local headline, body = compose.split(lines)
   if headline == '' then
     log.err('a merge commit needs a subject')
@@ -46,8 +50,8 @@ local function write(lines, buf, u, var, method)
   local win = vim.api.nvim_get_current_win()
   local cwd = vcs.dir()
   gh.graphql({
-    desc = ('%s merged'):format(var.tag),
-    query = merging(method),
+    desc = ('%s %s'):format(var.tag, auto and 'merging when it is ready' or 'merged'),
+    query = merging(method, auto),
     --- An empty body is sent as one. Leaving the field out has github compose
     --- the default this buffer was filled with and then discarded.
     variables = { id = var.id, oid = var.oid, headline = headline, body = body },
@@ -66,27 +70,34 @@ end
 --- Write the commit message for a merge, and merge on writing it.
 --- @param var forge.ItemVar
 --- @param method 'SQUASH'|'MERGE'
-function M.open(var, method)
+--- @param auto boolean? wait for github to allow it rather than merging now
+function M.open(var, method, auto)
   local u = view.current()
   if not u or not u.number then
     return
   end
 
+  auto = auto == true
   local message = (var.merge or {})[method] or {}
   compose.open({
-    --- Named for the method, so picking one after the other does not hand back
-    --- the message written for the first.
-    name = ('%s/merge/%s'):format(uri.tostring(u), NAME[method]),
+    --- Named for the method, and for whether it waits, so picking one after
+    --- another does not hand back the message written for the first.
+    name = ('%s/%s/%s'):format(uri.tostring(u), auto and 'automerge' or 'merge', NAME[method]),
     text = ('%s\n\n%s'):format(message.headline or '', message.body or ''),
     filetype = 'gitcommit',
     desc = 'merge the pull request with the message written here',
     label = var.label,
     tag = var.tag,
-    mode = MODE[method] .. (var.can_bypass and ' BYPASS' or ''),
-    mode_hl = var.can_bypass and 'ErrorMsg' or nil,
+    --- A bypass goes past a rule, so it is drawn as an error. A merge that
+    --- waits goes past nothing, and github does not honour a bypass when it
+    --- comes to make one, so the two words never appear together.
+    mode = (auto and 'AUTO ' or '')
+      .. MODE[method]
+      .. ((not auto and var.can_bypass) and ' BYPASS' or ''),
+    mode_hl = (not auto and var.can_bypass) and 'ErrorMsg' or nil,
     split = true,
     on_write = function(lines, buf)
-      write(lines, buf, u, var, method)
+      write(lines, buf, u, var, method, auto)
     end,
   })
 end

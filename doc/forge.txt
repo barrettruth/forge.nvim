@@ -173,6 +173,10 @@ In an item, and only in one. The last three are a pull request's: >
     can_bypass whether a merge would bypass something to happen
     merge      the commit message github would write, keyed by the
                method that would carry it
+    can_auto   whether a merge may be set to wait, and whether one
+    can_unauto already waiting may be called off
+    auto       the method a waiting merge would use, absent when none
+               is waiting
     base       the branch it merges into
     head       the branch it merges from, prefixed with the owner when
                that is a fork
@@ -318,6 +322,17 @@ of them, and neither does one whose base branch is governed by a merge queue.
 
 A squash and a merge commit open the commit message to be written before they
 are sent; see |forge-merge|. A rebase writes no commit and goes straight out.
+
+github offers a merge that waits, and forge offers it once per method, above
+the merges that happen now: >
+
+    Enable auto-merge (squash)
+< It is taken when github says the pull request may merge, and until then
+"Disable auto-merge" calls it off. github only offers this on a pull request
+it will not merge yet, so it appears where a merge is blocked — which is where
+the bypass appears too, the two being the answers to the same thing: go past
+the rule now, or wait for it. A waiting merge never bypasses; github does not
+honour one when the time comes.
 
 A merge that would go past a rule rather than satisfy it is named for it: >
 
