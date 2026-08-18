@@ -22,8 +22,9 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- the whole of its own half, and one class of optionals says a partial table
 --- is allowed.
 --- @class forge.ListVar : forge.BufVar
---- @field pages string "1/2"
---- @field total string how many the list holds in all
+--- @field pages string "1/2", or "1/?" where the last page is not known
+--- @field total string? how many the list holds in all, absent where the forge
+--- would not count them
 --- @field query string the search narrowing it, empty when it is the whole list
 
 --- The last three are a pull request's; an issue joins no branches.
@@ -99,9 +100,9 @@ local WINBAR = {
     .. at('query')
     .. '%) '
     .. at('pages')
-    .. ' %#Comment#('
+    .. '%( %#Comment#('
     .. at('total')
-    .. ')%*',
+    .. ')%*%)',
   --- What it is and how it stands, then either the branches it joins or what
   --- it is about, then what only some of them have. Exactly one of those two
   --- is ever filled and `%(…%)` drops whichever is not.
@@ -680,17 +681,19 @@ end
 --- Warn when a connection came back truncated.
 ---
 --- Every connection is capped. Asking for totalCount alongside the nodes is
---- what makes the cap visible instead of silently losing the tail.
+--- what makes the cap visible instead of silently losing the tail, and a forge
+--- that will not count a large one leaves nothing to measure the cap against.
 --- @param connection table?
 --- @param what string
 function M.check_truncated(connection, what)
-  --- By type: a null connection arrives as `vim.NIL`, which reads as present.
+  --- By type: a null connection arrives as `vim.NIL`, which reads as present,
+  --- and so does a count that was not answered.
   if type(connection) ~= 'table' then
     return
   end
   local shown = #(connection.nodes or {})
-  local total = connection.totalCount or shown
-  if total > shown then
+  local total = connection.totalCount
+  if type(total) == 'number' and total > shown then
     log.warn(('showing %d of %d %s'):format(shown, total, what))
   end
 end

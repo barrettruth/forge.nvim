@@ -241,12 +241,14 @@ function M.list(spec, t, o)
     end
 
     local page_info = conn.pageInfo or {}
-    local total = conn.totalCount or conn.issueCount or #lines
+    --- Absent where a forge will not count a collection past some size of it,
+    --- and the count is also the only thing that says where the pages end.
+    local total = conn.totalCount or conn.issueCount
     --- A search reports every match and hands over the first thousand, so the
     --- page count is of what can be reached and the total says how much was
     --- found.
-    local last =
-      math.max(1, math.ceil(math.min(total, t.query and REACHABLE or total) / view.PER_PAGE))
+    local reached = total and math.min(total, t.query and REACHABLE or total)
+    local last = reached and math.max(1, math.ceil(reached / view.PER_PAGE))
 
     --- @type forge.ListVar
     local info = {
@@ -256,8 +258,8 @@ function M.list(spec, t, o)
       url = ('%s/%s'):format(data.repository.url, spec.list_path)
         .. (t.query and ('?q=' .. vim.uri_encode(searching(spec, t))) or ''),
       query = t.query or '',
-      pages = ('%d/%d'):format(page, last),
-      total = tostring(total),
+      pages = last and ('%d/%d'):format(page, last) or ('%d/?'):format(page),
+      total = total and tostring(total) or nil,
     }
 
     view.place(o)

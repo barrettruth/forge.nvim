@@ -455,6 +455,18 @@ describe('a list github answered with', function()
     assert.equals('1/3', info.pages)
     assert.equals('250', info.total)
   end)
+
+  it('says which page it is on where the count it would end at is refused', function()
+    local uncounted = response({ { number = 1, title = 'a' } })
+    uncounted.repository.issues.totalCount = nil
+
+    answering(uncounted, function()
+      show()
+    end)
+    local _, info = drawn()
+    assert.equals('1/?', info.pages)
+    assert.is_nil(info.total)
+  end)
 end)
 
 describe('a list narrowed by a search', function()
