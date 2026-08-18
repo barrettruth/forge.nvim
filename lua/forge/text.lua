@@ -172,22 +172,32 @@ function M.logins(connection)
   return out
 end
 
+--- One message, in the shape this file draws rather than the shape a forge
+--- answered in. An item's own description is one of these too, github writing
+--- it as authored and dated like a comment.
+--- @class forge.Comment
+--- @field author string who wrote it, by login
+--- @field association string? what they are to the project, where they are
+--- anything to it
+--- @field created_at string? when they wrote it, as an ISO 8601 timestamp
+--- @field body string? what they wrote
+
 --- Who wrote a thing and when, on one line.
 ---
---- The same line for an item as for a comment under it, github treating a
---- description as authored and dated like one. Only the login is emphasised.
+--- The same line for an item as for a comment under it. Only the login is
+--- emphasised.
 --- @param lines string[]
 --- @param marks forge.Mark[]
---- @param node table anything with an author, an association and a createdAt
-function M.append_author(lines, marks, node)
+--- @param comment forge.Comment
+function M.append_author(lines, marks, comment)
   --- NONE is what github calls a passer-by, and worth saying nothing about.
-  local association = node.authorAssociation
-  local who = vim.tbl_get(node, 'author', 'login') or 'ghost'
+  local association = comment.association
+  local who = comment.author
   local meta = {}
   if association and association ~= 'NONE' then
     meta[#meta + 1] = association
   end
-  meta[#meta + 1] = M.age(node.createdAt)
+  meta[#meta + 1] = M.age(comment.created_at)
 
   local row = #lines
   lines[row + 1] = ('%s %s  %s'):format(BAR, who, table.concat(meta, '  '))
@@ -249,20 +259,21 @@ function M.append_rows(lines, marks, rows)
 end
 
 --- Append a conversation, if there is one.
+---
+--- The heading counts what was written rather than what came, so a reply the
+--- forge capped still says how many there are.
 --- @param lines string[]
 --- @param marks forge.Mark[]
---- @param comments table?
-function M.append_comments(lines, marks, comments)
-  if not comments then
-    return
-  end
-  local nodes = comments.nodes or {}
-  if #nodes == 0 then
+--- @param comments forge.Comment[]?
+--- @param total integer? how many were written in all, when that is more
+--- than were handed over
+function M.append_comments(lines, marks, comments, total)
+  if not comments or #comments == 0 then
     return
   end
   lines[#lines + 1] = ''
-  lines[#lines + 1] = ('## Comments (%d)'):format(comments.totalCount or #nodes)
-  for _, comment in ipairs(nodes) do
+  lines[#lines + 1] = ('## Comments (%d)'):format(total or #comments)
+  for _, comment in ipairs(comments) do
     lines[#lines + 1] = ''
     M.append_author(lines, marks, comment)
     lines[#lines + 1] = ''

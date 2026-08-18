@@ -274,6 +274,36 @@ function M.list(spec, t, o)
   end, settle)
 end
 
+--- What github answered about one message, as the renderer reads a message.
+--- @param node table anything with an author, an association and a createdAt
+--- @return forge.Comment
+local function said(node)
+  return {
+    --- github answers a deleted account with no author at all, and ghost is
+    --- the name it puts on one everywhere else.
+    author = vim.tbl_get(node, 'author', 'login') or 'ghost',
+    association = node.authorAssociation,
+    created_at = node.createdAt,
+    body = node.body,
+  }
+end
+
+--- A github comments connection, as the conversation it holds and how long
+--- that conversation is.
+--- @param connection table?
+--- @return forge.Comment[]
+--- @return integer? total
+local function conversation(connection)
+  --- By type throughout: a null connection arrives as `vim.NIL`, which reads
+  --- as present, and so does a count that was not answered.
+  local held = type(connection) == 'table' and connection or {}
+  local out = {}
+  for _, node in ipairs(type(held.nodes) == 'table' and held.nodes or {}) do
+    out[#out + 1] = said(node)
+  end
+  return out, type(held.totalCount) == 'number' and held.totalCount or nil
+end
+
 --- Draw one of `spec`'s items.
 --- @param spec forge.Spec
 --- @param t forge.Target
@@ -316,12 +346,13 @@ function M.item(spec, t, o)
     local lines = { ('# %s'):format(node.title), '' }
     --- @type forge.Mark[]
     local marks = {}
-    text.append_author(lines, marks, node)
+    text.append_author(lines, marks, said(node))
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''
     --- github's sentence. A comment has no description to be missing.
     text.append_body(lines, marks, node.body, 'No description provided.')
-    text.append_comments(lines, marks, node.comments)
+    local comments, count = conversation(node.comments)
+    text.append_comments(lines, marks, comments, count)
 
     local badges = (spec.badges and spec.badges(node)) or {}
     local stat = (spec.stat and spec.stat(node)) or {}

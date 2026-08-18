@@ -108,9 +108,9 @@ end)
 describe('a conversation', function()
   local function comment(body)
     return {
-      author = { login = 'someone' },
-      authorAssociation = 'OWNER',
-      createdAt = ago(0),
+      author = 'someone',
+      association = 'OWNER',
+      created_at = ago(0),
       body = body,
     }
   end
@@ -149,7 +149,7 @@ describe('a conversation', function()
 
   it('starts each comment with a bar, not a heading', function()
     local lines, marks = {}, {}
-    text.append_comments(lines, marks, { totalCount = 1, nodes = { comment('hello') } })
+    text.append_comments(lines, marks, { comment('hello') })
     assert.same({
       '',
       '## Comments (1)',
@@ -162,7 +162,7 @@ describe('a conversation', function()
 
   it('emphasises who said it and dims everything either side', function()
     local lines, marks = {}, {}
-    text.append_comments(lines, marks, { totalCount = 1, nodes = { comment('hello') } })
+    text.append_comments(lines, marks, { comment('hello') })
     assert.equals('▎ someone  OWNER  today', lines[4])
     assert.same({
       { row = 3, col = 0, end_col = 3, group = 'Comment' },
@@ -179,17 +179,18 @@ describe('a conversation', function()
 
   it('says nothing of the association github gives a passer-by', function()
     local lines, marks = {}, {}
-    local anyone = vim.tbl_extend('force', comment('hi'), { authorAssociation = 'NONE' })
-    text.append_comments(lines, marks, { totalCount = 1, nodes = { anyone } })
+    local anyone = vim.tbl_extend('force', comment('hi'), { association = 'NONE' })
+    text.append_comments(lines, marks, { anyone })
     assert.equals('▎ someone  today', lines[4])
   end)
 
   it('is not something a body can spell for itself', function()
     local lines, marks = {}, {}
-    text.append_comments(lines, marks, {
-      totalCount = 1,
-      nodes = { comment('### Implementation Summary\n\n- a point\n\n===') },
-    })
+    text.append_comments(
+      lines,
+      marks,
+      { comment('### Implementation Summary\n\n- a point\n\n===') }
+    )
     local bars = vim.tbl_filter(function(l)
       return l:sub(1, 3) == '▎'
     end, lines)
@@ -199,23 +200,20 @@ describe('a conversation', function()
 
   it('leaves an empty comment empty, having no description to be missing', function()
     local lines, marks = {}, {}
-    text.append_comments(lines, marks, {
-      totalCount = 1,
-      nodes = { { author = { login = 'someone' }, createdAt = ago(0), body = '' } },
-    })
+    text.append_comments(lines, marks, { { author = 'someone', created_at = ago(0), body = '' } })
     assert.same({ '', '## Comments (1)', '', '▎ someone  today', '' }, lines)
   end)
 
   it('strips the carriage returns out of a comment too', function()
     local lines = {}
-    text.append_comments(lines, {}, { totalCount = 1, nodes = { comment('one\r\ntwo') } })
+    text.append_comments(lines, {}, { comment('one\r\ntwo') })
     assert.equals('one', lines[#lines - 1])
     assert.equals('two', lines[#lines])
   end)
 
   it('says nothing when nobody replied', function()
     local lines = {}
-    text.append_comments(lines, {}, { totalCount = 0, nodes = {} })
+    text.append_comments(lines, {}, {})
     text.append_comments(lines, nil)
     assert.same({}, lines)
   end)
