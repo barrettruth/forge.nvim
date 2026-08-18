@@ -8,10 +8,11 @@
 --- it: a bare :w performing the action anyway, and a submit hung on a teardown
 --- autocmd that silently ate the text whenever a config kept the buffer alive.
 ---
---- So :w submits, :wq and ZZ submit and close, and ZQ and :q! discard, all of
---- them out of Vim rather than out of forge. 'modified' is the only guard
---- against losing what you typed, so it is cleared when github says yes and
---- never before.
+--- So :w submits, and ZQ and :q! discard, both of them out of Vim rather than
+--- out of forge. :wq and ZZ submit without closing: Vim reads 'modified' again
+--- to decide whether the quit half may go ahead, and the request has not come
+--- back by then. 'modified' is what guards what you typed, so it is cleared
+--- when github says yes and never before.
 
 local gh = require('forge.gh')
 local log = require('forge.log')
@@ -100,9 +101,11 @@ function M.open(var)
   vim.bo[buf].buftype = 'acwrite'
   vim.bo[buf].filetype = 'markdown'
   --- Gone the moment nothing shows it, so the editor is only ever as old as
-  --- the item it was opened from. While there is something unsent 'modified'
-  --- refuses to let it be abandoned at all, so wiping cannot lose anything
-  --- that was not thrown away on purpose with ":q!".
+  --- the item it was opened from. 'modified' refuses ":q", ":bd" and ":enew",
+  --- which leaves ":hide" throwing the text away as surely as ":q!" does.
+  --- "hide" would keep it, but a buffer that hides is never abandoned, so it
+  --- costs the refusal on all three of those and leaves ":q!" holding a buffer
+  --- with its contents unloaded. One quiet way to lose text beats three.
   vim.bo[buf].bufhidden = 'wipe'
 
   vim.api.nvim_create_autocmd('BufWriteCmd', {

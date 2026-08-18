@@ -349,8 +349,13 @@ Writing sends it: ":w" and nothing else. Nothing is sent for an empty title.
 
 The buffer lasts as long as it is on screen and no longer, so it never holds
 anything staler than the item it was opened from. Until github says yes it
-stays 'modified', which is what refuses to let you leave it — a refused write
-keeps what you wrote, and ":q!" is how you throw it away.
+stays 'modified', and a refused write keeps what you wrote.
+
+'modified' refuses ":q", ":bd" and ":enew". It does not refuse ":hide", which
+takes the buffer off the screen and so throws the text away as surely as ":q!"
+does. Keeping it instead would mean a buffer that is never abandoned, which
+costs the refusal on the other three, so this is the one quiet way to lose
+what you typed.
 
 It is not a view: its name cannot rebuild it, and "R" and |:edit| do nothing
 to it. The item is drawn again where it sits once the write lands, so it is

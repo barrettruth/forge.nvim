@@ -97,6 +97,16 @@ describe('editing an item', function()
     assert.is_false(vim.api.nvim_buf_is_valid(buf))
   end)
 
+  it('is thrown away by ":hide", which nothing refuses', function()
+    vim.cmd('split')
+    edit.open(showing())
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'a title', '', 'unsent' })
+    vim.cmd('hide')
+
+    assert.is_false(vim.api.nvim_buf_is_valid(buf))
+  end)
+
   it('refuses to be left while it holds something unsent', function()
     edit.open(showing())
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a title', '', 'unsent' })
