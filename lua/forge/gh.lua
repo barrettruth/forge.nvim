@@ -27,19 +27,25 @@ function M.slug(t)
   return t.owner or '{owner}', t.repo or '{repo}'
 end
 
+local SLUG = { owner = true, repo = true }
+
 --- How to pass one variable to `gh api`.
 ---
 --- `--raw-field` is the safe default: it sends a String and cannot retype it,
 --- so a repository named "123" stays a name. gh only expands `{owner}` and
 --- `{repo}` in `--field` though, and only that flag can carry a number, so
 --- those two get it instead.
+---
+--- By name: `--field` also reads a leading "@" as a filename, which prose must
+--- not be able to reach.
+--- @param name string
 --- @param value string|integer
 --- @return '-f'|'-F'
-local function flag(value)
-  if type(value) == 'number' or tostring(value):find('{%a+}') then
+local function flag(name, value)
+  if type(value) == 'number' then
     return '-F'
   end
-  return '-f'
+  return (SLUG[name] and value:match('^{%a+}$')) and '-F' or '-f'
 end
 
 --- Both kinds of request carry their variables the same way.
@@ -53,7 +59,7 @@ local function fields(cmd, variables)
         cmd[#cmd + 1] = ('%s[]=%s'):format(name, item)
       end
     else
-      cmd[#cmd + 1] = flag(value)
+      cmd[#cmd + 1] = flag(name, value)
       cmd[#cmd + 1] = ('%s=%s'):format(name, value)
     end
   end
