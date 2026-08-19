@@ -75,6 +75,8 @@ local M = {}
 --- the forge is asked for one
 --- @field pull_ref fun(number: integer): string where it publishes a pull
 --- request's head, for git to fetch by
+--- @field shorten fun(url: string, project: string): string? what it draws in
+--- place of one of its own addresses, nil for an address it leaves alone
 
 --- Something an item can be asked to do, and when it can be asked. Data rather
 --- than a closure: each is the same round trip with a different write.
@@ -383,8 +385,11 @@ function M.item(spec, t, o)
     local lines = { ('# %s'):format(node.title), '' }
     --- @type forge.Mark[]
     local marks = {}
-    -- A mention in a body links to a person on the forge the body came from.
+    -- A mention in a body links to a person on the forge the body came from,
+    -- and an address of that forge's own is drawn as short as it draws it.
     text.host = u.host
+    text.project = u.project
+    text.shorten = be.shorten
     text.append_author(lines, marks, said(node))
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''

@@ -527,6 +527,60 @@ function M.create(t, host)
   end)
 end
 
+--- What a fragment on an item's address says the link is really to.
+local FRAGMENT = {
+  issuecomment = 'comment',
+  discussion_r = 'comment',
+  issue = 'comment',
+  pullrequestreview = 'review',
+}
+
+--- The paths that name an item, whichever of the three github calls it.
+local NUMBERED = { '^issues/(%d+)$', '^pull/(%d+)$', '^discussions/(%d+)$' }
+
+--- What github draws in place of one of its own addresses.
+---
+--- Only the repository the view itself names is elided. Same owner is not
+--- same repository: from barrettruth/forge.nvim a link to barrettruth/ci.nvim
+--- stays qualified. `http`, an uppercase host and a `www.` prefix are all
+--- left alone, as github leaves them.
+--- @param url string
+--- @param project string the repository the view belongs to
+--- @return string?
+function M.shorten(url, project)
+  local rest = url:match('^https://[^/]+/(.+)$')
+  if not rest then
+    return nil
+  end
+  local path, fragment = rest:match('^([^#?]*)#?([^?]*)')
+  local owner, repo, tail = path:gsub('/$', ''):match('^([^/]+)/([^/]+)/(.+)$')
+  if not owner then
+    return nil
+  end
+  local slug = ('%s/%s'):format(owner, repo)
+  local at = slug ~= project and slug or ''
+
+  for _, pattern in ipairs(NUMBERED) do
+    local number = tail:match(pattern)
+    if number then
+      local said = FRAGMENT[fragment:match('^([%a_]+)%-?%d+$') or '']
+      return ('%s#%s%s'):format(at, number, said and (' (%s)'):format(said) or '')
+    end
+  end
+
+  -- A commit and a comparison both take "@", and in the repository the view
+  -- names they lose the sigil along with the slug.
+  local sha = tail:match('^commit/(%x+)$') or tail:match('^pull/%d+/commits/(%x+)$')
+  if sha and #sha >= 7 then
+    return at == '' and sha:sub(1, 7) or ('%s@%s'):format(at, sha:sub(1, 7))
+  end
+  local range = tail:match('^compare/([^/]+%.%.%.?[^/]+)$')
+  if range then
+    return at == '' and range or ('%s@%s'):format(at, range)
+  end
+  return nil
+end
+
 --- Where github publishes a pull request's head. Served on the base
 --- repository. One nobody has fetched is still a single fetch away.
 --- @param number integer

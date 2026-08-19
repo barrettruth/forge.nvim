@@ -217,6 +217,19 @@ highlighted. Anything that can be followed is underlined.
 wherever a body holds one, except inside a fenced block. |gf| follows a
 reference. |gx| opens a mention's profile.
 
+                                                               *forge-address*
+An address of the forge itself is drawn as the reference the forge draws in
+its place. Inside neovim/neovim, a body reading >
+    Fixed by https://github.com/neovim/neovim/issues/41138 upstream.
+< is drawn >
+    Fixed by #41138 upstream.
+<
+|gf| follows the reference. |gx| opens the address behind it. An address the
+forge itself leaves whole, one on another host, and one inside a code span or
+a fence are all left as they were written.
+
+"cc" edits the body as it was written, not as it is drawn. |forge-edit|
+
 WARNING: comments written against a line of the diff are not shown. A change
 reviewed in the diff shows fewer comments here than on its own page.
 
@@ -452,6 +465,9 @@ Creating an issue or a pull request opens the forge's own page for it. There
 is no compose buffer.
 
 Stacked pull requests are not recognised.
+
+An address is drawn short whether or not it leads anywhere. The forge asks
+itself before shortening one; forge does not ask.
 
 Deleting the branch on merge is unsupported.
 

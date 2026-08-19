@@ -73,11 +73,21 @@ local function profile(login)
   return ('https://%s/%s'):format(M.host or 'github.com', login)
 end
 
---- The host whose bodies are being drawn, set for the length of a render. A
---- renderer takes no view. A mention is the one thing in a body that leaves
---- for a host rather than for another view.
+--- The view whose bodies are being drawn. Set for the length of a render: a
+--- renderer takes no view of its own.
+---
+--- `host` is where a mention goes, which is the one thing in a body that
+--- leaves for a host rather than for another view. The other two shorten an
+--- address the forge would have shortened itself.
 --- @type string?
 M.host = nil
+--- @type string?
+M.project = nil
+--- @type (fun(url: string, project: string): string?)?
+M.shorten = nil
+
+--- Trailing punctuation prose wraps an address in, which is never part of it.
+local TRAILING = '[%.,;:%)%]}]+$'
 
 --- What github links inside a body someone wrote, in the order ties are won.
 ---
@@ -90,12 +100,63 @@ local INLINE = {
   { pattern = '[#!]%d+', group = { 'Tag', LINK } },
 }
 
+--- Draw each of the forge's own addresses as short as the forge draws it.
+---
+--- The line is rewritten rather than concealed. A concealed range still takes
+--- its full width when Neovim decides where to wrap, so a body that wraps
+--- would break mid-sentence for no reason a reader can see. What is written
+--- is a reference, so |gf| follows it; the address itself stays on the mark
+--- for |gx|, and `b:forge.edit` still holds the body as it was written.
+--- @param line string
+--- @param row integer
+--- @param marks forge.Mark[]
+--- @return string line
+--- @return table<integer, boolean> taken the columns it claimed
+local function shortened(line, row, marks)
+  local taken = {}
+  if not M.shorten or not M.project then
+    return line, taken
+  end
+  local out, at, col = {}, 1, 0
+  while true do
+    local from, to = line:find('https://%S+', at)
+    if not from then
+      break
+    end
+    local url = (line:sub(from, to):gsub(TRAILING, ''))
+    -- Only the host that answered for this view, and never inside a code
+    -- span. Any other address is somebody else's to spell.
+    local _, ticks = line:sub(1, from - 1):gsub('`', '')
+    local said = ticks % 2 == 0
+        and url:match('^https://([^/]+)/') == M.host
+        and M.shorten(url, M.project)
+      or nil
+
+    local before = line:sub(at, from - 1)
+    out[#out + 1] = before
+    col = col + #before
+    out[#out + 1] = said or line:sub(from, to)
+    if said then
+      marks[#marks + 1] =
+        { row = row, col = col, end_col = col + #said, group = { 'Tag', LINK }, url = url }
+      for i = col + 1, col + #said do
+        taken[i] = true
+      end
+    end
+    col = col + #out[#out]
+    at = said and (from + #url) or (to + 1)
+  end
+  out[#out + 1] = line:sub(at)
+  return table.concat(out), taken
+end
+
 --- Mark what github would have linked in a line of prose.
 --- @param line string
 --- @param row integer
 --- @param marks forge.Mark[]
-local function inline(line, row, marks)
-  local taken = {}
+--- @param taken table<integer, boolean>? columns an address already claimed
+local function inline(line, row, marks, taken)
+  taken = taken or {}
   for _, kind in ipairs(INLINE) do
     local from = 1
     while true do
@@ -144,11 +205,15 @@ function M.append_body(lines, marks, body, instead)
   local fenced = false
   for _, line in ipairs(vim.split(text, '\n', { plain = true })) do
     local row = #lines
-    lines[row + 1] = line
     if line:match('^%s*```') or line:match('^%s*~~~') then
       fenced = not fenced
-    elseif not fenced then
-      inline(line, row, marks)
+      lines[row + 1] = line
+    elseif fenced then
+      lines[row + 1] = line
+    else
+      local shown, taken = shortened(line, row, marks)
+      lines[row + 1] = shown
+      inline(shown, row, marks, taken)
     end
   end
 end

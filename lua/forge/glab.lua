@@ -715,6 +715,89 @@ function M.create(t, host)
   vim.ui.open(branch and ('%s?merge_request%%5Bsource_branch%%5D=%s'):format(at, enc(branch)) or at)
 end
 
+--- What gitlab writes in front of each numbered path once it is short.
+local SIGIL = { issues = '#', work_items = '#', merge_requests = '!' }
+
+--- The tabs of a merge request that gitlab still shortens. It names two of
+--- them in the suffix and says nothing for the third.
+local TAB = { diffs = 'diffs', commits = 'commits', pipelines = '' }
+
+--- How much of a project's path survives into a reference read from `project`.
+---
+--- Three deep, where github's is two: gitlab drops the namespace as well when
+--- both sit under it, leaving a project on its own.
+--- @param path string
+--- @param project string
+--- @return string
+local function prefix(path, project)
+  if path == project then
+    return ''
+  end
+  local ns = path:match('^(.+)/[^/]+$')
+  local mine = project:match('^(.+)/[^/]+$')
+  if ns and ns == mine then
+    return (path:match('([^/]+)$'))
+  end
+  return path
+end
+
+--- What gitlab draws in place of one of its own addresses.
+---
+--- The note id gitlab puts in the suffix is dropped. It is eighteen digits of
+--- database key inside a form whose whole purpose is brevity, and nothing in
+--- the buffer can address it.
+--- @param url string
+--- @param project string the project the view belongs to
+--- @return string?
+function M.shorten(url, project)
+  local rest = url:match('^https://[^/]+/(.+)$')
+  if not rest then
+    return nil
+  end
+  local body, fragment = rest:match('^([^#?]*)#?([^?]*)')
+  local where, tail = body:gsub('/$', ''):match('^(.-)/%-/(.+)$')
+  if not where then
+    return nil
+  end
+  local noted = fragment:match('^note_%d+$') ~= nil
+
+  -- An epic belongs to a group, so it is the project's own namespace that
+  -- decides whether the group is worth naming.
+  local group = where:match('^groups/(.+)$')
+  if group then
+    local number = tail:match('^epics/(%d+)$')
+    if not number then
+      return nil
+    end
+    local mine = project:match('^(.+)/[^/]+$')
+    local at = group == mine and '' or group
+    return ('%s&%s%s'):format(at, number, noted and ' (comment)' or '')
+  end
+
+  local kind, number, tab = tail:match('^([%a_]+)/(%d+)/?(%a*)$')
+  if not kind or not SIGIL[kind] then
+    return nil
+  end
+  local about = {}
+  if tab ~= '' then
+    if kind ~= 'merge_requests' or not TAB[tab] then
+      return nil
+    end
+    if TAB[tab] ~= '' then
+      about[#about + 1] = TAB[tab]
+    end
+  end
+  if noted then
+    about[#about + 1] = 'comment'
+  end
+  return ('%s%s%s%s'):format(
+    prefix(where, project),
+    SIGIL[kind],
+    number,
+    #about > 0 and (' (%s)'):format(table.concat(about, ', ')) or ''
+  )
+end
+
 --- Where gitlab publishes a merge request's head. Served on the project it
 --- merges into, even for one opened from a fork. `refs/merge-requests/N/merge`
 --- beside it is the merged result, not the head.
