@@ -329,14 +329,14 @@ end
 --- one. Read by line rather than matched by pattern: a body may hold anything.
 --- @class forge.stack.Rows
 --- @field rows table<integer, integer> the pull request a row names, zero-based
---- @field order integer[] top first, as drawn
+--- @field order integer[] trunk first, as drawn
 --- @field at integer where in `order` the one being read sits
 
 --- Append the chain an item belongs to, if it belongs to one.
 ---
---- Drawn top first, the way github's own stack map and |jj| draw one, while the
---- count stays the forge's and is taken from the bottom. So the line marked in
---- a stack of four at 3/4 is the second from the top.
+--- Drawn bottom first: the layer nearest the trunk at the top, each one below
+--- built on the line above it. The count runs the same way, so the marked line
+--- of a stack at 3/4 is the third.
 --- @param lines string[]
 --- @param marks forge.Mark[]
 --- @param held forge.Stack?
@@ -356,25 +356,9 @@ function M.append_stack(lines, marks, held, sigil, group)
   lines[#lines + 1] = ('## Stack (%d/%d)'):format(held.position, #held.layers)
   lines[#lines + 1] = ''
 
-  -- Above the layers, because that is where the fork is.
-  if held.forks then
-    local said = vim.tbl_map(function(number)
-      return sigil .. number
-    end, held.forks)
-    local row = #lines
-    local lead = '  forks above into '
-    lines[row + 1] = lead .. table.concat(said, ', ')
-    marks[#marks + 1] = { row = row, col = 0, end_col = #lines[row + 1], group = 'Comment' }
-    local col = #lead
-    for _, one in ipairs(said) do
-      marks[#marks + 1] = { row = row, col = col, end_col = col + #one, group = 'Tag' }
-      col = col + #one + 2
-    end
-  end
-
   --- @type forge.stack.Rows
-  local nav = { rows = {}, order = {}, at = #held.layers - held.position + 1 }
-  for i = #held.layers, 1, -1 do
+  local nav = { rows = {}, order = {}, at = held.position }
+  for i = 1, #held.layers do
     local layer = held.layers[i]
     local row = #lines
     local tag = sigil .. layer.number
@@ -391,6 +375,23 @@ function M.append_stack(lines, marks, held, sigil, group)
     end
     nav.rows[row] = layer.number
     nav.order[#nav.order + 1] = layer.number
+  end
+
+  -- Under the layers, because the chain runs away from the trunk as it is read
+  -- down and a fork is at that end of it.
+  if held.forks then
+    local said = vim.tbl_map(function(number)
+      return sigil .. number
+    end, held.forks)
+    local row = #lines
+    local lead = '  forks into '
+    lines[row + 1] = lead .. table.concat(said, ', ')
+    marks[#marks + 1] = { row = row, col = 0, end_col = #lines[row + 1], group = 'Comment' }
+    local col = #lead
+    for _, one in ipairs(said) do
+      marks[#marks + 1] = { row = row, col = col, end_col = col + #one, group = 'Tag' }
+      col = col + #one + 2
+    end
   end
   return nav
 end

@@ -656,9 +656,9 @@ end
 
 --- Step `delta` layers through the stack this item belongs to.
 ---
---- The layers are ordered as they are drawn, top first, so a negative delta
---- goes up the buffer and up the stack. Neither end wraps: a stack is a line,
---- not a ring, and coming out the other end of one is never what was meant.
+--- The layers are ordered as they are drawn, trunk first, so a negative delta
+--- goes up the buffer and toward the trunk. Both ends wrap, because a stack is
+--- walked over and over and a key that refuses reads as a key that broke.
 --- @param delta integer
 function M.walk_stack(delta)
   local u = M.current()
@@ -675,11 +675,7 @@ function M.walk_stack(delta)
     end
     return
   end
-  local to = nav.at + delta
-  if to < 1 or to > #nav.order then
-    log.info(delta < 0 and 'top of the stack' or 'bottom of the stack')
-    return
-  end
+  local to = (nav.at - 1 + delta) % #nav.order + 1
   M.open({
     host = u.host,
     project = u.project,

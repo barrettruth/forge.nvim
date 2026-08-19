@@ -218,25 +218,25 @@ the description and before the comments: >
 
     ## Stack (3/4)
 
-      #150  api: stop paginating once the budget is spent
-      #149  api: read the rate limit headers
-      #148  util: add a chunk helper
       #147  util: add a dedupe helper
+      #148  util: add a chunk helper
+      #149  api: read the rate limit headers
+      #150  api: stop paginating once the budget is spent
 <
-Top first, and counted from the bottom, so "3/4" is the second line. Each
-number is drawn in the colour of its state. The line being read is drawn in
-"CursorLine".
+The layer nearest the trunk first, each one below built on the line above it,
+and counted the same way, so "3/4" is the third line. Each number is drawn in
+the colour of its state. The line being read is drawn in "CursorLine".
 
-<CR> opens the layer under the cursor. "[s" and "]s" step through the layers
-and stop at either end. |gf| follows a number as it does anywhere else. The
-winbar says the same position. |forge-mappings|
+<CR> opens the layer under the cursor. "[s" goes to the layer above and "]s"
+to the one below, wrapping at either end. |gf| follows a number as it does
+anywhere else. The winbar says the same position. |forge-mappings|
 
 Two layers sharing a base branch are named rather than ordered: >
 
     ## Stack (1/1)
 
-      forks above into #158, #159
       #157  idgen: allow a custom entropy source
+      forks into #158, #159
 <
 One in no chain draws no section, and neither does one opened from a fork.
 
