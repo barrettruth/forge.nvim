@@ -390,13 +390,6 @@ function M.node(collection, row, notes)
   --- gitlab does not drop a reviewer once they have answered, so this row is
   --- everyone asked rather than only those still to answer.
   node.reviewRequests = asked(row.reviewers)
-  --- What the author asked for, and where they asked for nothing, what the
-  --- project settled: gitlab answers the first as null and folds the second
-  --- into the flag it would act on.
-  node.deletesBranch = row.should_remove_source_branch
-  if node.deletesBranch == nil then
-    node.deletesBranch = row.force_remove_source_branch == true
-  end
   --- Where github hangs the checks: on the rollup of the last commit. gitlab
   --- runs one pipeline for the merge request and puts its state on the merge
   --- request, and only a single one carries it.
@@ -679,10 +672,6 @@ M.writes = {
   prs = {
     draft = 'draft',
     ready = 'ready',
-    --- gitlab keeps this on the merge request rather than on the project, so
-    --- it is a change to the merge request like any other.
-    delete_branch = 'remove_source_branch',
-    keep_branch = 'keep_source_branch',
     close = 'close',
     reopen = 'reopen',
   },
@@ -713,8 +702,6 @@ function M.write(w, on_done, on_fail)
     body[w.method == 'SQUASH' and 'squash_commit_message' or 'merge_commit_message'] = message
   elseif w.query == 'draft' or w.query == 'ready' then
     body = { title = M.draft(var.title or '', w.query == 'draft') }
-  elseif w.query == 'remove_source_branch' or w.query == 'keep_source_branch' then
-    body = { remove_source_branch = w.query == 'remove_source_branch' }
   else
     body = { state_event = w.query }
   end

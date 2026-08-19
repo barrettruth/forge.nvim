@@ -46,7 +46,6 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field can_rebase boolean? and your access before the menu is drawn
 --- @field can_bypass boolean? whether a merge would go through something that
 --- would otherwise stop it, which is what names it rather than what allows it
---- @field deletes boolean? whether the branch goes when the change lands
 --- @field merge table<string, { headline: string, body: string }>? the commit
 --- message github would write for each method it writes one for
 --- @field can_auto boolean? whether github would take a merge that waits
