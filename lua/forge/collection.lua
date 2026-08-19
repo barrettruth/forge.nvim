@@ -446,6 +446,7 @@ function M.item(spec, t, o)
         -- at the end of the gap `%=` opened.
         stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
         stack = held and ('%d/%d'):format(held.position, #held.layers) or '',
+        stack_kept = held ~= nil and held.number ~= nil,
       }
       if spec.remember then
         info = vim.tbl_extend('force', info, spec.remember(node, answer.repo))

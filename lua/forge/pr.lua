@@ -22,6 +22,20 @@ local auto_squashing, auto_committing = writing('SQUASH', true), writing('MERGE'
 
 local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
 
+--- Whether a merge of any name may be offered on this one.
+---
+--- A stack the forge keeps of its own merges as a unit, and none of the
+--- labels below says so: merging a layer takes every layer under it along.
+--- github refuses both documents outright, naming its asynchronous REST
+--- endpoint in place of `mergePullRequest` and nothing at all in place of
+--- `enablePullRequestAutoMerge`. A chain forge derived is no such thing and
+--- merges a layer at a time, as any pull request does.
+--- @param var forge.ItemVar
+--- @return boolean
+local function may_merge(var)
+  return var.state == 'OPEN' and var.stack_kept ~= true
+end
+
 --- When to offer one of the two names a merge has.
 ---
 --- Both send the same document. `mergePullRequest` has no bypass field. The
@@ -32,7 +46,7 @@ local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
 --- @return fun(var: forge.ItemVar): boolean
 local function naming(can, bypass)
   return function(var)
-    return var.state == 'OPEN' and var[can] == true and (var.can_bypass == true) == bypass
+    return may_merge(var) and var[can] == true and (var.can_bypass == true) == bypass
   end
 end
 
@@ -45,7 +59,7 @@ end
 --- @return fun(var: forge.ItemVar): boolean
 local function waiting(can)
   return function(var)
-    return var.state == 'OPEN' and var[can] == true and var.can_auto == true and var.auto == nil
+    return may_merge(var) and var[can] == true and var.can_auto == true and var.auto == nil
   end
 end
 

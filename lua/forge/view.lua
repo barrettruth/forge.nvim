@@ -48,6 +48,8 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field remote string? the repository "dd" and "dl" fetch it from
 --- @field stack string? which layer of its stack it is, "3/4", counted from
 --- the bottom; empty where it is in no stack
+--- @field stack_kept boolean? whether the forge keeps that stack itself, and
+--- so merges it as a unit rather than a layer at a time
 
 --- Read one field of `b:forge`. The templates below never index it directly.
 --- A missing key raises E716 from a redraw. Neovim empties 'winbar' on an

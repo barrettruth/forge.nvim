@@ -188,6 +188,8 @@ In an item, and only in one. The last three are a pull or merge request's: >
     remote     the repository "dd" and "dl" fetch it from
     stack      which layer of its stack it is, "3/4", counted from the
                bottom, and empty where it is in none
+    stack_kept whether the forge keeps that stack itself, rather than
+               forge having derived the chain
 <
 An item is its title, then who opened it and when, then what is known about
 it, then its body and the conversation under it: >
@@ -239,6 +241,9 @@ Two layers sharing a base branch are named rather than ordered: >
       forks into #158, #159
 <
 Every layer of a chain is in the same repository.
+
+GitHub keeps some stacks itself, and derives the rest. One it keeps merges as
+a unit, and forge offers no merge on a layer of one. |forge-limitations|
 
 A bar starts anything somebody wrote. Logins, labels and milestones are
 highlighted. Anything that can be followed is underlined.
@@ -351,8 +356,8 @@ menu is |vim.ui.select()|. Its prompt is >
 <
 A merge is offered once per method the repository allows: "Squash and merge",
 "Create a merge commit", "Rebase and merge". On GitHub the base branch's
-ruleset narrows that. One with conflicts offers none of them. Deleting the
-branch on merge is unsupported.
+ruleset narrows that. One with conflicts offers none of them, and neither does
+a layer of a stack GitHub keeps. Deleting the branch on merge is unsupported.
 
 A rebase is sent as it is picked. A squash and a merge commit open the commit
 message first. |forge-merge|
@@ -504,8 +509,9 @@ comment. Comments written against a line of the diff are not shown.
 Creating an issue or a pull request opens the forge's own page for it. There
 is no compose buffer.
 
-Merging a stack is unsupported. A pull request in one is still offered its
-merges, and GitHub refuses them. |forge-stack|
+Merging a stack is unsupported. A layer of a stack GitHub keeps is offered no
+merge and no auto-merge; merge it on GitHub. A chain forge derived merges a
+layer at a time, as any pull request does. |forge-stack|
 
 An address is drawn short whether or not it leads anywhere. The forge asks
 itself before shortening one; forge does not ask.

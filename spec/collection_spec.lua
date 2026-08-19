@@ -245,6 +245,65 @@ describe('a pull request github answered with', function()
     pr.show({ project = 'neovim/neovim', collection = 'prs', number = 41138 }, {})
   end
 
+  --- The same answer, with whatever the stack query should also find in it.
+  --- @param over table repository keys beside the pull request itself
+  local function alongside(over)
+    local data = response()
+    data.repository = vim.tbl_extend('force', data.repository, over)
+    return data
+  end
+
+  --- @param number integer
+  --- @param base string
+  --- @param head string
+  local function layer(number, base, head)
+    return {
+      number = number,
+      title = 'pull ' .. number,
+      state = 'OPEN',
+      baseRefName = base,
+      headRefName = head,
+    }
+  end
+
+  it('says which layer of a stack github keeps of its own this is', function()
+    answering(
+      alongside({
+        pullRequest = vim.tbl_extend('force', response().repository.pullRequest, {
+          stack = {
+            number = 7,
+            entries = {
+              totalCount = 2,
+              nodes = {
+                { position = 1, pullRequest = layer(41138, 'master', 'fix-the-thing') },
+                { position = 2, pullRequest = layer(41139, 'fix-the-thing', 'next') },
+              },
+            },
+          },
+        }),
+      }),
+      show
+    )
+    local _, info = drawn()
+    assert.equals('1/2', info.stack)
+    assert.is_true(info.stack_kept)
+  end)
+
+  it('derives the chain where github keeps no stack, and says it derived it', function()
+    answering(
+      alongside({
+        open = { totalCount = 2 },
+        pullRequests = {
+          nodes = { layer(41138, 'master', 'fix-the-thing'), layer(41139, 'fix-the-thing', 'next') },
+        },
+      }),
+      show
+    )
+    local _, info = drawn()
+    assert.equals('1/2', info.stack)
+    assert.is_false(info.stack_kept)
+  end)
+
   it('leaves the branches to the winbar and says who wrote it', function()
     answering(response(), show)
     assert.same({

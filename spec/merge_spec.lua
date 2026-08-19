@@ -308,6 +308,50 @@ describe('a base branch that merges through a queue', function()
   end)
 end)
 
+describe('a layer of a stack the forge keeps', function()
+  local function labels(var)
+    return vim.tbl_map(function(action)
+      return action.label
+    end, pr.actions(var))
+  end
+
+  local layer = {
+    state = 'OPEN',
+    can_update = true,
+    can_squash = true,
+    can_merge_commit = true,
+    can_rebase = true,
+    stack_kept = true,
+  }
+
+  it('is offered no merge, whichever methods the repository allows', function()
+    assert.same({
+      'Edit title and body',
+      'Convert to draft',
+      'Close pull request',
+    }, labels(layer))
+  end)
+
+  it('is offered no wait either, github refusing one outright', function()
+    local said = labels(vim.tbl_extend('force', vim.deepcopy(layer), { can_auto = true }))
+    for _, label in ipairs(said) do
+      assert.is_falsy(label:find('auto-merge', 1, true))
+    end
+  end)
+
+  it('still joins a queue, which takes a whole stack in order', function()
+    local said = labels({ state = 'OPEN', can_update = true, queued = true, stack_kept = true })
+    assert.is_truthy(vim.tbl_contains(said, 'Add to merge queue'))
+  end)
+
+  it('leaves a chain forge derived merging a layer at a time', function()
+    local said = labels(vim.tbl_extend('force', vim.deepcopy(layer), { stack_kept = false }))
+    assert.is_truthy(vim.tbl_contains(said, 'Squash and merge'))
+    assert.is_truthy(vim.tbl_contains(said, 'Create a merge commit'))
+    assert.is_truthy(vim.tbl_contains(said, 'Rebase and merge'))
+  end)
+end)
+
 describe('which merges write a message first', function()
   local function acting(label, var)
     for _, action in ipairs(pr.actions(var)) do
