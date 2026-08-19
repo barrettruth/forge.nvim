@@ -48,7 +48,7 @@ function M.show()
 
   local from = vim.api.nvim_get_current_win()
   local ref = be.pull_ref(u.number)
-  vcs.fetch_pull(vcs.dir(), refs.remote, u.number, refs.base, ref, function(base, head)
+  vcs.fetch_pull(vcs.dir(), refs.remote, u.number, refs.base, ref, nouns.sigil, function(base, head)
     require('diffs').open_review({
       base = base,
       target = head,

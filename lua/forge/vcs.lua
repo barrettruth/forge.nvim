@@ -52,8 +52,9 @@ end
 --- @param number integer
 --- @param base string
 --- @param ref string what the forge publishes the head as
+--- @param sigil string what the forge writes in front of a number
 --- @param on_done fun(base: string, head: string)
-function M.fetch_pull(dir, url, number, base, ref, on_done)
+function M.fetch_pull(dir, url, number, base, ref, sigil, on_done)
   local head_ref = ('refs/forge/%d/head'):format(number)
   local base_ref = ('refs/forge/%d/base'):format(number)
   local cmd = {
@@ -65,7 +66,7 @@ function M.fetch_pull(dir, url, number, base, ref, on_done)
     ('+refs/heads/%s:%s'):format(base, base_ref),
   }
 
-  local done = log.progress(('fetching #%d'):format(number))
+  local done = log.progress(('fetching %s%d'):format(sigil, number))
   vim.system(cmd, { cwd = dir, text = true }, function(out)
     vim.schedule(function()
       if out.code ~= 0 then
@@ -74,7 +75,7 @@ function M.fetch_pull(dir, url, number, base, ref, on_done)
         done('failed', why)
         return log.err(why)
       end
-      done('success', ('fetched #%d'):format(number))
+      done('success', ('fetched %s%d'):format(sigil, number))
       on_done(base_ref, head_ref)
     end)
   end)
@@ -127,7 +128,7 @@ function M.branch(dir)
 
   local name = nearest:gsub('%*$', '')
   if name ~= nearest then
-    return nil, ('%s is not pushed, so github cannot see it'):format(name)
+    return nil, ('%s is not pushed, so no forge can see it'):format(name)
   end
   return name
 end

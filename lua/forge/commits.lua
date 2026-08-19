@@ -52,7 +52,7 @@ function M.show()
 
   local from = vim.api.nvim_get_current_win()
   local ref = be.pull_ref(u.number)
-  vcs.fetch_pull(dir, refs.remote, u.number, refs.base, ref, function(base, head)
+  vcs.fetch_pull(dir, refs.remote, u.number, refs.base, ref, nouns.sigil, function(base, head)
     if vim.api.nvim_win_is_valid(from) then
       vim.api.nvim_set_current_win(from)
     end

@@ -401,6 +401,8 @@ function M.item(spec, t, o)
     local lines = { ('# %s'):format(node.title), '' }
     --- @type forge.Mark[]
     local marks = {}
+    --- A mention in a body links to a person on the forge the body came from.
+    text.host = u.host
     text.append_author(lines, marks, said(node))
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''

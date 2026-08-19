@@ -66,23 +66,32 @@ local BAR = '▎'
 M.LOGIN = '@markup.italic'
 local LINK = '@markup.link'
 
---- Where |gx| goes from a login. forge has no view of a person.
+--- Where |gx| goes from a login. forge has no view of a person, and every
+--- forge puts one at the root of its own host.
 --- @param login string
 --- @return string
 local function profile(login)
-  return 'https://github.com/' .. login
+  return ('https://%s/%s'):format(M.host or 'github.com', login)
 end
+
+--- The host whose bodies are being drawn. Set for the length of a render: a
+--- renderer takes no view, and a mention is the one thing in a body that
+--- leaves for a host rather than for another view.
+--- @type string?
+M.host = nil
 
 --- What github links inside a body someone wrote, in the order it wins ties.
 ---
 --- A mention leaves the editor, a reference does not: `gf` follows "#123"
 --- through 'includeexpr' and core's `gx` reads a url off the mark itself.
 --- The qualified form comes before the bare one so that "o/r#4" is one
---- reference rather than a repository with another inside it.
+--- reference rather than a repository with another inside it. "!123" is
+--- gitlab's merge request, and marking it everywhere costs nothing: github
+--- writes no such reference, so there is none to mark wrongly.
 local INLINE = {
   { pattern = '@([%w][%w%-]*)', group = { M.LOGIN, LINK }, url = profile },
-  { pattern = '[%w._%-]+/[%w._%-]+#%d+', group = { 'Tag', LINK } },
-  { pattern = '#%d+', group = { 'Tag', LINK } },
+  { pattern = '[%w._%-]+/[%w._%-]+[#!]%d+', group = { 'Tag', LINK } },
+  { pattern = '[#!]%d+', group = { 'Tag', LINK } },
 }
 
 --- Mark what github would have linked in a line of prose.
