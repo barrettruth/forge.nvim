@@ -14,20 +14,20 @@ describe('completing a search', function()
     assert.same({ 'review:changes_requested' }, search.complete('review:c'))
   end)
 
-  it('offers the only person it can know', function()
-    assert.same({ 'author:@me' }, search.complete('author:'))
-    assert.same({ 'review-requested:@me' }, search.complete('review-requested:@'))
-  end)
-
   it('offers nothing it would have to ask github for', function()
     assert.same({}, search.complete('label:b'))
     assert.same({}, search.complete('milestone:'))
     assert.same({}, search.complete('created:2026'))
   end)
 
+  it('names a qualifier that takes a person without offering one', function()
+    assert.same({ 'author:' }, search.complete('autho'))
+    assert.same({}, search.complete('author:'))
+    assert.same({}, search.complete('review-requested:@'))
+  end)
+
   it('keeps a negation, since github takes one on either kind', function()
     assert.same({ '-label:' }, search.complete('-lab'))
-    assert.same({ '-author:@me' }, search.complete('-author:'))
     assert.same({ '-is:open' }, search.complete('-is:o'))
   end)
 

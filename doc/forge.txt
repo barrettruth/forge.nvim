@@ -456,8 +456,8 @@ the title and the description - qualifiers are unsupported.
 github's set of them is closed: "is:", "no:", "in:", "state:", "reason:",
 "review:", "status:", "linked:", "draft:", "archived:" and "sort:".
 
-A qualifier naming a person completes to "@me" and nothing else. A negation
-completes the same. Labels, milestones and people do not complete.
+A negation completes the same. Labels, milestones, dates and people do not
+complete.
 
 ==============================================================================
 9. GITLAB                                                       *forge-gitlab*

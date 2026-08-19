@@ -51,38 +51,35 @@ for _, field in ipairs({
   table.insert(VALUES.sort, field .. '-desc')
 end
 
---- Qualifiers naming a person. "@me" is the only value knowable here, and it
---- covers `author:@me` and `review-requested:@me`.
-local USERS = {
+--- Qualifiers whose value forge does not complete. A label or milestone
+--- belongs to the repository, a date or a count belongs to you, and a person
+--- belongs to the forge. "@me" would be the one name knowable without asking,
+--- and offering the only one forge happens to know reads as the set.
+local FREE = {
   'assignee',
   'author',
-  'commenter',
-  'involves',
-  'mentions',
-  'review-requested',
-  'reviewed-by',
-  'user-review-requested',
-}
-
---- Qualifiers whose value forge cannot know. A label or milestone belongs to
---- the repository. A date or a count belongs to you.
-local FREE = {
   'base',
   'closed',
   'comments',
+  'commenter',
   'created',
   'head',
   'interactions',
+  'involves',
   'label',
   'language',
+  'mentions',
   'merged',
   'milestone',
   'project',
   'reactions',
+  'review-requested',
+  'reviewed-by',
   'sha',
   'team',
   'team-review-requested',
   'updated',
+  'user-review-requested',
 }
 
 --- Every qualifier, spelled as it is typed.
@@ -90,16 +87,10 @@ local KEYS = {}
 for key in pairs(VALUES) do
   KEYS[#KEYS + 1] = key .. ':'
 end
-for _, list in ipairs({ USERS, FREE }) do
-  for _, key in ipairs(list) do
-    KEYS[#KEYS + 1] = key .. ':'
-  end
+for _, key in ipairs(FREE) do
+  KEYS[#KEYS + 1] = key .. ':'
 end
 table.sort(KEYS)
-
-local function knows_user(key)
-  return vim.tbl_contains(USERS, key)
-end
 
 --- What could follow what has been typed so far.
 ---
@@ -131,9 +122,6 @@ function M.complete(lead)
   end
   if VALUES[key] then
     return matching(VALUES[key], key .. ':', typed)
-  end
-  if knows_user(key) then
-    return matching({ '@me' }, key .. ':', typed)
   end
   return {}
 end
