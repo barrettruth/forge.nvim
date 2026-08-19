@@ -298,8 +298,8 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
     R        <Plug>(forge-refresh)     Fetch this view again, in place.
     ]i  [i   <Plug>(forge-next-page)   Page through a list. ]p and [p
              <Plug>(forge-prev-page)   in a pull or merge request list.
-    ]s  [s   <Plug>(forge-stack-down)  Step down and up a stack.
-             <Plug>(forge-stack-up)
+    ]s  [s   <Plug>(forge-stack-down)  Step down and up a stack. A count
+             <Plug>(forge-stack-up)    steps that many layers.
     ga       <Plug>(forge-create)      Start something new, on the forge.
     gX       <Plug>(forge-web)         Open this view in a browser.
     gy       <Plug>(forge-yank)        Yank this view's URL.
