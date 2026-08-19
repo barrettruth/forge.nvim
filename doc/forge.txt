@@ -14,65 +14,37 @@ CONTENTS                                                      *forge-contents*
   7. Mappings ........................................... |forge-mappings|
   8. Search ............................................... |forge-search|
   9. GitLab ............................................... |forge-gitlab|
- 10. Health ............................................... |forge-health|
+ 10. Limitations ..................................... |forge-limitations|
+ 11. Health ............................................... |forge-health|
 
 ==============================================================================
 1. INTRODUCTION                                                  *forge-intro*
 
-Forge reads issues, pull requests and merge requests into Neovim buffers, from
-GitHub and from GitLab. There are two commands, |:Issue| and |:PR|; every
-other action is a mapping in the buffer they open. There is no setup()
-function and nothing to configure.
+Read GitHub and GitLab issues, pull requests and merge requests in Neovim.
 
-Every view is named for the host it came from, so its name says which forge
-answered; see |forge-uris|. On GitLab a pull request is a merge request, and
-forge says it that way; see |forge-gitlab|.
+Two commands, |:Issue| and |:PR|. Everything else is a mapping in the buffer
+they open. Nothing to configure.
 
 ==============================================================================
 2. REQUIREMENTS                                           *forge-requirements*
 
-  - Neovim 0.12 or newer
-  - the "gh" CLI, authenticated (https://cli.github.com), for GitHub
-  - the "glab" CLI, authenticated (https://gitlab.com/gitlab-org/cli), for
-    GitLab
+- Nvim 0.12+
+- "gh" (GitHub CLI), authenticated: https://cli.github.com
+- "glab" (GitLab CLI), authenticated: https://gitlab.com/gitlab-org/cli
 
 Optional, one mapping each:
 
-  - ci.nvim, for "dc"
-    https://forge.barrettruth.com/barrettruth/ci.nvim
-  - diffs.nvim, for "dd"
-    https://forge.barrettruth.com/barrettruth/diffs.nvim
-  - vim-fugitive, for "dl"
-    https://github.com/tpope/vim-fugitive
+- ci.nvim, for "dc": https://forge.barrettruth.com/barrettruth/ci.nvim
+- diffs.nvim, for "dd": https://forge.barrettruth.com/barrettruth/diffs.nvim
+- vim-fugitive, for "dl": https://github.com/tpope/vim-fugitive
 
 ==============================================================================
 3. COMMANDS                                                   *forge-commands*
 
 :Issue [{target}]                                                     *:Issue*
 :PR [{target}]                                                           *:PR*
-    Opens {target}. Without an argument, opens the list for the current
-    repository.
-
-    ":PR @" opens the pull or merge request for the current change. Nothing
-    identifies the current issue, and ":Issue @" says so. A change with none
-    yet opens the page a new one arrives on, and on GitHub gh pushes the
-    branch.
-
-    ":Issue ." and ":PR ." open the reference under the cursor, from any
-    buffer. A reference is "#41138", "!123", "neovim/neovim#41138",
-    "group/subgroup/project!123", a github.com URL or a forge:// URI; a bare
-    "owner/repo" is not one, and neither is a mention. Inside a view |gf|
-    does the same; see |forge-gf|.
-
-    Anything naming nothing forge knows is a search, narrowing the list
-    rather than opening one thing: >
-        :Issue label:bug is:open
-        :PR review-requested:@me
-        :Issue label:"good first issue" no:assignee
-<
-    See |forge-search|.
-
-    {target} is any of: >
+    Open {target}. Without an argument, open the list for the current
+    repository. {target} is any of: >
         :PR @
         :Issue .
         :Issue 41138
@@ -84,52 +56,64 @@ Optional, one mapping each:
         :Issue https://github.com/neovim/neovim/issues/41138
         :Issue forge://github.com/neovim/neovim/issues/41138
 <
-    A form naming no repository is answered by the one the CLI resolves; see
-    |forge-repository|.
+    A target naming no repository uses the one the CLI resolves.
+    |forge-repository|
 
-    ":Issue" will not open a pull or merge request and ":PR" will not open an
-    issue. A bare number is taken as the collection of the command it was
-    given to.
+    ":Issue" opens only issues. ":PR" opens only pull and merge requests. A
+    bare number belongs to the command's own collection.
 
-    |:command-modifiers| are honoured: >
+    "@" is the pull request for the current change. ":Issue @" is an error. A
+    change with no pull request opens the new-pull-request page.
+
+    "." is the reference under the cursor, from any buffer. A reference is
+    "#41138", "!123", "neovim/neovim#41138", "group/subgroup/project!123", a
+    github.com URL or a forge:// URI. Not a bare "owner/repo". Not a mention.
+    Inside a view, |gf| does the same. |forge-gf|
+
+    Anything else is a search. |forge-search| >
+        :Issue label:bug is:open
+        :PR review-requested:@me
+        :Issue label:"good first issue" no:assignee
+<
+    |:command-modifiers| are honoured. The window is made once the forge
+    answers. >
         :vertical Issue 41310
         :tab PR 41138
         :botright Issue neovim/neovim
 <
-    The window is made once the forge answers, in the window the command was
-    given in, so a request that fails leaves no window behind.
-
+                                                                   *forge-api*
+The same two entry points in Lua: >lua
+    require('forge').issue(target)
+    require('forge').pr(target)
+<
 ==============================================================================
 4. REPOSITORY                                               *forge-repository*
 
-The repository is whichever gh or glab resolves in the current directory, so
-forge agrees with every other command of theirs run there. In a fork that is
-the base repository, where the items live.
+The repository is whichever gh or glab resolves in the current directory. In a
+fork that is the base repository.
 
-The forge is chosen by host: gitlab.com is GitLab, and so is any host glab
-holds a login for; everything else is GitHub. A target naming no repository
-takes the host of the "upstream" remote, else "origin".
+The forge is chosen by host. gitlab.com is GitLab, as is any host glab holds a
+login for. Everything else is GitHub. A target naming no repository takes the
+host of the "upstream" remote, else "origin".
 
-Requests are made from the directory of the current buffer, so a file opened
-from another repository is asked about there. Buffers are filed under the
-forge's spelling of the name, whatever was typed.
+Requests are made from the directory of the current buffer. Buffers are filed
+under the forge's spelling of the name, whatever was typed.
 
-A bare |:PR| also needs the current branch. git answers first; in a colocated
-jj repository the bookmark on the current change answers instead, and a change
-wearing none is reported rather than guessed at. Reading a branch never writes
-to the repository.
+A bare |:PR| also needs the current branch. git answers first. In a colocated
+jj repository the bookmark on the current change answers instead. A change
+wearing no bookmark is an error.
 
 ==============================================================================
 5. URIS                                                           *forge-uris*
 
 Buffers are named with a "forge://" URI. Every view has exactly one name, and
-that name is enough to rebuild it. >
+that name is enough to rebuild it: >
 
     forge://{host}/{project}/{collection}            the whole list
     forge://{host}/{project}/{collection}?q={query}  the ones a search matches
     forge://{host}/{project}/{collection}/{number}   a single one
 <
-{host} is the forge, by hostname. {collection} is "issues" or "prs", and "prs"
+{host} is the forge, by hostname. {collection} is "issues" or "prs". "prs"
 holds merge requests on GitLab. {project} is "{owner}/{repo}", or a GitLab
 path of any depth: >
 
@@ -137,28 +121,24 @@ path of any depth: >
     forge://gitlab.com/gitlab-org/cli/issues/8022
     forge://gitlab.com/group/subgroup/project/prs/123
 <
-A query is percent-encoded in the name, so |:edit| on one by hand wants the
-"%" escaped: `:edit forge://github.com/a/b/issues?q=is:open\%20label:bug`.
-Nothing that opens a view for you needs that.
+|:edit| on one opens it from anywhere, and reloads it from inside. A reload
+returns to the first page. "R" keeps the page.
 
-|:edit| on one of these opens it from anywhere, and reloads it from inside. A
-list holds every state there is; the page is not part of the name, so a reload
-returns to the first. "R" keeps the page.
-
+A query is percent-encoded. |:edit| by hand wants the "%" escaped: >
+    :edit forge://github.com/a/b/issues?q=is:open\%20label:bug
+<
 ==============================================================================
 6. BUFFERS                                                     *forge-buffers*
 
-A single item has a 'filetype' of "markdown", so existing markdown rendering
-applies, and its comments are headings. A list has a 'filetype' of "forge".
+A single item has a 'filetype' of "markdown". Its comments are headings. A
+list has a 'filetype' of "forge".
 
 Both are scratch buffers: 'buftype' is "nofile", 'readonly' is set,
-'undolevels' is -1 and 'modeline' is off.
+'undolevels' is -1 and 'modeline' is off. A buffer being fetched again sets
+'busy'. Window options are applied wherever a view appears, and released when
+that window shows something else.
 
-Window options are applied wherever a view appears and released when that
-window shows something else. An item is set up to read as prose, a list to
-hold one item to a line, each number drawn in the state of the item it names.
-
-A buffer being fetched again sets 'busy' until the reply lands.
+Highlighting uses builtin |group-name| groups only.
 
                                                                      *b:forge*
 Every view buffer carries a `b:forge` dictionary. The 'winbar' is drawn from
@@ -227,30 +207,18 @@ it, then its body and the conversation under it: >
 
     As file:// are just urls this should be added to net.lua.
 <
-A row appears only when there is something in it, and the column is as wide as
-the widest row drawn. A pull or merge request says "Reviewers" instead of
-"Type" and "Parent". On GitHub those are the ones still being waited on, a
-request being dropped when its reviewer answers; on GitLab they are everyone
-asked. A parent is written as the reference |gf| follows, not as the title it
-stands for.
+A row is drawn only when it has something in it. A pull or merge request says
+"Reviewers" instead of "Type" and "Parent".
 
-"Comments" is the conversation. A comment written against a line of the diff
-is a review comment, and forge draws none of those: a change reviewed in the
-diff shows fewer comments here than its own page does.
+A bar starts anything somebody wrote. Logins, labels and milestones are
+highlighted. Anything that can be followed is underlined.
 
-A bar starts anything somebody wrote, item and comment alike, because a body
-is markdown and a heading in one would otherwise read as the start of another
-comment. A login is drawn in the emphasis a colourscheme gives markdown, a
-label or a milestone as a tag, and everything else on those lines is dimmed.
-Underline is added to whatever can be followed, so what a thing is and what it
-does are said separately.
+"@someone", "#123", "!123", "owner/repo#4" and "group/project!123" are marked
+wherever a body holds one, except inside a fenced block. |gf| follows a
+reference. |gx| opens a mention's profile.
 
-What the forge would have linked in a body is marked there too: "@someone",
-"#123", "!123", "owner/repo#4" and "group/project!123". Nothing inside a
-fenced block is, since a forge links nothing there either and "@param" is not
-a person. A reference is followed with |gf|; a mention leaves the editor, and
-|gx| takes it to a profile on the host the body was written on, reading the
-address off the mark rather than the text.
+WARNING: comments written against a line of the diff are not shown. A change
+reviewed in the diff shows fewer comments here than on its own page.
 
 Every view sets a 'winbar': >
 
@@ -262,24 +230,18 @@ Every view sets a 'winbar': >
     MRS group/subgroup/project 1/1 (8)
     MR !12 OPEN | main <- a-branch                                +3 -1
 <
-A closed issue is drawn as the reason it closed, since each of those implies
-closed, the way "MERGED" and "DRAFT" do for a pull or merge request.
+A closed issue is drawn as the reason it closed. An issue says its title after
+the state. A pull or merge request says the branches it joins, base first.
+Only that part is truncated in a narrow window.
 
-An issue says its title there, and a pull or merge request says the branches
-it joins, in git's order: what is merged into, then what merges. A title is in
-the buffer anyway, and a branch is what tells one from another.
-
-Only that part is ever truncated, so what an item is and how it stands survive
-a narrow window. A diffstat is only a measure, so it goes to the right edge,
-with a bar before it only when there is a badge to divide it from. A badge
-appears only when it has something to say, so one that merges cleanly and
-whose checks passed carries neither of those two. Its checks are "FAILING",
-"PENDING" or "EXPECTED"; "dc" shows which.
-
-Highlighting uses builtin |group-name| groups only.
+A diffstat is drawn against the right edge. A badge says "CONFLICT" for a
+conflicting merge, and "FAILING", "PENDING" or "EXPECTED" for the checks. "dc"
+shows which.
 
 ==============================================================================
 7. MAPPINGS                                                   *forge-mappings*
+
+Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
 
     <CR>     <Plug>(forge-open)        Open the item under the cursor.
     o        <Plug>(forge-open-split)  The same, beside the list.
@@ -311,34 +273,26 @@ Highlighting uses builtin |group-name| groups only.
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
-Mappings are buffer-local and attached by URI, so none of them reach an
-ordinary markdown file. A default is set only where nothing in that buffer
-already maps the key and nothing already maps to the <Plug>; otherwise the
-existing mapping stands. To rebind, map the |<Plug>| target: >lua
+To rebind, map the |<Plug>| target and the default is skipped: >lua
     vim.keymap.set('n', '<C-]>', '<Plug>(forge-open)')
 <
 
-"-" in a list does nothing: a list is the top.
-
-"R" keeps the current page and cursor position; |:edit| and a new page both
+"R" keeps the current page and cursor position. |:edit| and a new page both
 start at the first line.
 
-"ga" opens the forge's own page for a new one. The repository is the one the
-view names rather than the current one, so a fork can propose a branch to what
-it forked.
+"ga" opens the forge's own page for a new one, in the repository the view
+names rather than the current one.
 
-"gX" opens what the buffer shows, not what the cursor is on, and "gy" yanks
-the URL it would have opened. "gy" takes the register it is given, so `"+gy`
-reaches the system clipboard.
+"gX" opens what the buffer shows, not what the cursor is on. "gy" yanks the
+same URL. "gy" takes a register: `"+gy` reaches the system clipboard.
 
-"cc" offers what the item can be asked to do as it stands, and does the one
-picked. Everything in that menu writes, which is what the prompt says: >
+"cc" offers what the item can be asked to do, and does the one picked. The
+menu is |vim.ui.select()|. Its prompt is >
 
     Change issue #27:
     Change pull request #151:
     Change merge request !12:
-< What you may do is the forge's answer, not forge's guess at its rules. The
-menu is |vim.ui.select()|, so it is whichever picker you already use. >
+< and what it offers is >
 
     any of them                 edit title and body
     an open issue               close as completed, close as not planned
@@ -348,83 +302,58 @@ menu is |vim.ui.select()|, so it is whichever picker you already use. >
     a closed one                reopen
     a merged one                nothing
 <
-A merge is offered once per method the repository allows, narrowed on GitHub
-by the base branch's ruleset: "Squash and merge", "Create a merge commit",
-"Rebase and merge". One with conflicts offers none of them. Whether the branch
-goes once it merges is the forge's own setting, kept per merge request by
-GitLab and per repository by GitHub, and forge changes neither.
+A merge is offered once per method the repository allows: "Squash and merge",
+"Create a merge commit", "Rebase and merge". On GitHub the base branch's
+ruleset narrows that. One with conflicts offers none of them. Deleting the
+branch on merge is unsupported.
 
-On GitHub, a base branch that merges through a queue refuses every direct
-merge, so none of the three is offered there either. "Add to merge queue" is
-offered instead, and "Remove from merge queue" once it is in one. Neither
-takes a method or a message: how the queue merges is the queue's own setting.
+A rebase is sent as it is picked. A squash and a merge commit open the commit
+message first. |forge-merge|
 
-A squash and a merge commit open the commit message to be written before they
-are sent; see |forge-merge|. A rebase writes no commit and goes straight out.
+A merge names the head the view was drawn from. A branch that moved since is
+refused. So is any merge the forge blocks, with the forge's own reason.
 
-github offers a merge that waits, and forge offers it once per method, above
-the merges that happen now: >
+On GitHub only:
 
-    Enable auto-merge (squash)
-< It is taken when github says the pull request may merge, and until then
-"Disable auto-merge" calls it off. github only offers this on a pull request
-it will not merge yet, so it appears where a merge is blocked — which is where
-the bypass appears too, the two being the answers to the same thing: go past
-the rule now, or wait for it. A waiting merge never bypasses; github does not
-honour one when the time comes.
-
-A merge that would go past a rule rather than satisfy it is named for it: >
-
-    Squash and merge (bypass)
-< That is a name and not another action: there is no separate admin merge, and
-both names send the same thing. The suffix appears when github says the merge
-would go past a rule you may bypass, and the plain name when it would not, so
-the two are never offered together.
-
-The merge names the head the view was drawn from, so a branch that moved since
-then is refused rather than merged unseen. Everything else the forge decides
-when asked: a merge it blocks is refused with its own reason.
-
-On GitHub an issue closes with a reason, since a plain close means "completed"
-whether or not that is true. Closing as a duplicate is left to github's own
-page, which asks which issue.
+- "Enable auto-merge (squash)", "(merge commit)" and "(rebase)" are offered
+  where GitHub will not merge yet. "Disable auto-merge" once one is waiting.
+  A waiting merge never bypasses.
+- "(bypass)" means the merge goes past a rule you may bypass. It is a name,
+  not a separate action. The plain name and the bypass name are never offered
+  together.
+- "Add to merge queue" stands in for the three merges where the base branch
+  has a queue. "Remove from merge queue" once it is in one. Neither takes a
+  method or a message.
+- An issue closes as "completed" or as "not planned".
 
                                                                   *forge-edit*
-"Edit title and body" replaces the view, as "dd" and "dc" do, because nearly
-all of what an item shows is the two. |CTRL-O| goes back to it. The buffer is
-laid out as a commit message is: the first line is the title, and the body
-follows a blank line.
+"Edit title and body" replaces the view. |CTRL-O| goes back to it. The buffer
+is laid out as a commit message: the title on the first line, the body after a
+blank line.
 
 Its 'winbar' is the item's own with the state swapped for the mode: >
 
     ISSUE #166 EDIT
     PR #151 EDIT
 <
+":w" sends it, and nothing else does. An empty title sends nothing. The buffer
+stays 'modified' until the forge accepts it. A refused write keeps your text.
 
-Writing sends it: ":w" and nothing else. Nothing is sent for an empty title.
+"R" and |:edit| do nothing to it. The item is drawn again in place once the
+write lands.
 
-The buffer lasts as long as it is on screen and no longer, so it never holds
-anything staler than the item it was opened from. Until the forge says yes it
-stays 'modified', and a refused write keeps what you wrote.
+The buffer is wiped once no window shows it. 'modified' refuses ":q", ":bd"
+and ":enew".
 
-'modified' refuses ":q", ":bd" and ":enew". It does not refuse ":hide", which
-takes the buffer off the screen and so throws the text away as surely as ":q!"
-does. Keeping it instead would mean a buffer that is never abandoned, which
-costs the refusal on the other three, so this is the one quiet way to lose
-what you typed.
-
-It is not a view: its name cannot rebuild it, and "R" and |:edit| do nothing
-to it. The item is drawn again where it sits once the write lands, so it is
-current by the time you go back to it.
+WARNING: ":hide" is not refused, and throws the text away.
 
                                                                  *forge-merge*
 "Squash and merge" and "Create a merge commit" open the commit message they
-would carry, in a split beside the item. It is laid out as a commit message
-is: the subject on the first line, the body after a blank line.
+would carry, in a split beside the item. It is laid out as a commit message:
+the subject on the first line, the body after a blank line.
 
-On GitHub it starts as the message github itself would write, so a repository
-that squashes to the pull request's description gets that, and one that
-squashes to the branch's commit messages gets those. On GitLab it opens empty.
+On GitHub it starts as the message GitHub itself would write. On GitLab it
+opens empty.
 
 Its 'winbar' says which method, and says when the merge bypasses: >
 
@@ -432,112 +361,112 @@ Its 'winbar' says which method, and says when the merge bypasses: >
     PR #151 MERGE COMMIT
     PR #174 SQUASH BYPASS
 <
-Writing sends it, as in |forge-edit|, and the buffer behaves as that one does.
-Nothing is sent for an empty subject. The item is drawn again in its place
-once the merge lands.
+":w" sends it. The buffer behaves as |forge-edit|'s does. An empty subject
+sends nothing.
 
-"cc" is bound in an item; "dc", "dd" and "dl" only in a pull or merge request.
-"dc" and "dd" replace the view; ci.nvim returns with "-", and the way back
-from a diff is |CTRL-O|.
+"cc" is bound in every item. "dc", "dd" and "dl" only in a pull or merge
+request. "dc" and "dd" replace the view. "dl" splits. ci.nvim returns with
+"-". The way back from a diff or a log is |CTRL-O|.
 
-"dl" splits instead. The log is >
+The log is >
     git log --stat --reverse base..head
 <
-"dd" and "dl" fetch both ends of it first, and share the one fetch. The refs
-land under refs/forge/; no branch, tag or working tree is touched. This is the
-only thing forge writes to a repository.
+"dd" and "dl" fetch both ends first. The refs land under refs/forge/. No
+branch, tag or working tree is touched.
 
-"dl" also sets `b:git_dir`, so `:Git` in the buffer aims at the repository the
-refs were fetched into — the current one, not necessarily the one the view
-names.
+"dl" also sets `b:git_dir` to the repository the refs were fetched into. That
+is the current one, not necessarily the one the view names.
 
                                                                     *forge-gf*
-|gf| follows the reference under the cursor, |CTRL-W_f| into a split, and in
-Visual mode the selection. Nothing is bound; this is 'includeexpr'. A
-reference naming no repository means the one whose view holds it, and
-surrounding punctuation is left behind, so "(#123)", "`#123`" and "#123." all
-follow to the same place.
+|gf| follows the reference under the cursor. |CTRL-W_f| opens it in a split.
+In Visual mode the selection is used. This is 'includeexpr'. Nothing is bound.
 
-|gf| takes the references ":Issue ." and ":PR ." take: "#123", "!123",
-"owner/repo#4", "group/subgroup/project!123", a forge:// URI, and a github.com
-URL. It differs in what it does with what is not one: a path is handed back to
-Vim, so |gf| on an ordinary path in a body still opens the file.
+|gf| takes the references ":Issue ." and ":PR ." take. A reference naming no
+repository means the one whose view holds it. Surrounding punctuation is left
+behind: "(#123)", "`#123`" and "#123." all follow to the same place. Anything
+that is not a reference is handed back to Vim. |gf| on an ordinary path in a
+body still opens the file.
 
-"!123" is a merge request wherever it is read, and "#123" an issue — except on
-GitHub, where issues and pull requests share one numbering and "#123" means
-whichever collection the view holds.
+"!123" is always a merge request. "#123" is an issue, except on GitHub, where
+it means whichever collection the view holds.
 
-In a list <CR> opens the item the line describes; |gf| opens the reference the
-cursor is on, which inside a title may be another issue.
+In a list, <CR> opens the item the line describes. |gf| opens the reference
+under the cursor, which inside a title may be another issue.
 
 ==============================================================================
 8. SEARCH                                                       *forge-search*
 
-A {target} that names nothing else is passed to github as a search, in
-github's own syntax and byte for byte, quoting and negation included. See
+A {target} that names nothing else is a search. It narrows the list rather
+than opening one thing.
+
+On GitHub the query is passed through byte for byte, in github's own syntax.
+Quoting and negation included.
 https://docs.github.com/en/search-github/searching-issues-and-pull-requests
 
-On GitLab it is matched against the title and the description instead, and
-none of what follows applies: there are no qualifiers there, so one typed is
-looked for as text.
+"repo:", "org:", "user:", "is:issue", "is:pr", "type:issue" and "type:pr" are
+dropped from whatever you type. "sort:updated-desc" is added unless you give a
+"sort:" of your own. An unknown qualifier is searched for as text.
 
-Two qualifiers are forge's rather than yours, and are dropped from whatever
-you type: "repo:", "org:" and "user:", because a second repository would widen
-a list past the one its name claims; and "is:issue", "is:pr", "type:issue" and
-"type:pr", because |:Issue| showing pull requests would make the command a
-lie. Repeating either of those in github's syntax widens rather than narrows,
-which is why they cannot simply be added to.
-
-"sort:updated-desc" is added when you give no "sort:" of your own, so a
-narrowed list is ordered like a whole one.
-
-A search reaches a thousand results however many it matches, so the page count
-is what can be reached and the total is what was found: >
+A search reaches a thousand results however many it matches. The page count is
+what can be reached. The total is what was found: >
 
     ISSUES neovim/neovim is:issue 1/10 (14478)
 <
-An unknown qualifier is not an error to github; it is searched for as text,
-and the answer is usually nothing found.
+On GitLab the query is matched against the title and the description.
+Qualifiers are unsupported there. One typed is searched for as text.
 
                                                      *forge-search-completion*
-|c_CTRL-D| and <Tab> complete a qualifier, and its value where github's set of
-them is closed — "is:", "no:", "in:", "state:", "reason:", "review:",
-"status:", "linked:", "draft:", "archived:" and "sort:". A qualifier naming a
-person completes to "@me" and nothing else. A negation completes the same.
+|c_CTRL-D| and <Tab> complete a qualifier. They complete its value too, where
+github's set of them is closed: "is:", "no:", "in:", "state:", "reason:",
+"review:", "status:", "linked:", "draft:", "archived:" and "sort:".
 
-Nothing else completes, and nothing asks github. A repository's labels,
-milestones and people cannot be known without a request, and a request behind
-<Tab> is either slow or answering from a copy that has gone stale.
+A qualifier naming a person completes to "@me" and nothing else. A negation
+completes the same. Labels, milestones and people do not complete.
 
 ==============================================================================
 9. GITLAB                                                       *forge-gitlab*
 
-A GitLab view says "merge request" where a GitHub one says "pull request",
+A GitLab view says "merge request" where a GitHub one says "pull request". It
 writes "!" in front of a number instead of "#", and calls itself "MR" and
-"MRS" in the 'winbar'. |:PR| is still the command that opens one, and "prs"
-still the collection its name holds: >
+"MRS" in the 'winbar'.
+
+|:PR| is still the command that opens one. "prs" is still the collection its
+name holds: >
 
     :PR !123
     :PR group/subgroup/project!123
     :edit forge://gitlab.com/group/subgroup/project/prs/123
 <
-A project's path carries as many segments as its groups nest, in a name, a
-target and a reference alike.
-
-What GitLab does not do:
-
-  - a closed issue is "CLOSED" and nothing else. GitLab records no reason
-    for a close, so there is one close and no "close as not planned".
-  - a merge is a squash or a merge commit. There is no rebase, no merge that
-    waits, and no merge train.
-  - the commit message a merge would carry opens empty; GitLab does not say
-    what it would have written.
+A project's path carries as many segments as its groups nest. That holds in a
+name, a target and a reference alike.
 
 ==============================================================================
-10. HEALTH                                                      *forge-health*
+10. LIMITATIONS                                            *forge-limitations*
 
-`:checkhealth forge` checks everything in |forge-requirements|. A missing
-glab, like a missing optional plugin, is a warning rather than an error, and
-names what it would have backed.
+Forgejo, Codeberg and Gitea are unsupported.
+
+Reviewing is unsupported. There is no way to approve, request changes, or
+comment. Comments written against a line of the diff are not shown.
+
+Creating an issue or a pull request opens the forge's own page for it. There
+is no compose buffer.
+
+Stacked pull requests are not recognised.
+
+Deleting the branch on merge is unsupported.
+
+On GitLab:
+
+- Closing as not planned is unsupported. A closed issue is "CLOSED".
+- A merge is a squash or a merge commit. Rebasing, waiting merges and merge
+  trains are unsupported.
+- The commit message a merge would carry opens empty.
+- Search qualifiers are unsupported.
+
+==============================================================================
+11. HEALTH                                                      *forge-health*
+
+`:checkhealth forge` checks everything in |forge-requirements|. A missing glab
+or optional plugin is a warning, not an error.
 
  vim:tw=78:ts=8:ft=help:norl:
