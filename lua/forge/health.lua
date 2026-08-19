@@ -23,6 +23,23 @@ function M.check()
     end
   end
 
+  if vim.fn.executable('glab') == 0 then
+    vim.health.warn(
+      'glab not found, so no gitlab project can be opened',
+      'Needed for gitlab only. Install it from https://gitlab.com/gitlab-org/cli'
+    )
+  else
+    local version = vim.system({ 'glab', '--version' }, { text = true }):wait()
+    vim.health.ok(vim.split(vim.trim(version.stdout), '\n')[1])
+
+    local auth = vim.system({ 'glab', 'auth', 'status' }, { text = true }):wait()
+    if auth.code == 0 then
+      vim.health.ok('glab is authenticated')
+    else
+      vim.health.warn('glab is not authenticated', 'Run: glab auth login')
+    end
+  end
+
   if require('forge.ci').available() then
     vim.health.ok('ci.nvim loaded, so dc can show a pull request its checks')
   else
