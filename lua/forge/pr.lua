@@ -143,6 +143,7 @@ local PRS = {
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
     { 'cE', '<Plug>(forge-edit)', "edit this {one}'s title and body" },
     { 'cD', '<Plug>(forge-draft)', 'draft this {one}, or mark it ready' },
+    { 'cS', '<Plug>(forge-squash)', 'squash and merge this {one}' },
     { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
@@ -316,8 +317,18 @@ local PRS = {
     },
     -- The two that write a commit open a buffer for its message. A rebase
     -- writes none and goes straight out.
-    { label = 'Squash and merge', run = squashing, when = naming('can_squash', false) },
-    { label = 'Squash and merge (bypass)', run = squashing, when = naming('can_squash', true) },
+    {
+      label = 'Squash and merge',
+      key = 'squash',
+      run = squashing,
+      when = naming('can_squash', false),
+    },
+    {
+      label = 'Squash and merge (bypass)',
+      key = 'squash',
+      run = squashing,
+      when = naming('can_squash', true),
+    },
     {
       label = 'Create a merge commit',
       run = committing,

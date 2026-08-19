@@ -302,6 +302,7 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
     cc       <Plug>(forge-act)         Do something to this item.
     cE       <Plug>(forge-edit)        Edit its title and body.
     cD       <Plug>(forge-draft)       Draft it, or mark it ready.
+    cS       <Plug>(forge-squash)      Squash and merge it.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
     dl       <Plug>(forge-log)         Its commits, in fugitive.
@@ -322,6 +323,7 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
                                                            *<Plug>(forge-act)*
                                                           *<Plug>(forge-edit)*
                                                          *<Plug>(forge-draft)*
+                                                        *<Plug>(forge-squash)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -357,11 +359,16 @@ Some of what "cc" offers has a key of its own, which skips the menu: >
 
     cE  Edit title and body
     cD  Convert to draft, or Ready for review
+    cS  Squash and merge
 <
 A direct key does what the menu entry does, and only where the menu would have
 offered it. Otherwise it names the entry and does nothing.
 
-"cD" is one key for two entries. The state decides which.
+"cD" and "cS" are each one key for two entries. The state decides which. A
+merge that bypasses says so on the message buffer before ":w" sends it.
+
+Rebasing has no key. It is the one merge sent as it is picked, with no message
+buffer to say first that it bypasses.
 
 
 A merge is offered once per method the repository allows: "Squash and merge",

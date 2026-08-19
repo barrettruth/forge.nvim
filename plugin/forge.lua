@@ -50,6 +50,10 @@ vim.keymap.set('n', '<Plug>(forge-draft)', function()
   require('forge.view').one('draft')
 end, { desc = 'draft this pull request, or mark it ready for review' })
 
+vim.keymap.set('n', '<Plug>(forge-squash)', function()
+  require('forge.view').one('squash')
+end, { desc = 'squash and merge this pull request' })
+
 vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })
