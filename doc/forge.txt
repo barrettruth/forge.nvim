@@ -384,11 +384,16 @@ request. "dc" and "dd" replace the view. "dl" splits. ci.nvim returns with
 The log is >
     git log --stat --reverse base..head
 <
-"dd" and "dl" fetch both ends first. The refs land under refs/forge/. No
-branch, tag or working tree is touched.
+"dd" and "dl" fetch both ends first. The fetch goes into the repository of the
+current directory, not the one the view names. The refs land under
+refs/forge/. No branch, tag or working tree is touched.
 
-"dl" also sets `b:git_dir` to the repository the refs were fetched into. That
-is the current one, not necessarily the one the view names.
+"dl" points `b:git_dir` at that same repository, so `:Git` in the log aims
+there too.
+
+Reading a change from outside its own repository writes its refs into
+whichever repository you are standing in. Where you are standing in none, "dl"
+says so and "dd" reports git's own error.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor. |CTRL-W_f| opens it in a split.
