@@ -515,6 +515,15 @@ function M.act()
   end
 end
 
+--- Do the one thing `key` names, without the menu. See |forge.Action|.
+--- @param key string
+function M.one(key)
+  local u = M.current()
+  if u and u.number then
+    collected(u.collection).one(key)
+  end
+end
+
 --- Open whatever `target` names, so long as it names `collection`.
 ---
 --- Both commands arrive here. "." is the one target read off the editor

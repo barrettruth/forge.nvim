@@ -45,6 +45,7 @@ local ISSUES = {
   },
   item_maps = {
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
+    { 'cE', '<Plug>(forge-edit)', "edit this {one}'s title and body" },
   },
   remember = function(node)
     return { id = node.id, can_update = node.viewerCanUpdate }
@@ -54,6 +55,7 @@ local ISSUES = {
   actions = {
     {
       label = 'Edit title and body',
+      key = 'edit',
       when = function(var)
         return var.can_update == true
       end,
@@ -104,6 +106,12 @@ end
 --- Offer those, and do the one chosen.
 function M.act()
   collection.act(ISSUES)
+end
+
+--- Do the one thing `key` names, if it is offered.
+--- @param key string
+function M.one(key)
+  collection.one(ISSUES, key)
 end
 
 --- Draw the issue view `t` names.

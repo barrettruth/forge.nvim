@@ -42,6 +42,10 @@ vim.keymap.set('n', '<Plug>(forge-act)', function()
   require('forge.view').act()
 end, { desc = 'do something to this issue or pull request' })
 
+vim.keymap.set('n', '<Plug>(forge-edit)', function()
+  require('forge.view').one('edit')
+end, { desc = "edit this issue or pull request's title and body" })
+
 vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })

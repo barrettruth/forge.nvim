@@ -380,6 +380,57 @@ describe('the menu those are offered in', function()
   end)
 end)
 
+describe('a key that skips the menu', function()
+  after_each(function()
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_get_name(buf):match('/edit$') then
+        pcall(vim.api.nvim_buf_delete, buf, { force = true })
+      end
+    end
+    vim.cmd('silent! only')
+  end)
+
+  --- Draw a pull request, press the key, and say what came of it.
+  --- @return string? said
+  --- @return string buffer the one left current
+  local function pressing(key, over)
+    local var = vim.tbl_extend('force', {
+      label = 'PR',
+      tag = '#42',
+      title = 'a title',
+      state = 'OPEN',
+      id = 'PR_1',
+    }, over or {})
+    view.render(uri('prs', 42), { 'x' }, info('item', var))
+
+    local said
+    local real = vim.notify
+    --- @diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg)
+      said = msg
+    end
+    require('forge.pr').one(key)
+    vim.notify = real
+    return said, vim.api.nvim_buf_get_name(0)
+  end
+
+  it('does the thing the menu would have offered', function()
+    local said, name = pressing('edit', { can_update = true, edit = 'a title\n\na body' })
+    assert.is_nil(said)
+    assert.equals('forge://github.com/a/b/prs/42/edit', name)
+  end)
+
+  it('names the entry and does nothing where the menu would not have', function()
+    local said, name = pressing('edit', { can_update = false })
+    assert.equals('[forge]: Edit title and body is not offered on this pull request', said)
+    assert.equals('forge://github.com/a/b/prs/42', name)
+  end)
+
+  it('says nothing at all for a key no action answers to', function()
+    assert.is_nil(pressing('nonesuch', { can_update = true }))
+  end)
+end)
+
 describe('what a pull request can be asked to do', function()
   local pr = require('forge.pr')
 

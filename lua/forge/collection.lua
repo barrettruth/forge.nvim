@@ -97,6 +97,8 @@ local M = {}
 --- @class forge.Action
 --- @field label string what the picker shows; `{one}` and `{many}` are filled
 --- in with the forge's own word for the collection
+--- @field key? string what a mapping reaches it by, where one may. A pair its
+--- `when` tells apart shares a key: that is one thing wearing two labels
 --- @field write? string which of the backend's writes it sends
 --- @field query? string that write itself, filled in when the action is offered
 --- @field run? fun(var: forge.ItemVar) what to do instead of sending one
@@ -251,6 +253,41 @@ function M.act(spec)
       mutate(be, spec, var, action)
     end
   end)
+end
+
+--- Do the one thing `key` names, if the item is offering it.
+---
+--- What a mapping reaches in place of the menu, weighed by the same `when`, so
+--- a key cannot do what the menu would not have offered. At most one action
+--- answering to a key is ever offered at once; the first that does is the one.
+--- @param spec forge.Spec
+--- @param key string
+function M.one(spec, key)
+  local var = vim.b.forge or {}
+  local be = answered(var)
+  if not be then
+    return
+  end
+  for _, action in ipairs(offering(be, spec, var)) do
+    if action.key == key then
+      if action.run then
+        action.run(var)
+      else
+        mutate(be, spec, var, action)
+      end
+      return
+    end
+  end
+
+  -- Named rather than silent. A key that does nothing reads as a key that
+  -- broke, and the menu is where the reason can be seen.
+  local nouns = be.nouns[spec.collection]
+  for _, action in ipairs(spec.actions or {}) do
+    if action.key == key then
+      log.info(('%s is not offered on this %s'):format(worded(action.label, nouns), nouns.one))
+      return
+    end
+  end
 end
 
 --- Draw a page of `spec`'s list.

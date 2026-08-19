@@ -304,6 +304,7 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
     gX       <Plug>(forge-web)         Open this view in a browser.
     gy       <Plug>(forge-yank)        Yank this view's URL.
     cc       <Plug>(forge-act)         Do something to this item.
+    cE       <Plug>(forge-edit)        Edit its title and body.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
     dl       <Plug>(forge-log)         Its commits, in fugitive.
@@ -322,6 +323,7 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
                                                            *<Plug>(forge-web)*
                                                           *<Plug>(forge-yank)*
                                                            *<Plug>(forge-act)*
+                                                          *<Plug>(forge-edit)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -354,6 +356,12 @@ menu is |vim.ui.select()|. Its prompt is >
     a closed one                reopen
     a merged one                nothing
 <
+                                                                *forge-direct*
+Some of what "cc" offers has a key of its own, which skips the menu: >
+
+    cE  Edit title and body
+<
+
 A merge is offered once per method the repository allows: "Squash and merge",
 "Create a merge commit", "Rebase and merge". On GitHub the base branch's
 ruleset narrows that. One with conflicts offers none of them, and neither does
@@ -361,22 +369,6 @@ a layer of a stack GitHub keeps. Deleting the branch on merge is unsupported.
 
 A rebase is sent as it is picked. A squash and a merge commit open the commit
 message first. |forge-merge|
-
-A merge names the head the view was drawn from. A branch that moved since is
-refused. So is any merge the forge blocks, with the forge's own reason.
-
-On GitHub only:
-
-- "Enable auto-merge (squash)", "(merge commit)" and "(rebase)" are offered
-  where GitHub will not merge yet. "Disable auto-merge" once one is waiting.
-  A waiting merge never bypasses.
-- "(bypass)" means the merge goes past a rule you may bypass. It is a name,
-  not a separate action. The plain name and the bypass name are never offered
-  together.
-- "Add to merge queue" stands in for the three merges where the base branch
-  has a queue. "Remove from merge queue" once it is in one. Neither takes a
-  method or a message.
-- An issue closes as "completed" or as "not planned".
 
                                                                   *forge-edit*
 "Edit title and body" replaces the view. |CTRL-O| goes back to it. The buffer
@@ -430,9 +422,7 @@ refs/forge/. No branch, tag or working tree is touched.
 "dl" points `b:git_dir` at that same repository, so `:Git` in the log aims
 there too.
 
-Reading a change from outside its own repository writes its refs into
-whichever repository you are standing in. Where you are standing in none, "dl"
-says so and "dd" reports git's own error.
+When run from outside the repository, "dd", "dl", and "dc" may not work.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor. |CTRL-W_f| opens it in a split.

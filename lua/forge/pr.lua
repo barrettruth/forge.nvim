@@ -141,6 +141,7 @@ local PRS = {
   item_maps = {
     { '<CR>', '<Plug>(forge-open)', 'open the {one} the line names' },
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
+    { 'cE', '<Plug>(forge-edit)', "edit this {one}'s title and body" },
     { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
@@ -231,6 +232,7 @@ local PRS = {
   actions = {
     {
       label = 'Edit title and body',
+      key = 'edit',
       when = function(var)
         return var.can_update == true
       end,
@@ -336,6 +338,12 @@ end
 --- Offer those, and do the one chosen.
 function M.act()
   collection.act(PRS)
+end
+
+--- Do the one thing `key` names, if it is offered.
+--- @param key string
+function M.one(key)
+  collection.one(PRS, key)
 end
 
 --- Open the pull request for the branch checked out here.
