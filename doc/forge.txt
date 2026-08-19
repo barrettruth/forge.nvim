@@ -230,8 +230,7 @@ and counted the same way, so "3/4" is the third line. Each number is drawn in
 the colour of its state. The line being read is drawn in "CursorLine".
 
 <CR> opens the layer under the cursor. "[s" goes to the layer above and "]s"
-to the one below, wrapping at either end. |gf| follows a number as it does
-anywhere else. |forge-mappings|
+to the one below, wrapping.
 
 Two layers sharing a base branch are named rather than ordered: >
 
@@ -242,8 +241,7 @@ Two layers sharing a base branch are named rather than ordered: >
 <
 Every layer of a chain is in the same repository.
 
-GitHub keeps some stacks itself, and derives the rest. One it keeps merges as
-a unit, and forge offers no merge on a layer of one. |forge-limitations|
+Stack merging is unsupported. See |forge-limitations|.
 
 A bar starts anything somebody wrote. Logins, labels and milestones are
 highlighted. Anything that can be followed is underlined.
@@ -263,8 +261,6 @@ its place. Inside neovim/neovim, a body reading >
 forge itself leaves whole, one on another host, and one inside a code span or
 a fence are all left as they were written.
 
-"cc" edits the body as it was written, not as it is drawn. |forge-edit|
-
 WARNING: comments written against a line of the diff are not shown. A change
 reviewed in the diff shows fewer comments here than on its own page.
 
@@ -278,13 +274,13 @@ Every view sets a 'winbar': >
     MRS group/subgroup/project 1/1 (8)
     MR !12 OPEN | main <- a-branch                                +3 -1
 <
-A closed issue is drawn as the reason it closed. An issue says its title after
-the state. A pull or merge request says the branches it joins, base first.
-Only that part is truncated in a narrow window.
+A closed issue is drawn as the reason it closed (if possible, see
+|forge-limitations|). An issue says its title after the state. A pull or merge
+request says the branches it joins, base first.
 
 A diffstat is drawn against the right edge. A badge says "CONFLICT" for a
-conflicting merge, and "FAILING", "PENDING" or "EXPECTED" for the checks. "dc"
-shows which.
+conflicting merge, and "FAILING", "PENDING" or "EXPECTED" for the checks. Use
+"dc" to investigate the checks.
 
 ==============================================================================
 7. MAPPINGS                                                   *forge-mappings*
@@ -334,14 +330,12 @@ To rebind, map the |<Plug>| target and the default is skipped: >lua
 "R" keeps the current page and cursor position. |:edit| and a new page both
 start at the first line.
 
-"ga" opens the forge's own page for a new one, in the repository the view
-names rather than the current one.
+"ga" opens the forge's own page for a new "thing".
 
-"gX" opens what the buffer shows, not what the cursor is on. "gy" yanks the
-same URL. "gy" takes a register: `"+gy` reaches the system clipboard.
+"gX" opens what the buffer is showing in your browser. "gy" yanks the same
+URL, and can take a register.
 
-"cc" offers what the item can be asked to do, and does the one picked. The
-menu is |vim.ui.select()|. Its prompt is >
+Use "cc" to perform a miscellany of actions in a |vim.ui.select()| menu:
 
     Change issue #27:
     Change pull request #151:
@@ -380,11 +374,8 @@ Its 'winbar' is the item's own with the state swapped for the mode: >
     ISSUE #166 EDIT
     PR #151 EDIT
 <
-":w" sends it, and nothing else does. An empty title sends nothing. The buffer
-stays 'modified' until the forge accepts it. A refused write keeps your text.
-
-"R" and |:edit| do nothing to it. The item is drawn again in place once the
-write lands.
+":w" sends it. An empty title sends nothing. The buffer stays 'modified' until
+the forge accepts it.
 
 The buffer is wiped once no window shows it. 'modified' refuses ":q", ":bd"
 and ":enew".
@@ -396,7 +387,8 @@ WARNING: ":hide" is not refused, and throws the text away.
 would carry, in a split beside the item. It is laid out as a commit message:
 the subject on the first line, the body after a blank line.
 
-On GitHub it starts as the message GitHub itself would write. On GitLab it
+Forge behavior is respected: on GitHub it starts as the message GitHub itself
+would write (perhaps a combination of commit messages), while on GitLab it
 opens empty.
 
 Its 'winbar' says which method, and says when the merge bypasses: >
@@ -422,7 +414,7 @@ refs/forge/. No branch, tag or working tree is touched.
 "dl" points `b:git_dir` at that same repository, so `:Git` in the log aims
 there too.
 
-When run from outside the repository, "dd", "dl", and "dc" may not work.
+When run from outside the repository, "dd", "dl", and "dc" do not work.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor. |CTRL-W_f| opens it in a split.
@@ -444,24 +436,10 @@ issue.
 ==============================================================================
 8. SEARCH                                                       *forge-search*
 
-A {target} that names nothing else is a search. It narrows the list rather
-than opening one thing.
+Search native Forges with a {target}, or open everything if unspecified:
 
-On GitHub the query is passed through byte for byte, in github's own syntax.
-Quoting and negation included.
-https://docs.github.com/en/search-github/searching-issues-and-pull-requests
-
-"repo:", "org:", "user:", "is:issue", "is:pr", "type:issue" and "type:pr" are
-dropped from whatever you type. "sort:updated-desc" is added unless you give a
-"sort:" of your own. An unknown qualifier is searched for as text.
-
-A search reaches a thousand results however many it matches. The page count is
-what can be reached. The total is what was found: >
-
-    ISSUES neovim/neovim is:issue 1/10 (14478)
-<
-On GitLab the query is matched against the title and the description.
-Qualifiers are unsupported there. One typed is searched for as text.
+Support varies per forge. For example, on GitLab, the query is matched against
+the title and the description - qualifiers are unsupported.
 
                                                      *forge-search-completion*
 |c_CTRL-D| and <Tab> complete a qualifier. They complete its value too, where
@@ -474,47 +452,30 @@ completes the same. Labels, milestones and people do not complete.
 ==============================================================================
 9. GITLAB                                                       *forge-gitlab*
 
-A GitLab view says "merge request" where a GitHub one says "pull request". It
-writes "!" in front of a number instead of "#", and calls itself "MR" and
-"MRS" in the 'winbar'.
+Same as GitHub, but with GitLab semantics: a GitLab view says "merge request"
+where a GitHub one says "pull request". It writes "!" in front of a number
+instead of "#", and calls itself "MR" and "MRS" in the 'winbar'.
 
-|:PR| is still the command that opens one. "prs" is still the collection its
-name holds: >
+|:PR| remains the entrypoint. "prs" is still the collection its name holds: >
 
     :PR !123
     :PR group/subgroup/project!123
     :edit forge://gitlab.com/group/subgroup/project/prs/123
 <
-A project's path carries as many segments as its groups nest. That holds in a
-name, a target and a reference alike.
 
 ==============================================================================
 10. LIMITATIONS                                            *forge-limitations*
 
-Forgejo, Codeberg and Gitea are unsupported.
+Forgejo, Codeberg and Gitea are unsupported. Each forge has their own unique
+(and endless) set of limitations - forge is best-effort.
 
-Reviewing is unsupported. There is no way to approve, request changes, or
-comment. Comments written against a line of the diff are not shown.
+Reviewing (approve, request changes, comment) is unsupported.
 
-Creating an issue or a pull request opens the forge's own page for it. There
-is no compose buffer.
+Pull requests/issues can only be made on the web.
 
-Merging a stack is unsupported. A layer of a stack GitHub keeps is offered no
-merge and no auto-merge; merge it on GitHub. A chain forge derived merges a
-layer at a time, as any pull request does. |forge-stack|
+Merging a stack is unsupported. The APIs are rather unstable as of cretion.
 
-An address is drawn short whether or not it leads anywhere. The forge asks
-itself before shortening one; forge does not ask.
-
-Deleting the branch on merge is unsupported.
-
-On GitLab:
-
-- Closing as not planned is unsupported. A closed issue is "CLOSED".
-- A merge is a squash or a merge commit. Rebasing, waiting merges and merge
-  trains are unsupported.
-- The commit message a merge would carry opens empty.
-- Search qualifiers are unsupported.
+For similar reasons, deleting the respective branch on merge is unsupported.
 
 ==============================================================================
 11. HEALTH                                                      *forge-health*
