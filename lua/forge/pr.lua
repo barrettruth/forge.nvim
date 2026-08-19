@@ -153,10 +153,10 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       can_bypass = node.viewerCanMergeAsAdmin == true,
-      --- Whether the branch goes when the change lands. github settles it for
-      --- a whole repository and gitlab for each change, so it is read from
-      --- whichever of the two said so. The forge does the deleting either way.
-      deletes = (node.deletesBranch or repo.deleteBranchOnMerge) == true,
+      --- Whether the branch goes when this merges, on a forge that keeps the
+      --- answer on the change. github settles it for a whole repository
+      --- instead, which is nothing this view may alter, so it does not answer.
+      deletes = node.deletesBranch == true,
       --- github only offers auto-merge on a pull request it will not merge
       --- now, so this is true in much the same places `can_bypass` is: it is
       --- the other answer to a merge being blocked, and the reversible one.
@@ -253,23 +253,6 @@ local PRS = {
         return var.state == 'DRAFT' and var.can_update == true
       end,
     },
-    --- Offered only where the forge keeps the answer on the change itself. A
-    --- forge that settles it for the whole repository answers for neither of
-    --- these, and shows the state alone.
-    {
-      label = 'Delete the branch when this merges',
-      write = 'delete_branch',
-      when = function(var)
-        return var.state ~= 'MERGED' and var.can_update == true and not var.deletes
-      end,
-    },
-    {
-      label = 'Keep the branch when this merges',
-      write = 'keep_branch',
-      when = function(var)
-        return var.state ~= 'MERGED' and var.can_update == true and var.deletes == true
-      end,
-    },
     {
       label = 'Close {one}',
       write = 'close',
@@ -293,6 +276,25 @@ local PRS = {
     ---
     --- Joining a queue is not merging; the queue merges when it gets there,
     --- and leaving it is a keystroke, so these stand where the merges would.
+    --- Beside the merges rather than beside the edits: it settles what a
+    --- merge does, and gitlab's own widget puts it against the merge button
+    --- for the same reason. Offered only where the forge keeps the answer on
+    --- the change; one that settles it for a whole repository answers for
+    --- neither of these.
+    {
+      label = 'Delete the branch when this merges',
+      write = 'delete_branch',
+      when = function(var)
+        return var.state ~= 'MERGED' and var.can_update == true and not var.deletes
+      end,
+    },
+    {
+      label = 'Keep the branch when this merges',
+      write = 'keep_branch',
+      when = function(var)
+        return var.state ~= 'MERGED' and var.can_update == true and var.deletes == true
+      end,
+    },
     {
       label = 'Add to merge queue',
       write = 'enqueue',
