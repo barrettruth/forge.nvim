@@ -267,19 +267,6 @@ function M.holding(u)
   return buf and held[buf] or nil
 end
 
---- 'foldexpr' over an item. Not the markdown grammar's, which would fold every
---- heading a body happens to hold.
---- @param lnum integer
---- @return string
-function M.fold(lnum)
-  local nav = stacked[vim.api.nvim_get_current_buf()]
-  local row = lnum - 1
-  if not nav or row < nav.from or row > nav.to then
-    return '0'
-  end
-  return row == nav.from and '>1' or '1'
-end
-
 --- The view a buffer holds, if a buffer holds one.
 --- @return forge.Uri?
 function M.current()
@@ -385,10 +372,6 @@ function M.dress(buf, win)
     vim.wo[win][0].breakindent = true
     vim.wo[win][0].conceallevel = 2
     vim.wo[win][0].concealcursor = 'nc'
-    -- The stack starts folded. "zo" takes it.
-    vim.wo[win][0].foldmethod = 'expr'
-    vim.wo[win][0].foldexpr = 'v:lua.require("forge.view").fold(v:lnum)'
-    vim.wo[win][0].foldlevel = 0
   else
     vim.wo[win][0].wrap = false
     vim.wo[win][0].cursorline = true
