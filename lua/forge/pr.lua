@@ -144,6 +144,7 @@ local PRS = {
     { 'cE', '<Plug>(forge-edit)', "edit this {one}'s title and body" },
     { 'cD', '<Plug>(forge-draft)', 'draft this {one}, or mark it ready' },
     { 'cS', '<Plug>(forge-squash)', 'squash and merge this {one}' },
+    { 'cM', '<Plug>(forge-merge)', 'merge this {one} with a merge commit' },
     { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
@@ -331,11 +332,13 @@ local PRS = {
     },
     {
       label = 'Create a merge commit',
+      key = 'commit',
       run = committing,
       when = naming('can_merge_commit', false),
     },
     {
       label = 'Create a merge commit (bypass)',
+      key = 'commit',
       run = committing,
       when = naming('can_merge_commit', true),
     },

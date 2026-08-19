@@ -350,6 +350,20 @@ describe('a layer of a stack the forge keeps', function()
     assert.is_truthy(vim.tbl_contains(said, 'Create a merge commit'))
     assert.is_truthy(vim.tbl_contains(said, 'Rebase and merge'))
   end)
+
+  it('refuses the key that skips the menu, as it refuses the entry', function()
+    showing({ stack_kept = true })
+    local said
+    local real = vim.notify
+    --- @diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg)
+      said = msg
+    end
+    pr.one('squash')
+    pr.one('commit')
+    vim.notify = real
+    assert.equals('[forge]: Create a merge commit is not offered on this pull request', said)
+  end)
 end)
 
 describe('which merges write a message first', function()

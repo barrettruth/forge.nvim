@@ -54,6 +54,12 @@ vim.keymap.set('n', '<Plug>(forge-squash)', function()
   require('forge.view').one('squash')
 end, { desc = 'squash and merge this pull request' })
 
+-- Named for the method rather than for merging: forge spells a merge commit
+-- "MERGE" throughout, and a squash is just as much a merge.
+vim.keymap.set('n', '<Plug>(forge-merge)', function()
+  require('forge.view').one('commit')
+end, { desc = 'merge this pull request with a merge commit' })
+
 vim.keymap.set('n', '<Plug>(forge-checks)', function()
   require('forge.ci').checks()
 end, { desc = "show this pull request's checks in ci.nvim" })
