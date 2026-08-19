@@ -46,6 +46,8 @@ local NS = vim.api.nvim_create_namespace('forge')
 --- @field base string? the branch it merges into
 --- @field head string? the branch it merges from
 --- @field remote string? the repository "dd" and "dl" fetch it from
+--- @field stack string? which layer of its stack it is, "3/4", counted from
+--- the bottom; empty where it is in no stack
 
 --- Read one field of `b:forge`. The templates below never index it directly.
 --- A missing key raises E716 from a redraw. Neovim empties 'winbar' on an
@@ -97,7 +99,9 @@ local WINBAR = {
     .. at('label')
     .. '%* %#Tag#'
     .. at('tag')
-    .. '%* '
+    .. '%*%( ['
+    .. at('stack')
+    .. ']%) '
     .. STATE
     .. '%( | %#Comment#'
     .. at('base')
@@ -125,6 +129,12 @@ local placed = {}
 --- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean }>
 local pages = {}
 
+--- The stack each item buffer is showing, for the keys that walk one. Lua
+--- rather than `b:`, as the pages above are: it is read by a mapping and never
+--- drawn, and `b:forge` says the position already.
+--- @type table<integer, forge.stack.Rows?>
+local stacked = {}
+
 --- Replies do not come back in the order they were asked for. The counter says
 --- which is still wanted. `drawn` stops an overtaken one painting over it.
 --- @type integer
@@ -147,6 +157,7 @@ function M.forget(buf)
   placed[buf] = nil
   pages[buf] = nil
   drawn[buf] = nil
+  stacked[buf] = nil
 end
 
 --- How many items a list asks the forge for at once.
@@ -185,9 +196,10 @@ end
 
 --- @class forge.Mark
 --- @field row integer zero-based
---- @field col integer byte column, inclusive
---- @field end_col integer byte column, exclusive
---- @field group string|string[]
+--- @field col integer? byte column, inclusive; absent on a whole-line mark
+--- @field end_col integer? byte column, exclusive; absent on a whole-line mark
+--- @field group string|string[]? the group its range takes
+--- @field line string? a group for the whole line, instead of a range
 --- @field url string? where |gx| goes from here, read off the mark by core
 
 --- What a state means, rather than what colour it is. Builtin groups only.
@@ -230,6 +242,13 @@ end
 --- @param has_next boolean
 function M.paged(buf, page, cursors, has_next)
   pages[buf] = { page = page, cursors = cursors, has_next = has_next }
+end
+
+--- Record the stack an item buffer drew, or that it drew none.
+--- @param buf integer
+--- @param nav forge.stack.Rows?
+function M.stacked(buf, nav)
+  stacked[buf] = nav
 end
 
 --- The view a buffer holds, if a buffer holds one.
@@ -399,15 +418,19 @@ function M.render(u, lines, info, marks, maps, o)
   -- One extmark per group, not the list `hl_group` also takes. A composed one
   -- silently drops `url`. Core's |gx| reads `url` off the mark.
   for _, mark in ipairs(marks or {}) do
-    local groups = type(mark.group) == 'table' and mark.group or { mark.group }
-    for i, group in
-      ipairs(groups --[[@as string[] ]])
-    do
-      vim.api.nvim_buf_set_extmark(buf, NS, mark.row, mark.col, {
-        end_col = mark.end_col,
-        hl_group = group,
-        url = i == 1 and mark.url or nil,
-      })
+    if mark.line then
+      vim.api.nvim_buf_set_extmark(buf, NS, mark.row, 0, { line_hl_group = mark.line })
+    else
+      local groups = type(mark.group) == 'table' and mark.group or { mark.group }
+      for i, group in
+        ipairs(groups --[[@as string[] ]])
+      do
+        vim.api.nvim_buf_set_extmark(buf, NS, mark.row, mark.col, {
+          end_col = mark.end_col,
+          hl_group = group,
+          url = i == 1 and mark.url or nil,
+        })
+      end
     end
   end
 
@@ -590,20 +613,36 @@ function M.page(delta)
   M.open(u, { page = page, cursors = paging.cursors })
 end
 
---- Open the item under the cursor in a list.
---- @param split boolean? open it beside the list rather than over it
-function M.open_at_cursor(split)
-  local u = M.current()
-  if not u or u.number then
-    return
+--- The item the line under the cursor names.
+---
+--- A list draws one an item, and the sigil it drew it with reads it back. An
+--- item draws only its stack, and that is read by line: a body may hold
+--- anything, including a line starting with a number.
+--- @param u forge.Uri
+--- @return integer?
+local function named_here(u)
+  local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+  if u.number then
+    local nav = stacked[vim.api.nvim_get_current_buf()]
+    return nav and nav.rows[row] or nil
   end
   local be = require('forge.backend').of(u.host)
   if not be then
-    return
+    return nil
   end
-  -- A line is drawn with the forge's own sigil. The same word reads it back.
   local sigil = be.nouns[u.collection].sigil
   local number = vim.api.nvim_get_current_line():match(('^%s(%%d+)'):format(vim.pesc(sigil)))
+  return number and tonumber(number) or nil
+end
+
+--- Open the item the line under the cursor names.
+--- @param split boolean? open it beside the view it was asked for in
+function M.open_at_cursor(split)
+  local u = M.current()
+  if not u then
+    return
+  end
+  local number = named_here(u)
   if not number then
     return
   end
@@ -611,8 +650,42 @@ function M.open_at_cursor(split)
     host = u.host,
     project = u.project,
     collection = u.collection,
-    number = tonumber(number),
+    number = number,
   }, { keep = true, split = split })
+end
+
+--- Step `delta` layers through the stack this item belongs to.
+---
+--- The layers are ordered as they are drawn, top first, so a negative delta
+--- goes up the buffer and up the stack. Neither end wraps: a stack is a line,
+--- not a ring, and coming out the other end of one is never what was meant.
+--- @param delta integer
+function M.walk_stack(delta)
+  local u = M.current()
+  local buf = vim.api.nvim_get_current_buf()
+  local nav = stacked[buf]
+  if not u or not u.number then
+    return
+  end
+  if not nav then
+    -- A chain still in flight is not the absence of one. 'busy' is already
+    -- saying so, and saying it twice would say the wrong thing.
+    if vim.bo[buf].busy == 0 then
+      log.info('no stack here')
+    end
+    return
+  end
+  local to = nav.at + delta
+  if to < 1 or to > #nav.order then
+    log.info(delta < 0 and 'top of the stack' or 'bottom of the stack')
+    return
+  end
+  M.open({
+    host = u.host,
+    project = u.project,
+    collection = u.collection,
+    number = nav.order[to],
+  }, { keep = true })
 end
 
 --- Warn when a connection came back truncated.

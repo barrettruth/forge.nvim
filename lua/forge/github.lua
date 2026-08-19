@@ -4,6 +4,7 @@
 
 local gh = require('forge.gh')
 local log = require('forge.log')
+local stack = require('forge.stack')
 
 local M = {}
 
@@ -135,6 +136,68 @@ query($owner: String!, $repo: String!, $head: String!) {
   }
 }
 ]]
+
+--- What a chain is built out of. See |forge.stack.Pull|.
+local LAYER = 'number title state isDraft baseRefName headRefName isCrossRepository'
+
+--- How many open pull requests forge will read in one page to derive a chain.
+local PAGE = 100
+
+--- Whether github keeps a stack for this pull request, and how many open ones
+--- the repository holds.
+---
+--- Apart from |PR_ITEM|, which must not carry it. Stacks are a preview, and a
+--- field a forge's schema has never heard of fails the whole document it is
+--- written in. Asked separately, a forge without them costs the stack section
+--- and nothing else. The count says which way to derive one where github keeps
+--- none: a repository small enough to read in a page, or a walk.
+local STACK_QUERY = ([[
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    open: pullRequests(states: [OPEN]) { totalCount }
+    pullRequest(number: $number) {
+      stackEntry { position }
+      stack {
+        number
+        size
+        entries(first: %d) {
+          totalCount
+          nodes { position pullRequest { %s } }
+        }
+      }
+    }
+  }
+}
+]]):format(stack.MAX, LAYER)
+
+--- Every open pull request, for a repository holding few enough to read at
+--- once. One round trip, and the chain is a lookup away.
+local STACK_LIST = ([[
+query($owner: String!, $repo: String!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: [OPEN], first: %d) { nodes { %s } }
+  }
+}
+]]):format(PAGE, LAYER)
+
+--- One layer down and one layer up, in a single round trip.
+---
+--- Down and up are independent, so a repository too large to read is walked
+--- from both ends at once and costs the depth of the stack rather than its own
+--- size. Ten are asked for in each direction: a fork's pull request answers to
+--- a query about a branch name, and is dropped before the chain is built.
+local STACK_WALK = ([[
+query($owner: String!, $repo: String!, $base: String!, $head: String!) {
+  repository(owner: $owner, name: $repo) {
+    under: pullRequests(headRefName: $base, states: [OPEN], first: 10) {
+      nodes { %s }
+    }
+    over: pullRequests(baseRefName: $head, states: [OPEN], first: 10) {
+      nodes { %s }
+    }
+  }
+}
+]]):format(LAYER, LAYER)
 
 --- One document for both collections. `type: ISSUE` searches issues and pull
 --- requests alike. The `is:` forge adds decides which come back. A search
@@ -307,6 +370,180 @@ function M.head(t, branch, f, on_done)
       project = vim.tbl_get(data, 'repository', 'nameWithOwner'),
       number = found and found.number or nil,
     })
+  end)
+end
+
+--- One node of a chain, in the shape forge.stack reads.
+--- @param node table
+--- @return forge.stack.Pull
+local function pulled(node)
+  return {
+    number = node.number,
+    title = node.title or '',
+    state = node.state,
+    isDraft = node.isDraft == true,
+    base = node.baseRefName,
+    head = node.headRefName,
+  }
+end
+
+--- Only what a chain in this repository could be built from.
+---
+--- A branch name is unique to a repository, not to github, so a query naming
+--- one answers a fork's pull request alongside. A stack cannot cross a fork.
+--- @param nodes table[]?
+--- @return table[]
+local function ours(nodes)
+  return vim.tbl_filter(function(node)
+    return type(node) == 'table' and node.isCrossRepository ~= true
+  end, type(nodes) == 'table' and nodes or {})
+end
+
+--- The stack github itself keeps, where it keeps one.
+---
+--- Ordered by the position github gives each entry rather than by the order
+--- they arrived in, and counted from the bottom the way github counts.
+--- @param answer table what the pull request said of itself
+--- @return forge.Stack?
+local function registered(answer)
+  local held = answer.stack
+  if type(held) ~= 'table' then
+    return nil
+  end
+  local entries = vim.tbl_get(held, 'entries', 'nodes') or {}
+  local placed = {}
+  for _, entry in ipairs(entries) do
+    if type(entry) == 'table' and type(entry.pullRequest) == 'table' then
+      placed[#placed + 1] = { at = entry.position or 0, pull = pulled(entry.pullRequest) }
+    end
+  end
+  if #placed == 0 then
+    return nil
+  end
+  table.sort(placed, function(a, b)
+    return a.at < b.at
+  end)
+  local layers = vim.tbl_map(function(one)
+    return one.pull
+  end, placed)
+  return {
+    layers = layers,
+    position = vim.tbl_get(answer, 'stackEntry', 'position')
+      or stack.position(layers, answer.number or 0),
+    number = held.number,
+  }
+end
+
+--- Derive the chain from every open pull request, for a repository small
+--- enough that one page holds them all.
+--- @param t forge.Target
+--- @param f forge.Fetch
+--- @param node table
+--- @param on_done fun(s: forge.Stack?)
+local function listing(t, f, node, on_done)
+  local owner, repo = gh.slug(t)
+  gh.graphql({
+    desc = f.desc,
+    query = STACK_LIST,
+    variables = { owner = owner, repo = repo },
+    cwd = f.cwd,
+  }, function(data)
+    local nodes = ours(vim.tbl_get(data, 'repository', 'pullRequests', 'nodes'))
+    on_done(stack.of(vim.tbl_map(pulled, nodes), node.number))
+  end, function()
+    on_done(nil)
+  end)
+end
+
+--- Follow the chain a layer at a time, in both directions at once.
+---
+--- Nothing is enumerated, so the size of the repository never comes into it.
+--- A ring that turns up nothing new is the end, whichever end it was.
+--- @param t forge.Target
+--- @param f forge.Fetch
+--- @param node table
+--- @param on_done fun(s: forge.Stack?)
+local function walking(t, f, node, on_done)
+  local owner, repo = gh.slug(t)
+  local found = { [node.number] = pulled(node) }
+
+  local function finish()
+    on_done(stack.of(vim.tbl_values(found), node.number))
+  end
+
+  local function step(base, head, depth)
+    gh.graphql({
+      desc = f.desc,
+      query = STACK_WALK,
+      variables = { owner = owner, repo = repo, base = base, head = head },
+      cwd = f.cwd,
+    }, function(data)
+      local within = data.repository or {}
+      local under = ours(vim.tbl_get(within, 'under', 'nodes'))[1]
+      local over = ours(vim.tbl_get(within, 'over', 'nodes'))
+
+      local grew = false
+      for _, one in ipairs(under and { under } or {}) do
+        grew = grew or found[one.number] == nil
+        found[one.number] = found[one.number] or pulled(one)
+      end
+      for _, one in ipairs(over) do
+        grew = grew or found[one.number] == nil
+        found[one.number] = found[one.number] or pulled(one)
+      end
+
+      -- A fork ends the walk upward: there is no single branch to follow past
+      -- it, and stack.chain names it out of what was collected.
+      local above = #over == 1 and over[1] or nil
+      if not grew or depth >= stack.MAX then
+        return finish()
+      end
+      step(under and under.baseRefName or base, above and above.headRefName or head, depth + 1)
+    end, function()
+      -- A ring that never answered leaves a chain that may be short, and a
+      -- short chain is a wrong one. Say nothing rather than half of it.
+      on_done(nil)
+    end)
+  end
+
+  step(node.baseRefName, node.headRefName, 1)
+end
+
+--- @param t forge.Target
+--- @param one forge.Item
+--- @param f forge.Fetch
+--- @param on_done fun(s: forge.Stack?)
+function M.stack(t, one, f, on_done)
+  local node = one.node
+  -- A fork's branch is not in this repository's namespace, and github refuses
+  -- to stack across one, so there is nothing here to chain.
+  if node.isCrossRepository == true or not node.headRefName then
+    return on_done(nil)
+  end
+
+  local owner, repo = gh.slug(t)
+  gh.graphql({
+    desc = f.desc,
+    query = STACK_QUERY,
+    variables = { owner = owner, repo = repo, number = node.number },
+    cwd = f.cwd,
+  }, function(data)
+    local within = data.repository or {}
+    local answer = within.pullRequest or {}
+    answer.number = node.number
+
+    local held = registered(answer)
+    if held then
+      return on_done(held)
+    end
+
+    local open = vim.tbl_get(within, 'open', 'totalCount')
+    if type(open) == 'number' and open <= PAGE then
+      return listing(t, f, node, on_done)
+    end
+    walking(t, f, node, on_done)
+  end, function()
+    on_done(nil)
   end)
 end
 

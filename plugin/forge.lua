@@ -54,6 +54,14 @@ vim.keymap.set('n', '<Plug>(forge-log)', function()
   require('forge.commits').show()
 end, { desc = "show this pull request's commits in fugitive" })
 
+vim.keymap.set('n', '<Plug>(forge-stack-up)', function()
+  require('forge.view').walk_stack(-1)
+end, { desc = 'the pull request above this one in its stack' })
+
+vim.keymap.set('n', '<Plug>(forge-stack-down)', function()
+  require('forge.view').walk_stack(1)
+end, { desc = 'the pull request below this one in its stack' })
+
 vim.keymap.set('n', '<Plug>(forge-next-page)', function()
   require('forge.view').page(1)
 end, { desc = 'the next page' })

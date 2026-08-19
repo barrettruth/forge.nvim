@@ -186,6 +186,8 @@ In an item, and only in one. The last three are a pull or merge request's: >
     head       the branch it merges from, prefixed with the owner when
                that is a fork
     remote     the repository "dd" and "dl" fetch it from
+    stack      which layer of its stack it is, "3/4", counted from the
+               bottom, and empty where it is in none
 <
 An item is its title, then who opened it and when, then what is known about
 it, then its body and the conversation under it: >
@@ -209,6 +211,35 @@ it, then its body and the conversation under it: >
 <
 A row is drawn only when it has something in it. A pull or merge request says
 "Reviewers" instead of "Type" and "Parent".
+
+                                                                 *forge-stack*
+A pull request that is one of a chain of them draws the chain, after the
+description and before the comments: >
+
+    ## Stack (3/4)
+
+      #150  api: stop paginating once the budget is spent
+      #149  api: read the rate limit headers
+      #148  util: add a chunk helper
+      #147  util: add a dedupe helper
+<
+Top first, and counted from the bottom, so "3/4" is the second line. Each
+number is drawn in the colour of its state. The line being read is drawn in
+"CursorLine".
+
+<CR> opens the layer under the cursor. "[s" and "]s" step through the layers
+and stop at either end. |gf| follows a number as it does anywhere else. The
+winbar says the same position. |forge-mappings|
+
+Two layers sharing a base branch are named rather than ordered: >
+
+    ## Stack (1/1)
+
+      forks above into #158, #159
+      #157  idgen: allow a custom entropy source
+<
+A pull request in no chain draws no section, and neither does one opened from
+a fork. Merge requests draw none yet.
 
 A bar starts anything somebody wrote. Logins, labels and milestones are
 highlighted. Anything that can be followed is underlined.
@@ -239,6 +270,7 @@ Every view sets a 'winbar': >
     ISSUE #27 OPEN | a title that fits
     ISSUE #41309 NOT PLANNED | one nobody is going to do
     PR #151 MERGED | master <- a-branch                         +10 -2
+    PR #149 [3/4] OPEN | main <- a-branch                        +7 -0
     PR #152 OPEN | master <- them:their-branch CONFLICT FAILING | +7 -0
     MRS group/subgroup/project 1/1 (8)
     MR !12 OPEN | main <- a-branch                                +3 -1
@@ -249,20 +281,22 @@ Only that part is truncated in a narrow window.
 
 A diffstat is drawn against the right edge. A badge says "CONFLICT" for a
 conflicting merge, and "FAILING", "PENDING" or "EXPECTED" for the checks. "dc"
-shows which.
+shows which. A pull request in a stack says which layer it is. |forge-stack|
 
 ==============================================================================
 7. MAPPINGS                                                   *forge-mappings*
 
 Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
 
-    <CR>     <Plug>(forge-open)        Open the item under the cursor.
+    <CR>     <Plug>(forge-open)        Open the item the line names.
     o        <Plug>(forge-open-split)  The same, beside the list.
     gf       (see |forge-gf|)          Follow the reference under the cursor.
     -        <Plug>(forge-up)          Leave an item for its list.
     R        <Plug>(forge-refresh)     Fetch this view again, in place.
     ]i  [i   <Plug>(forge-next-page)   Page through a list. ]p and [p
              <Plug>(forge-prev-page)   in a pull or merge request list.
+    ]s  [s   <Plug>(forge-stack-down)  Step down and up a stack.
+             <Plug>(forge-stack-up)
     ga       <Plug>(forge-create)      Start something new, on the forge.
     gX       <Plug>(forge-web)         Open this view in a browser.
     gy       <Plug>(forge-yank)        Yank this view's URL.
@@ -279,6 +313,8 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
                                                        *<Plug>(forge-refresh)*
                                                      *<Plug>(forge-next-page)*
                                                      *<Plug>(forge-prev-page)*
+                                                      *<Plug>(forge-stack-up)*
+                                                    *<Plug>(forge-stack-down)*
                                                         *<Plug>(forge-create)*
                                                            *<Plug>(forge-web)*
                                                           *<Plug>(forge-yank)*
@@ -408,8 +444,9 @@ body still opens the file.
 "!123" is always a merge request. "#123" is an issue, except on GitHub, where
 it means whichever collection the view holds.
 
-In a list, <CR> opens the item the line describes. |gf| opens the reference
-under the cursor, which inside a title may be another issue.
+In a list, <CR> opens the item the line describes, and in a stack the layer.
+|gf| opens the reference under the cursor, which inside a title may be another
+issue.
 
 ==============================================================================
 8. SEARCH                                                       *forge-search*
@@ -469,7 +506,8 @@ comment. Comments written against a line of the diff are not shown.
 Creating an issue or a pull request opens the forge's own page for it. There
 is no compose buffer.
 
-Stacked pull requests are not recognised.
+Merging a stack is unsupported. A pull request in one is still offered its
+merges, and GitHub refuses them. |forge-stack|
 
 An address is drawn short whether or not it leads anywhere. The forge asks
 itself before shortening one; forge does not ask.
@@ -483,6 +521,7 @@ On GitLab:
   trains are unsupported.
 - The commit message a merge would carry opens empty.
 - Search qualifiers are unsupported.
+- A merge request draws no stack.
 
 ==============================================================================
 11. HEALTH                                                      *forge-health*

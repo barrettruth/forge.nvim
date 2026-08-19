@@ -42,6 +42,17 @@ local M = {}
 --- @field project string? the path the forge spells the repository with
 --- @field number integer? absent where the branch has no pull request yet
 
+--- The chain of pull requests one belongs to, and where in it that one sits.
+---
+--- Bottom first, because that is the end a stack is counted from: the forge's
+--- own position is 1 for the layer nearest the trunk. The view draws them the
+--- other way up.
+--- @class forge.Stack
+--- @field layers forge.stack.Pull[] bottom first
+--- @field position integer which layer this is, 1 being the bottom
+--- @field number integer? the forge's own number for it, where it keeps one
+--- @field forks integer[]? what it forks into above, where the chain is not one
+
 --- One change to send. `kind` says which of the three shapes the rest is: an
 --- action names its own write, the other two are composed from what was typed.
 --- @class forge.Write
@@ -70,6 +81,7 @@ local M = {}
 --- @field list fun(t: forge.Target, f: forge.Fetch, on_done: fun(page: forge.Page?), on_fail: fun()?)
 --- @field item fun(t: forge.Target, f: forge.Fetch, on_done: fun(one: forge.Item?), on_fail: fun()?)
 --- @field head fun(t: forge.Target, branch: string, f: forge.Fetch, on_done: fun(found: forge.Head))
+--- @field stack? fun(t: forge.Target, one: forge.Item, f: forge.Fetch, on_done: fun(s: forge.Stack?))
 --- @field write fun(w: forge.Write, on_done: fun(), on_fail: fun()?)
 --- @field create fun(t: forge.Target, host: string) start something new, however
 --- the forge is asked for one
@@ -109,6 +121,7 @@ local M = {}
 --- @field remember? fun(node: table, repo: table): table what the buffer should
 --- keep of it
 --- @field actions? forge.Action[] what "c" offers
+--- @field stacked? boolean whether one of these can belong to a chain of them
 
 --- The forge an item came from, by the url it answered with rather than the
 --- host its name defaults to. On an enterprise install those differ.
@@ -381,52 +394,91 @@ function M.item(spec, t, o)
     rows[#rows + 1] =
       { key = 'Milestone', values = { vim.tbl_get(node, 'milestone', 'title') }, group = 'Tag' }
 
-    -- Not the state: the winbar has it, and stays on screen.
-    local lines = { ('# %s'):format(node.title), '' }
-    --- @type forge.Mark[]
-    local marks = {}
-    -- A mention in a body links to a person on the forge the body came from,
-    -- and an address of that forge's own is drawn as short as it draws it.
-    text.host = u.host
-    text.project = u.project
-    text.shorten = be.shorten
-    text.append_author(lines, marks, said(node))
-    text.append_rows(lines, marks, rows)
-    lines[#lines + 1] = ''
-    -- github's own wording. A comment has no description to be missing.
-    text.append_body(lines, marks, node.body, 'No description provided.')
-    local comments, count = conversation(node.comments)
-    text.append_comments(lines, marks, comments, count)
-
     local badges = (spec.badges and spec.badges(node)) or {}
     local stat = (spec.stat and spec.stat(node)) or {}
 
-    --- @type forge.ItemVar
-    local info = {
-      kind = 'item',
-      label = nouns.item,
-      repo = u.project,
-      url = node.url,
-      about = spec.about and spec.about(node) or (node.title or ''),
-      state = state,
-      state_hl = spec.state_hl[state] or 'Normal',
-      tag = nouns.sigil .. node.number,
-      title = node.title or '',
-      edit = ('%s\n\n%s'):format(node.title or '', node.body or ''),
-      badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
-      -- The bar divides badges from stat. With no badge it would be marooned
-      -- at the end of the gap `%=` opened.
-      stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
-    }
-    if spec.remember then
-      info = vim.tbl_extend('force', info, spec.remember(node, answer.repo))
+    --- What a layer's number is drawn in: the state it is in, resolved the way
+    --- a list resolves one.
+    --- @param pull forge.stack.Pull
+    --- @return string
+    local function layered(pull)
+      return spec.state_hl[(spec.state and spec.state(pull)) or pull.state] or 'Tag'
     end
 
-    view.place(o)
-    view.render(u, lines, info, marks, keys(spec.item_maps, nouns), o)
+    --- Draw the item, with the chain it belongs to once that is known.
+    ---
+    --- Twice rather than once, because the chain is a round trip of its own and
+    --- a buffer never renders a placeholder to wait behind. The second draw
+    --- keeps where you were reading and takes no window: the first placed it.
+    --- @param held forge.Stack?
+    --- @param again boolean
+    local function draw(held, again)
+      -- Not the state: the winbar has it, and stays on screen.
+      local lines = { ('# %s'):format(node.title), '' }
+      --- @type forge.Mark[]
+      local marks = {}
+      -- A mention in a body links to a person on the forge the body came from,
+      -- and an address of that forge's own is drawn as short as it draws it.
+      text.host = u.host
+      text.project = u.project
+      text.shorten = be.shorten
+      text.append_author(lines, marks, said(node))
+      text.append_rows(lines, marks, rows)
+      lines[#lines + 1] = ''
+      -- github's own wording. A comment has no description to be missing.
+      text.append_body(lines, marks, node.body, 'No description provided.')
+      local nav = text.append_stack(lines, marks, held, nouns.sigil, layered)
+      local comments, count = conversation(node.comments)
+      text.append_comments(lines, marks, comments, count)
+
+      --- @type forge.ItemVar
+      local info = {
+        kind = 'item',
+        label = nouns.item,
+        repo = u.project,
+        url = node.url,
+        about = spec.about and spec.about(node) or (node.title or ''),
+        state = state,
+        state_hl = spec.state_hl[state] or 'Normal',
+        tag = nouns.sigil .. node.number,
+        title = node.title or '',
+        edit = ('%s\n\n%s'):format(node.title or '', node.body or ''),
+        badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
+        -- The bar divides badges from stat. With no badge it would be marooned
+        -- at the end of the gap `%=` opened.
+        stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
+        stack = held and ('%d/%d'):format(held.position, #held.layers) or '',
+      }
+      if spec.remember then
+        info = vim.tbl_extend('force', info, spec.remember(node, answer.repo))
+      end
+
+      if not again then
+        view.place(o)
+      end
+      local where = again and vim.tbl_extend('force', o, { keep = true }) or o
+      view.stacked(view.render(u, lines, info, marks, keys(spec.item_maps, nouns), where), nav)
+    end
+
+    draw(nil, false)
     view.check_truncated(node.labels, 'labels')
     view.check_truncated(node.assignees, 'assignees')
     view.check_truncated(node.comments, 'comments')
+
+    if spec.stacked and be.stack then
+      -- 'busy' for the second round trip as well as the first. It is what the
+      -- keys that walk a stack read to tell a chain still coming from none.
+      local chained = view.busy(u)
+      be.stack(t, answer, {
+        desc = ('the stack %s%d is in'):format(nouns.sigil, node.number),
+        cwd = o.cwd,
+      }, function(held)
+        chained()
+        if held then
+          draw(held, true)
+        end
+      end)
+    end
   end, settle)
 end
 

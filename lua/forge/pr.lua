@@ -122,14 +122,18 @@ local PRS = {
     { ']p', '<Plug>(forge-next-page)', 'the next page of {many}' },
     { '[p', '<Plug>(forge-prev-page)', 'the previous page of {many}' },
   },
-  -- An issue has no CI, no diff and no commits. These three are bound here
+  -- An issue has no CI, no diff, no commits and no stack. These are bound here
   -- rather than in every item. A key that exists only to refuse is worse.
   item_maps = {
+    { '<CR>', '<Plug>(forge-open)', 'open the {one} the line names' },
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
     { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
+    { '[s', '<Plug>(forge-stack-up)', 'the {one} above this one in its stack' },
+    { ']s', '<Plug>(forge-stack-down)', 'the {one} below this one in its stack' },
   },
+  stacked = true,
   -- The branches and the repository cannot be read back off a drawn view.
   -- "dd" and "dl" need both to fetch and to find the merge base.
   remember = function(node, repo)

@@ -325,6 +325,76 @@ function M.append_rows(lines, marks, rows)
   end
 end
 
+--- Which pull request each drawn line of a stack names, for the keys that walk
+--- one. Read by line rather than matched by pattern: a body may hold anything.
+--- @class forge.stack.Rows
+--- @field rows table<integer, integer> the pull request a row names, zero-based
+--- @field order integer[] top first, as drawn
+--- @field at integer where in `order` the one being read sits
+
+--- Append the chain an item belongs to, if it belongs to one.
+---
+--- Drawn top first, the way github's own stack map and |jj| draw one, while the
+--- count stays the forge's and is taken from the bottom. So the line marked in
+--- a stack of four at 3/4 is the second from the top.
+--- @param lines string[]
+--- @param marks forge.Mark[]
+--- @param held forge.Stack?
+--- @param sigil string
+--- @param group fun(pull: forge.stack.Pull): string the group its number takes
+--- @return forge.stack.Rows?
+function M.append_stack(lines, marks, held, sigil, group)
+  if not held then
+    return nil
+  end
+  local width = 1
+  for _, layer in ipairs(held.layers) do
+    width = math.max(width, #tostring(layer.number))
+  end
+
+  lines[#lines + 1] = ''
+  lines[#lines + 1] = ('## Stack (%d/%d)'):format(held.position, #held.layers)
+  lines[#lines + 1] = ''
+
+  -- Above the layers, because that is where the fork is.
+  if held.forks then
+    local said = vim.tbl_map(function(number)
+      return sigil .. number
+    end, held.forks)
+    local row = #lines
+    local lead = '  forks above into '
+    lines[row + 1] = lead .. table.concat(said, ', ')
+    marks[#marks + 1] = { row = row, col = 0, end_col = #lines[row + 1], group = 'Comment' }
+    local col = #lead
+    for _, one in ipairs(said) do
+      marks[#marks + 1] = { row = row, col = col, end_col = col + #one, group = 'Tag' }
+      col = col + #one + 2
+    end
+  end
+
+  --- @type forge.stack.Rows
+  local nav = { rows = {}, order = {}, at = #held.layers - held.position + 1 }
+  for i = #held.layers, 1, -1 do
+    local layer = held.layers[i]
+    local row = #lines
+    local tag = sigil .. layer.number
+    lines[row + 1] = ('  %s%s  %s'):format(
+      tag,
+      (' '):rep(width - #tostring(layer.number)),
+      layer.title
+    )
+    marks[#marks + 1] = { row = row, col = 2, end_col = 2 + #tag, group = group(layer) }
+    -- The one being read is said with the line rather than a character, as a
+    -- list says a state with the colour of its number and nothing else.
+    if i == held.position then
+      marks[#marks + 1] = { row = row, line = 'CursorLine' }
+    end
+    nav.rows[row] = layer.number
+    nav.order[#nav.order + 1] = layer.number
+  end
+  return nav
+end
+
 --- Append a conversation, if there is one. The heading counts what was
 --- written, not what came. A capped connection still says how many there are.
 --- @param lines string[]
