@@ -367,10 +367,12 @@ local function open_head(t, o)
   }, function(found)
     if not found.number then
       log.info(('no %s for %s yet, so opening a new one'):format(nouns.one, branch))
-      view.create(uri.of(found.project, { collection = 'prs' }))
+      view.create(uri.of(found.project, { host = t.host, collection = 'prs' }))
       return
     end
-    local item = { collection = 'prs', number = found.number }
+    --- The host comes with it: what answered for the branch is what should be
+    --- asked about the change on it, and a target built afresh here has none.
+    local item = { host = t.host, collection = 'prs', number = found.number }
     collection.item(PRS, uri.of(found.project, item) or item, o)
   end)
 end
