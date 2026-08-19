@@ -331,6 +331,8 @@ end
 --- @field rows table<integer, integer> the pull request a row names, zero-based
 --- @field order integer[] trunk first, as drawn
 --- @field at integer where in `order` the one being read sits
+--- @field from integer the heading's row, which is where the fold starts
+--- @field to integer the last row the section holds
 
 --- Append the chain an item belongs to, trunk first, counted the same way.
 --- @param lines string[]
@@ -349,11 +351,12 @@ function M.append_stack(lines, marks, held, sigil, group)
   end
 
   lines[#lines + 1] = ''
+  local from = #lines
   lines[#lines + 1] = ('## Stack (%d/%d)'):format(held.position, #held.layers)
   lines[#lines + 1] = ''
 
   --- @type forge.stack.Rows
-  local nav = { rows = {}, order = {}, at = held.position }
+  local nav = { rows = {}, order = {}, at = held.position, from = from, to = from }
   for i = 1, #held.layers do
     local layer = held.layers[i]
     local row = #lines
@@ -387,6 +390,7 @@ function M.append_stack(lines, marks, held, sigil, group)
       col = col + #one + 2
     end
   end
+  nav.to = #lines - 1
   return nav
 end
 
