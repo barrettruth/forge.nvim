@@ -1,15 +1,11 @@
---- Deriving a stack from a set of pull requests. No network and no editor, so
---- a forge that registers stacks and one that does not both end up here.
+--- Deriving a stack from a set of pull requests. No network and no editor.
 
 local M = {}
 
---- How many layers to follow before giving up. A chain longer than this is a
---- forge answering something forge cannot draw, not a stack anybody wrote.
+--- How many layers to follow before giving up.
 M.MAX = 50
 
---- One pull request, reduced to what a chain is built out of. `state` and
---- `isDraft` are separate for the same reason they are on a list's nodes: which
---- of them a draft is drawn as belongs to |forge.Spec|, not to a forge.
+--- One pull request, reduced to what a chain is built out of.
 --- @class forge.stack.Pull
 --- @field number integer
 --- @field title string
@@ -20,9 +16,8 @@ M.MAX = 50
 
 --- The chain holding `number`, bottom first.
 ---
---- Down follows each pull request's single base and is never ambiguous. Up can
---- meet two sharing a base, which is a fork: the layer above is genuinely
---- unknown, so stop and name them rather than pick one.
+--- Two sharing a base is a fork, and which one continues the chain is unknown,
+--- so it is named rather than picked.
 --- @param pulls forge.stack.Pull[]
 --- @param number integer
 --- @return forge.stack.Pull[]? ordered nil where `number` is not among `pulls`
@@ -30,9 +25,7 @@ M.MAX = 50
 function M.chain(pulls, number)
   local by_head, children, start = {}, {}, nil
   for _, pull in ipairs(pulls) do
-    -- The first wins. github serves two open pull requests on one branch where
-    -- they merge into different bases, and a later one would rewrite the chain
-    -- underneath itself.
+    -- One branch may carry two open pull requests, into different bases.
     by_head[pull.head] = by_head[pull.head] or pull
     children[pull.base] = children[pull.base] or {}
     table.insert(children[pull.base], pull)
@@ -45,7 +38,7 @@ function M.chain(pulls, number)
   end
 
   local ordered = { start }
-  -- Nothing the forge answers is trusted to be acyclic.
+  -- Nothing a forge answers is trusted to be acyclic.
   local seen = { [start.number] = true }
 
   local below = start
@@ -94,10 +87,8 @@ function M.position(ordered, number)
   return 1
 end
 
---- A chain as a stack, or nothing where there is no stack to draw.
----
---- One layer is not a stack. A lone pull request that forks above is, because
---- the fork is the thing worth saying.
+--- A chain as a stack, or nothing where there is none to draw. One layer is no
+--- stack unless it forks, which is worth saying.
 --- @param pulls forge.stack.Pull[]
 --- @param number integer
 --- @return forge.Stack?

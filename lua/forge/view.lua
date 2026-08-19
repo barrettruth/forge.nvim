@@ -613,11 +613,8 @@ function M.page(delta)
   M.open(u, { page = page, cursors = paging.cursors })
 end
 
---- The item the line under the cursor names.
----
---- A list draws one an item, and the sigil it drew it with reads it back. An
---- item draws only its stack, and that is read by line: a body may hold
---- anything, including a line starting with a number.
+--- The item the line under the cursor names. A list is read back by its sigil,
+--- an item by the rows its stack was drawn at.
 --- @param u forge.Uri
 --- @return integer?
 local function named_here(u)
@@ -654,11 +651,8 @@ function M.open_at_cursor(split)
   }, { keep = true, split = split })
 end
 
---- Step `delta` layers through the stack this item belongs to.
----
---- The layers are ordered as they are drawn, trunk first, so a negative delta
---- goes up the buffer and toward the trunk. Both ends wrap, because a stack is
---- walked over and over and a key that refuses reads as a key that broke.
+--- Step `delta` layers through the stack, up the buffer for a negative one.
+--- Both ends wrap: a key that refuses reads as a key that broke.
 --- @param delta integer
 function M.walk_stack(delta)
   local u = M.current()

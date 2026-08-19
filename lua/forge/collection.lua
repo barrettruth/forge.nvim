@@ -397,19 +397,15 @@ function M.item(spec, t, o)
     local badges = (spec.badges and spec.badges(node)) or {}
     local stat = (spec.stat and spec.stat(node)) or {}
 
-    --- What a layer's number is drawn in: the state it is in, resolved the way
-    --- a list resolves one.
+    --- What a layer's number is drawn in, resolved as a list resolves one.
     --- @param pull forge.stack.Pull
     --- @return string
     local function layered(pull)
       return spec.state_hl[(spec.state and spec.state(pull)) or pull.state] or 'Tag'
     end
 
-    --- Draw the item, with the chain it belongs to once that is known.
-    ---
-    --- Twice rather than once, because the chain is a round trip of its own and
-    --- a buffer never renders a placeholder to wait behind. The second draw
-    --- keeps where you were reading and takes no window: the first placed it.
+    --- Draw the item, and again once the chain is known: it is a round trip of
+    --- its own, and a buffer never renders a placeholder to wait behind.
     --- @param held forge.Stack?
     --- @param again boolean
     local function draw(held, again)
@@ -466,8 +462,7 @@ function M.item(spec, t, o)
     view.check_truncated(node.comments, 'comments')
 
     if spec.stacked and be.stack then
-      -- 'busy' again for the second round trip, so a view whose body is drawn
-      -- still shows it is filling in.
+      -- 'busy' again, so a view whose body is drawn shows it is still filling.
       local chained = view.busy(u)
       be.stack(t, answer, { cwd = o.cwd }, function(held)
         chained()

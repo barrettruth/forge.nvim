@@ -605,9 +605,7 @@ function M.head(t, branch, f, on_done)
   end)
 end
 
---- How many either direction of a walk asks for. A branch answers one merge
---- request below it and however many above; ten is past where a fork is worth
---- naming rather than ordering.
+--- How many either direction of a walk asks for.
 local EITHER_WAY = 10
 
 --- One row of a list, in the shape forge.stack reads.
@@ -624,8 +622,7 @@ local function pulled(row)
   }
 end
 
---- The merge request being read, in the same shape. Its node has already been
---- through the item builder, so it speaks forge's words rather than gitlab's.
+--- The merge request being read, whose node already speaks forge's words.
 --- @param node table
 --- @return forge.stack.Pull
 local function reading(node)
@@ -639,9 +636,7 @@ local function reading(node)
   }
 end
 
---- Only what a chain in this project could be built from. A merge request
---- opened from a fork carries a branch in another project's namespace, so it
---- can neither continue a chain nor be continued.
+--- Only what a chain here could be built from: a fork's branch is elsewhere.
 --- @param rows table?
 --- @return table[]
 local function ours(rows)
@@ -663,10 +658,7 @@ local function listed(at, query, t, f)
   }
 end
 
---- Follow the chain a layer at a time, in both directions at once.
----
---- Nothing is enumerated, so the size of the project never comes into it. Down
---- and up are independent, so a ring asks for both and costs one round trip.
+--- Follow the chain a layer at a time from both ends, a ring to a round trip.
 --- @param t forge.Target
 --- @param f forge.Fetch
 --- @param at string
@@ -697,8 +689,7 @@ local function walking(t, f, at, here, job, on_done)
           found[row.iid] = found[row.iid] or pulled(row)
         end
 
-        -- A fork ends the walk upward: there is no single branch to follow past
-        -- it, and stack.chain names it out of what was collected.
+        -- A fork ends the walk upward: no single branch follows it.
         local above = #over == 1 and over[1] or nil
         if not grew or depth >= stack.MAX then
           job.ok()
@@ -722,8 +713,6 @@ end
 --- @param on_done fun(s: forge.Stack?)
 function M.stack(t, one, f, on_done)
   local node = one.node
-  -- A fork's branch is not in this project's namespace, so there is nothing
-  -- here to chain.
   if node.isCrossRepository or not node.headRefName then
     return on_done(nil)
   end
@@ -735,10 +724,9 @@ function M.stack(t, one, f, on_done)
 
   request(listed(at, ('per_page=%d'):format(PER_PAGE), t, f), function(answer)
     local rows = type(answer.body) == 'table' and answer.body or {}
-    -- A page that came back short held every open merge request there is, so
-    -- the chain is a lookup away and no walk is worth its round trips. A full
-    -- one says nothing about what follows it, and gitlab stops counting a
-    -- large project at all, so the count is no better than the page.
+    -- A short page held every open one there is. A full one says nothing about
+    -- what follows, and gitlab stops counting a large project, so its count
+    -- would say no more.
     if #rows < PER_PAGE then
       job.ok()
       return on_done(stack.of(vim.tbl_map(pulled, ours(rows)), here.number))

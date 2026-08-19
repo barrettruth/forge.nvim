@@ -325,18 +325,14 @@ function M.append_rows(lines, marks, rows)
   end
 end
 
---- Which pull request each drawn line of a stack names, for the keys that walk
---- one. Read by line rather than matched by pattern: a body may hold anything.
+--- Which pull request each drawn line names. By line rather than by pattern: a
+--- body may hold anything.
 --- @class forge.stack.Rows
 --- @field rows table<integer, integer> the pull request a row names, zero-based
 --- @field order integer[] trunk first, as drawn
 --- @field at integer where in `order` the one being read sits
 
---- Append the chain an item belongs to, if it belongs to one.
----
---- Drawn bottom first: the layer nearest the trunk at the top, each one below
---- built on the line above it. The count runs the same way, so the marked line
---- of a stack at 3/4 is the third.
+--- Append the chain an item belongs to, trunk first, counted the same way.
 --- @param lines string[]
 --- @param marks forge.Mark[]
 --- @param held forge.Stack?
@@ -368,8 +364,7 @@ function M.append_stack(lines, marks, held, sigil, group)
       layer.title
     )
     marks[#marks + 1] = { row = row, col = 2, end_col = 2 + #tag, group = group(layer) }
-    -- The one being read is said with the line rather than a character, as a
-    -- list says a state with the colour of its number and nothing else.
+    -- Said with the line, as a list says a state with a colour and no glyph.
     if i == held.position then
       marks[#marks + 1] = { row = row, line = 'CursorLine' }
     end
@@ -377,8 +372,7 @@ function M.append_stack(lines, marks, held, sigil, group)
     nav.order[#nav.order + 1] = layer.number
   end
 
-  -- Under the layers, because the chain runs away from the trunk as it is read
-  -- down and a fork is at that end of it.
+  -- Under the layers, which is the end the chain forks at.
   if held.forks then
     local said = vim.tbl_map(function(number)
       return sigil .. number

@@ -146,11 +146,8 @@ local PAGE = 100
 --- Whether github keeps a stack for this pull request, and how many open ones
 --- the repository holds.
 ---
---- Apart from |PR_ITEM|, which must not carry it. Stacks are a preview, and a
---- field a forge's schema has never heard of fails the whole document it is
---- written in. Asked separately, a forge without them costs the stack section
---- and nothing else. The count says which way to derive one where github keeps
---- none: a repository small enough to read in a page, or a walk.
+--- Apart from PR_ITEM, which must not carry it: stacks are a preview, and a
+--- field a schema has never heard of fails the whole document it sits in.
 local STACK_QUERY = ([[
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
@@ -170,8 +167,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 ]]):format(stack.MAX, LAYER)
 
---- Every open pull request, for a repository holding few enough to read at
---- once. One round trip, and the chain is a lookup away.
+--- Every open pull request, where a repository holds few enough to read at once.
 local STACK_LIST = ([[
 query($owner: String!, $repo: String!) {
   repository(owner: $owner, name: $repo) {
@@ -180,12 +176,8 @@ query($owner: String!, $repo: String!) {
 }
 ]]):format(PAGE, LAYER)
 
---- One layer down and one layer up, in a single round trip.
----
---- Down and up are independent, so a repository too large to read is walked
---- from both ends at once and costs the depth of the stack rather than its own
---- size. Ten are asked for in each direction: a fork's pull request answers to
---- a query about a branch name, and is dropped before the chain is built.
+--- One layer down and one up, in a single round trip. Down and up being
+--- independent is what makes the cost the depth rather than the repository.
 local STACK_WALK = ([[
 query($owner: String!, $repo: String!, $base: String!, $head: String!) {
   repository(owner: $owner, name: $repo) {
@@ -387,10 +379,8 @@ local function pulled(node)
   }
 end
 
---- Only what a chain in this repository could be built from.
----
---- A branch name is unique to a repository, not to github, so a query naming
---- one answers a fork's pull request alongside. A stack cannot cross a fork.
+--- Only what a chain here could be built from: a branch name is unique to a
+--- repository, so a query naming one also answers a fork's pull request.
 --- @param nodes table[]?
 --- @return table[]
 local function ours(nodes)
@@ -399,10 +389,8 @@ local function ours(nodes)
   end, type(nodes) == 'table' and nodes or {})
 end
 
---- The stack github itself keeps, where it keeps one.
----
---- Ordered by the position github gives each entry rather than by the order
---- they arrived in, and counted from the bottom the way github counts.
+--- The stack github itself keeps. Ordered by the position it gives each entry
+--- rather than by the order they arrived in.
 --- @param answer table what the pull request said of itself
 --- @return forge.Stack?
 local function registered(answer)
@@ -434,8 +422,7 @@ local function registered(answer)
   }
 end
 
---- Derive the chain from every open pull request, for a repository small
---- enough that one page holds them all.
+--- Derive the chain from a page that holds every open pull request.
 --- @param t forge.Target
 --- @param f forge.Fetch
 --- @param node table
@@ -455,10 +442,8 @@ local function listing(t, f, node, on_done)
   end)
 end
 
---- Follow the chain a layer at a time, in both directions at once.
----
---- Nothing is enumerated, so the size of the repository never comes into it.
---- A ring that turns up nothing new is the end, whichever end it was.
+--- Follow the chain a layer at a time from both ends. A ring that turns up
+--- nothing new is the end.
 --- @param t forge.Target
 --- @param f forge.Fetch
 --- @param node table
@@ -492,16 +477,14 @@ local function walking(t, f, node, on_done)
         found[one.number] = found[one.number] or pulled(one)
       end
 
-      -- A fork ends the walk upward: there is no single branch to follow past
-      -- it, and stack.chain names it out of what was collected.
+      -- A fork ends the walk upward: no single branch follows it.
       local above = #over == 1 and over[1] or nil
       if not grew or depth >= stack.MAX then
         return finish()
       end
       step(under and under.baseRefName or base, above and above.headRefName or head, depth + 1)
     end, function()
-      -- A ring that never answered leaves a chain that may be short, and a
-      -- short chain is a wrong one. Say nothing rather than half of it.
+      -- A short chain is a wrong one, so half of it is not drawn.
       on_done(nil)
     end)
   end
@@ -515,8 +498,7 @@ end
 --- @param on_done fun(s: forge.Stack?)
 function M.stack(t, one, f, on_done)
   local node = one.node
-  -- A fork's branch is not in this repository's namespace, and github refuses
-  -- to stack across one, so there is nothing here to chain.
+  -- github refuses to stack across a fork, whose branch is elsewhere anyway.
   if node.isCrossRepository == true or not node.headRefName then
     return on_done(nil)
   end
