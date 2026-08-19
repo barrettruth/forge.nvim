@@ -78,6 +78,15 @@ local ISSUES = {
         return var.state == 'OPEN' and var.can_update == true
       end,
     },
+    --- For a forge that keeps no reason an issue was closed, and so offers
+    --- one close rather than a choice between two.
+    {
+      label = 'Close {one}',
+      write = 'close',
+      when = function(var)
+        return var.state == 'OPEN' and var.can_update == true
+      end,
+    },
     {
       label = 'Reopen {one}',
       write = 'reopen',

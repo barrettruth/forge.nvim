@@ -190,10 +190,14 @@ local function offering(be, spec, var)
   local nouns = be.nouns[spec.collection]
   local can = {}
   for _, action in ipairs(spec.actions or {}) do
-    if action.when(var) then
+    --- An action that names a write the forge has none of is not offered. A
+    --- capability is the presence of the thing that performs it, and a forge
+    --- with one way to close should not be asked to choose between two.
+    local write = action.write and writes[action.write] or nil
+    if action.when(var) and (not action.write or write) then
       can[#can + 1] = vim.tbl_extend('force', action, {
         label = worded(action.label, nouns),
-        query = action.write and writes[action.write] or nil,
+        query = write,
       }) --[[@as forge.Action]]
     end
   end

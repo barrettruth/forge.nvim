@@ -664,8 +664,9 @@ end
 --- @type table<forge.Collection, table<string, string>>
 M.writes = {
   issues = {
-    complete = 'close',
-    not_planned = 'close',
+    --- One close, and no reason kept for it: the two that name a reason go
+    --- unanswered and are never offered.
+    close = 'close',
     reopen = 'reopen',
   },
   prs = {
