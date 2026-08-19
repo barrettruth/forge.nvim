@@ -35,10 +35,6 @@ vim.pack.add({ 'https://github.com/barrettruth/forge.nvim' })
 :Issue forge://gitlab.com/group/subgroup/project/issues/12
 ```
 
-The forge is chosen by host. gitlab.com is GitLab, as is any host `glab` holds
-a login for. Everything else is GitHub. A GitLab view says "merge request" and
-writes `!` in front of the number.
-
 In a list, `<CR>` opens the item under the cursor. `-` takes an item back up to
 its list. In either, `gf` follows the reference under the cursor.
 
