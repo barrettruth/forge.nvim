@@ -253,6 +253,23 @@ local PRS = {
         return var.state == 'DRAFT' and var.can_update == true
       end,
     },
+    --- Offered only where the forge keeps the answer on the change itself. A
+    --- forge that settles it for the whole repository answers for neither of
+    --- these, and shows the state alone.
+    {
+      label = 'Delete the branch when this merges',
+      write = 'delete_branch',
+      when = function(var)
+        return var.state ~= 'MERGED' and var.can_update == true and not var.deletes
+      end,
+    },
+    {
+      label = 'Keep the branch when this merges',
+      write = 'keep_branch',
+      when = function(var)
+        return var.state ~= 'MERGED' and var.can_update == true and var.deletes == true
+      end,
+    },
     {
       label = 'Close {one}',
       write = 'close',
