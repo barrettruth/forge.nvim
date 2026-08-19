@@ -59,6 +59,43 @@ local function known()
   return logins
 end
 
+--- How long to let git answer where the remote points. It is a local read of
+--- a config file; anything slower than this is a repository that is not going
+--- to answer at all.
+local GIT = 2000
+
+--- @type table<string, string>
+local remotes = {}
+
+--- The host the checkout at `cwd` pushes to.
+---
+--- A target naming no repository names no forge either, and the CLI it should
+--- be sent to has to be settled before the request rather than after it. `gh`
+--- and `glab` each work this out from the same remotes, so reading them here
+--- reaches the same answer. ci.nvim prefers `upstream` over `origin` for the
+--- same reason it does: choosing the CLI from one remote while it reads
+--- another is how a fork is answered for by the wrong forge.
+--- @param cwd string?
+--- @return string?
+function M.here(cwd)
+  local at = cwd or vim.uv.cwd() or '.'
+  if remotes[at] ~= nil then
+    return remotes[at] ~= '' and remotes[at] or nil
+  end
+  local found = ''
+  for _, name in ipairs({ 'upstream', 'origin' }) do
+    local r = vim.system({ 'git', 'remote', 'get-url', name }, { text = true, cwd = at }):wait(GIT)
+    local url = r.code == 0 and vim.trim(r.stdout or '') or ''
+    if url ~= '' then
+      local authority = url:match('^%a[%w+.-]*://([^/]+)') or url:match('^([^/]+):')
+      found = authority and (authority:gsub('^[^@]*@', ''):gsub(':%d+$', '')) or ''
+      break
+    end
+  end
+  remotes[at] = found
+  return found ~= '' and found or nil
+end
+
 --- @param host string
 --- @return boolean
 local function github(host)
@@ -78,17 +115,18 @@ end
 --- ever naming itself github, and a host no backend can place fails at its
 --- first request with the forge's own error, which says more than one invented
 --- here. ci.nvim assumes Forgejo in the same position and for the same reason.
+--- The host is answered alongside the backend because a view that named none
+--- is still filed under one, and the checkout is the only thing that knew.
 --- @param host string? absent for a target no forge has answered yet
+--- @param cwd string? the checkout to read a host from, when the target has none
 --- @return forge.Backend
-function M.of(host)
-  host = host or DEFAULT
-  if gitlab(host) then
-    return require('forge.glab')
+--- @return string host the one it chose
+function M.of(host, cwd)
+  host = host or M.here(cwd) or DEFAULT
+  if gitlab(host) or (not github(host) and known()[host] == 'glab') then
+    return require('forge.glab'), host
   end
-  if not github(host) and known()[host] == 'glab' then
-    return require('forge.glab')
-  end
-  return require('forge.github')
+  return require('forge.github'), host
 end
 
 --- Forget the logins read from disk, so a login made since is picked up.

@@ -349,7 +349,8 @@ end
 --- @param t forge.Target
 --- @param o forge.Open
 local function open_head(t, o)
-  local be = backend.of(t.host)
+  local be, host = backend.of(t.host, o.cwd)
+  t = vim.tbl_extend('keep', t, { host = host })
   if not be then
     return
   end
