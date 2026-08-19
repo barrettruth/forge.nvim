@@ -350,7 +350,9 @@ menu is |vim.ui.select()|, so it is whichever picker you already use. >
 <
 A merge is offered once per method the repository allows, narrowed on GitHub
 by the base branch's ruleset: "Squash and merge", "Create a merge commit",
-"Rebase and merge". One with conflicts offers none of them.
+"Rebase and merge". One with conflicts offers none of them. Whether the branch
+goes once it merges is the forge's own setting, kept per merge request by
+GitLab and per repository by GitHub, and forge changes neither.
 
 On GitHub, a base branch that merges through a queue refuses every direct
 merge, so none of the three is offered there either. "Add to merge queue" is
