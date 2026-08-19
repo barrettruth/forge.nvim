@@ -153,6 +153,10 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       can_bypass = node.viewerCanMergeAsAdmin == true,
+      --- Whether the branch goes when the change lands. github settles it for
+      --- a whole repository and gitlab for each change, so it is read from
+      --- whichever of the two said so. The forge does the deleting either way.
+      deletes = (node.deletesBranch or repo.deleteBranchOnMerge) == true,
       --- github only offers auto-merge on a pull request it will not merge
       --- now, so this is true in much the same places `can_bypass` is: it is
       --- the other answer to a merge being blocked, and the reversible one.

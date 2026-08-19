@@ -81,9 +81,12 @@ function M.open(var, method, auto)
     --- A bypass goes past a rule, so it is drawn as an error. A merge that
     --- waits goes past nothing, and github does not honour a bypass when it
     --- comes to make one, so the two words never appear together.
+    --- The branch going is worth saying before the merge rather than after:
+    --- it is the one part of a merge that cannot be undone from here.
     mode = (auto and 'AUTO ' or '')
       .. MODE[method]
-      .. ((not auto and var.can_bypass) and ' BYPASS' or ''),
+      .. ((not auto and var.can_bypass) and ' BYPASS' or '')
+      .. (var.deletes and ' -BRANCH' or ''),
     mode_hl = (not auto and var.can_bypass) and 'ErrorMsg' or nil,
     split = true,
     on_write = function(lines, buf)

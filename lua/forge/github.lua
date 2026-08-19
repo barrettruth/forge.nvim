@@ -79,6 +79,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
     url
     viewerPermission
     mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed
+    deleteBranchOnMerge
     pullRequest(number: $number) {
       id number title state body createdAt isDraft mergeable url
       viewerCanUpdate viewerCanMergeAsAdmin headRefOid isMergeQueueEnabled
