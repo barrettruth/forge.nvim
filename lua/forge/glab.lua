@@ -286,8 +286,8 @@ local ANCHORED = { DiffNote = true, LegacyDiffNote = true }
 --- what came, because nothing here is capped.
 --- @param values table[]
 --- @return table
-local function connection(values, total)
-  return { nodes = values, totalCount = total or #values }
+local function connection(values)
+  return { nodes = values, totalCount = #values }
 end
 
 --- @param names string[]?
@@ -323,10 +323,8 @@ local function asked(users)
 end
 
 --- @param notes table[]?
---- @param total integer? how many the forge says there are, where more were
---- written than a page holds
 --- @return table
-local function conversation(notes, total)
+local function conversation(notes)
   local out = {}
   for _, note in ipairs(notes or {}) do
     if note.system ~= true and not ANCHORED[note.type or ''] then
@@ -339,7 +337,7 @@ local function conversation(notes, total)
       }
     end
   end
-  return connection(out, total)
+  return connection(out)
 end
 
 --- One merge request or issue, in the shape forge's renderers read.
@@ -367,10 +365,7 @@ function M.node(collection, row, notes)
     labels = labelled(row.labels),
     assignees = logins(row.assignees),
     milestone = row.milestone and { title = row.milestone.title } or nil,
-    --- The count is the forge's own, not the length of what came back: one
-    --- page is asked for, and a change argued over for long enough has more
-    --- than that. Saying so is what makes the cap visible.
-    comments = notes and conversation(notes, row.user_notes_count) or nil,
+    comments = notes and conversation(notes) or nil,
   }
 
   if collection == 'issues' then
