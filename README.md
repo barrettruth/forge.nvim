@@ -44,29 +44,6 @@ its list. In either, `gf` follows the reference under the cursor.
 
 See `:help forge.nvim` for more information.
 
-## Design
-
-**Two commands, no subcommands.** `:Issue` and `:PR`. Never `:Forge pr create`.
-If you are reaching for a verb, it should have been a mapping.
-
-**No `setup()`, no config.** Loading the plugin is enough. A default mapping
-is skipped where the key is already taken, or where the `<Plug>` target is
-already mapped. Your bindings win without you having to say so.
-
-**Every view has a name.** A `forge://` URI addresses each one, and the name
-alone is enough to rebuild it. That is what makes `:edit` and `gf` work without
-forge binding anything.
-
-**One contract per forge.** GitHub and GitLab implement the same backend
-interface. Nothing above it asks which forge answered. A capability is the
-presence of a method, never a flag. A forge that cannot do something simply
-does not offer it. What killed earlier attempts was not the second backend but
-the product of backends and features. Anything that multiplies gets refused.
-
-**Delegation over absorption.** [diffs.nvim] renders diffs, [ci.nvim] renders
-CI, fugitive renders logs. forge owns conversation and metadata. The rest is
-scope creep.
-
 ## Known Limitations
 
 Subject to change, and on the table for future development.
