@@ -142,6 +142,7 @@ local PRS = {
     { '<CR>', '<Plug>(forge-open)', 'open the {one} the line names' },
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
     { 'cE', '<Plug>(forge-edit)', "edit this {one}'s title and body" },
+    { 'cD', '<Plug>(forge-draft)', 'draft this {one}, or mark it ready' },
     { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
@@ -240,8 +241,11 @@ local PRS = {
         require('forge.edit').open(var)
       end,
     },
+    -- One key for the pair: the state tells them apart, so only ever one of
+    -- them is offered, and the winbar says which.
     {
       label = 'Convert to draft',
+      key = 'draft',
       write = 'draft',
       when = function(var)
         return var.state == 'OPEN' and var.can_update == true
@@ -249,6 +253,7 @@ local PRS = {
     },
     {
       label = 'Ready for review',
+      key = 'draft',
       write = 'ready',
       when = function(var)
         return var.state == 'DRAFT' and var.can_update == true

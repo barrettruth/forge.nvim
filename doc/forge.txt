@@ -301,6 +301,7 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
     gy       <Plug>(forge-yank)        Yank this view's URL.
     cc       <Plug>(forge-act)         Do something to this item.
     cE       <Plug>(forge-edit)        Edit its title and body.
+    cD       <Plug>(forge-draft)       Draft it, or mark it ready.
     dc       <Plug>(forge-checks)      Its checks, in ci.nvim.
     dd       <Plug>(forge-diff)        Its diff, in diffs.nvim.
     dl       <Plug>(forge-log)         Its commits, in fugitive.
@@ -320,6 +321,7 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
                                                           *<Plug>(forge-yank)*
                                                            *<Plug>(forge-act)*
                                                           *<Plug>(forge-edit)*
+                                                         *<Plug>(forge-draft)*
                                                         *<Plug>(forge-checks)*
                                                           *<Plug>(forge-diff)*
                                                            *<Plug>(forge-log)*
@@ -354,7 +356,13 @@ Use "cc" to perform a miscellany of actions in a |vim.ui.select()| menu:
 Some of what "cc" offers has a key of its own, which skips the menu: >
 
     cE  Edit title and body
+    cD  Convert to draft, or Ready for review
 <
+A direct key does what the menu entry does, and only where the menu would have
+offered it. Otherwise it names the entry and does nothing.
+
+"cD" is one key for two entries. The state decides which.
+
 
 A merge is offered once per method the repository allows: "Squash and merge",
 "Create a merge commit", "Rebase and merge". On GitHub the base branch's
