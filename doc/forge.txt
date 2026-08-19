@@ -1,4 +1,4 @@
-*forge.txt* *forge.nvim.txt*                       GitHub and GitLab in Neovim
+*forge.txt*                                        GitHub and GitLab in Neovim
 
 Author:  Barrett Ruth <br@barrettruth.com> License: GPL-3.0
 
@@ -18,7 +18,7 @@ CONTENTS                                                      *forge-contents*
  11. Health ............................................... |forge-health|
 
 ==============================================================================
-1. INTRODUCTION                                                  *forge-intro*
+1. INTRODUCTION                             *forge* *forge.nvim* *forge-intro*
 
 Read GitHub and GitLab issues, pull requests and merge requests in Neovim.
 
