@@ -213,8 +213,8 @@ A row is drawn only when it has something in it. A pull or merge request says
 "Reviewers" instead of "Type" and "Parent".
 
                                                                  *forge-stack*
-A pull request that is one of a chain of them draws the chain, after the
-description and before the comments: >
+A pull or merge request that is one of a chain of them draws the chain, after
+the description and before the comments: >
 
     ## Stack (3/4)
 
@@ -238,8 +238,7 @@ Two layers sharing a base branch are named rather than ordered: >
       forks above into #158, #159
       #157  idgen: allow a custom entropy source
 <
-A pull request in no chain draws no section, and neither does one opened from
-a fork. Merge requests draw none yet.
+One in no chain draws no section, and neither does one opened from a fork.
 
 A bar starts anything somebody wrote. Logins, labels and milestones are
 highlighted. Anything that can be followed is underlined.
@@ -521,7 +520,6 @@ On GitLab:
   trains are unsupported.
 - The commit message a merge would carry opens empty.
 - Search qualifiers are unsupported.
-- A merge request draws no stack.
 
 ==============================================================================
 11. HEALTH                                                      *forge-health*

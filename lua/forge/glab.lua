@@ -7,6 +7,7 @@
 --- small requests, not one large one. The transport is ci.nvim's.
 
 local log = require('forge.log')
+local stack = require('forge.stack')
 
 local M = {}
 
@@ -602,6 +603,148 @@ function M.head(t, branch, f, on_done)
       number = found and found.iid or nil,
     })
   end)
+end
+
+--- How many either direction of a walk asks for. A branch answers one merge
+--- request below it and however many above; ten is past where a fork is worth
+--- naming rather than ordering.
+local EITHER_WAY = 10
+
+--- One row of a list, in the shape forge.stack reads.
+--- @param row table
+--- @return forge.stack.Pull
+local function pulled(row)
+  return {
+    number = row.iid,
+    title = row.title or '',
+    state = STATE[row.state or ''],
+    isDraft = row.draft == true,
+    base = row.target_branch,
+    head = row.source_branch,
+  }
+end
+
+--- The merge request being read, in the same shape. Its node has already been
+--- through the item builder, so it speaks forge's words rather than gitlab's.
+--- @param node table
+--- @return forge.stack.Pull
+local function reading(node)
+  return {
+    number = node.number,
+    title = node.title or '',
+    state = node.state,
+    isDraft = node.isDraft == true,
+    base = node.baseRefName,
+    head = node.headRefName,
+  }
+end
+
+--- Only what a chain in this project could be built from. A merge request
+--- opened from a fork carries a branch in another project's namespace, so it
+--- can neither continue a chain nor be continued.
+--- @param rows table?
+--- @return table[]
+local function ours(rows)
+  return vim.tbl_filter(function(row)
+    return type(row) == 'table' and row.source_project_id == row.target_project_id
+  end, type(rows) == 'table' and rows or {})
+end
+
+--- @param at string
+--- @param query string
+--- @param t forge.Target
+--- @param f forge.Fetch
+--- @return forge.glab.Call
+local function listed(at, query, t, f)
+  return {
+    path = ('projects/%s/merge_requests?state=opened&%s'):format(at, query),
+    cwd = f.cwd,
+    host = t.host,
+  }
+end
+
+--- Follow the chain a layer at a time, in both directions at once.
+---
+--- Nothing is enumerated, so the size of the project never comes into it. Down
+--- and up are independent, so a ring asks for both and costs one round trip.
+--- @param t forge.Target
+--- @param f forge.Fetch
+--- @param at string
+--- @param here forge.stack.Pull
+--- @param job forge.glab.Job
+--- @param on_done fun(s: forge.Stack?)
+local function walking(t, f, at, here, job, on_done)
+  local found = { [here.number] = here }
+
+  local function step(base, head, depth)
+    together(
+      {
+        under = listed(at, ('source_branch=%s&per_page=%d'):format(enc(base), EITHER_WAY), t, f),
+        over = listed(at, ('target_branch=%s&per_page=%d'):format(enc(head), EITHER_WAY), t, f),
+      },
+      job,
+      function(answers)
+        local under = ours(answers.under.body)[1]
+        local over = ours(answers.over.body)
+
+        local grew = false
+        for _, row in ipairs(under and { under } or {}) do
+          grew = grew or found[row.iid] == nil
+          found[row.iid] = found[row.iid] or pulled(row)
+        end
+        for _, row in ipairs(over) do
+          grew = grew or found[row.iid] == nil
+          found[row.iid] = found[row.iid] or pulled(row)
+        end
+
+        -- A fork ends the walk upward: there is no single branch to follow past
+        -- it, and stack.chain names it out of what was collected.
+        local above = #over == 1 and over[1] or nil
+        if not grew or depth >= stack.MAX then
+          job.ok()
+          return on_done(stack.of(vim.tbl_values(found), here.number))
+        end
+        step(
+          under and under.target_branch or base,
+          above and above.source_branch or head,
+          depth + 1
+        )
+      end
+    )
+  end
+
+  step(here.base, here.head, 1)
+end
+
+--- @param t forge.Target
+--- @param one forge.Item
+--- @param f forge.Fetch
+--- @param on_done fun(s: forge.Stack?)
+function M.stack(t, one, f, on_done)
+  local node = one.node
+  -- A fork's branch is not in this project's namespace, so there is nothing
+  -- here to chain.
+  if node.isCrossRepository or not node.headRefName then
+    return on_done(nil)
+  end
+  local at = M.path(t.project)
+  local here = reading(node)
+  local job = working(f.desc, function()
+    on_done(nil)
+  end)
+
+  request(listed(at, ('per_page=%d'):format(PER_PAGE), t, f), function(answer)
+    local rows = type(answer.body) == 'table' and answer.body or {}
+    -- A page that came back short held every open merge request there is, so
+    -- the chain is a lookup away and no walk is worth its round trips. A full
+    -- one says nothing about what follows it, and gitlab stops counting a
+    -- large project at all, so the count is no better than the page.
+    if #rows < PER_PAGE then
+      job.ok()
+      return on_done(stack.of(vim.tbl_map(pulled, ours(rows)), here.number))
+    end
+    walking(t, f, at, here, job, on_done)
+  end, job.fail)
 end
 
 --- What gitlab reads as a draft, in the three spellings it accepts. See

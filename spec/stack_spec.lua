@@ -1,5 +1,6 @@
 local gh = require('forge.gh')
 local github = require('forge.github')
+local glab = require('forge.glab')
 local stack = require('forge.stack')
 
 --- @param rows table[] number, base, head
@@ -355,6 +356,168 @@ describe('github.stack', function()
         return { repository = { open = { totalCount = 13 }, pullRequest = {} } }
       end
       return nil
+    end)
+    assert.is_nil(held)
+  end)
+end)
+
+--- Answer every `glab api` with whatever `replies` says of its path, and record
+--- the paths asked. glab shells out, so the transport is the only seam.
+--- @param replies fun(path: string): table
+local function serving(replies)
+  local paths = {}
+  local real = vim.system
+  --- @diagnostic disable-next-line: duplicate-set-field
+  vim.system = function(cmd, _, on_exit)
+    local path = cmd[#cmd]
+    paths[#paths + 1] = path
+    on_exit({ code = 0, stdout = vim.json.encode(replies(path)), stderr = '' })
+    return {}
+  end
+  return paths, function()
+    vim.system = real
+  end
+end
+
+local PROJECT = 40
+
+--- @param over table?
+local function row(iid, base, head, over)
+  return vim.tbl_extend('force', {
+    iid = iid,
+    title = 'merge ' .. iid,
+    state = 'opened',
+    draft = false,
+    target_branch = base,
+    source_branch = head,
+    source_project_id = PROJECT,
+    target_project_id = PROJECT,
+  }, over or {})
+end
+
+--- @param over table? what to say about the merge request being read
+local function request_item(over)
+  return {
+    project = 'a/b',
+    repo = {},
+    node = vim.tbl_extend('force', {
+      number = 3,
+      title = 'merge 3',
+      state = 'OPEN',
+      isDraft = false,
+      baseRefName = 'b',
+      headRefName = 'c',
+      isCrossRepository = false,
+    }, over or {}),
+  }
+end
+
+--- @param one table
+--- @param replies fun(path: string): table
+local function derived(one, replies)
+  local got, done = nil, false
+  local paths, restore = serving(replies)
+  glab.stack({ project = 'a/b', collection = 'prs' }, one, { desc = 'x' }, function(s)
+    got, done = s, true
+  end)
+  -- `request` answers through vim.schedule, so the loop has to be pumped.
+  vim.wait(2000, function()
+    return done
+  end, 5)
+  restore()
+  return got, paths
+end
+
+--- @param path string
+local function filtered(path)
+  return path:match('source_branch=([^&]+)'), path:match('target_branch=([^&]+)')
+end
+
+describe('glab.stack', function()
+  it('chains a page that came back short, and asks nothing more', function()
+    local held, paths = derived(request_item(), function()
+      return { row(1, 'main', 'a'), row(2, 'a', 'b'), row(3, 'b', 'c'), row(4, 'c', 'd') }
+    end)
+    assert.equals(1, #paths)
+    assert.same({ 1, 2, 3, 4 }, numbers(assert(held).layers))
+    assert.equals(3, held.position)
+    assert.is_nil(held.number)
+  end)
+
+  it('walks where a full page says nothing about what follows it', function()
+    local rings = {}
+    local held, paths = derived(request_item(), function(path)
+      local source, target = filtered(path)
+      if not source and not target then
+        local page = {}
+        for i = 1, 100 do
+          page[i] = row(1000 + i, 'main', 'x' .. i)
+        end
+        return page
+      end
+      if source then
+        rings[#rings + 1] = 'under ' .. source
+        return ({ b = { row(2, 'a', 'b') }, a = { row(1, 'main', 'a') } })[source] or {}
+      end
+      rings[#rings + 1] = 'over ' .. target
+      return ({ c = { row(4, 'c', 'd') } })[target] or {}
+    end)
+
+    -- The page, then a ring of two calls per layer either side. A ring fires
+    -- both at once, so which of the pair answers first is not fixed.
+    assert.equals(7, #paths)
+    table.sort(rings)
+    assert.same({
+      'over c',
+      'over d',
+      'over d',
+      'under a',
+      'under b',
+      'under main',
+    }, rings)
+    assert.same({ 1, 2, 3, 4 }, numbers(assert(held).layers))
+    assert.equals(3, held.position)
+  end)
+
+  it("drops a fork's merge request, which is on another project", function()
+    local held = derived(request_item(), function()
+      return {
+        row(1, 'main', 'b', { source_project_id = 99 }),
+        row(2, 'main', 'b'),
+        row(3, 'b', 'c'),
+      }
+    end)
+    assert.same({ 2, 3 }, numbers(assert(held).layers))
+  end)
+
+  it('names a fork rather than ordering it', function()
+    local held = derived(request_item(), function()
+      return { row(3, 'b', 'c'), row(8, 'c', 'x'), row(9, 'c', 'y') }
+    end)
+    assert.same({ 8, 9 }, assert(held).forks)
+  end)
+
+  it('reads a draft out of the flag rather than the title', function()
+    local held = derived(request_item(), function()
+      return { row(2, 'main', 'b', { draft = true }), row(3, 'b', 'c') }
+    end)
+    local layers = assert(held).layers
+    assert.is_true(layers[1].isDraft)
+    assert.equals('OPEN', layers[1].state)
+    assert.is_false(layers[2].isDraft)
+  end)
+
+  it('asks nothing at all about a merge request from a fork', function()
+    local held, paths = derived(request_item({ isCrossRepository = true }), function()
+      return {}
+    end)
+    assert.equals(0, #paths)
+    assert.is_nil(held)
+  end)
+
+  it('draws no stack for a merge request standing alone', function()
+    local held = derived(request_item(), function()
+      return { row(3, 'b', 'c') }
     end)
     assert.is_nil(held)
   end)
