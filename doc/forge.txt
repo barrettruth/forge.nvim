@@ -352,6 +352,13 @@ A merge is offered once per method the repository allows, narrowed on GitHub
 by the base branch's ruleset: "Squash and merge", "Create a merge commit",
 "Rebase and merge". One with conflicts offers none of them.
 
+An open merge request also offers "Delete the branch when this merges", or
+"Keep the branch when this merges" where that is already the answer. It sits
+directly above the merges, because it settles what one does. GitLab keeps the
+answer on each merge request; GitHub settles it for a whole repository, so a
+pull request offers neither and the branch goes or stays as that repository
+says.
+
 On GitHub, a base branch that merges through a queue refuses every direct
 merge, so none of the three is offered there either. "Add to merge queue" is
 offered instead, and "Remove from merge queue" once it is in one. Neither
