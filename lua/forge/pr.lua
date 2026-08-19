@@ -126,19 +126,19 @@ local PRS = {
     DRAFT = view.HL.inert,
   },
   list_maps = {
-    { '<CR>', '<Plug>(forge-open)', 'open the pull request under the cursor' },
-    { 'o', '<Plug>(forge-open-split)', 'open the pull request under the cursor in a split' },
-    { ']p', '<Plug>(forge-next-page)', 'the next page of pull requests' },
-    { '[p', '<Plug>(forge-prev-page)', 'the previous page of pull requests' },
+    { '<CR>', '<Plug>(forge-open)', 'open the {one} under the cursor' },
+    { 'o', '<Plug>(forge-open-split)', 'open the {one} under the cursor in a split' },
+    { ']p', '<Plug>(forge-next-page)', 'the next page of {many}' },
+    { '[p', '<Plug>(forge-prev-page)', 'the previous page of {many}' },
   },
   --- A pull request is the only view with checks behind it, so "dc" is bound
   --- here rather than everywhere. An issue has no CI, and a key that exists
   --- only to refuse is worse than no key.
   item_maps = {
-    { 'cc', '<Plug>(forge-act)', 'do something to this pull request' },
-    { 'dc', '<Plug>(forge-checks)', "show this pull request's checks in ci.nvim" },
-    { 'dd', '<Plug>(forge-diff)', "show this pull request's diff in diffs.nvim" },
-    { 'dl', '<Plug>(forge-log)', "show this pull request's commits in fugitive" },
+    { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
+    { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
+    { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
+    { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
   },
   --- Which branches it joins cannot be read back off the view, and "dd" needs
   --- them to ask diffs.nvim for the right merge base. The repository github
@@ -250,14 +250,14 @@ local PRS = {
       end,
     },
     {
-      label = 'Close pull request',
+      label = 'Close {one}',
       write = 'close',
       when = function(var)
         return (var.state == 'OPEN' or var.state == 'DRAFT') and var.can_update == true
       end,
     },
     {
-      label = 'Reopen pull request',
+      label = 'Reopen {one}',
       write = 'reopen',
       when = function(var)
         return var.state == 'CLOSED' and var.can_update == true
@@ -359,12 +359,13 @@ local function open_head(t, o)
     return
   end
 
+  local nouns = be.nouns.prs
   be.head(t, branch, {
-    desc = ('the pull request for %s'):format(branch),
+    desc = ('the %s for %s'):format(nouns.one, branch),
     cwd = o.cwd,
   }, function(found)
     if not found.number then
-      log.info(('no pull request for %s yet, so opening a new one'):format(branch))
+      log.info(('no %s for %s yet, so opening a new one'):format(nouns.one, branch))
       view.create(uri.of(found.project, { collection = 'prs' }))
       return
     end

@@ -32,7 +32,8 @@ end
 function M.checks()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then
-    log.warn('no pull request here to show checks for')
+    local nouns = require('forge.backend').of(u and u.host).nouns.prs
+    log.warn(('no %s here to show checks for'):format(nouns.one))
     return
   end
 

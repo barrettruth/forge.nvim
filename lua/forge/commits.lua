@@ -21,8 +21,10 @@ end
 --- fetch "dd" makes.
 function M.show()
   local u = view.current()
+  local be = require('forge.backend').of(u and u.host)
+  local nouns = be.nouns.prs
   if not u or u.collection ~= 'prs' or not u.number then
-    log.warn('no pull request here to show the commits of')
+    log.warn(('no %s here to show the commits of'):format(nouns.one))
     return
   end
   if not M.available() then
@@ -34,12 +36,7 @@ function M.show()
   --- @type forge.ItemVar
   local refs = vim.b[buf].forge or {}
   if not refs.base or not refs.remote then
-    log.err('this pull request did not say what it merges into')
-    return
-  end
-
-  local be = require('forge.backend').of(u.host)
-  if not be then
+    log.err(('this %s did not say what it merges into'):format(nouns.one))
     return
   end
 

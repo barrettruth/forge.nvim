@@ -174,14 +174,15 @@ end
 --- How many items a list asks github for at once.
 M.PER_PAGE = 100
 
---- What a collection is called when talking to a person.
-local LABEL = { issues = 'issues', prs = 'pull requests' }
+--- Which command to send someone to when a target names the other collection.
+local OTHER = { issues = ':PR', prs = ':Issue' }
 
---- What to say when a target names the collection the other command opens.
-local OTHER = {
-  issues = 'that names pull requests; use :PR',
-  prs = 'that names issues; use :Issue',
-}
+--- What the forge that answered for `t` calls its collection.
+--- @param t forge.Target
+--- @return forge.Nouns
+local function nouns(t)
+  return require('forge.backend').of(t.host).nouns[t.collection]
+end
 
 --- Where a view was asked for, and where its answer should land.
 ---
@@ -528,7 +529,7 @@ function M.command(target, collection, opts)
     return
   end
   if t.collection ~= collection then
-    log.err(OTHER[collection])
+    log.err(('that names %s; use %s'):format(nouns(t).many, OTHER[collection]))
     return
   end
   M.open(t, { mods = opts and opts.mods, smods = opts and opts.smods })
@@ -620,7 +621,7 @@ function M.page(delta)
     return
   end
   if delta > 0 and not paging.has_next then
-    log.info('no more ' .. LABEL[u.collection])
+    log.info('no more ' .. nouns(u).many)
     return
   end
   M.open(u, { page = page, cursors = paging.cursors })

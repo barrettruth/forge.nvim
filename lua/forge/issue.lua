@@ -41,13 +41,13 @@ local ISSUES = {
     return REASON[node.stateReason] or node.state
   end,
   list_maps = {
-    { '<CR>', '<Plug>(forge-open)', 'open the issue under the cursor' },
-    { 'o', '<Plug>(forge-open-split)', 'open the issue under the cursor in a split' },
-    { ']i', '<Plug>(forge-next-page)', 'the next page of issues' },
-    { '[i', '<Plug>(forge-prev-page)', 'the previous page of issues' },
+    { '<CR>', '<Plug>(forge-open)', 'open the {one} under the cursor' },
+    { 'o', '<Plug>(forge-open-split)', 'open the {one} under the cursor in a split' },
+    { ']i', '<Plug>(forge-next-page)', 'the next page of {many}' },
+    { '[i', '<Plug>(forge-prev-page)', 'the previous page of {many}' },
   },
   item_maps = {
-    { 'cc', '<Plug>(forge-act)', 'do something to this issue' },
+    { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
   },
   remember = function(node)
     return { id = node.id, can_update = node.viewerCanUpdate }
@@ -79,7 +79,7 @@ local ISSUES = {
       end,
     },
     {
-      label = 'Reopen issue',
+      label = 'Reopen {one}',
       write = 'reopen',
       when = function(var)
         return var.state ~= 'OPEN' and var.can_update == true

@@ -88,7 +88,8 @@ local M = {}
 --- different write, and the reason a state can be written into that write
 --- rather than passed is that a forge spells its own enums.
 --- @class forge.Action
---- @field label string what the picker shows, in the forge's own words
+--- @field label string what the picker shows; `{one}` and `{many}` are filled
+--- in with the forge's own word for the collection
 --- @field write? string which of the backend's writes it sends
 --- @field query? string that write itself, filled in when the action is offered
 --- @field run? fun(var: forge.ItemVar) what to do instead of sending one
@@ -104,7 +105,8 @@ local M = {}
 --- @class forge.Spec
 --- @field collection forge.Collection which of the two it is
 --- @field state_hl table<string, string>
---- @field list_maps [string, string, string][]
+--- @field list_maps [string, string, string][] lhs, plug and description, the
+--- last of them worded as |forge.Action|'s label is
 --- @field item_maps [string, string, string][]?
 --- @field state? fun(node: table): string the state to show, when not node.state
 --- @field about? fun(node: table): string what the winbar says after the
@@ -126,6 +128,30 @@ local M = {}
 --- @return forge.Backend?
 local function answered(var)
   return backend.of((var.url or ''):match('^https?://([^/]+)'))
+end
+
+--- Say something in the words of the forge that answered.
+---
+--- A spec is written once for both of them, so where it has to name the
+--- collection it writes a placeholder and this fills it in. gitlab calls a
+--- pull request a merge request, and a key whose description says otherwise is
+--- the same leak as a winbar that does.
+--- @param said string
+--- @param nouns forge.Nouns
+--- @return string
+local function worded(said, nouns)
+  return (said:gsub('{one}', nouns.one):gsub('{many}', nouns.many))
+end
+
+--- @param maps [string, string, string][]?
+--- @param nouns forge.Nouns
+--- @return [string, string, string][]
+local function keys(maps, nouns)
+  local out = {}
+  for _, map in ipairs(maps or {}) do
+    out[#out + 1] = { map[1], map[2], worded(map[3], nouns) }
+  end
+  return out
 end
 
 --- Where the answer goes is settled before the round trip, since by the time
@@ -161,12 +187,14 @@ end
 --- @return forge.Action[]
 local function offering(be, spec, var)
   local writes = be.writes[spec.collection] or {}
+  local nouns = be.nouns[spec.collection]
   local can = {}
   for _, action in ipairs(spec.actions or {}) do
     if action.when(var) then
-      can[#can + 1] = action.write
-          and vim.tbl_extend('force', action, { query = writes[action.write] }) --[[@as forge.Action]]
-        or action
+      can[#can + 1] = vim.tbl_extend('force', action, {
+        label = worded(action.label, nouns),
+        query = action.write and writes[action.write] or nil,
+      }) --[[@as forge.Action]]
     end
   end
   return can
@@ -290,7 +318,7 @@ function M.list(spec, t, o)
     }
 
     view.place(o)
-    local buf = view.render(u, lines, info, marks, spec.list_maps, o)
+    local buf = view.render(u, lines, info, marks, keys(spec.list_maps, nouns), o)
     if answer.cursor then
       cursors[page + 1] = answer.cursor
     end
@@ -406,7 +434,7 @@ function M.item(spec, t, o)
     end
 
     view.place(o)
-    view.render(u, lines, info, marks, spec.item_maps, o)
+    view.render(u, lines, info, marks, keys(spec.item_maps, nouns), o)
     view.check_truncated(node.labels, 'labels')
     view.check_truncated(node.assignees, 'assignees')
     view.check_truncated(node.comments, 'comments')

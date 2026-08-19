@@ -68,13 +68,14 @@ function M.open(var, method, auto)
 
   auto = auto == true
   local message = (var.merge or {})[method] or {}
+  local nouns = backend.of(u.host).nouns.prs
   compose.open({
     --- Named for the method, and for whether it waits, so picking one after
     --- another does not hand back the message written for the first.
     name = ('%s/%s/%s'):format(uri.tostring(u), auto and 'automerge' or 'merge', NAME[method]),
     text = ('%s\n\n%s'):format(message.headline or '', message.body or ''),
     filetype = 'gitcommit',
-    desc = 'merge the pull request with the message written here',
+    desc = ('merge the %s with the message written here'):format(nouns.one),
     label = var.label,
     tag = var.tag,
     --- A bypass goes past a rule, so it is drawn as an error. A merge that
