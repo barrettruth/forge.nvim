@@ -51,23 +51,10 @@ Subject to change, and on the table for future development.
 - **GitHub and GitLab only.** No Forgejo, Codeberg, nor Gitea.
 - **No review surface.** There is no way to approve, request changes, or
   comment, and comments written against a line of the diff are not shown.
-  Read those on the forge, or in [diffs.nvim].
-- **Creating happens in the browser.** `ga` opens the forge's own new-issue or
-  new-pull-request page. Templates, required fields and attachments stay the
-  forge's to enforce. There is no compose buffer.
-- **No stacks.** A pull request that belongs to a stack is not recognised as
-  one.
-- **Deleting the branch on merge is unsupported.** GitHub settles it for a
-  whole repository and GitLab per merge request, and GitLab will not say over
-  its REST API whether you may.
-- **GitLab does less.** Closing as not planned, rebasing, waiting merges and
-  merge trains are all unsupported, the commit message a merge would carry
-  opens empty, and a search is matched against the title and description with
-  no qualifier language.
+- **Issue/PR creation is browser-native.** Open in the browser with `ga`.
+- **Underlying Forge Limitations.** GitHub, GitLab, and Forgejo APIs have
+  mixed support for common behaviors such as PR merging, CI, search, etc.
 
 ## Acknowledgements
 
 - [guh.nvim](https://github.com/justinmk/guh.nvim)
-
-[ci.nvim]: https://forge.barrettruth.com/barrettruth/ci.nvim
-[diffs.nvim]: https://forge.barrettruth.com/barrettruth/diffs.nvim
