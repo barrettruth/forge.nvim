@@ -229,7 +229,7 @@ the colour of its state. The line being read is drawn in "CursorLine".
 
 <CR> opens the layer under the cursor. "[s" goes to the layer above and "]s"
 to the one below, wrapping at either end. |gf| follows a number as it does
-anywhere else. The winbar says the same position. |forge-mappings|
+anywhere else. |forge-mappings|
 
 Two layers sharing a base branch are named rather than ordered: >
 
@@ -238,7 +238,7 @@ Two layers sharing a base branch are named rather than ordered: >
       #157  idgen: allow a custom entropy source
       forks into #158, #159
 <
-One in no chain draws no section, and neither does one opened from a fork.
+Every layer of a chain is in the same repository.
 
 A bar starts anything somebody wrote. Logins, labels and milestones are
 highlighted. Anything that can be followed is underlined.
@@ -269,7 +269,6 @@ Every view sets a 'winbar': >
     ISSUE #27 OPEN | a title that fits
     ISSUE #41309 NOT PLANNED | one nobody is going to do
     PR #151 MERGED | master <- a-branch                         +10 -2
-    PR #149 [3/4] OPEN | main <- a-branch                        +7 -0
     PR #152 OPEN | master <- them:their-branch CONFLICT FAILING | +7 -0
     MRS group/subgroup/project 1/1 (8)
     MR !12 OPEN | main <- a-branch                                +3 -1
@@ -280,7 +279,7 @@ Only that part is truncated in a narrow window.
 
 A diffstat is drawn against the right edge. A badge says "CONFLICT" for a
 conflicting merge, and "FAILING", "PENDING" or "EXPECTED" for the checks. "dc"
-shows which. A pull request in a stack says which layer it is. |forge-stack|
+shows which.
 
 ==============================================================================
 7. MAPPINGS                                                   *forge-mappings*

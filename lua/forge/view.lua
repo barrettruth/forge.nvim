@@ -99,9 +99,7 @@ local WINBAR = {
     .. at('label')
     .. '%* %#Tag#'
     .. at('tag')
-    .. '%*%( ['
-    .. at('stack')
-    .. ']%) '
+    .. '%* '
     .. STATE
     .. '%( | %#Comment#'
     .. at('base')
