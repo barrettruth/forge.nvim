@@ -55,7 +55,8 @@ future development.
   rebase, no merge that waits, and no merge train; and the commit message a
   merge carries opens empty.
 - **No review surface**: There is no way to converse, approve, request
-  changes, or comment on PRs.
+  changes, or comment on PRs, and comments written against a line of the diff
+  are not shown either.
 - **No stacks**: There is no recognization of stacks, if a PR may
   belong to one.
 - **Creating occurs in the browser**. forge.nvim offloads to the browser for

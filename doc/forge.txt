@@ -234,6 +234,10 @@ request being dropped when its reviewer answers; on GitLab they are everyone
 asked. A parent is written as the reference |gf| follows, not as the title it
 stands for.
 
+"Comments" is the conversation. A comment written against a line of the diff
+is a review comment, and forge draws none of those: a change reviewed in the
+diff shows fewer comments here than its own page does.
+
 A bar starts anything somebody wrote, item and comment alike, because a body
 is markdown and a heading in one would otherwise read as the start of another
 comment. A login is drawn in the emphasis a colourscheme gives markdown, a
