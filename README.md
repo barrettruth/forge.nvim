@@ -2,6 +2,8 @@
 
 GitHub and GitLab issues, pull requests and merge requests in Neovim.
 
+<img width="1728" height="1016" alt="Image" src="https://github.com/user-attachments/assets/beb94673-c70b-4044-822a-d6762bba8862" />
+
 ## Requirements
 
 - Neovim 0.12+
