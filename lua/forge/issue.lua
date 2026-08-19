@@ -3,9 +3,8 @@ local view = require('forge.view')
 
 local M = {}
 
---- How a closed issue ended. Each of these implies closed, so the winbar says
---- the reason and not both, as MERGED and DRAFT already do for a pull request.
---- REOPENED is left out: that one is open, and says so.
+--- How a closed issue ended. Each implies closed. The winbar draws the reason
+--- alone. REOPENED is left out. That one is open, and says so.
 local REASON = {
   COMPLETED = 'COMPLETED',
   DUPLICATE = 'DUPLICATE',
@@ -15,10 +14,8 @@ local REASON = {
 --- @type forge.Spec
 local ISSUES = {
   collection = 'issues',
-  --- CLOSED is the fallback for one github gave no reason, which it backfilled
-  --- COMPLETED on every issue closed before it started asking.
-  --- What only an issue has. A type is github's classification, not a label,
-  --- and a parent is written as the reference |gf| already follows.
+  -- What only an issue has. A type is github's own classification, not a
+  -- label. A parent is written as the reference |gf| already follows.
   rows = function(node)
     local number = vim.tbl_get(node, 'parent', 'number')
     return {
@@ -52,8 +49,8 @@ local ISSUES = {
   remember = function(node)
     return { id = node.id, can_update = node.viewerCanUpdate }
   end,
-  --- A closed issue's state is the reason it closed, never "CLOSED", so open is
-  --- the one state to test for and everything else is closed.
+  -- A closed issue's state is the reason it closed, never "CLOSED". OPEN is
+  -- the one state to test for. Everything else is closed.
   actions = {
     {
       label = 'Edit title and body',
@@ -78,8 +75,8 @@ local ISSUES = {
         return var.state == 'OPEN' and var.can_update == true
       end,
     },
-    --- For a forge that keeps no reason an issue was closed, and so offers
-    --- one close rather than a choice between two.
+    -- For a forge that keeps no reason an issue was closed. The two named
+    -- closings above name writes it has none of.
     {
       label = 'Close {one}',
       write = 'close',
@@ -120,10 +117,8 @@ function M.show(t, o)
   end
 end
 
---- Open whatever `target` names, so long as it names issues.
----
---- A bare number is taken as an issue: github numbers both from one counter,
---- so only github can say which it is.
+--- Open whatever `target` names, so long as it names issues. A bare number is
+--- one. github numbers both collections from a single counter.
 --- @param target string?
 --- @param opts vim.api.keyset.create_user_command.command_args? window modifiers
 function M.open(target, opts)

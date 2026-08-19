@@ -1,20 +1,19 @@
 --- Which forge answers for a host. Everything above this asks by hostname and
---- is told nothing more; see |forge.Backend| for what it gets back.
+--- is told nothing more. See |forge.Backend| for what it gets back.
 
 local M = {}
 
 --- The forge a view that never named one belongs to, as forge.uri spells it.
 local DEFAULT = 'github.com'
 
---- Where each CLI keeps the hosts it has been logged in to, under $XDG or the
---- variable it reads first.
+--- Where each CLI keeps the hosts it has been logged in to.
 local LOGINS = {
   {
     cli = 'glab',
     dir = 'GLAB_CONFIG_DIR',
     path = { 'glab-cli', 'config.yml' },
-    --- Nested under a `hosts:` key, unlike gh's, so the section has to be
-    --- found before its keys mean anything.
+    -- glab nests its hosts under a `hosts:` key where gh does not. Find the
+    -- section before reading its keys.
     section = 'hosts:',
   },
   { cli = 'gh', dir = 'GH_CONFIG_DIR', path = { 'gh', 'hosts.yml' } },
@@ -25,11 +24,10 @@ local logins
 
 --- Every host either CLI holds a login for.
 ---
---- Read rather than asked for: `glab auth status` is a round trip on a path
---- that has to answer before a keystroke is drawn, and the file it would
---- consult is right here. A hostname alone cannot tell a gitlab an
---- organisation installs itself from a github it installs itself, and a login
---- is the one place the answer is already written down.
+--- Read off disk, not asked for. `glab auth status` is a round trip on a path
+--- that has to answer before a keystroke is drawn. A self-hosted gitlab and a
+--- self-hosted github cannot be told apart by hostname. A login is the one
+--- place the answer is already written down.
 --- @return table<string, string>
 local function known()
   if logins then
@@ -46,8 +44,8 @@ local function known()
         within = true
       elseif within then
         local host = line:match('^%s*([%w][%w.-]*):%s*$')
-        --- A key one level deeper than the section is a host; anything deeper
-        --- is that host's own settings.
+        -- A key one level deeper than the section is a host. Anything deeper
+        -- is that host's own settings.
         if host and (not it.section or line:match('^%s+')) then
           logins[host] = logins[host] or it.cli
         elseif it.section and line:match('^%S') then
@@ -59,9 +57,8 @@ local function known()
   return logins
 end
 
---- How long to let git answer where the remote points. It is a local read of
---- a config file; anything slower than this is a repository that is not going
---- to answer at all.
+--- How long to let git answer where the remote points. It reads a local
+--- config file. Anything slower will not answer at all.
 local GIT = 2000
 
 --- @type table<string, string>
@@ -69,12 +66,10 @@ local remotes = {}
 
 --- The host the checkout at `cwd` pushes to.
 ---
---- A target naming no repository names no forge either, and the CLI it should
---- be sent to has to be settled before the request rather than after it. `gh`
---- and `glab` each work this out from the same remotes, so reading them here
---- reaches the same answer. ci.nvim prefers `upstream` over `origin` for the
---- same reason it does: choosing the CLI from one remote while it reads
---- another is how a fork is answered for by the wrong forge.
+--- A target naming no repository names no forge either. Which CLI to send it
+--- to has to be settled before the request. `upstream` before `origin`, as
+--- ci.nvim does. Choosing the CLI from one remote while the CLI reads another
+--- is how a fork gets answered for by the wrong forge.
 --- @param cwd string?
 --- @return string?
 function M.here(cwd)
@@ -108,15 +103,12 @@ local function gitlab(host)
   return host == 'gitlab.com' or host:match('%.gitlab%.com$') ~= nil
 end
 
---- The backend answering for `host`.
+--- The backend answering for `host`, and the host it settled on.
 ---
---- The two names first, then whichever CLI holds a login for the host, and
---- github for anything left: an enterprise install answers to `gh` without
---- ever naming itself github, and a host no backend can place fails at its
---- first request with the forge's own error, which says more than one invented
---- here. ci.nvim assumes Forgejo in the same position and for the same reason.
---- The host is answered alongside the backend because a view that named none
---- is still filed under one, and the checkout is the only thing that knew.
+--- The two known names first, then whichever CLI holds a login, then github.
+--- An enterprise install answers to `gh` without ever naming itself github.
+--- A host no backend can place fails at its first request with the forge's own
+--- error, not one invented here. ci.nvim falls back to Forgejo here.
 --- @param host string? absent for a target no forge has answered yet
 --- @param cwd string? the checkout to read a host from, when the target has none
 --- @return forge.Backend
@@ -129,7 +121,7 @@ function M.of(host, cwd)
   return require('forge.github'), host
 end
 
---- Forget the logins read from disk, so a login made since is picked up.
+--- Forget the logins read from disk. A login made since is picked up.
 function M.reload()
   logins = nil
 end

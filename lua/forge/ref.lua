@@ -4,26 +4,22 @@ local M = {}
 
 --- The forms github itself turns into a link, and no others.
 ---
---- A bare "owner/repo" is deliberately absent. It is also how a path is
---- spelled, so "spec/helpers.lua" in a body would open a repository nobody
---- named. The command line still takes it, because there you typed it.
+--- A bare "owner/repo" is absent. It is also how a path is spelled.
+--- "spec/helpers.lua" in a body would open a repository nobody named. A
+--- mention arrives looking exactly the same. The command line still takes one.
 ---
---- Leaving it out settles a mention too, which arrives looking exactly like a
---- repository.
----
---- The github.com forms name a path rather than the host, because most of what
---- github serves is not an item: an attachment, a blob, a release tag. A url
---- `uri.resolve` does not recognise becomes a search, and a search arriving
---- here opens the bare list with its query dropped. |gx| answers for those.
+--- The github.com forms match on the path, not the host alone. Most of what
+--- github serves is not an item. A url `uri.resolve` does not recognise
+--- becomes a search. That opens the bare list with its query dropped.
 local LINKED = {
   '^#%d+$',
   '^[%w._-]+/[%w._/-]+#%d+$',
-  --- gitlab's sigil for a merge request, and the one form that names which
-  --- collection it means without being asked.
+  -- gitlab's merge request sigil. The one form that names its own collection
+  -- without being asked.
   '^!%d+$',
   '^[%w._-]+/[%w._/-]+!%d+$',
   '^forge://',
-  --- The frontier ends the word, `%z` standing for the end of the string.
+  -- The frontier ends the word, `%z` standing for the end of the string.
   '^https?://github%.com/[^/]+/[^/]+/issues%f[%z/?#]',
   '^https?://github%.com/[^/]+/[^/]+/pulls?%f[%z/?#]',
 }
@@ -41,18 +37,16 @@ end
 
 --- The token under the cursor.
 ---
---- |<cfile>| rather than |<cWORD>|, because 'isfname' already leaves out the
---- brackets, quotes and trailing punctuation prose wraps a reference in:
---- "(#123)", "`#123`" and "#123." all arrive as "#123", and either half of a
---- markdown link answers for itself. Reading the WORD means peeling those off
---- afterwards, and peeling them off wrongly.
+--- |<cfile>| rather than |<cWORD>|. 'isfname' already leaves out the
+--- brackets, quotes and trailing punctuation prose wraps a reference in.
+--- "(#123)", "`#123`" and "#123." all arrive as "#123". Reading the WORD means
+--- peeling those off afterwards, and peeling them off wrongly.
 ---
---- 'isfname' spells "@" as "any letter" rather than the character, so a
---- mention arrives without its sigil. Core widens it the same way for its own
---- |gx|. Neither "!" nor "&" is in it at all, which are gitlab's sigils for a
---- merge request and an epic, so both would arrive as a bare number.
---- |expand()| raises E446 on nothing at all, and nothing may raise out of a
---- mapping.
+--- 'isfname' spells "@" as "any letter", not the character. A mention would
+--- arrive without its sigil. Core widens it the same way for |gx|. Neither
+--- "!" nor "&" is in it at all. Those are gitlab's sigils for a merge request
+--- and an epic, and both would arrive as bare numbers. |expand()| raises E446
+--- on nothing at all, and nothing may raise out of a mapping.
 --- @return string
 local function token()
   return vim._with({ go = { isfname = vim.go.isfname .. ',@-@,!,&' } }, function()
@@ -77,10 +71,9 @@ end
 
 --- The buffer name |gf| should open for `fname`. See 'includeexpr'.
 ---
---- A reference naming no repository means the one whose view it was read in,
---- which is the only repository it could have meant. Anything forge cannot
---- address is handed back unchanged, so |gf| on an ordinary path in a body
---- still opens the file.
+--- A reference naming no repository means the one whose view it was read in.
+--- Anything forge cannot address is handed back unchanged. |gf| on an ordinary
+--- path in a body still opens the file.
 --- @param fname string
 --- @return string
 function M.include(fname)
@@ -88,9 +81,9 @@ function M.include(fname)
   if not here or not linked(fname) then
     return fname
   end
-  --- github draws issues and pull requests from one sequence, so "#123" there
-  --- means whichever the view is already showing. Everywhere else numbers them
-  --- apart, and "#" is the issue sigil whatever you are reading.
+  -- github draws issues and pull requests from one sequence. "#123" there
+  -- means whichever the view is already showing. Everywhere else numbers them
+  -- apart, and "#" is the issue sigil whatever you are reading.
   local meant = here.host == 'github.com' and here.collection or 'issues'
   local t = uri.resolve(fname, meant)
   if not t then

@@ -6,11 +6,10 @@ local M = {}
 
 --- ci.nvim, if it is there to be used.
 ---
---- An installed plugin is not a loaded one. Under `pack/*/opt` nothing is on
---- the runtimepath until |:packadd|, so requiring first would call an
---- installed ci.nvim missing merely because its own trigger had not fired.
---- The flag settles it either way: it lives in ci.nvim's plugin file, and with
---- the module loaded and the plugin not, `:CI` opens a buffer nothing fills.
+--- Under `pack/*/opt` nothing is on the runtimepath until |:packadd|.
+--- Requiring first would call an installed ci.nvim missing. `vim.g.loaded_ci`
+--- lives in its plugin file. With the module loaded but the plugin not, `:CI`
+--- opens a buffer nothing fills.
 --- @return table?
 function M.available()
   if not vim.g.loaded_ci then
@@ -25,10 +24,9 @@ end
 
 --- Hand this pull request to ci.nvim.
 ---
---- It goes over as its github.com URL, which is a target |:CI| already accepts,
---- so forge needs to know nothing about how ci.nvim addresses its own buffers.
---- ci.nvim's own "-" is pointed back here, so the way out of the checks is the
---- key that already means "out".
+--- Handed over as a URL, which |:CI| already accepts. forge knows nothing
+--- about how ci.nvim addresses its own buffers. ci.nvim's "-" is pointed back
+--- here.
 function M.checks()
   local u = view.current()
   if not u or u.collection ~= 'prs' or not u.number then

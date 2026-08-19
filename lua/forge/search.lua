@@ -1,10 +1,8 @@
 --- Completing a github search, without asking github.
 ---
---- Everything here is a literal: nothing is fetched, nothing is remembered
---- between keystrokes, and the answer to any given <Tab> is the same as it was
---- yesterday. A qualifier's real values — which labels a repository has, who
---- its people are — cannot be known without a request, so they are not offered
---- at all rather than offered slowly or from a copy that has gone stale.
+--- Everything here is a literal. A qualifier's real values, such as which
+--- labels a repository has, cannot be known without a request. A request
+--- behind <Tab> is either slow or stale. Those are not offered at all.
 
 local M = {}
 
@@ -53,9 +51,8 @@ for _, field in ipairs({
   table.insert(VALUES.sort, field .. '-desc')
 end
 
---- Qualifiers naming a person. "@me" is the only one of those knowable here,
---- and between `author:@me` and `review-requested:@me` it is most of why you
---- would search at all.
+--- Qualifiers naming a person. "@me" is the only value knowable here, and it
+--- covers `author:@me` and `review-requested:@me`.
 local USERS = {
   'assignee',
   'author',
@@ -67,8 +64,8 @@ local USERS = {
   'user-review-requested',
 }
 
---- Qualifiers whose value forge cannot know: a label or milestone belongs to
---- the repository, a date or a count to you.
+--- Qualifiers whose value forge cannot know. A label or milestone belongs to
+--- the repository. A date or a count belongs to you.
 local FREE = {
   'base',
   'closed',
@@ -106,15 +103,13 @@ end
 
 --- What could follow what has been typed so far.
 ---
---- Only the word under the cursor is read, which is what Neovim gives us: it
---- splits on whitespace and does not know about quotes, so `label:"good fir`
---- arrives as `fir`. That matches no qualifier and no value, and the empty
---- answer is the right one — there is nothing forge could offer inside a
---- value anyway.
+--- Neovim hands over the word under the cursor, split on whitespace and with
+--- no notion of quotes. `label:"good fir` arrives as `fir`. That matches
+--- nothing and completes to nothing, which is the right answer.
 --- @param lead string the word being completed
 --- @return string[]
 function M.complete(lead)
-  --- Negation reads the same, so it is peeled off and put back.
+  -- Negation reads the same. Peel it off and put it back.
   local not_, rest = lead:match('^(%-?)(.*)$')
   local key, typed = rest:match('^([%w-]+):(.*)$')
 

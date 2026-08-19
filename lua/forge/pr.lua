@@ -22,13 +22,11 @@ local auto_squashing, auto_committing = writing('SQUASH', true), writing('MERGE'
 
 local WRITES = { WRITE = true, MAINTAIN = true, ADMIN = true }
 
---- When to offer one of the two namings a merge has.
+--- When to offer one of the two names a merge has.
 ---
---- Both send the same document: `mergePullRequest` has no bypass field, and
---- github applies one server-side to whoever holds it, so what is chosen here
---- is a word. `viewerCanMergeAsAdmin` is false for an admin with nothing to
---- bypass, so the two are never offered together, and nothing is refused on
---- it either way: github decides that when asked, as it does for every merge.
+--- Both send the same document. `mergePullRequest` has no bypass field. The
+--- choice here is only what to call it. `viewerCanMergeAsAdmin` is false for
+--- an admin with nothing to bypass, and the pair is never offered together.
 --- @param can string the field saying github would take this method at all
 --- @param bypass boolean which of the pair this is
 --- @return fun(var: forge.ItemVar): boolean
@@ -40,11 +38,9 @@ end
 
 --- When to offer a merge that waits for github to allow it.
 ---
---- `viewerCanEnableAutoMerge` answers the whole of whether github would take
---- one, the repository's switch and your access included, and it is false on a
---- pull request that could merge now. The method still has to be one the
---- repository and its ruleset would take, since that is checked when the wait
---- ends rather than when it starts.
+--- `viewerCanEnableAutoMerge` covers the repository's switch and your access.
+--- It is false on a pull request that could merge now. The method is still
+--- checked here. github checks it when the wait ends, not when it starts.
 --- @param can string
 --- @return fun(var: forge.ItemVar): boolean
 local function waiting(can)
@@ -55,18 +51,11 @@ end
 
 --- Which merge methods github would accept on this pull request, now.
 ---
---- Three things have to agree, and there is no single field for it: there is no
---- `viewerCanMerge`. `viewerCanUpdate` cannot stand in, because an author with
---- no write access has it — that is how you end up offering to merge a stranger's
---- repository. `viewerCanMergeAsAdmin` is about bypassing protection and is false
---- for an admin with nothing to bypass. So write access comes from the
---- repository, the methods from its switches narrowed by whatever ruleset governs
---- the base, and `mergeStateStatus` is left out of it entirely: github computes it
---- lazily and answers UNKNOWN on a pull request it has not looked at lately, which
---- would hide the action rather than explain it.
----
---- A ruleset too long for one page is ignored rather than guessed at. github
---- refuses the merge either way and names the reason.
+--- There is no `viewerCanMerge`. This is assembled: write access from the
+--- repository, the methods from its switches narrowed by the base branch's
+--- ruleset. `viewerCanUpdate` cannot stand in. An author with no write access
+--- has it. `mergeStateStatus` is left out. github computes it lazily and
+--- answers UNKNOWN on a pull request it has not looked at lately.
 --- @param node table
 --- @param repo table
 --- @return table<string, boolean>
@@ -85,6 +74,8 @@ local function merges(node, repo)
 
   local rules = vim.tbl_get(node, 'baseRef', 'rules') or {}
   local nodes = rules.nodes or {}
+  -- A ruleset too long for one page is left unnarrowed, not guessed at.
+  -- github refuses the merge either way, and names the reason.
   if (rules.totalCount or 0) > #nodes then
     return ok
   end
@@ -99,8 +90,8 @@ local function merges(node, repo)
   return ok
 end
 
---- What a rollup state is worth saying, and how. A repository with no checks
---- has no rollup at all, and one that passed has nothing to report.
+--- The rollup states worth a badge. A repository with no checks has no rollup,
+--- and one that passed has nothing to report.
 local CHECKS = {
   ERROR = { 'FAILING', view.HL.bad },
   FAILURE = { 'FAILING', view.HL.bad },
@@ -118,7 +109,7 @@ end
 --- @type forge.Spec
 local PRS = {
   collection = 'prs',
-  --- A draft is OPEN with a flag, so it is resolved before this is consulted.
+  -- A draft is OPEN with a flag, and `state` below resolves it first.
   state_hl = {
     OPEN = view.HL.live,
     CLOSED = view.HL.bad,
@@ -131,18 +122,16 @@ local PRS = {
     { ']p', '<Plug>(forge-next-page)', 'the next page of {many}' },
     { '[p', '<Plug>(forge-prev-page)', 'the previous page of {many}' },
   },
-  --- A pull request is the only view with checks behind it, so "dc" is bound
-  --- here rather than everywhere. An issue has no CI, and a key that exists
-  --- only to refuse is worse than no key.
+  -- An issue has no CI, no diff and no commits. These three are bound here
+  -- rather than in every item. A key that exists only to refuse is worse.
   item_maps = {
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
     { 'dc', '<Plug>(forge-checks)', "show this {one}'s checks in ci.nvim" },
     { 'dd', '<Plug>(forge-diff)', "show this {one}'s diff in diffs.nvim" },
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
   },
-  --- Which branches it joins cannot be read back off the view, and "dd" needs
-  --- them to ask diffs.nvim for the right merge base. The repository github
-  --- named is what "dd" and "dl" fetch from, so it comes too.
+  -- The branches and the repository cannot be read back off a drawn view.
+  -- "dd" and "dl" need both to fetch and to find the merge base.
   remember = function(node, repo)
     local ok = merges(node, repo)
     return {
@@ -153,27 +142,24 @@ local PRS = {
       can_merge_commit = ok.MERGE == true,
       can_rebase = ok.REBASE == true,
       can_bypass = node.viewerCanMergeAsAdmin == true,
-      --- github only offers auto-merge on a pull request it will not merge
-      --- now, so this is true in much the same places `can_bypass` is: it is
-      --- the other answer to a merge being blocked, and the reversible one.
+      -- github only offers auto-merge where it will not merge now. This is
+      -- true in much the same places `can_bypass` is.
       can_auto = node.viewerCanEnableAutoMerge == true,
       can_unauto = node.viewerCanDisableAutoMerge == true,
-      --- A base branch with a queue refuses every direct merge, so `merges`
-      --- offers none and the queue is the only way in.
+      -- A base branch with a queue refuses every direct merge. `merges` offers
+      -- none, and the queue is the only way in.
       queued = node.isMergeQueueEnabled == true,
       in_queue = node.isInMergeQueue == true,
-      --- The method a merge already waiting would use, and nothing when none
-      --- is waiting.
       auto = vim.tbl_get(node, 'autoMergeRequest', 'mergeMethod'),
-      --- The message github itself would write, honouring what the repository
-      --- sets its commit title and body to be. Rebase is asked for neither:
-      --- github answers "" for both, which is it saying there is no message.
+      -- The message github itself would write, honouring the repository's own
+      -- commit title and body settings. Rebase is asked for neither. github
+      -- answers "" for both. There is no message to write.
       merge = {
         SQUASH = { headline = node.squashHeadline or '', body = node.squashBody or '' },
         MERGE = { headline = node.commitHeadline or '', body = node.commitBody or '' },
       },
       base = node.baseRefName,
-      --- A fork says whose branch it is, the name alone not saying.
+      -- A branch name alone does not say it came from a fork.
       head = node.isCrossRepository and ('%s:%s'):format(
         vim.tbl_get(node, 'headRepositoryOwner', 'login') or '?',
         node.headRefName or '?'
@@ -181,18 +167,18 @@ local PRS = {
       remote = repo.url,
     }
   end,
-  --- Draft is a flag on an open pull request, and github leaves it set when
-  --- one is closed; a closed draft is closed.
+  -- github leaves isDraft set on a closed pull request. A closed draft is
+  -- closed.
   state = function(node)
     return (node.state == 'OPEN' and node.isDraft) and 'DRAFT' or node.state
   end,
-  --- The branches take the room a title would, so there is nothing to say
-  --- here: |b:forge| carries them and the winbar draws them itself.
+  -- The branches take the room a title would. The winbar draws them from
+  -- |b:forge| itself.
   about = function()
     return ''
   end,
-  --- Only the outstanding ones: github drops a request when its reviewer
-  --- answers, and the answer shows in the winbar and in the conversation.
+  -- Only the outstanding reviewers: github drops a request once its reviewer
+  -- answers.
   rows = function(node)
     local asked = {}
     for _, request in ipairs(vim.tbl_get(node, 'reviewRequests', 'nodes') or {}) do
@@ -202,8 +188,8 @@ local PRS = {
       { key = 'Reviewers', values = text.logins({ nodes = asked }), group = text.LOGIN },
     }
   end,
-  --- Of `mergeStateStatus`'s seven values only DIRTY is actionable, and this
-  --- is it, so that enum is left unasked for.
+  -- `mergeable` rather than `mergeStateStatus`. Of that enum's seven values
+  -- only DIRTY is actionable, and this is it.
   badges = function(node)
     local badges = {}
     if node.mergeable == 'CONFLICTING' then
@@ -221,10 +207,9 @@ local PRS = {
       view.hl('Removed', ('-%d'):format(node.deletions or 0)),
     }
   end,
-  --- Closing comes after the reversible one, so a mistyped pick is the harmless
-  --- one. `viewerCanReopen` is deliberately not asked for: it is false once the
-  --- head branch is gone, but an empty menu cannot say that, and github's own
-  --- refusal names the branch.
+  -- Ordered so that a mistyped pick lands on the reversible neighbour.
+  -- `viewerCanReopen` is not asked for. It is false once the head branch is
+  -- gone. An empty menu cannot say that. github's refusal names it.
   actions = {
     {
       label = 'Edit title and body',
@@ -263,15 +248,9 @@ local PRS = {
         return var.state == 'CLOSED' and var.can_update == true
       end,
     },
-    --- Last, and each already weighed by `merges`: what is left to ask here is
-    --- only whether the pull request is open, since a draft cannot be merged
-    --- and DRAFT is resolved before any of this is read.
-    ---
-    --- Named twice and offered once, as `naming` says. Interleaved so the pair
-    --- stands where the one entry did, whichever of them the answer is.
-    ---
-    --- Joining a queue is not merging; the queue merges when it gets there,
-    --- and leaving it is a keystroke, so these stand where the merges would.
+    -- Everything below is already weighed by `merges`. OPEN is all these have
+    -- left to test. A queue merges when it gets there. Joining and leaving one
+    -- stand where the merges would.
     {
       label = 'Add to merge queue',
       write = 'enqueue',
@@ -286,9 +265,8 @@ local PRS = {
         return var.in_queue == true
       end,
     },
-    --- Waiting comes before merging, for the same reason closing comes after
-    --- editing: a merge that waits can be called off, and one that happens
-    --- cannot. github calls it auto-merge, so this does too.
+    -- Waiting comes before merging. A merge that waits can be called off. One
+    -- that happens cannot.
     {
       label = 'Enable auto-merge (squash)',
       run = auto_squashing,
@@ -311,8 +289,8 @@ local PRS = {
         return var.auto ~= nil and var.can_unauto == true
       end,
     },
-    --- The two that write a commit open a buffer for its message; a rebase
-    --- writes none, so it goes straight out.
+    -- The two that write a commit open a buffer for its message. A rebase
+    -- writes none and goes straight out.
     { label = 'Squash and merge', run = squashing, when = naming('can_squash', false) },
     { label = 'Squash and merge (bypass)', run = squashing, when = naming('can_squash', true) },
     {
@@ -344,8 +322,8 @@ end
 
 --- Open the pull request for the branch checked out here.
 ---
---- The branch is found locally and the pull request is asked for by name, so a
---- fork is answered by the repository the pull request is actually on.
+--- The branch is found locally. The pull request is asked for by name, which
+--- answers a fork from the repository the pull request is actually on.
 --- @param t forge.Target
 --- @param o forge.Open
 local function open_head(t, o)
@@ -370,8 +348,8 @@ local function open_head(t, o)
       view.create(uri.of(found.project, { host = t.host, collection = 'prs' }))
       return
     end
-    --- The host comes with it: what answered for the branch is what should be
-    --- asked about the change on it, and a target built afresh here has none.
+    -- The host is carried over from `t`. Whatever answered for the branch is
+    -- what to ask about the change on it.
     local item = { host = t.host, collection = 'prs', number = found.number }
     collection.item(PRS, uri.of(found.project, item) or item, o)
   end)
@@ -390,10 +368,8 @@ function M.show(t, o)
   end
 end
 
---- Open whatever `target` names, so long as it names pull requests.
----
---- A bare number is taken as a pull request: github numbers both from one
---- counter, so only github can say which it is.
+--- Open whatever `target` names, so long as it names pull requests. A bare
+--- number is one: github numbers both collections from a single counter.
 --- @param target string?
 --- @param opts vim.api.keyset.create_user_command.command_args? window modifiers
 function M.open(target, opts)

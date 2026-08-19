@@ -16,12 +16,8 @@ local function run(dir, cmd)
   return text ~= '' and text or nil
 end
 
---- The directory a request is made from.
----
---- The buffer's own, when it has a file behind it, so a file opened from
---- another repository is asked about there rather than wherever nvim was
---- started. A buffer with no file, forge's own included, falls back to the
---- working directory.
+--- The directory a request is made from: the buffer's own where it has a file
+--- behind it, else the working directory.
 --- @return string
 function M.dir()
   local name = vim.api.nvim_buf_get_name(0)
@@ -39,14 +35,10 @@ end
 
 --- Bring a pull request into this repository, without disturbing it.
 ---
---- The ref a forge publishes one under is the backend's to name, so a pull
---- request nobody has fetched is still one commit away. The base branch comes
---- too, because a merge base needs both ends.
----
---- Fetching by URL rather than by remote name is deliberate: the repository a
---- pull request belongs to is not always the one `origin` points at, and in a
---- fork it never is. The refs land under `refs/forge/`, which nothing else
---- writes, so no branch, tag or working tree is touched.
+--- The base branch comes too. A merge base needs both ends. By URL, not by
+--- remote name. The repository a pull request belongs to is not always the one
+--- `origin` points at, and in a fork never is. The refs land under
+--- `refs/forge/`. No branch, tag or working tree is touched.
 --- @param dir string
 --- @param url string
 --- @param number integer
@@ -84,15 +76,14 @@ end
 --- The branch whose pull request a bare |:PR| means.
 ---
 --- git answers first. A colocated jj repository leaves git's HEAD detached at
---- `@-`, one commit *behind* the bookmark that names the pull request, so git
---- there is not merely silent but wrong, and jj is asked instead. The working
---- copy is not snapshotted: reading a branch must not write to the repository.
+--- `@-`, one commit *behind* the bookmark naming the pull request. git there
+--- is wrong, not merely silent. `--ignore-working-copy` keeps reading a branch
+--- from writing to the repository.
 ---
---- jj has no current branch. A bookmark belongs to a change, so the answer is
---- the bookmark on the change being worked on: `@`, unless `@` is the empty
---- commit jj leaves on top, in which case `@-`. A change wearing no bookmark
---- is reported rather than guessed at, because the nearest one below belongs
---- to a different change and would propose someone else's branch.
+--- jj has no current branch, only bookmarks on changes. The answer is the
+--- bookmark on `@`, or on `@-` where `@` is the empty commit jj leaves on top.
+--- A change wearing none is reported, not guessed at. The nearest bookmark
+--- below belongs to another change, and would propose its branch.
 --- @param dir string
 --- @return string? branch
 --- @return string? err

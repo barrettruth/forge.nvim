@@ -2,8 +2,8 @@ local M = {}
 
 --- Whether `lhs` is already mapped in `buf` itself.
 ---
---- Only buffer-local mappings count. A global mapping is precisely what a view
---- like this is meant to shadow, and core maps several of the keys we want.
+--- Only buffer-local mappings count. A view is meant to shadow global ones.
+--- Core maps several of the keys forge wants.
 --- @param buf integer
 --- @param mode string
 --- @param lhs string

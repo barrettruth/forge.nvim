@@ -36,24 +36,21 @@ local function write(lines, buf, u, var)
     body = body,
     cwd = cwd,
   }, function()
-    --- Only now: until github has said yes, what is in the buffer is the only
-    --- copy of it, and a buffer that is not 'modified' can be closed by
-    --- anything without a word.
+    -- Only now. Until the forge accepts it, the buffer holds the only copy.
+    -- One that is not 'modified' can be closed by anything without a word.
     if vim.api.nvim_buf_is_valid(buf) then
       vim.bo[buf].modified = false
     end
-    --- Into its own buffer and no further: the window it would have taken is
-    --- the one still showing what was written, and it is fresh by the time
-    --- "-" goes back to it.
+    -- Into its own buffer and no further. The window it would have taken
+    -- still shows what was written.
     view.open(u, { keep = true, hidden = true, cwd = cwd })
   end)
 end
 
 --- Open the title and body of the item being viewed, to be edited.
 ---
---- Over the view rather than beside it, as "dd" and "dc" do: nearly all of
---- what an item shows is its title and its body, so a split would be the same
---- words twice.
+--- Over the view, not beside it. Nearly all of what an item shows is its
+--- title and its body. A split would be the same words twice.
 --- @param var forge.ItemVar
 function M.open(var)
   local u = view.current()

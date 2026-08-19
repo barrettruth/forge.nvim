@@ -12,10 +12,8 @@ function M.warn(msg)
   vim.notify(PREFIX .. msg, vim.log.levels.WARN)
 end
 
---- Report a failure.
----
---- The only way forge reports a failure. Nothing raises out of a callback, so
---- an unreachable remote never reaches the user as a Lua traceback.
+--- Report a failure. The only way forge reports one. Nothing raises out of a
+--- callback. An unreachable remote never surfaces as a Lua traceback.
 --- @param msg string
 function M.err(msg)
   vim.schedule(function()
@@ -25,9 +23,9 @@ end
 
 --- Announce that something is in flight, and return how to end it.
 ---
---- Progress is out of band, so a buffer never renders placeholder text. The
---- returned function must be called: a progress message left in the `running`
---- state dangles forever for anything tracking it by id.
+--- Progress goes out of band. A buffer never renders placeholder text. The
+--- returned function must be called. A message left `running` dangles forever
+--- for anything tracking it by id.
 --- @param msg string
 --- @return fun(status: 'success'|'failed'|'cancel', done: string?)
 function M.progress(msg)

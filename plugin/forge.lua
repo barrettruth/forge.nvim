@@ -66,8 +66,8 @@ vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {
   nargs = '*',
-  --- Not `bar`: it would make a `"` start a comment, and github's own advice
-  --- for a label of more than one word is to quote it.
+  -- Not `bar`. It would make a `"` start a comment, and github's own advice
+  -- for a label of more than one word is to quote it.
   complete = function(lead)
     return require('forge.search').complete(lead)
   end,
@@ -78,8 +78,8 @@ vim.api.nvim_create_user_command('PR', function(opts)
   require('forge.pr').open(opts.args, opts)
 end, {
   nargs = '*',
-  --- Not `bar`: it would make a `"` start a comment, and github's own advice
-  --- for a label of more than one word is to quote it.
+  -- Not `bar`. It would make a `"` start a comment, and github's own advice
+  -- for a label of more than one word is to quote it.
   complete = function(lead)
     return require('forge.search').complete(lead)
   end,
@@ -88,9 +88,9 @@ end, {
 
 local group = vim.api.nvim_create_augroup('forge', { clear = true })
 
--- A forge:// buffer has no file behind it, so reading one means fetching it
--- again. This is what makes :edit reload a view instead of emptying it, and
--- what lets :edit forge://... open one from nothing.
+-- A forge:// buffer has no file behind it. Reading one means fetching it
+-- again. That makes :edit reload a view instead of emptying it, and lets
+-- :edit forge://... open one from nothing.
 vim.api.nvim_create_autocmd('BufReadCmd', {
   group = group,
   pattern = 'forge://*',
@@ -120,8 +120,8 @@ vim.api.nvim_create_autocmd('BufWipeout', {
   end,
 })
 
--- 'winbar' is a window option, so a view shown in a second window would lose
--- the one set when it was drawn.
+-- 'winbar' is a window option. A view shown in a second window would lose the
+-- one set when it was drawn.
 vim.api.nvim_create_autocmd('BufWinEnter', {
   group = group,
   pattern = 'forge://*',

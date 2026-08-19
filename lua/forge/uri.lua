@@ -2,10 +2,9 @@
 
 --- What the user asked for, before the forge has said which repository that is.
 ---
---- `project` is absent when the target did not name a repository. Nothing here
---- fills it in: the CLI resolves the repository, and the answer comes back with
---- the view. `host` is absent for the same reason, and defaults to github.com
---- only once a backend has to be chosen.
+--- `project` and `host` are absent when the target named no repository.
+--- Nothing here fills them in. The CLI resolves the repository, and the
+--- answer arrives with the view.
 --- @class forge.Target
 --- @field collection forge.Collection
 --- @field host string? the forge, by hostname
@@ -14,9 +13,8 @@
 --- @field query string? a search, for a list narrowed by one
 --- @field head boolean? the pull request for the change you are on
 
---- A view forge can address, which is a target a forge has already answered.
----
---- An item is a collection with a number; without one it is the list itself.
+--- A target a forge has already answered, and so one forge can address. An
+--- item is a collection with a number. Without one it is the list itself.
 --- @class forge.Uri : forge.Target
 --- @field host string
 --- @field project string
@@ -26,17 +24,16 @@ local M = {}
 local SCHEME = 'forge://'
 
 --- The forge a target that never named one belongs to. A name is always
---- complete, so this is where an unanswered target acquires its host.
+--- complete. An unanswered target acquires its host here.
 local DEFAULT_HOST = 'github.com'
 
---- What a forge:// name may hold. github's own spelling of these — plural for
---- a pull request list and singular for one of them — is never needed here: a
---- view carries the url github gave it.
+--- What a forge:// name may hold. github's own spelling, plural for a pull
+--- request list and singular for one of them, is never needed here.
 local COLLECTIONS = { issues = true, prs = true }
 
 --- What survives into a name unescaped. Everything else is percent-encoded,
---- and `%` and `#` above all: Neovim expands both in a command line, so a
---- name carrying one raw cannot be typed at |:edit| without a backslash.
+--- `%` and `#` above all. Neovim expands both on a command line. A name
+--- carrying one raw cannot be typed at |:edit| without a backslash.
 local SAFE = '[^%w._~:/@,+-]'
 
 --- @param query string
@@ -58,10 +55,8 @@ end
 --- The view a response describes, named by the repository the forge answered
 --- for.
 ---
---- A target that named no repository is sent with the CLI's placeholders, so
---- the name a view is filed under arrives with the view rather than being
---- guessed at beforehand. A target that named one is still filed under the
---- forge's spelling of it, which is the one that round-trips.
+--- Always the forge's own spelling of the path. That is the one that
+--- round-trips. For a target that named no repository it is the only one.
 --- @param path string? the project's full path, as the forge spells it
 --- @param t forge.Target
 --- @return forge.Uri?
@@ -92,9 +87,11 @@ function M.tostring(uri)
 end
 
 --- Split a name into host, project, collection and whichever of a number or a
---- query followed it. The collection is the last segment once a trailing
---- number is off, so a project holds as many segments as gitlab's groups nest
---- and may itself be named after a collection.
+--- query followed it.
+---
+--- The collection is the last segment once a trailing number is off. A
+--- project may hold as many segments as gitlab's groups nest, and may itself
+--- be named after a collection.
 --- @param rest string
 --- @return string? host
 --- @return string? project
@@ -142,23 +139,23 @@ function M.parse(str)
 end
 
 --- What each forge calls a collection inside its own web addresses. github
---- spells a single pull request singular and the list plural; gitlab spells
+--- spells a single pull request singular and the list plural. gitlab spells
 --- both the same.
 local MEMBERS = {
   issues = 'issues',
   pull = 'prs',
   pulls = 'prs',
   merge_requests = 'prs',
-  --- gitlab is moving issues to work items, and does it per project: the same
-  --- api answers one project with a /-/issues/ url and another with this one.
+  -- gitlab is moving issues to work items per project. The same api answers
+  -- one project with a /-/issues/ url and another with this one.
   work_items = 'issues',
 }
 
 --- The target a forge's own web address names.
 ---
---- gitlab puts `/-/` between a project's path and what follows, which is what
---- makes an arbitrarily nested group path unambiguous. github has no such
---- separator, so a path there is exactly two segments.
+--- gitlab's `/-/` between a project's path and what follows makes an
+--- arbitrarily nested group path unambiguous. github has no such separator.
+--- A path there is exactly two segments.
 --- @param url string
 --- @return forge.Target?
 function M.web(url)
@@ -195,11 +192,10 @@ end
 --- Resolve what the user typed into a target. See |:Issue| for the forms.
 ---
 --- A form naming no repository leaves `host` and `project` unset for the CLI
---- to answer, so this never shells out and never fails for want of a remote.
+--- to answer. This never shells out, and never fails for want of a remote.
 ---
---- `collection` says which of issues or pull requests a bare number means; it
---- is the only thing a caller's intent decides. Every other form says for
---- itself, and may disagree with the caller — that is for the caller to catch.
+--- `collection` decides only what a bare number means. Every other form says
+--- for itself. One may disagree with the caller. The caller must catch that.
 --- @param target string?
 --- @param collection forge.Collection
 --- @return forge.Target? target
@@ -220,9 +216,8 @@ function M.resolve(target, collection)
     return web
   end
 
-  --- gitlab numbers merge requests apart from issues and gives them a sigil of
-  --- their own, so "!" says which collection it means and the caller's intent
-  --- does not come into it.
+  -- gitlab numbers merge requests apart from issues and gives them their own
+  -- sigil. "!" says which collection it means, whatever the caller wanted.
   local project, number = target:match('^([%w._/-]+)!(%d+)$')
   if project and project:find('/') then
     return { project = project, collection = 'prs', number = tonumber(number) }
@@ -252,9 +247,8 @@ function M.resolve(target, collection)
   if target:match('^#?%d+$') then
     return { collection = collection, number = tonumber(target:match('%d+')) }
   end
-  --- Anything that names nothing forge knows is a search. github's own syntax
-  --- needs no sigil to tell it from a number or a slug, since neither of those
-  --- reaches here.
+  -- Anything naming nothing forge knows is a search. No sigil is needed. A
+  -- number and a slug never reach here.
   return { collection = collection, query = target }
 end
 

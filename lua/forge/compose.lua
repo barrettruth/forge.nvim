@@ -1,25 +1,20 @@
 --- A buffer text is written in for forge to send.
 ---
---- Writing the buffer is the submit, as it is for any 'acwrite' buffer: that is
---- what :w means for a netrw file over scp, for oil.nvim, for :Gwrite. The
---- other reading — that closing is the signal and :w merely a step — is git's,
---- and git only means it because it launched the editor and is waiting on it.
---- Nothing launches this one, and the plugin that tried has two open bugs from
---- it: a bare :w performing the action anyway, and a submit hung on a teardown
---- autocmd that silently ate the text whenever a config kept the buffer alive.
+--- ":w" submits, as it does for any 'acwrite' buffer. Closing discards.
+--- Treating the close as the signal is git's convention. It only works because
+--- git launched the editor and waits on it. guh tried it anyway and has two
+--- open bugs from it.
 ---
---- So :w submits, and ZQ and :q! discard, both of them out of Vim rather than
---- out of forge. :wq and ZZ submit without closing: Vim reads 'modified' again
---- to decide whether the quit half may go ahead, and the request has not come
---- back by then. 'modified' is what guards what was typed, so a caller clears
---- it when github says yes and never before.
+--- ":wq" and "ZZ" therefore submit without closing. Vim reads 'modified' again
+--- to decide whether the quit may go ahead, and the request has not come back
+--- by then. 'modified' guards what was typed. A caller clears it only once the
+--- forge has accepted the write.
 
 local view = require('forge.view')
 
 local M = {}
 
---- The first line, then a blank line, then the rest — a commit message's
---- shape, which is the one everybody already knows.
+--- The first line, then a blank line, then the rest: a commit message's shape.
 --- @param lines string[]
 --- @return string subject
 --- @return string body
@@ -47,9 +42,8 @@ end
 
 --- Open one.
 ---
---- `name` is a `forge://` one for the sake of reading it, but |uri.parse| does
---- not know it, which is what keeps every `forge://*` autocmd off a buffer that
---- is not a view.
+--- `name` is a `forge://` one so that it reads as forge's. `uri.parse` rejects
+--- it. That keeps every `forge://*` autocmd off a buffer that is not a view.
 --- @param opts forge.Compose
 --- @return integer buf
 function M.open(opts)
@@ -59,16 +53,15 @@ function M.open(opts)
   vim.bo[buf].modified = false
   vim.bo[buf].buftype = 'acwrite'
   vim.bo[buf].filetype = opts.filetype
-  --- Gone the moment nothing shows it, so it is only ever as old as what it was
-  --- opened from. 'modified' refuses ":q", ":bd" and ":enew", which leaves
-  --- ":hide" throwing the text away as surely as ":q!" does. "hide" would keep
-  --- it, but a buffer that hides is never abandoned, so it costs the refusal on
-  --- all three of those and leaves ":q!" holding a buffer with its contents
-  --- unloaded. One quiet way to lose text beats three.
+  -- Wiped the moment nothing shows it. It is never staler than what it was
+  -- opened from. "wipe" costs the text on ":hide". "hide" would keep it, but a
+  -- buffer that hides is never abandoned, and 'modified' would then lose its
+  -- refusal of ":q", ":bd" and ":enew" too. One quiet way to lose text beats
+  -- three.
   vim.bo[buf].bufhidden = 'wipe'
 
-  --- One handler however many times this is opened: a buffer still on screen is
-  --- found again by name, and a second handler would send what it holds twice.
+  -- One handler however many times this is opened. A buffer still on screen is
+  -- found again by name. A second handler would send its text twice.
   vim.api.nvim_clear_autocmds({ event = 'BufWriteCmd', buffer = buf })
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = buf,
@@ -82,12 +75,9 @@ function M.open(opts)
     vim.cmd.split()
   end
   vim.cmd.buffer(buf)
-  --- The item's own winbar with its state swapped for the mode, so this reads
-  --- as something the item is doing rather than another kind of thing. Every
-  --- part of it is forge's own word, so a `%{}` would be reading nothing a
-  --- template could not already say. `ModeMsg` by default because that is what
-  --- a mode is drawn in, and because a state's colour would put the word in a
-  --- vocabulary it does not belong to.
+  -- The item's own winbar with its state swapped for the mode. A rendered
+  -- string rather than forge.view's `%{}` template. Every part of it is
+  -- forge's own word, and this buffer is never in a second window.
   vim.wo[0][0].winbar = ('%%#Title#%s%%* %%#Tag#%s%%* %%#%s#%s%%*'):format(
     opts.label or '',
     opts.tag or '',

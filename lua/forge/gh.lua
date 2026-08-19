@@ -1,6 +1,6 @@
 local log = require('forge.log')
 
---- Absent rather than `vim.NIL`, which is userdata and so reads as present.
+--- Absent rather than `vim.NIL`, which is userdata and reads as present.
 --- Objects only: a null dropped from a list leaves a hole `ipairs` stops at.
 local DECODE = { luanil = { object = true } }
 
@@ -16,10 +16,10 @@ local M = {}
 --- The owner and repo to send for a target.
 ---
 --- A target that named no repository is sent as gh's own `{owner}`/`{repo}`
---- placeholders, which gh expands to the *base* repository: the one a fork's
---- issues and pull requests actually live on, honouring `gh repo set-default`
---- as it goes. Working that out from a remote here instead is exactly how a
---- fork ends up answered for by the wrong repository.
+--- placeholders. gh expands those to the base repository, where a fork's
+--- issues and pull requests live. It honours `gh repo set-default` doing it.
+--- Working it out from a remote here is how a fork ends up answered for by
+--- the wrong repository.
 --- @param t forge.Target
 --- @return string owner
 --- @return string repo
@@ -32,13 +32,10 @@ local SLUG = { owner = true, repo = true }
 
 --- How to pass one variable to `gh api`.
 ---
---- `--raw-field` is the safe default: it sends a String and cannot retype it,
---- so a repository named "123" stays a name. gh only expands `{owner}` and
---- `{repo}` in `--field` though, and only that flag can carry a number, so
---- those two get it instead.
----
---- By name: `--field` also reads a leading "@" as a filename, which prose must
---- not be able to reach.
+--- `--raw-field` is the safe default. It sends a String and cannot retype it,
+--- keeping a repository named "123" a name. It does not read a leading "@" as
+--- a filename the way `--field` does. But gh expands `{owner}` and `{repo}`
+--- only in `--field`, and only `--field` can carry a number.
 --- @param name string
 --- @param value string|integer
 --- @return '-f'|'-F'
@@ -68,11 +65,11 @@ end
 
 --- Send a GraphQL document through the gh CLI.
 ---
---- Owns the progress message for the request, so every path out of here ends
---- it and none can dangle. Errors are reported, never raised.
+--- Owns the progress message for the request. Every path out of here ends it.
+--- Errors are reported, never raised.
 --- @param req forge.Request
 --- @param on_done fun(data: table)
---- @param on_fail fun()? so a caller that said it was working can stop saying it
+--- @param on_fail fun()? for a caller to stop saying it is working
 function M.graphql(req, on_done, on_fail)
   local desc, variables = req.desc, req.variables
   local cmd = { 'gh', 'api', 'graphql', '-f', 'query=' .. req.query }
@@ -110,11 +107,8 @@ end
 
 --- Ask github's REST API to make something.
 ---
---- Creating goes through REST rather than GraphQL because a mutation wants a
---- repository's node id, which is a round trip to learn, while REST takes the
---- owner and repo we already have and label *names* rather than their ids.
---- Github answers a refused write with a generic `message` and the reason
---- itself inside `errors`, so the reason is preferred where there is one.
+--- REST rather than GraphQL. A mutation wants a repository's node id, another
+--- round trip. REST takes the owner and repo already in hand.
 --- @class forge.Rest
 --- @field desc string what to say while it is in flight
 --- @field method 'POST'|'PATCH'
@@ -124,7 +118,7 @@ end
 
 --- @param req forge.Rest
 --- @param on_done fun(data: table)
---- @param on_fail fun()? so a caller holding something unsaved can keep it
+--- @param on_fail fun()? for a caller to keep something unsaved
 function M.rest(req, on_done, on_fail)
   local cmd = { 'gh', 'api', '--method', req.method, req.path }
   fields(cmd, req.variables)
@@ -135,6 +129,8 @@ function M.rest(req, on_done, on_fail)
     vim.schedule(function()
       local ok, body = pcall(vim.json.decode, out.stdout, DECODE)
       if out.code ~= 0 then
+        -- github puts a generic sentence in `message` and the actual reason
+        -- inside `errors`. The reason wins where there is one.
         local message = nil
         if ok and type(body) == 'table' then
           local first = body.errors and body.errors[1]

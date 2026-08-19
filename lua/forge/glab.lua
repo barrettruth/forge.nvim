@@ -1,18 +1,17 @@
 --- gitlab, as forge.Backend asks for it: the requests it makes, the words it
 --- says them in, and the shape it hands back.
 ---
---- Everything goes through `glab api`, which is gitlab's REST API with an
---- authenticated host already attached. A project is a percent-encoded path
---- rather than an owner and a name, a change is a method and a body rather
---- than a document, and a view is several small requests rather than one
---- large one. The transport is ci.nvim's, which speaks to the same CLI.
+--- Everything goes through `glab api`, gitlab's REST API with an authenticated
+--- host attached. A project is a percent-encoded path, not an owner and a
+--- name. A change is a method and a body, not a document. A view is several
+--- small requests, not one large one. The transport is ci.nvim's.
 
 local log = require('forge.log')
 
 local M = {}
 
 --- gitlab numbers merge requests apart from issues and writes "!" in front of
---- one, so unlike github the two collections have no word in common.
+--- one.
 --- @type table<forge.Collection, forge.Nouns>
 M.nouns = {
   issues = { one = 'issue', many = 'issues', item = 'ISSUE', list = 'ISSUES', sigil = '#' },
@@ -25,12 +24,11 @@ M.nouns = {
   },
 }
 
---- What gitlab calls a collection in an api path, which is also what it calls
---- it in a web address.
+--- What gitlab calls a collection in an api path and in a web address alike.
 local PATH = { issues = 'issues', prs = 'merge_requests' }
 
---- How many a list asks for at once, which has to be forge.view's PER_PAGE:
---- that is what the pager divides a total by to say how many pages there are.
+--- How many a list asks for at once. Must match forge.view's PER_PAGE. The
+--- pager divides a total by that to count the pages.
 local PER_PAGE = 100
 
 --- gitlab's own access levels, at the two points it lets somebody who did not
@@ -46,9 +44,8 @@ local function enc(s)
 end
 
 --- How gitlab addresses a project: its full path with every slash escaped,
---- since the whole path is one segment of the api's own and a project nests
---- under as many groups as it likes. glab's placeholder stands in where
---- nothing named a project, and resolves from the remote in `cwd`. ci.nvim's.
+--- The whole path occupies one segment of the api path. glab's `:fullpath`
+--- placeholder stands in where nothing named a project. ci.nvim's.
 --- @param project string? the full path, as the forge spells it
 --- @return string
 function M.path(project)
@@ -70,8 +67,8 @@ local function said(s)
 end
 
 --- `glab api` writes gitlab's answer to stdout and its own "glab: … (HTTP
---- 404)" line to stderr, so the body is read first: it is the same sentence
---- without the prefix. ci.nvim's.
+--- 404)" line to stderr. The body is read first: same sentence, no prefix.
+--- ci.nvim's.
 --- @param out vim.SystemCompleted
 --- @return string
 local function errmsg(out)
@@ -83,8 +80,7 @@ local function errmsg(out)
   return (why:gsub('%s+$', ''))
 end
 
---- Absent rather than `vim.NIL`, as forge.gh does: a null that reads as
---- present is worse than a field that is missing. Objects only, since a null
+--- Absent rather than `vim.NIL`, as forge.gh does. Objects only. A null
 --- dropped from a list leaves a hole `ipairs` stops at.
 local DECODE = { luanil = { object = true } }
 
@@ -95,9 +91,8 @@ local function decoded(text)
   return (ok and type(body) == 'table') and body or nil
 end
 
---- `glab api --include` prints the status line and the headers, a blank line,
---- then the body. It is the only way to see `X-Total`, which is where gitlab
---- puts the size of a list, and it costs no second request.
+--- Split `glab api --include` output into headers and body. The only way to
+--- see `X-Total`, where gitlab puts the size of a list.
 --- @param out string
 --- @return table<string, string> headers by lowercased name
 --- @return string body
@@ -120,8 +115,8 @@ end
 --- @class forge.glab.Call
 --- @field path string the api path, with the project already encoded into it
 --- @field cwd string? where to run glab, which is where it resolves a remote
---- @field host string? which instance to ask, since a buffer is read wherever
---- you happen to be standing rather than in the repository it came from
+--- @field host string? which instance to ask, since a buffer may be read from
+--- outside the repository it came from
 --- @field method 'POST'|'PUT'? anything that is not a plain read
 --- @field body table? sent as a json document: `-f` spells a nested key
 --- literally and gitlab drops it without a word
@@ -149,9 +144,8 @@ local function request(call, on_done, on_fail)
   if call.body then
     vim.list_extend(cmd, { '--header', 'Content-Type: application/json', '--input', '-' })
   end
-  --- A list forge draws whole is asked for whole: `--paginate` alone writes
-  --- one array a page, which is several documents and no json reader's idea
-  --- of one, and ndjson makes it a row a line instead. ci.nvim's.
+  -- `--paginate` alone writes one array per page. That is several documents,
+  -- not one. ndjson makes it a row a line instead. ci.nvim's.
   if call.all then
     vim.list_extend(cmd, { '--paginate', '--output', 'ndjson' })
   end
@@ -196,11 +190,10 @@ end
 
 --- One operation's progress message, however many requests it takes.
 ---
---- Owned here rather than by a request, because a view is four or five of them
---- and what a reader is waiting for is the view. Every path out settles it
---- exactly once, so none can dangle and none can report twice.
+--- A view is four or five requests. What a reader waits for is the view.
+--- Every path out settles this exactly once.
 --- @param desc string
---- @param on_fail fun()? so a caller that said it was working can stop saying it
+--- @param on_fail fun()? for a caller to stop saying it is working
 --- @return forge.glab.Job
 local function working(desc, on_fail)
   local done = log.progress(desc)
@@ -229,9 +222,9 @@ end
 
 --- Ask for several things at once, and hand them over together.
 ---
---- gitlab answers a view in pieces where github answers it in one document, so
---- chaining them would be that many round trips deep before anything is drawn.
---- The first failure stops the rest from ever answering.
+--- gitlab answers a view in pieces where github answers in one document.
+--- Chaining would be that many round trips deep before anything is drawn.
+--- The first failure stops the rest from answering.
 --- @param calls table<string, forge.glab.Call>
 --- @param job forge.glab.Job
 --- @param on_done fun(answers: table<string, forge.glab.Answer>)
@@ -253,14 +246,12 @@ local function together(calls, job, on_done)
   end
 end
 
---- gitlab's states in forge's words. A locked item is closed to everyone but a
---- maintainer, which is closed as far as a reader is concerned; a state gitlab
---- adds later is left unsaid rather than guessed at.
+--- gitlab's states in forge's words. Locked is closed to everyone but a
+--- maintainer, and reads as closed. A state gitlab adds later is left unsaid.
 local STATE = { opened = 'OPEN', closed = 'CLOSED', merged = 'MERGED', locked = 'CLOSED' }
 
---- A pipeline's state as github's check rollup, which is the shape the badge
---- is drawn from. Only a failure and a wait are worth one: github says nothing
---- for a rollup that passed, and neither does this.
+--- A pipeline's state as github's check rollup. That is the shape the badge
+--- is drawn from. Only a failure and a wait get one, as on github.
 local ROLLUP = {
   failed = 'FAILURE',
   created = 'PENDING',
@@ -271,19 +262,16 @@ local ROLLUP = {
   scheduled = 'PENDING',
 }
 
---- Mergeability is computed when a merge request is asked for rather than
---- kept, so these three are gitlab saying it has not looked yet. Only a
---- conflict is ever read off the field, and not one of them is one.
+--- Mergeability is computed on request, not kept. These three mean gitlab
+--- has not looked yet. Only a conflict is read off the field.
 local LOOKING = { unchecked = true, checking = true, preparing = true }
 
---- A note anchored to a diff is a review comment, which forge's item view does
---- not draw on github either, and a system note is gitlab narrating itself
---- rather than anybody having said anything.
+--- A note anchored to a diff is a review comment. forge draws none of those.
+--- A system note is gitlab narrating itself.
 local ANCHORED = { DiffNote = true, LegacyDiffNote = true }
 
---- A connection, as the renderers index one: github answers every list of
---- these with nodes and a count, and gitlab with a bare array. The count is
---- what came, because nothing here is capped.
+--- A bare gitlab array in the shape the renderers index. github answers every
+--- list with nodes and a count. The count is what came. Nothing here is capped.
 --- @param values table[]
 --- @return table
 local function connection(values)
@@ -329,8 +317,8 @@ local function conversation(notes)
   for _, note in ipairs(notes or {}) do
     if note.system ~= true and not ANCHORED[note.type or ''] then
       out[#out + 1] = {
-        --- gitlab keeps a deleted account as a user named "ghost", which is
-        --- the name forge puts on one anyway.
+        -- gitlab keeps a deleted account as a user named "ghost". forge puts
+        -- that name on one anyway.
         author = { login = vim.tbl_get(note, 'author', 'username') },
         createdAt = note.created_at,
         body = note.body,
@@ -344,16 +332,15 @@ end
 ---
 --- `iid` and never `id`: gitlab's global id 404s on every route that takes a
 --- number, and the iid is what its own pages show. A field gitlab has no
---- equivalent for is left out rather than filled in, since a renderer draws
---- nothing for what is missing and something wrong for what was guessed.
+--- equivalent for is left out. A renderer draws nothing for what is missing.
 --- @param collection forge.Collection
 --- @param row table gitlab's own merge request or issue
 --- @param notes table[]? its notes, where they were asked for
 --- @return table
 function M.node(collection, row, notes)
   local node = {
-    --- What a write names it by. gitlab is addressed by path, so this is the
-    --- number again rather than an opaque id.
+    -- What a write names it by. gitlab is addressed by path. This is the
+    -- number again, not an opaque id.
     id = tostring(row.iid),
     number = row.iid,
     title = row.title,
@@ -369,8 +356,8 @@ function M.node(collection, row, notes)
   }
 
   if collection == 'issues' then
-    --- gitlab types every issue and calls the ordinary one "issue", which is
-    --- github answering no type at all rather than a type worth a row.
+    -- gitlab types every issue and calls the ordinary one "issue", where
+    -- github answers no type at all. Neither is worth a row.
     node.issueType = (row.issue_type and row.issue_type ~= 'issue') and { name = row.issue_type }
       or nil
     return node
@@ -381,18 +368,16 @@ function M.node(collection, row, notes)
   node.headRefName = row.source_branch
   node.headRefOid = row.sha
   node.isCrossRepository = row.source_project_id ~= row.target_project_id
-  --- gitlab names the first thing blocking a merge rather than everything, and
-  --- `has_conflicts` means nothing until it has looked, so the two corroborate
-  --- each other.
+  -- gitlab names only the first thing blocking a merge. `has_conflicts` means
+  -- nothing until it has looked. The two corroborate each other.
   node.mergeable = (row.detailed_merge_status == 'conflict' or row.has_conflicts == true)
       and 'CONFLICTING'
     or (LOOKING[row.detailed_merge_status or ''] and 'UNKNOWN' or 'MERGEABLE')
-  --- gitlab does not drop a reviewer once they have answered, so this row is
-  --- everyone asked rather than only those still to answer.
+  -- gitlab does not drop a reviewer once they have answered. This row is
+  -- everyone asked, not only those still to answer.
   node.reviewRequests = asked(row.reviewers)
-  --- Where github hangs the checks: on the rollup of the last commit. gitlab
-  --- runs one pipeline for the merge request and puts its state on the merge
-  --- request, and only a single one carries it.
+  -- github hangs the checks on the rollup of the last commit. gitlab runs one
+  -- pipeline for the merge request and puts the state on the request itself.
   local status = vim.tbl_get(row, 'head_pipeline', 'status')
   if ROLLUP[status or ''] then
     node.commits = { nodes = { { commit = { statusCheckRollup = { state = ROLLUP[status] } } } } }
@@ -402,9 +387,8 @@ end
 
 --- The lines a merge request adds and removes.
 ---
---- Counted rather than read: gitlab's rest api answers with `changes_count`,
---- which counts files, is a string, and is capped at "1000+". The patch itself
---- is the only place the lines are.
+--- Counted from the patch: gitlab's `changes_count` counts files, is a string,
+--- and is capped at "1000+".
 --- @param diffs table[]
 --- @return integer added
 --- @return integer removed
@@ -426,9 +410,9 @@ end
 --- Whether gitlab will let you change this.
 ---
 --- There is no field for it: gitlab answers a merge request with whether you
---- may merge and an issue with nothing at all. What it enforces is the role
---- you hold in the project — reporter for an issue, developer for a merge
---- request — and that an author may always change their own.
+--- may merge, and an issue with nothing at all. What it enforces is the role
+--- you hold in the project: reporter for an issue, developer for a merge
+--- request. An author may always change their own.
 --- @param collection forge.Collection
 --- @param project table
 --- @param row table
@@ -449,17 +433,16 @@ end
 --- @return table
 local function repository(project, row)
   return {
-    --- What "dd" and "dl" fetch from, which for a merge request opened from a
-    --- fork is still the project it merges into.
+    -- What "dd" and "dl" fetch from. For a merge request opened from a fork
+    -- that is still the project it merges into.
     url = project.http_url_to_repo,
-    --- Write access is only ever asked in order to decide whether to offer a
-    --- merge, and gitlab answers exactly that question on the merge request.
+    -- Write access is only ever asked in order to decide whether to offer a
+    -- merge, and gitlab answers exactly that question on the merge request.
     viewerPermission = vim.tbl_get(row or {}, 'user', 'can_merge') == true and 'WRITE' or 'READ',
-    --- gitlab settles one merge method for a whole project rather than
-    --- offering three switches: fast-forward writes no merge commit, and
-    --- squashing "always" leaves no other way in. Its rebase is a separate,
-    --- asynchronous operation and not a way of merging at all, so
-    --- rebaseMergeAllowed is absent and no rebase is ever offered.
+    -- gitlab settles one merge method per project, not three switches.
+    -- Fast-forward writes no merge commit. Squashing "always" leaves no other
+    -- way in. Its rebase is a separate asynchronous operation, not a merge
+    -- method, so `rebaseMergeAllowed` is absent here.
     mergeCommitAllowed = project.merge_method ~= 'ff' and project.squash_option ~= 'always',
     squashMergeAllowed = project.squash_option ~= 'never',
   }
@@ -473,16 +456,14 @@ function M.list(t, f, on_done, on_fail)
   local job = working(f.desc, on_fail)
   local at = M.path(t.project)
   local member = PATH[t.collection]
-  --- Every state, newest first, as github's own list is ordered. gitlab has no
-  --- cursor, so the cursor forge carries from one page to the next is the
-  --- number of the next one.
+  -- Every state, newest first, as github orders its own list. gitlab has no
+  -- cursor. The cursor forge carries between pages is the next page number.
   local query = ('state=all&order_by=updated_at&sort=desc&per_page=%d&page=%d'):format(
     PER_PAGE,
     tonumber(f.after) or 1
   )
-  --- Whatever was typed, looked for in the title and the description. gitlab
-  --- has no qualifier language to hand through the way github's search does,
-  --- so a search here narrows and never widens.
+  -- gitlab has no qualifier language to hand through. Whatever was typed is
+  -- looked for in the title and the description.
   if t.query then
     query = ('%s&search=%s&in=title,description'):format(query, enc(t.query))
   end
@@ -507,8 +488,8 @@ function M.list(t, f, on_done, on_fail)
     for _, row in ipairs(answers.rows.body) do
       nodes[#nodes + 1] = M.node(t.collection, row)
     end
-    --- Absent above ten thousand, which gitlab documents as the size at which
-    --- it stops counting a list. Nothing here fills that in.
+    -- Absent above ten thousand. gitlab documents that as the size at which
+    -- it stops counting a list. Nothing here fills it in.
     local total = tonumber(answers.rows.headers['x-total'])
     local after = tonumber(answers.rows.headers['x-next-page'])
 
@@ -539,15 +520,15 @@ function M.item(t, f, on_done, on_fail)
   local calls = {
     project = { path = 'projects/' .. at, cwd = f.cwd, host = t.host },
     item = { path = one, cwd = f.cwd, host = t.host },
-    --- Oldest first, so a conversation reads down the buffer, and all of it:
-    --- a note past the first page is a comment forge would silently lose.
+    -- Oldest first, and every page of it. A conversation reads down the
+    -- buffer. A note past the first page would be a comment silently lost.
     notes = {
       path = one .. '/notes?per_page=100&sort=asc&order_by=created_at',
       cwd = f.cwd,
       host = t.host,
       all = true,
     },
-    --- Who you are, which is half of whether you may change this.
+    -- Who you are. Half of whether you may change this.
     me = { path = 'user', cwd = f.cwd, host = t.host },
   }
   if t.collection == 'prs' then
@@ -578,8 +559,8 @@ function M.item(t, f, on_done, on_fail)
     if not node.isCrossRepository then
       return finish()
     end
-    --- A merge request opened from a fork lives on the project it merges into,
-    --- and nothing on it names where the branch came from but the fork's id.
+    -- A merge request opened from a fork lives on the project it merges into.
+    -- The fork's id is the only thing on it naming where the branch came from.
     request({
       path = ('projects/%d'):format(row.source_project_id),
       cwd = f.cwd,
@@ -603,9 +584,9 @@ function M.head(t, branch, f, on_done)
   --- @type table<string, forge.glab.Call>
   local calls = {
     project = { path = 'projects/' .. at, cwd = f.cwd, host = t.host },
-    --- A merge request opened from a fork still lives on the project it merges
-    --- into and still carries the branch it came from, so one list answers for
-    --- a fork's as well as for one of your own.
+    -- A merge request opened from a fork still lives on the project it merges
+    -- into, and still carries the branch it came from. One list answers for a
+    -- fork's as well as for one of your own.
     rows = {
       path = ('projects/%s/merge_requests?%s'):format(at, query),
       cwd = f.cwd,
@@ -633,9 +614,9 @@ local DRAFTED = {
 
 --- The title that makes a merge request a draft, or stops it being one.
 ---
---- There is nothing else to set: gitlab derives the flag from the title, and
---- its rest api refuses a `draft` parameter outright. Every prefix is stripped
---- before one is put back, because gitlab reads a repeated one as a draft too.
+--- There is nothing else to set. gitlab derives the flag from the title, and
+--- its rest api refuses a `draft` parameter. Every prefix is stripped before
+--- one is put back. gitlab reads a repeated prefix as a draft too.
 --- @param title string
 --- @param draft boolean which it should be once this is sent
 --- @return string
@@ -652,20 +633,15 @@ end
 
 --- What each change sends, in the word gitlab spells it with.
 ---
---- A word rather than a document: gitlab is written to by method and path, so
---- there is nothing to hand over whole the way a github mutation is, and two
---- of these are not a constant at all — a draft is a prefix on the title,
---- which is not known until the merge request is.
----
---- Both closings are the one closing. gitlab keeps no reason an issue closed,
---- so "not planned" names something it does not record, and the menu offers
---- both because an action is offered on what may be asked of an item rather
---- than on which writes the forge answered with.
+--- A word rather than a document. gitlab is written to by method and path.
+--- There is nothing to hand over whole the way a github mutation is. `draft`
+--- and `ready` are not constants at all. `M.write` builds those from the
+--- title, unknown until the merge request is.
 --- @type table<forge.Collection, table<string, string>>
 M.writes = {
   issues = {
-    --- One close, and no reason kept for it: the two that name a reason go
-    --- unanswered and are never offered.
+    -- gitlab keeps no reason an issue closed. The two named closings go
+    -- unanswered, and forge.collection never offers them.
     close = 'close',
     reopen = 'reopen',
   },
@@ -682,8 +658,8 @@ M.writes = {
 --- @param on_fail fun()?
 function M.write(w, on_done, on_fail)
   local var = w.var
-  --- The instance the item came from rather than the one this directory points
-  --- at, which on an enterprise install are two different places.
+  -- The instance the item came from rather than the one this directory points
+  -- at. On a self-hosted install those differ.
   local host = (var.url or ''):match('^https?://([^/]+)')
   local at = ('projects/%s/%s/%s'):format(M.path(var.repo), PATH[w.collection], var.id or '')
 
@@ -692,12 +668,12 @@ function M.write(w, on_done, on_fail)
     body = { title = w.title, description = w.body }
   elseif w.kind == 'merge' then
     path = at .. '/merge'
-    --- One message where github takes a headline and a body, so the two are
-    --- joined back into the commit they describe.
+    -- gitlab takes one message where github takes a headline and a body. The
+    -- two are joined back into the commit they describe.
     local message = vim.trim(w.body or '') ~= '' and ('%s\n\n%s'):format(w.headline, w.body)
       or w.headline
-    --- `sha` refuses the merge if the branch moved since the view was drawn,
-    --- which is github's `expectedHeadOid` under another name.
+    -- `sha` refuses the merge if the branch moved since the view was drawn.
+    -- github's `expectedHeadOid` under another name.
     body = { sha = var.oid, squash = w.method == 'SQUASH' }
     body[w.method == 'SQUASH' and 'squash_commit_message' or 'merge_commit_message'] = message
   elseif w.query == 'draft' or w.query == 'ready' then
@@ -713,14 +689,13 @@ function M.write(w, on_done, on_fail)
   end, job.fail)
 end
 
---- gitlab's own page is the form, so templates and required fields stay theirs
---- to enforce.
+--- Open gitlab's own page for a new item, leaving templates and required
+--- fields for gitlab to enforce.
 ---
 --- An address for both collections, where github hands a pull request to gh:
 --- `glab mr create` prompts for whatever it cannot infer and has no terminal
---- to prompt in, which is the same defect that took gh off this path. The
---- branch you are on is put in the form rather than pushed first, so a branch
---- gitlab has never seen is one the form will not offer.
+--- to prompt in. The current branch is put in the form, not pushed first. The
+--- form will not offer a branch gitlab has never seen.
 --- @param t forge.Target what to add to
 --- @param host string the host that answered, which on a self-hosted instance
 --- is not the one a name defaults to
@@ -740,12 +715,9 @@ function M.create(t, host)
   vim.ui.open(branch and ('%s?merge_request%%5Bsource_branch%%5D=%s'):format(at, enc(branch)) or at)
 end
 
---- Where gitlab publishes a merge request's head.
----
---- On the project it merges into, even for one opened from a fork, so a merge
---- request nobody has fetched is still one fetch away. `refs/merge-requests/
---- N/merge` beside it is the merged result; forge wants the head, as it does
---- on github.
+--- Where gitlab publishes a merge request's head. Served on the project it
+--- merges into, even for one opened from a fork. `refs/merge-requests/N/merge`
+--- beside it is the merged result, not the head.
 --- @param number integer
 --- @return string
 function M.pull_ref(number)

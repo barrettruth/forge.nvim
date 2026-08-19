@@ -1,14 +1,14 @@
 --- github, as forge.Backend asks for it: the documents it sends, the words it
 --- says them in, and the addresses it builds. forge.gh underneath is the CLI
---- rather than the forge, and is shared with whatever else speaks through gh.
+--- rather than the forge.
 
 local gh = require('forge.gh')
 local log = require('forge.log')
 
 local M = {}
 
---- github numbers issues and pull requests from one counter and writes "#"
---- in front of either, which is why nothing here has to tell them apart.
+--- github numbers issues and pull requests from one counter and writes "#" in
+--- front of either.
 --- @type table<forge.Collection, forge.Nouns>
 M.nouns = {
   issues = { one = 'issue', many = 'issues', item = 'ISSUE', list = 'ISSUES', sigil = '#' },
@@ -116,11 +116,9 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }
 ]]
 
---- The open pull request whose head is a given branch.
----
---- A fork's pull request lives on the base repository, where a branch name is
---- not necessarily unique, so the viewer's own is preferred over a stranger's
---- that happens to share it.
+--- The open pull request whose head is a given branch. A fork's lives on the
+--- base repository, where a branch name may not be unique. Ten are asked for.
+--- The viewer's own is preferred.
 local HEAD_QUERY = [[
 query($owner: String!, $repo: String!, $head: String!) {
   viewer { login }
@@ -138,11 +136,9 @@ query($owner: String!, $repo: String!, $head: String!) {
 }
 ]]
 
---- One document for both collections: `type: ISSUE` searches issues and pull
---- requests alike, and which of them come back is decided by the `is:` forge
---- puts in the query. The repository is asked for alongside, since a search
---- answers for no particular one and a view still needs the name github
---- spells it with.
+--- One document for both collections. `type: ISSUE` searches issues and pull
+--- requests alike. The `is:` forge adds decides which come back. A search
+--- answers for no repository, so the repository is asked for alongside.
 local SEARCH_QUERY = [[
 query($owner: String!, $repo: String!, $q: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
@@ -183,18 +179,17 @@ local WORDS = {
 --- Search reaches a thousand results and no further, however many it reports.
 local REACHABLE = 1000
 
---- Qualifiers forge owns, because repeating one of these widens a search
---- rather than narrowing it: two `repo:` are two repositories, and `is:issue`
---- beside `is:pr` is both. The name a view carries would stop being true.
+--- Qualifiers forge owns. Repeating one widens a search rather than narrowing
+--- it. Two `repo:` are two repositories. `is:issue` beside `is:pr` is both.
+--- The name the view carries would stop being true.
 local OWNED = { org = true, repo = true, user = true }
 local KINDS = { ['is:issue'] = true, ['is:pr'] = true, ['type:issue'] = true, ['type:pr'] = true }
 
 --- What to send github for `query`, given what the user typed.
 ---
---- Their string is passed through byte for byte apart from the qualifiers
---- above, so quoting, negation and commas are github's to read rather than
---- ours to parse. Only the whole words forge owns are dropped, which leaves
---- the spaces inside a quoted value where they were.
+--- Passed through byte for byte apart from the qualifiers above. Quoting,
+--- negation and commas stay github's to read. Only whole words are dropped,
+--- leaving the spaces inside a quoted value where they were.
 --- @param t forge.Target
 --- @return string
 local function searching(t)
@@ -210,9 +205,8 @@ local function searching(t)
     return nil
   end)
   local owner, repo = gh.slug(t)
-  --- Ordered like the plain list unless they asked otherwise: `search` takes
-  --- no orderBy, so the only way to say it is in the query, and its own
-  --- default is relevance.
+  -- `search` takes no orderBy and defaults to relevance. Ordering it like the
+  -- plain list has to be said in the query itself.
   local parts = { ('repo:%s/%s'):format(owner, repo), WORDS[t.collection].kind }
   if not sorted then
     parts[#parts + 1] = 'sort:updated-desc'
@@ -249,14 +243,14 @@ function M.list(t, f, on_done, on_fail)
       return on_done(nil)
     end
     local info = conn.pageInfo or {}
-    --- Absent where github will not count a collection past some size of it,
-    --- and the count is also the only thing that says where the pages end.
+    -- Absent where github will not count a collection past some size. Then
+    -- nothing says where the pages end either.
     local total = conn.totalCount or conn.issueCount
     on_done({
       project = project,
       nodes = conn.nodes or {},
       total = total,
-      --- A search reports every match and hands over the first thousand.
+      -- A search reports every match and hands over the first thousand.
       reach = total and math.min(total, q and REACHABLE or total),
       cursor = info.hasNextPage and info.endCursor or nil,
       has_next = info.hasNextPage or false,
@@ -316,11 +310,10 @@ function M.head(t, branch, f, on_done)
   end)
 end
 
---- How a closed issue ended. The reason is written into the document rather
---- than passed, because two named closings read better in a menu than one
---- closing and a second question. DUPLICATE is left out: it takes the id of
---- the issue duplicated, which is another prompt, and github asks for it the
---- same way.
+--- How a closed issue ended. The reason is written into each document rather
+--- than passed. The menu offers two named closings instead of one closing and
+--- a second question. DUPLICATE is left out. It takes the id of the issue
+--- duplicated, which is another prompt.
 local COMPLETED = [[
 mutation($id: ID!) {
   closeIssue(input: {issueId: $id, stateReason: COMPLETED}) { clientMutationId }
@@ -363,11 +356,9 @@ mutation($id: ID!) {
 }
 ]]
 
+--- The only merge with no message. `merging` below builds the other two.
 --- `expectedHeadOid` refuses the merge if the branch moved since the view was
---- drawn, which is the one thing `gh pr merge` cannot do.
----
---- The only merge with no message; the other two are written by hand and are
---- built by `merging` below.
+--- drawn. `gh pr merge` cannot do that.
 local REBASE = [[
 mutation($id: ID!, $oid: GitObjectID!) {
   mergePullRequest(input: {pullRequestId: $id, mergeMethod: REBASE, expectedHeadOid: $oid}) {
@@ -376,7 +367,7 @@ mutation($id: ID!, $oid: GitObjectID!) {
 }
 ]]
 
---- A rebase writes no commit either way, so it waits without a message.
+--- A rebase writes no commit either way. It waits without a message.
 local AUTO_REBASE = [[
 mutation($id: ID!, $oid: GitObjectID!) {
   enablePullRequestAutoMerge(input: {
@@ -395,8 +386,7 @@ mutation($id: ID!) {
 }
 ]]
 
---- A queue takes no method and no message: how it merges is the queue's own
---- setting, which is the whole point of the base branch having one.
+--- A queue takes no method and no message. How it merges is its own setting.
 local ENQUEUE = [[
 mutation($id: ID!, $oid: GitObjectID!) {
   enqueuePullRequest(input: {pullRequestId: $id, expectedHeadOid: $oid}) {
@@ -405,8 +395,8 @@ mutation($id: ID!, $oid: GitObjectID!) {
 }
 ]]
 
---- `id` here is the pull request, not the entry it has in the queue, whatever
---- the name suggests.
+--- `id` is the pull request rather than its entry in the queue, whatever the
+--- name suggests.
 local DEQUEUE = [[
 mutation($id: ID!) {
   dequeuePullRequest(input: {id: $id}) { clientMutationId }
@@ -433,8 +423,8 @@ M.writes = {
   },
 }
 
---- A title and a body are one write on either collection, and github spells
---- the input's key differently in each.
+--- One write on either collection. github spells the input's key differently
+--- in each.
 local EDIT = {
   issues = [[
 mutation($id: ID!, $title: String!, $body: String!) {
@@ -448,8 +438,8 @@ mutation($id: ID!, $title: String!, $body: String!) {
 ]],
 }
 
---- `enablePullRequestAutoMerge` takes the same input as `mergePullRequest`, so
---- a merge that waits is the same document under another name.
+--- `enablePullRequestAutoMerge` takes the same input as `mergePullRequest`. A
+--- merge that waits is the same document under another name.
 --- @param method 'SQUASH'|'MERGE'
 --- @param auto boolean whether to wait for github to say the merge may happen
 --- @return string
@@ -478,15 +468,15 @@ function M.write(w, on_done, on_fail)
     variables = { id = var.id, title = w.title, body = w.body }
   elseif w.kind == 'merge' then
     query = merging(w.method, w.auto == true)
-    --- An empty body is sent as one. Leaving the field out has github compose
-    --- the default the buffer was filled with and then discarded.
+    -- An empty body is sent as one. Leaving the field out has github compose
+    -- the default the buffer was filled with and then emptied.
     variables = { id = var.id, oid = var.oid, headline = w.headline, body = w.body }
   else
-    --- An action carries its own write, which on github is a document.
+    -- An action carries its own write. On github that is a document.
     query = w.query --[[@as string]]
     variables = { id = var.id }
-    --- The head a document asks for is the one the view was drawn from, so a
-    --- branch that moved since then is refused rather than merged unseen.
+    -- The head is the one the view was drawn from. A branch that moved since
+    -- is refused, not merged unseen.
     if query:find('$oid', 1, true) then
       variables.oid = var.oid
     end
@@ -495,14 +485,12 @@ function M.write(w, on_done, on_fail)
   gh.graphql({ desc = w.desc, query = query, variables = variables, cwd = w.cwd }, on_done, on_fail)
 end
 
---- github's own page is the form, so templates and required fields stay
---- theirs to enforce, and gh pushes the branch on the way to a pull request's.
+--- Open github's own page for a new item, leaving templates and required
+--- fields for github to enforce.
 ---
---- A new issue is an address, and the view already carries the host that
---- answered for it, which is all gh would have been asked for. gh will not
---- start one without a terminal to prompt in, either. A new pull request is
---- not an address until gh has worked out what merges into what from the
---- branch you are on, and pushed it if the remote has never seen it.
+--- A new issue is just an address. A new pull request is not one until gh has
+--- worked out what merges into what and pushed the branch. That one goes
+--- through `gh pr create --web`.
 --- @param t forge.Target what to add to
 --- @param host string the host that answered, which on an enterprise install
 --- is not the one a name defaults to
@@ -539,10 +527,8 @@ function M.create(t, host)
   end)
 end
 
---- Where github publishes a pull request's head.
----
---- Every one of them is served as `refs/pull/N/head` on the base repository,
---- so a pull request nobody has fetched is still one fetch away.
+--- Where github publishes a pull request's head. Served on the base
+--- repository. One nobody has fetched is still a single fetch away.
 --- @param number integer
 --- @return string
 function M.pull_ref(number)

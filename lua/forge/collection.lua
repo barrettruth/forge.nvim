@@ -7,11 +7,8 @@ local view = require('forge.view')
 
 local M = {}
 
---- What a forge calls a collection when it says it out loud.
----
---- gitlab says "merge request", writes "!2" where github writes "#2", and puts
---- MRS in a winbar where github puts PRS. None of that is the collection's to
---- decide, so all of it belongs to whichever forge answered.
+--- What a forge calls a collection. gitlab says "merge request", writes "!2"
+--- where github writes "#2", and puts MRS in a winbar where github puts PRS.
 --- @class forge.Nouns
 --- @field one string the singular, as said to a person
 --- @field many string the plural, as said to a person
@@ -45,10 +42,8 @@ local M = {}
 --- @field project string? the path the forge spells the repository with
 --- @field number integer? absent where the branch has no pull request yet
 
---- One change to send, in the words above the seam.
----
---- `kind` says which of the three shapes the rest is, since an action names
---- its own write and the other two are composed from what was typed.
+--- One change to send. `kind` says which of the three shapes the rest is: an
+--- action names its own write, the other two are composed from what was typed.
 --- @class forge.Write
 --- @field kind 'act'|'edit'|'merge'
 --- @field desc string what to say while it is in flight
@@ -65,10 +60,9 @@ local M = {}
 
 --- One forge, as everything above here sees it.
 ---
---- Nothing outside a backend knows which forge answered: a call site that
---- tests the host is the multiplication kernel idea 1 refuses. A capability
---- is the presence of an optional method and never a flag, so a forge that
---- cannot do something simply does not answer for it.
+--- Nothing outside a backend may test the host. A capability is the presence
+--- of an optional method, never a flag. A forge that cannot do something
+--- simply does not answer for it.
 --- @class forge.Backend
 --- @field nouns table<forge.Collection, forge.Nouns> its own words for each
 --- @field writes table<forge.Collection, table<string, string>> the write behind
@@ -82,11 +76,8 @@ local M = {}
 --- @field pull_ref fun(number: integer): string where it publishes a pull
 --- request's head, for git to fetch by
 
---- Something an item can be asked to do, and when it can be asked.
----
---- Data rather than a closure: every one of them is the same round trip with a
---- different write, and the reason a state can be written into that write
---- rather than passed is that a forge spells its own enums.
+--- Something an item can be asked to do, and when it can be asked. Data rather
+--- than a closure: each is the same round trip with a different write.
 --- @class forge.Action
 --- @field label string what the picker shows; `{one}` and `{many}` are filled
 --- in with the forge's own word for the collection
@@ -97,11 +88,9 @@ local M = {}
 
 --- Everything that distinguishes one collection from another.
 ---
---- Issues and pull requests are drawn by the same two functions below; a spec
---- is the whole of the difference between them. Anything genuinely particular
---- to one — a pull request's branch line, its draft state, its diffstat — is a
---- function here rather than a branch there. What is particular to a *forge*
---- is not here at all; see |forge.Backend|.
+--- Issues and pull requests are drawn by the same two functions below. What is
+--- particular to one is a function here, not a branch there. What is
+--- particular to a *forge* belongs in |forge.Backend|.
 --- @class forge.Spec
 --- @field collection forge.Collection which of the two it is
 --- @field state_hl table<string, string>
@@ -119,23 +108,16 @@ local M = {}
 --- keep of it
 --- @field actions? forge.Action[] what "c" offers
 
---- The forge an item came from.
----
---- The url it answered with, rather than the host its name defaults to: on an
---- enterprise install those are two different places, and only the url has
---- been anywhere.
+--- The forge an item came from, by the url it answered with rather than the
+--- host its name defaults to. On an enterprise install those differ.
 --- @param var forge.ItemVar
 --- @return forge.Backend?
 local function answered(var)
   return backend.of((var.url or ''):match('^https?://([^/]+)'))
 end
 
---- Say something in the words of the forge that answered.
----
---- A spec is written once for both of them, so where it has to name the
---- collection it writes a placeholder and this fills it in. gitlab calls a
---- pull request a merge request, and a key whose description says otherwise is
---- the same leak as a winbar that does.
+--- Fill a spec's `{one}` and `{many}` in with the forge's own words. A spec is
+--- written once for both forges and names the collection with a placeholder.
 --- @param said string
 --- @param nouns forge.Nouns
 --- @return string
@@ -154,8 +136,10 @@ local function keys(maps, nouns)
   return out
 end
 
---- Where the answer goes is settled before the round trip, since by the time
---- one comes back the current window is wherever you wandered to.
+--- Send one action's write, then redraw the item.
+---
+--- The window and directory are read now. Once the round trip comes back, the
+--- current window is wherever you wandered to.
 --- @param be forge.Backend
 --- @param spec forge.Spec
 --- @param var forge.ItemVar
@@ -179,8 +163,8 @@ local function mutate(be, spec, var, action)
   end)
 end
 
---- The write comes back on the action rather than being looked up when one is
---- picked, so what a menu offers is the whole of what it would send.
+--- What `spec`'s item can be asked to do. Each carries the write it would
+--- send. A menu entry is the whole of what picking it does.
 --- @param be forge.Backend
 --- @param spec forge.Spec
 --- @param var forge.ItemVar
@@ -190,9 +174,8 @@ local function offering(be, spec, var)
   local nouns = be.nouns[spec.collection]
   local can = {}
   for _, action in ipairs(spec.actions or {}) do
-    --- An action that names a write the forge has none of is not offered. A
-    --- capability is the presence of the thing that performs it, and a forge
-    --- with one way to close should not be asked to choose between two.
+    -- An action naming a write the forge has none of is not offered. A forge
+    -- with one way to close must not be asked to choose between two.
     local write = action.write and writes[action.write] or nil
     if action.when(var) and (not action.write or write) then
       can[#can + 1] = vim.tbl_extend('force', action, {
@@ -213,8 +196,8 @@ function M.actions(spec, var)
   return be and offering(be, spec, var) or {}
 end
 
---- Offer those, and do the one chosen. A menu rather than a key each, because
---- naming the action is the only confirmation a state flip gets.
+--- Offer those, and do the one chosen. A menu rather than a key each. Naming
+--- the action is the only confirmation a state flip gets.
 --- @param spec forge.Spec
 function M.act(spec)
   local var = vim.b.forge or {}
@@ -224,12 +207,9 @@ function M.act(spec)
   end
   local nouns = be.nouns[spec.collection]
   local can = offering(be, spec, var)
-  --- Refused and finished are different things: one is worth a warning, the
-  --- other is just how a merged pull request is.
+  -- Refused is worth a warning. Finished is just how a merged one is.
   if #can == 0 then
     if var.can_update == false then
-      --- The forge is named out of the url it answered with, which on an
-      --- enterprise install is not the host its own name defaults to.
       local host = (var.url or ''):match('^https?://([^/]+)') or 'the forge'
       log.warn(('%s does not let you change this %s'):format(host, nouns.one))
     else
@@ -238,9 +218,8 @@ function M.act(spec)
     return
   end
   vim.ui.select(can, {
-    --- The verb is "cc" itself, and what every choice below has in common:
-    --- each one writes, and each is gated on the same permission. A colon
-    --- because a list follows, not a question nothing here answers.
+    -- Every choice writes. Every one is gated on the same permission.
+    -- "Change" says what they have in common.
     prompt = ('Change %s %s:'):format(nouns.one, var.tag or ''),
     format_item = function(action)
       return action.label
@@ -307,8 +286,8 @@ function M.list(spec, t, o)
       marks = { { row = 0, col = 0, end_col = #lines[1], group = 'Comment' } }
     end
 
-    --- The reach rather than the total: a forge that hands over only the first
-    --- so many of a search still reports how many it found.
+    -- The reach, not the total. A search reports every match and hands over
+    -- only the first so many.
     local last = answer.reach and math.max(1, math.ceil(answer.reach / view.PER_PAGE))
 
     --- @type forge.ListVar
@@ -336,8 +315,8 @@ end
 --- @return forge.Comment
 local function said(node)
   return {
-    --- github answers a deleted account with no author at all, and ghost is
-    --- the name it puts on one everywhere else.
+    -- A deleted account comes back with no author at all. "ghost" is the name
+    -- github puts on one everywhere else.
     author = vim.tbl_get(node, 'author', 'login') or 'ghost',
     association = node.authorAssociation,
     created_at = node.createdAt,
@@ -345,14 +324,13 @@ local function said(node)
   }
 end
 
---- A comments connection, as the conversation it holds and how long that
---- conversation is.
+--- The conversation a comments connection holds, and how long it is.
 --- @param connection table?
 --- @return forge.Comment[]
 --- @return integer? total
 local function conversation(connection)
-  --- By type throughout: a null connection arrives as `vim.NIL`, which reads
-  --- as present, and so does a count that was not answered.
+  -- By type throughout. A null connection arrives as `vim.NIL`, which reads as
+  -- present. So does an unanswered count.
   local held = type(connection) == 'table' and connection or {}
   local out = {}
   for _, node in ipairs(type(held.nodes) == 'table' and held.nodes or {}) do
@@ -390,8 +368,8 @@ function M.item(spec, t, o)
       labels[#labels + 1] = label.name
     end
 
-    --- People, then what it is, in a fixed order so a fact is always in the
-    --- same place.
+    -- People, then what it is, in a fixed order so a fact is always in the
+    -- same place.
     --- @type forge.Row[]
     local rows = {
       { key = 'Assignees', values = text.logins(node.assignees), group = text.LOGIN },
@@ -401,16 +379,16 @@ function M.item(spec, t, o)
     rows[#rows + 1] =
       { key = 'Milestone', values = { vim.tbl_get(node, 'milestone', 'title') }, group = 'Tag' }
 
-    --- Not the state: the winbar has it, and always on screen.
+    -- Not the state: the winbar has it, and stays on screen.
     local lines = { ('# %s'):format(node.title), '' }
     --- @type forge.Mark[]
     local marks = {}
-    --- A mention in a body links to a person on the forge the body came from.
+    -- A mention in a body links to a person on the forge the body came from.
     text.host = u.host
     text.append_author(lines, marks, said(node))
     text.append_rows(lines, marks, rows)
     lines[#lines + 1] = ''
-    --- github's sentence. A comment has no description to be missing.
+    -- github's own wording. A comment has no description to be missing.
     text.append_body(lines, marks, node.body, 'No description provided.')
     local comments, count = conversation(node.comments)
     text.append_comments(lines, marks, comments, count)
@@ -429,12 +407,10 @@ function M.item(spec, t, o)
       state_hl = spec.state_hl[state] or 'Normal',
       tag = nouns.sigil .. node.number,
       title = node.title or '',
-      --- What "cc" hands the editor: the title and body as they stand, in the
-      --- shape they are written back in.
       edit = ('%s\n\n%s'):format(node.title or '', node.body or ''),
       badges = #badges > 0 and (' ' .. table.concat(badges, ' ')) or '',
-      --- The bar divides the two, so with no badge there is nothing to
-      --- divide and it would be marooned at the end of the gap `%=` opened.
+      -- The bar divides badges from stat. With no badge it would be marooned
+      -- at the end of the gap `%=` opened.
       stat = #stat > 0 and ((#badges > 0 and ' | ' or ' ') .. table.concat(stat, ' ')) or '',
     }
     if spec.remember then

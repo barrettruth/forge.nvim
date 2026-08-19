@@ -4,11 +4,8 @@ local view = require('forge.view')
 
 local M = {}
 
---- diffs.nvim, if it is there to be used.
----
---- An installed plugin is not a loaded one. Under `pack/*/opt` nothing is on
---- the runtimepath until |:packadd|, so requiring first would call an
---- installed diffs.nvim missing merely because its own trigger had not fired.
+--- diffs.nvim, if it is there to be used. Under `pack/*/opt` nothing is on the
+--- runtimepath until |:packadd|. Requiring first would call it missing.
 --- @return boolean
 function M.available()
   if not vim.g.loaded_diffs then
@@ -20,12 +17,11 @@ end
 
 --- Show this pull request's diff in diffs.nvim.
 ---
---- A pull request is a merge-base diff, which is what `base...head` means to
---- git and to |:Diff| alike, so the handover is the spec and nothing else.
---- Both ends are fetched first, unconditionally: diffs.nvim draws from the
---- object store, and a pull request you did not write is never already there.
---- The window is named before the fetch, because by the time one comes back
---- the current window is whatever you wandered to.
+--- A pull request is a merge-base diff. That is what `base...head` means to
+--- git and to |:Diff| alike. Both ends are fetched first, unconditionally.
+--- diffs.nvim draws from the object store, and a pull request you did not
+--- write is never already there. The window is read before the fetch. Once one
+--- comes back the current window is wherever you wandered to.
 function M.show()
   local u = view.current()
   local be = require('forge.backend').of(u and u.host)

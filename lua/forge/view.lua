@@ -7,62 +7,49 @@ local M = {}
 
 local NS = vim.api.nvim_create_namespace('forge')
 
---- What a view buffer remembers about itself, and what a reader may rely on.
----
---- Kept in `b:forge` because all of it is worth seeing: the state an item is
---- in, and the branches a pull request joins. Bookkeeping that would mean
---- nothing to a reader is not here — see `paged` below.
+--- What a view buffer publishes about itself. Documented at |b:forge|.
 --- @class forge.BufVar
---- @field kind 'list'|'item' which of the two shapes a view has
+--- @field kind 'list'|'item'
 --- @field label string what the winbar calls it
 --- @field repo string "owner/repo"
---- @field url string the address github gave it, on whichever host answered
+--- @field url string its address on the forge that answered
 
---- Split from the shape above rather than made optional on it: a winbar needs
---- the whole of its own half, and one class of optionals says a partial table
---- is allowed.
 --- @class forge.ListVar : forge.BufVar
 --- @field pages string "1/2", or "1/?" where the last page is not known
---- @field total string? how many the list holds in all, absent where the forge
---- would not count them
---- @field query string the search narrowing it, empty when it is the whole list
+--- @field total string? absent where the forge will not count the list
+--- @field query string the search narrowing it, empty for the whole list
 
---- The last three are a pull request's; an issue joins no branches.
 --- @class forge.ItemVar : forge.BufVar
 --- @field tag string "#27"
 --- @field title string
 --- @field state string the state to show, as a person reads it
 --- @field state_hl string the group that state is drawn in
---- @field about string free text for the winbar after the state, empty for
---- anything that fills that room another way
---- @field badges string winbar segments an item adds, already highlighted
---- @field stat string what it measures, its own bar included, drawn right
---- @field id string? what a mutation names a pull request by
---- @field can_update boolean? whether github will let you change it
+--- @field about string winbar text after the state, empty where the branches
+--- fill that room instead
+--- @field badges string extra winbar segments, already highlighted
+--- @field stat string what it measures, drawn against the right edge
+--- @field id string? what a mutation names it by
+--- @field can_update boolean? whether the forge will let you change it
 --- @field edit string? its title and body, as "cc" hands them to be edited
---- @field oid string? the head a pull request was drawn from
---- @field can_squash boolean? whether github would take each merge, all three
---- @field can_merge_commit boolean? weighed against the repository, its ruleset
---- @field can_rebase boolean? and your access before the menu is drawn
---- @field can_bypass boolean? whether a merge would go through something that
---- would otherwise stop it, which is what names it rather than what allows it
+--- @field oid string? the head it was drawn from
+--- @field can_squash boolean? whether the forge would take each of the three
+--- @field can_merge_commit boolean? merges, weighed before the menu is drawn
+--- @field can_rebase boolean?
+--- @field can_bypass boolean? whether a merge would bypass a rule to happen
 --- @field merge table<string, { headline: string, body: string }>? the commit
---- message github would write for each method it writes one for
---- @field can_auto boolean? whether github would take a merge that waits
+--- message the forge would write, keyed by the method that would carry it
+--- @field can_auto boolean? whether a merge may be set to wait
 --- @field can_unauto boolean? whether one already waiting may be called off
---- @field auto string? the method a merge already waiting would use
+--- @field auto string? the method a waiting merge would use
 --- @field queued boolean? whether the base branch merges through a queue
---- @field in_queue boolean? whether this pull request is in it
---- @field base string? the branch a pull request merges into
---- @field head string? the branch a pull request merges from
---- @field remote string? the repository "dd" and "dl" fetch a pull request from
+--- @field in_queue boolean? whether this one is in it
+--- @field base string? the branch it merges into
+--- @field head string? the branch it merges from
+--- @field remote string? the repository "dd" and "dl" fetch it from
 
---- Read one field of `b:forge`, for the templates below to call.
----
---- They never index `b:forge` themselves. A missing key raises E716 out of a
---- redraw, and Neovim answers an error in a 'winbar' by emptying the option,
---- so one field got wrong costs the view the only thing naming it — again on
---- every redraw. Read through here it costs a blank.
+--- Read one field of `b:forge`. The templates below never index it directly.
+--- A missing key raises E716 from a redraw. Neovim empties 'winbar' on an
+--- error. One wrong field would blank the bar.
 --- @param field string
 --- @return string
 function M.field(field)
@@ -83,13 +70,13 @@ local function at(field)
   return '%{' .. call(field) .. '}'
 end
 
---- `%{%…%}` is re-parsed as format items, so only closed sets forge writes may
---- go through it. Every other field is user text, and uses plain `%{}`.
+--- `%{%…%}` is re-parsed as format items. Only closed sets forge writes may go
+--- through it. Every other field is user text, and uses plain `%{}`.
 local STATE = "%{%'%#' .. " .. call('state_hl') .. " .. '#' .. " .. call('state') .. " .. '%*'%}"
 
---- A template over `b:forge`, as ci.nvim's is, rather than a rendered string:
---- `%{}` evaluates against the window being drawn, so a second window showing
---- a view cannot go stale.
+--- A template over `b:forge`, not a rendered string. ci.nvim's is the same.
+--- `%{}` evaluates against the window being drawn. A rendered string goes
+--- stale in the second window showing a view.
 --- @type table<'list'|'item', string>
 local WINBAR = {
   list = '%#Title#'
@@ -103,14 +90,9 @@ local WINBAR = {
     .. '%( %#Comment#('
     .. at('total')
     .. ')%*%)',
-  --- What it is and how it stands, then either the branches it joins or what
-  --- it is about, then what only some of them have. Exactly one of those two
-  --- is ever filled and `%(…%)` drops whichever is not.
-  ---
-  --- The colours are written here and the words arrive through a plain `%{}`,
-  --- which is not parsed again: a branch name and a title are both somebody
-  --- else's text, and neither may be handed to a `%{%…%}`. `%<` marks what to
-  --- cut first, so nothing else is ever pushed off.
+  -- Exactly one of the branch pair and `about` is ever filled. `%(…%)` drops
+  -- the other. Both are somebody else's text: plain `%{}` only. `%<` truncates
+  -- here first.
   item = '%#Title#'
     .. at('label')
     .. '%* %#Tag#'
@@ -130,25 +112,21 @@ local WINBAR = {
     .. '%}',
 }
 
---- Where a view was last being read, kept for buffers no window is showing.
----
---- A visible buffer can be asked directly; one left behind by |<CR>| cannot,
---- and replacing its lines forgets the cursor it had.
+--- Where a view was last being read, for buffers no window is showing. A
+--- visible buffer can be asked directly. One left behind by |<CR>| cannot.
 --- @type table<integer, vim.fn.winsaveview.ret>
 local placed = {}
 
 --- How far through a list each buffer has got.
 ---
---- Lua rather than `b:`, because a buffer variable is a serialisation boundary
---- and none of this survives it usefully: the cursors are opaque tokens keyed
---- by page, page one has none, and a table with that hole comes back as a list
---- with `vim.NIL` in it — truthy, and not a cursor github accepts. Nothing
---- outside forge has any use for them either.
+--- Lua rather than `b:`. The cursors are keyed by page and page one has none,
+--- leaving a hole. A buffer variable brings that hole back as a list holding
+--- `vim.NIL`: truthy, and not a cursor.
 --- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean }>
 local pages = {}
 
---- Replies do not come back in the order they were asked for: the counter says
---- which is still wanted, the table stops an overtaken one painting over it.
+--- Replies do not come back in the order they were asked for. The counter says
+--- which is still wanted. `drawn` stops an overtaken one painting over it.
 --- @type integer
 local seq = 0
 
@@ -171,7 +149,7 @@ function M.forget(buf)
   drawn[buf] = nil
 end
 
---- How many items a list asks github for at once.
+--- How many items a list asks the forge for at once.
 M.PER_PAGE = 100
 
 --- Which command to send someone to when a target names the other collection.
@@ -184,10 +162,8 @@ local function nouns(t)
   return require('forge.backend').of(t.host).nouns[t.collection]
 end
 
---- Where a view was asked for, and where its answer should land.
----
---- A request is a round trip, so none of this can be read off the editor by
---- the time one comes back.
+--- Where a view was asked for, and where its answer should land. None of it
+--- can be read off the editor once the round trip comes back.
 --- @class forge.Open
 --- @field page integer?
 --- @field cursors table<integer, string>?
@@ -200,7 +176,7 @@ end
 --- @field hidden boolean? draw it into its buffer without giving it a window
 --- @field seq integer? which request this is
 
---- The repository a target names, for saying out loud while it is in flight.
+--- The repository a target names, for a progress message to say.
 --- @param t forge.Target
 --- @return string
 function M.where(t)
@@ -212,16 +188,16 @@ end
 --- @field col integer byte column, inclusive
 --- @field end_col integer byte column, exclusive
 --- @field group string|string[]
---- @field url string? where |gx| goes from here, core reading it off the mark
+--- @field url string? where |gx| goes from here, read off the mark by core
 
 --- What a state means, rather than what colour it is. Builtin groups only.
 --- @enum forge.Hl
 M.HL = {
-  live = 'OkMsg', --- open, approved, passing
-  done = 'Special', --- merged, completed
-  bad = 'ErrorMsg', --- closed unmerged, conflicting, failing, changes requested
-  waiting = 'WarningMsg', --- pending, expected, not yet known
-  inert = 'Comment', --- draft, not planned, skipped
+  live = 'OkMsg', -- open, approved, passing
+  done = 'Special', -- merged, completed
+  bad = 'ErrorMsg', -- closed unmerged, conflicting, failing, changes requested
+  waiting = 'WarningMsg', -- pending, expected, not yet known
+  inert = 'Comment', -- draft, not planned, skipped
 }
 
 --- Wrap 'winbar' text in a highlight group. An empty group is harmless.
@@ -232,8 +208,8 @@ function M.hl(group, text)
   return ('%%#%s#%s%%*'):format(group, text)
 end
 
---- An overtaken reply still draws into its own buffer; it may not take the
---- window, because the answer to a later question is already there.
+--- Whether `o` is still the request being waited for. An overtaken reply draws
+--- into its own buffer but may not take the window.
 --- @param o forge.Open?
 --- @return boolean
 function M.newest(o)
@@ -262,10 +238,8 @@ function M.current()
   return uri.parse(vim.api.nvim_buf_get_name(0))
 end
 
---- The buffer named exactly `name`.
----
---- Not |bufnr()|, which takes a pattern: a list would match an item already
---- open beneath it and render itself into that item's buffer.
+--- The buffer named exactly `name`. Not |bufnr()|: it takes a pattern, and a
+--- list would match an item already open beneath it.
 --- @param name string
 --- @return integer?
 function M.buffer_named(name)
@@ -276,8 +250,8 @@ function M.buffer_named(name)
   end
 end
 
---- Say a view is being fetched again, and return how to stop saying it. Only
---- one already on screen can: a buffer that does not exist yet has no 'busy'.
+--- Set 'busy' while a view is fetched again, and return how to clear it. Only
+--- a view already on screen has a buffer to set it on.
 --- @param t forge.Target
 --- @return fun()
 function M.busy(t)
@@ -295,8 +269,8 @@ end
 
 --- Whether a command was told to put its result somewhere new.
 ---
---- `tab` is -1 when absent rather than nil, so it is compared rather than
---- tested. See |:command-modifiers|.
+--- `tab` is -1 when absent, not nil. Compare it, do not test it.
+--- See |:command-modifiers|.
 --- @param smods table?
 --- @return boolean
 function M.wants_window(smods)
@@ -307,10 +281,8 @@ function M.wants_window(smods)
     or (smods.tab or -1) >= 0
 end
 
---- Honour a command's window modifiers, if it had any.
----
---- The structured modifiers say whether to make a window; the raw ones say
---- what kind, by being replayed onto a plain split.
+--- Honour a command's window modifiers, if it had any. The structured
+--- modifiers say whether to split. The raw ones say what kind, replayed.
 --- @param opts { mods: string?, smods: table?, split: boolean? }?
 function M.split_for(opts)
   if (opts and opts.split) or M.wants_window(opts and opts.smods) then
@@ -320,14 +292,13 @@ end
 
 --- Put the editor where a view is about to be drawn.
 ---
---- The window a command was given in is the one its answer belongs in, not
---- whichever happens to be current once github replies. The split is made here
---- too, after the reply, so a request that fails leaves no window behind.
+--- The answer belongs in the window the command was given in, not whichever
+--- is current once the forge replies. The split is made after the reply. A
+--- request that fails leaves no window behind.
 --- @param o forge.Open?
 function M.place(o)
-  --- Hidden is for an answer nobody is waiting to look at: a view redrawn
-  --- because something was written to it, while the window it lives in is
-  --- showing the buffer that wrote.
+  -- `hidden` is for a view redrawn because something was written to it, while
+  -- the window it lives in still shows the buffer that did the writing.
   if not M.newest(o) or (o and o.hidden) then
     return
   end
@@ -337,9 +308,11 @@ function M.place(o)
   M.split_for(o)
 end
 
---- Window options do not follow a buffer into a second window, so they are set
---- wherever a view turns up. The `vim.wo[win][0]` scope, which core's own
---- ftplugins use, is what gives them back when the window shows something else.
+--- Dress `win` for the view in `buf`.
+---
+--- Window options do not follow a buffer into a second window. Set them
+--- wherever a view turns up. The `vim.wo[win][0]` scope gives them back when
+--- the window shows something else. Core's own ftplugins do this.
 --- @param buf integer
 --- @param win integer
 function M.dress(buf, win)
@@ -372,13 +345,13 @@ end
 
 --- Show `lines` as the view named by `u`, reusing its buffer if it exists.
 ---
---- Mappings are set here rather than in an ftplugin: an item is markdown, and
---- an ftplugin/markdown.lua would reach every markdown file you open. So is
---- 'includeexpr', last of all, so that a filetype plugin of your own cannot
---- have set it after us and left |gf| pointing at nothing.
+--- Mappings and 'includeexpr' are set here, not in an ftplugin. An item is
+--- markdown, and an ftplugin/markdown.lua would reach every markdown file you
+--- open. 'includeexpr' goes last, after 'filetype'. A filetype plugin of your
+--- own would otherwise overwrite it and leave |gf| pointing at nothing.
 ---
---- The buffer is replaced in place rather than wiped and rebuilt, so a window
---- handle held by a caller stays valid across a refresh.
+--- The buffer is replaced in place, never wiped and rebuilt. A window handle
+--- held by a caller stays valid across a refresh.
 --- @param u forge.Uri
 --- @param lines string[]
 --- @param info forge.ListVar|forge.ItemVar
@@ -423,9 +396,8 @@ function M.render(u, lines, info, marks, maps, o)
   vim.bo[buf].modified = false
 
   vim.api.nvim_buf_clear_namespace(buf, NS, 0, -1)
-  --- One extmark per group rather than the list `hl_group` also takes: a
-  --- composed one silently drops `url`, and core's |gx| reads the url off the
-  --- mark. Stacking them applies every group and keeps it.
+  -- One extmark per group, not the list `hl_group` also takes. A composed one
+  -- silently drops `url`. Core's |gx| reads `url` off the mark.
   for _, mark in ipairs(marks or {}) do
     local groups = type(mark.group) == 'table' and mark.group or { mark.group }
     for i, group in
@@ -506,10 +478,8 @@ end
 
 --- Open whatever `target` names, so long as it names `collection`.
 ---
---- Both commands arrive here. The window, the directory and the cursor are
---- read now, while the user is still standing in them; everything else waits
---- for github. "." is the only target read off the editor rather than parsed,
---- so it is spent here and the grammar below never sees it.
+--- Both commands arrive here. "." is the one target read off the editor
+--- rather than parsed, and is resolved here before the grammar sees it.
 --- @param target string?
 --- @param collection forge.Collection
 --- @param opts vim.api.keyset.create_user_command.command_args?
@@ -544,10 +514,8 @@ function M.up()
   M.open({ host = u.host, project = u.project, collection = u.collection }, { keep = true })
 end
 
---- Fetch this view again, where it stands.
----
---- Unlike |:edit|, which rebuilds a view from its name and so returns to the
---- first page, a refresh keeps the page you were on.
+--- Fetch this view again, keeping the page. |:edit| rebuilds from the name.
+--- A name holds no page, so it returns to the first.
 function M.refresh()
   local u = M.current()
   if not u then
@@ -561,11 +529,8 @@ function M.refresh()
   M.open(u, { page = paging.page, cursors = paging.cursors, keep = true })
 end
 
---- Start something new in the collection this view holds.
----
---- The repository is the one asked about rather than the one you are standing
---- in, so a fork can propose a branch to what it forked. How a forge is asked
---- for a new one is the backend's; see |forge.Backend|.
+--- Start something new in the collection this view holds, in the repository
+--- the view names rather than the one you are standing in.
 --- @param t forge.Target? what to add to, or the view being looked at
 function M.create(t)
   t = t or M.current()
@@ -577,16 +542,14 @@ function M.create(t)
   if not be then
     return
   end
-  --- The url names the host, which on an enterprise install is not the one a
-  --- name defaults to; the target names the path, which a url cannot be
-  --- chopped down to once a project nests under groups.
+  -- The host comes from the url. On an enterprise install that is not the host
+  -- a name defaults to. The path comes from the target: a url cannot be
+  -- chopped back down to one once a project nests under groups.
   be.create(t, M.field('url'):match('^https?://([^/]+)') or t.host)
 end
 
---- Open this view on the forge it came from.
----
---- What the buffer shows, not what the cursor is on: the buffer already knows
---- what it is, and <CR> is how you follow a line.
+--- Open this view on the forge it came from. What the buffer shows, not what
+--- the cursor is on. <CR> follows a line.
 function M.web()
   local url = M.field('url')
   if url == '' then
@@ -638,8 +601,7 @@ function M.open_at_cursor(split)
   if not be then
     return
   end
-  --- A line is drawn with the sigil the forge writes in front of a number, so
-  --- the same word reads it back.
+  -- A line is drawn with the forge's own sigil. The same word reads it back.
   local sigil = be.nouns[u.collection].sigil
   local number = vim.api.nvim_get_current_line():match(('^%s(%%d+)'):format(vim.pesc(sigil)))
   if not number then
@@ -655,14 +617,14 @@ end
 
 --- Warn when a connection came back truncated.
 ---
---- Every connection is capped. Asking for totalCount alongside the nodes is
---- what makes the cap visible instead of silently losing the tail, and a forge
---- that will not count a large one leaves nothing to measure the cap against.
+--- Every connection is capped. Every query asks for totalCount alongside the
+--- nodes. A forge that will not count a large one leaves nothing to measure
+--- the cap against, and the tail goes unreported.
 --- @param connection table?
 --- @param what string
 function M.check_truncated(connection, what)
-  --- By type: a null connection arrives as `vim.NIL`, which reads as present,
-  --- and so does a count that was not answered.
+  -- By type. A null connection arrives as `vim.NIL`, which reads as present.
+  -- So does an unanswered count.
   if type(connection) ~= 'table' then
     return
   end
