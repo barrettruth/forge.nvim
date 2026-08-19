@@ -135,6 +135,11 @@ local pages = {}
 --- @type table<integer, forge.stack.Rows?>
 local stacked = {}
 
+--- The chain each item buffer last drew, so a redraw keeps showing it until
+--- the next one lands rather than blanking the section and filling it again.
+--- @type table<integer, forge.Stack?>
+local held = {}
+
 --- Replies do not come back in the order they were asked for. The counter says
 --- which is still wanted. `drawn` stops an overtaken one painting over it.
 --- @type integer
@@ -158,6 +163,7 @@ function M.forget(buf)
   pages[buf] = nil
   drawn[buf] = nil
   stacked[buf] = nil
+  held[buf] = nil
 end
 
 --- How many items a list asks the forge for at once.
@@ -247,8 +253,18 @@ end
 --- Record the stack an item buffer drew, or that it drew none.
 --- @param buf integer
 --- @param nav forge.stack.Rows?
-function M.stacked(buf, nav)
+--- @param chain forge.Stack?
+function M.stacked(buf, nav, chain)
   stacked[buf] = nav
+  held[buf] = chain
+end
+
+--- The chain the view named by `u` is already showing, if it is showing one.
+--- @param u forge.Uri
+--- @return forge.Stack?
+function M.holding(u)
+  local buf = M.buffer_named(uri.tostring(u))
+  return buf and held[buf] or nil
 end
 
 --- 'foldexpr' over an item. Not the markdown grammar's, which would fold every

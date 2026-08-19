@@ -453,10 +453,17 @@ function M.item(spec, t, o)
         view.place(o)
       end
       local where = again and vim.tbl_extend('force', o, { keep = true }) or o
-      view.stacked(view.render(u, lines, info, marks, keys(spec.item_maps, nouns), where), nav)
+      view.stacked(
+        view.render(u, lines, info, marks, keys(spec.item_maps, nouns), where),
+        nav,
+        held
+      )
     end
 
-    draw(nil, false)
+    -- Whatever the view already shows, so a redraw keeps the section rather
+    -- than blanking it and filling it in again a round trip later.
+    local showing = view.holding(u)
+    draw(showing, false)
     view.check_truncated(node.labels, 'labels')
     view.check_truncated(node.assignees, 'assignees')
     view.check_truncated(node.comments, 'comments')
@@ -464,10 +471,10 @@ function M.item(spec, t, o)
     if spec.stacked and be.stack then
       -- 'busy' again, so a view whose body is drawn shows it is still filling.
       local chained = view.busy(u)
-      be.stack(t, answer, { cwd = o.cwd }, function(held)
+      be.stack(t, answer, { cwd = o.cwd }, function(found)
         chained()
-        if held then
-          draw(held, true)
+        if found or showing then
+          draw(found, true)
         end
       end)
     end
