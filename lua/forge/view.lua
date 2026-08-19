@@ -662,17 +662,8 @@ end
 --- @param delta integer
 function M.walk_stack(delta)
   local u = M.current()
-  local buf = vim.api.nvim_get_current_buf()
-  local nav = stacked[buf]
-  if not u or not u.number then
-    return
-  end
-  if not nav then
-    -- A chain still in flight is not the absence of one. 'busy' is already
-    -- saying so, and saying it twice would say the wrong thing.
-    if vim.bo[buf].busy == 0 then
-      log.info('no stack here')
-    end
+  local nav = stacked[vim.api.nvim_get_current_buf()]
+  if not u or not u.number or not nav then
     return
   end
   local to = (nav.at - 1 + delta) % #nav.order + 1

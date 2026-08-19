@@ -193,11 +193,11 @@ end
 ---
 --- A view is four or five requests. What a reader waits for is the view.
 --- Every path out settles this exactly once.
---- @param desc string
+--- @param desc string? what to say while it is working
 --- @param on_fail fun()? for a caller to stop saying it is working
 --- @return forge.glab.Job
 local function working(desc, on_fail)
-  local done = log.progress(desc)
+  local done = desc and log.progress(desc) or function() end
   local settled = false
   return {
     fail = function(why)

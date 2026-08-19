@@ -8,7 +8,7 @@ local M = {}
 
 --- A request to make of github.
 --- @class forge.Request
---- @field desc string what to say while it is in flight
+--- @field desc string? what to say while it is in flight
 --- @field query string
 --- @field variables table<string, string|integer|string[]>
 --- @field cwd string? where to run gh, which is where it resolves the repository
@@ -75,7 +75,7 @@ function M.graphql(req, on_done, on_fail)
   local cmd = { 'gh', 'api', 'graphql', '-f', 'query=' .. req.query }
   fields(cmd, variables)
 
-  local done = log.progress(desc)
+  local done = desc and log.progress(desc) or function() end
 
   vim.system(cmd, { text = true, cwd = req.cwd }, function(out)
     vim.schedule(function()

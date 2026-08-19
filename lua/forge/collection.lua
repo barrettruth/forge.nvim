@@ -18,7 +18,7 @@ local M = {}
 
 --- What a fetch needs beyond the target it is for.
 --- @class forge.Fetch
---- @field desc string what to say while it is in flight
+--- @field desc string? what to say while it is in flight
 --- @field cwd string? where to run the CLI, which is where it resolves the repository
 --- @field after string? the cursor a page past the first is asked for with
 
@@ -466,13 +466,10 @@ function M.item(spec, t, o)
     view.check_truncated(node.comments, 'comments')
 
     if spec.stacked and be.stack then
-      -- 'busy' for the second round trip as well as the first. It is what the
-      -- keys that walk a stack read to tell a chain still coming from none.
+      -- 'busy' again for the second round trip, so a view whose body is drawn
+      -- still shows it is filling in.
       local chained = view.busy(u)
-      be.stack(t, answer, {
-        desc = ('the stack %s%d is in'):format(nouns.sigil, node.number),
-        cwd = o.cwd,
-      }, function(held)
+      be.stack(t, answer, { cwd = o.cwd }, function(held)
         chained()
         if held then
           draw(held, true)
