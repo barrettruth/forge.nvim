@@ -49,8 +49,10 @@ local M = {}
 --- other way up.
 --- @class forge.Stack
 --- @field layers forge.stack.Pull[] bottom first
---- @field position integer which layer this is, 1 being the bottom
+--- @field position integer which of `layers` this is, 1 being the bottom
 --- @field number integer? the forge's own number for it, where it keeps one
+--- @field total integer? how many layers it holds, where the forge handed
+--- over fewer than that
 --- @field forks integer[]? what it forks into above, where the chain is not one
 
 --- One change to send. `kind` says which of the three shapes the rest is: an
@@ -473,6 +475,9 @@ function M.item(spec, t, o)
       local chained = view.busy(u)
       be.stack(t, answer, { cwd = o.cwd }, function(found)
         chained()
+        if found then
+          view.check_truncated({ nodes = found.layers, totalCount = found.total }, 'stack layers')
+        end
         if found or showing then
           draw(found, true)
         end

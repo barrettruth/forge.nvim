@@ -195,7 +195,7 @@ end
 
 --- @param req forge.Request
 local function asking(req)
-  if req.query:find('stackEntry', 1, true) then
+  if req.query:find('stack {', 1, true) then
     return 'entry'
   end
   if req.query:find('under:', 1, true) then
@@ -224,10 +224,8 @@ describe('github.stack', function()
         repository = {
           open = { totalCount = 4000 },
           pullRequest = {
-            stackEntry = { position = 3 },
             stack = {
               number = 7,
-              size = 4,
               entries = {
                 totalCount = 4,
                 nodes = {
@@ -247,6 +245,106 @@ describe('github.stack', function()
     assert.equals(7, assert(held).number)
     assert.equals(3, held.position)
     assert.same({ 147, 148, 149, 150 }, numbers(held.layers))
+  end)
+
+  --- A stack github keeps, holding `entries` and saying it holds `totalCount`.
+  --- @param entries table[]
+  --- @param total integer?
+  --- @return fun(req: forge.Request): table
+  local function keeping(entries, total)
+    return function(req)
+      if asking(req) ~= 'entry' then
+        return { repository = { pullRequests = { nodes = {} } } }
+      end
+      return {
+        repository = {
+          open = { totalCount = 4000 },
+          pullRequest = {
+            stack = { number = 7, entries = { totalCount = total or #entries, nodes = entries } },
+          },
+        },
+      }
+    end
+  end
+
+  it('counts the layer being read against the layers it was handed', function()
+    -- github froze #147 and #148 at their positions when they merged, and goes
+    -- on counting past them. The section draws four rows, and #149 is the third.
+    local held = asked(
+      item(),
+      keeping({
+        { position = 1, pullRequest = layer(147, 'main', 'a', { state = 'MERGED' }) },
+        { position = 2, pullRequest = layer(148, 'a', 'b', { state = 'MERGED' }) },
+        { position = 3, pullRequest = layer(149, 'b', 'c') },
+        { position = 4, pullRequest = layer(150, 'c', 'd') },
+      })
+    )
+
+    assert.equals(3, assert(held).position)
+    assert.equals(149, held.layers[held.position].number)
+  end)
+
+  it('counts past a layer whose pull request it was not shown', function()
+    -- `pullRequest` is nullable. Position 2 answers nothing, so #149 is drawn
+    -- second of three however github numbers it.
+    local held = asked(
+      item(),
+      keeping({
+        { position = 1, pullRequest = layer(147, 'main', 'a') },
+        { position = 2 },
+        { position = 3, pullRequest = layer(149, 'b', 'c') },
+        { position = 4, pullRequest = layer(150, 'c', 'd') },
+      })
+    )
+
+    assert.same({ 147, 149, 150 }, numbers(assert(held).layers))
+    assert.equals(2, held.position)
+    assert.equals(149, held.layers[held.position].number)
+  end)
+
+  it('says how many layers the stack holds when it handed over fewer', function()
+    local held = asked(
+      item(),
+      keeping({
+        { position = 1, pullRequest = layer(148, 'a', 'b') },
+        { position = 2, pullRequest = layer(149, 'b', 'c') },
+      }, 63)
+    )
+
+    assert.equals(63, assert(held).total)
+    assert.equals(2, #held.layers)
+  end)
+
+  it('derives rather than draw a stack that never reached the layer read', function()
+    local held, sent = asked(item(), function(req)
+      if asking(req) == 'entry' then
+        return {
+          repository = {
+            open = { totalCount = 13 },
+            pullRequest = {
+              stack = {
+                number = 7,
+                entries = {
+                  totalCount = 60,
+                  nodes = { { position = 1, pullRequest = layer(147, 'main', 'a') } },
+                },
+              },
+            },
+          },
+        }
+      end
+      assert.equals('list', asking(req))
+      return {
+        repository = {
+          pullRequests = { nodes = { layer(148, 'a', 'b'), layer(149, 'b', 'c') } },
+        },
+      }
+    end)
+
+    assert.equals(2, #sent)
+    assert.same({ 148, 149 }, numbers(assert(held).layers))
+    assert.equals(2, held.position)
+    assert.is_nil(held.number)
   end)
 
   it('reads a page of open pull requests where the repository holds few', function()

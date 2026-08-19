@@ -153,10 +153,8 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     open: pullRequests(states: [OPEN]) { totalCount }
     pullRequest(number: $number) {
-      stackEntry { position }
       stack {
         number
-        size
         entries(first: %d) {
           totalCount
           nodes { position pullRequest { %s } }
@@ -389,8 +387,13 @@ local function ours(nodes)
   end, type(nodes) == 'table' and nodes or {})
 end
 
---- The stack github itself keeps. Ordered by the position it gives each entry
---- rather than by the order they arrived in.
+--- The stack github itself keeps.
+---
+--- Ordered by the position github gives each entry, then counted afresh over
+--- the layers actually in hand. github freezes a merged layer at its position
+--- and goes on counting past it, so its numbering spans the whole stack while
+--- `entries` is only as much of one as a page holds. A |forge.Stack| counts
+--- its own layers, because that is what the section draws.
 --- @param answer table what the pull request said of itself
 --- @return forge.Stack?
 local function registered(answer)
@@ -398,27 +401,36 @@ local function registered(answer)
   if type(held) ~= 'table' then
     return nil
   end
-  local entries = vim.tbl_get(held, 'entries', 'nodes') or {}
   local placed = {}
-  for _, entry in ipairs(entries) do
+  for _, entry in ipairs(vim.tbl_get(held, 'entries', 'nodes') or {}) do
+    -- `pullRequest` is nullable. An entry the viewer may not see keeps its
+    -- position and answers nothing, leaving a hole in the numbering.
     if type(entry) == 'table' and type(entry.pullRequest) == 'table' then
       placed[#placed + 1] = { at = entry.position or 0, pull = pulled(entry.pullRequest) }
     end
   end
-  if #placed == 0 then
-    return nil
-  end
   table.sort(placed, function(a, b)
     return a.at < b.at
   end)
-  local layers = vim.tbl_map(function(one)
-    return one.pull
-  end, placed)
+
+  local layers, position = {}, nil
+  for i, one in ipairs(placed) do
+    layers[i] = one.pull
+    if one.pull.number == answer.number then
+      position = i
+    end
+  end
+  -- A page that did not reach the layer being read is half a chain, and half
+  -- of one is not drawn. Deriving answers the live chain instead.
+  if not position then
+    return nil
+  end
+
   return {
     layers = layers,
-    position = vim.tbl_get(answer, 'stackEntry', 'position')
-      or stack.position(layers, answer.number or 0),
+    position = position,
     number = held.number,
+    total = vim.tbl_get(held, 'entries', 'totalCount'),
   }
 end
 
