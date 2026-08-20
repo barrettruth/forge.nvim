@@ -428,13 +428,7 @@ When run from outside the repository, "dd", "dl", and "dc" do not work.
 
                                                                     *forge-gf*
 |gf| follows the reference under the cursor. |CTRL-W_f| opens it in a split.
-In Visual mode the selection is used. This is 'includeexpr'. Nothing is bound.
-
-|gf| takes the references ":Issue ." and ":PR ." take. A reference naming no
-repository means the one whose view holds it. Surrounding punctuation is left
-behind: "(#123)", "`#123`" and "#123." all follow to the same place. Anything
-that is not a reference is handed back to Vim. |gf| on an ordinary path in a
-body still opens the file.
+In Visual mode the selection is used.
 
 "!123" is always a merge request. "#123" is an issue, except on GitHub, where
 it means whichever collection the view holds.
