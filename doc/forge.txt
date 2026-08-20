@@ -75,8 +75,7 @@ Optional, one mapping each:
         :PR review-requested:@me
         :Issue label:"good first issue" no:assignee
 <
-    |:command-modifiers| are honoured. The window is made once the forge
-    answers. >
+    |:command-modifiers| are honoured: >
         :vertical Issue 41310
         :tab PR 41138
         :botright Issue neovim/neovim
