@@ -28,14 +28,18 @@ function M.slug(t)
   return owner or '{owner}', repo or '{repo}'
 end
 
-local SLUG = { owner = true, repo = true }
+--- The variables forge writes itself, and so the only ones whose placeholders
+--- are forge's rather than somebody's typing. A search leaves them mid-string,
+--- inside `repo:{owner}/{repo}`, where the slug stands alone.
+local BUILT = { owner = true, repo = true, q = true }
 
 --- How to pass one variable to `gh api`.
 ---
 --- `--raw-field` is the safe default. It sends a String and cannot retype it,
 --- keeping a repository named "123" a name. It does not read a leading "@" as
 --- a filename the way `--field` does. But gh expands `{owner}` and `{repo}`
---- only in `--field`, and only `--field` can carry a number.
+--- only in `--field`, and only `--field` can carry a number. A body that says
+--- "{owner}" is prose and must reach github saying it.
 --- @param name string
 --- @param value string|integer
 --- @return '-f'|'-F'
@@ -43,7 +47,7 @@ local function flag(name, value)
   if type(value) == 'number' then
     return '-F'
   end
-  return (SLUG[name] and value:match('^{%a+}$')) and '-F' or '-f'
+  return (BUILT[name] and value:match('{%a+}')) and '-F' or '-f'
 end
 
 --- Both kinds of request carry their variables the same way.

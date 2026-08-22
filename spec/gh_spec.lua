@@ -50,6 +50,16 @@ describe('how a variable reaches gh', function()
     assert.equals('-F', under(cmd, 'repo'))
   end)
 
+  it('lets a search carry the placeholders, which sit inside the repo: it scopes with', function()
+    local flag, value = under(ask({ q = 'repo:{owner}/{repo} is:issue is:open' }), 'q')
+    assert.equals('-F', flag)
+    assert.equals('repo:{owner}/{repo} is:issue is:open', value)
+  end)
+
+  it('sends a search that named its repository as a string', function()
+    assert.equals('-f', under(ask({ q = 'repo:neovim/neovim is:issue is:open' }), 'q'))
+  end)
+
   it('sends a repository actually named "123" as a name', function()
     local cmd = ask({ owner = '123', repo = '456' })
     assert.equals('-f', under(cmd, 'owner'))
