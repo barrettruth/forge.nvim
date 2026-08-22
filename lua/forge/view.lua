@@ -121,13 +121,19 @@ local WINBAR = {
 --- @type table<integer, vim.fn.winsaveview.ret>
 local placed = {}
 
---- How far through a list each buffer has got.
+--- How far through a list each buffer has got, and what it is showing.
 ---
 --- Lua rather than `b:`. The cursors are keyed by page and page one has none,
 --- leaving a hole. A buffer variable brings that hole back as a list holding
 --- `vim.NIL`: truthy, and not a cursor.
---- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean }>
+--- @type table<integer, { page: integer, cursors: table<integer, string>, has_next: boolean, numbers: integer[] }>
 local pages = {}
+
+--- The list each item buffer was opened from, by name. A search is a list of
+--- its own, and stepping through one must not wander into the whole
+--- collection. An item reached any other way has no entry and no neighbours.
+--- @type table<integer, string?>
+local from = {}
 
 --- The stack each item buffer is showing, for the keys that walk one. Lua
 --- rather than `b:`, as the pages above are: it is read by a mapping and never
@@ -164,6 +170,7 @@ function M.forget(buf)
   drawn[buf] = nil
   stacked[buf] = nil
   held[buf] = nil
+  from[buf] = nil
 end
 
 --- How many items a list asks the forge for at once.
@@ -192,6 +199,8 @@ end
 --- @field keep boolean? this is the content you were already reading
 --- @field hidden boolean? draw it into its buffer without giving it a window
 --- @field seq integer? which request this is
+--- @field from string? the list this was opened from, for the keys that step
+--- through one
 
 --- The repository a target names, for a progress message to say.
 --- @param t forge.Target
@@ -236,18 +245,19 @@ end
 
 --- Where a list buffer has got to.
 --- @param buf integer
---- @return { page: integer, cursors: table<integer, string>, has_next: boolean }
+--- @return { page: integer, cursors: table<integer, string>, has_next: boolean, numbers: integer[] }
 function M.paging(buf)
-  return pages[buf] or { page = 1, cursors = {}, has_next = false }
+  return pages[buf] or { page = 1, cursors = {}, has_next = false, numbers = {} }
 end
 
---- Record where a list buffer has got to.
+--- Record where a list buffer has got to, and what it drew.
 --- @param buf integer
 --- @param page integer
 --- @param cursors table<integer, string>
 --- @param has_next boolean
-function M.paged(buf, page, cursors, has_next)
-  pages[buf] = { page = page, cursors = cursors, has_next = has_next }
+--- @param numbers integer[]? the items on this page, in the order drawn
+function M.paged(buf, page, cursors, has_next, numbers)
+  pages[buf] = { page = page, cursors = cursors, has_next = has_next, numbers = numbers or {} }
 end
 
 --- Record the stack an item buffer drew, or that it drew none.
@@ -451,6 +461,9 @@ function M.render(u, lines, info, marks, maps, o)
   end
 
   vim.b[buf].forge = info
+  -- Sticky. A redraw carries no `from`, and the list that opened this item is
+  -- still the list that opened it.
+  from[buf] = (o and o.from) or from[buf]
 
   map.buf_default(buf, 'n', 'g?', '<Plug>(forge-help)', 'what the keys in this buffer do')
   map.buf_default(buf, 'n', '-', '<Plug>(forge-up)', 'go up to the list this item is in')
@@ -553,13 +566,16 @@ function M.command(target, collection, opts)
   M.open(t, { mods = opts and opts.mods, smods = opts and opts.smods })
 end
 
---- Leave an item for the list it belongs to.
+--- Leave an item for the list it came from, narrowed as that list was. The
+--- whole collection only for an item that reached the editor another way.
 function M.up()
   local u = M.current()
   if not u or not u.number then
     return
   end
-  M.open({ host = u.host, project = u.project, collection = u.collection }, { keep = true })
+  local name = from[vim.api.nvim_get_current_buf()]
+  local back = name and uri.parse(name)
+  M.open(back or { host = u.host, project = u.project, collection = u.collection }, { keep = true })
 end
 
 --- Fetch this view again, keeping the page. |:edit| rebuilds from the name.
@@ -657,6 +673,16 @@ local function named_here(u)
   return number and tonumber(number) or nil
 end
 
+--- The list an item opened from here would belong to: this buffer when it is
+--- the list, and whatever opened this one when it is an item following a
+--- stack row.
+--- @param u forge.Uri
+--- @return string?
+local function origin(u)
+  local buf = vim.api.nvim_get_current_buf()
+  return u.number and from[buf] or vim.api.nvim_buf_get_name(buf)
+end
+
 --- Open the item the line under the cursor names.
 --- @param split boolean? open it beside the view it was asked for in
 function M.open_at_cursor(split)
@@ -673,7 +699,7 @@ function M.open_at_cursor(split)
     project = u.project,
     collection = u.collection,
     number = number,
-  }, { keep = true, split = split })
+  }, { keep = true, split = split, from = origin(u) })
 end
 
 --- Step `delta` layers through the stack, up the buffer for a negative one.
@@ -691,7 +717,57 @@ function M.walk_stack(delta)
     project = u.project,
     collection = u.collection,
     number = nav.order[to],
-  }, { keep = true })
+  }, { keep = true, from = origin(u) })
+end
+
+--- Step `delta` items through the list this one was opened from.
+---
+--- List-relative, as |:cnext| is quickfix-relative: an item reached by number,
+--- by |gf| or from a stack has no list behind it and no neighbours. Neither
+--- end wraps. A page holds a hundred, which is too many to come round.
+--- @param delta integer
+function M.step(delta)
+  local u = M.current()
+  if not u or not u.number then
+    return
+  end
+  local said = nouns(u)
+  local name = from[vim.api.nvim_get_current_buf()]
+  local list = name and M.buffer_named(name) or nil
+  if not list then
+    log.info(('this %s was not opened from a list'):format(said.one))
+    return
+  end
+
+  local numbers = M.paging(list).numbers
+  local found
+  for i, number in ipairs(numbers) do
+    if number == u.number then
+      found = i
+      break
+    end
+  end
+  -- The list is a page, and it may have turned since. Nothing to step from.
+  if not found then
+    log.info(('%s%d is not on the page that list is showing'):format(said.sigil, u.number))
+    return
+  end
+
+  local to = found + delta
+  if to < 1 then
+    log.info(('already at the first of these %s'):format(said.many))
+    return
+  end
+  if to > #numbers then
+    log.info(('no more %s on this page'):format(said.many))
+    return
+  end
+  M.open({
+    host = u.host,
+    project = u.project,
+    collection = u.collection,
+    number = numbers[to],
+  }, { keep = true, from = name })
 end
 
 --- Warn when a connection came back truncated.

@@ -291,8 +291,12 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
     gf       (see |forge-gf|)          Follow the reference under the cursor.
     -        <Plug>(forge-up)          Leave an item for its list.
     R        <Plug>(forge-refresh)     Fetch this view again, in place.
-    ]i  [i   <Plug>(forge-next-page)   Page through a list. ]p and [p
-             <Plug>(forge-prev-page)   in a pull or merge request list.
+    ]i  [i   <Plug>(forge-next-page)   In a list, page through it. ]p and
+             <Plug>(forge-prev-page)   [p in a pull or merge request list.
+    ]i  [i   <Plug>(forge-next-item)   In an item, step through the list it
+             <Plug>(forge-prev-item)   was opened from. ]p and [p in a pull
+                                       or merge request. A count steps that
+                                       many.
     ]s  [s   <Plug>(forge-stack-down)  Step down and up a stack. A count
              <Plug>(forge-stack-up)    steps that many layers.
     ga       <Plug>(forge-create)      Start something new, on the forge.
@@ -315,6 +319,8 @@ Buffer-local defaults, only set if you have not mapped the |<Plug>| target:
                                                        *<Plug>(forge-refresh)*
                                                      *<Plug>(forge-next-page)*
                                                      *<Plug>(forge-prev-page)*
+                                                     *<Plug>(forge-next-item)*
+                                                     *<Plug>(forge-prev-item)*
                                                       *<Plug>(forge-stack-up)*
                                                     *<Plug>(forge-stack-down)*
                                                         *<Plug>(forge-create)*

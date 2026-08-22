@@ -46,6 +46,8 @@ local ISSUES = {
   item_maps = {
     { 'cc', '<Plug>(forge-act)', 'do something to this {one}' },
     { 'cE', '<Plug>(forge-edit)', "edit this {one}'s title and body" },
+    { ']i', '<Plug>(forge-next-item)', 'the next {one} in the list this came from' },
+    { '[i', '<Plug>(forge-prev-item)', 'the previous {one} in the list this came from' },
   },
   remember = function(node)
     return { id = node.id, can_update = node.viewerCanUpdate }

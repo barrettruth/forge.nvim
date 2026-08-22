@@ -324,10 +324,11 @@ function M.list(spec, t, o)
     end
     local format = ('%s%%-%dd %%s'):format(nouns.sigil, width)
 
-    local lines, marks = {}, {}
+    local lines, marks, numbers = {}, {}, {}
     for _, node in ipairs(nodes) do
       local row = #lines
       lines[row + 1] = format:format(node.number, node.title)
+      numbers[row + 1] = node.number
       marks[#marks + 1] = {
         row = row,
         col = 0,
@@ -360,7 +361,7 @@ function M.list(spec, t, o)
     if answer.cursor then
       cursors[page + 1] = answer.cursor
     end
-    view.paged(buf, page, cursors, answer.has_next)
+    view.paged(buf, page, cursors, answer.has_next, numbers)
   end, settle)
 end
 

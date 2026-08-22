@@ -1,6 +1,7 @@
 local gh = require('forge.gh')
 local issue = require('forge.issue')
 local pr = require('forge.pr')
+local view = require('forge.view')
 
 local NOW = os.date('!%Y-%m-%dT%H:%M:%SZ') --[[@as string]]
 
@@ -451,6 +452,21 @@ describe('a list github answered with', function()
       end
     )
     assert.same({ '#7    short', '#1234 long' }, drawn())
+  end)
+
+  it('keeps the numbers it drew, in order, for the keys that step through them', function()
+    answering(
+      response({
+        { number = 7, title = 'first' },
+        { number = 1234, title = 'second' },
+        { number = 40, title = 'third' },
+      }),
+      function()
+        show()
+      end
+    )
+    local paging = view.paging(vim.api.nvim_get_current_buf())
+    assert.same({ 7, 1234, 40 }, paging.numbers)
   end)
 
   it('marks each number rather than matching one out of the title afterwards', function()

@@ -150,6 +150,8 @@ local PRS = {
     { 'dl', '<Plug>(forge-log)', "show this {one}'s commits in fugitive" },
     { '[s', '<Plug>(forge-stack-up)', 'the {one} above this one in its stack' },
     { ']s', '<Plug>(forge-stack-down)', 'the {one} below this one in its stack' },
+    { ']p', '<Plug>(forge-next-item)', 'the next {one} in the list this came from' },
+    { '[p', '<Plug>(forge-prev-item)', 'the previous {one} in the list this came from' },
   },
   stacked = true,
   -- The branches and the repository cannot be read back off a drawn view.

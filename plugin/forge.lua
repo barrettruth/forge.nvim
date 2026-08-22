@@ -88,6 +88,14 @@ vim.keymap.set('n', '<Plug>(forge-prev-page)', function()
   require('forge.view').page(-1)
 end, { desc = 'the previous page' })
 
+vim.keymap.set('n', '<Plug>(forge-next-item)', function()
+  require('forge.view').step(vim.v.count1)
+end, { desc = 'the next item in the list this one was opened from' })
+
+vim.keymap.set('n', '<Plug>(forge-prev-item)', function()
+  require('forge.view').step(-vim.v.count1)
+end, { desc = 'the previous item in the list this one was opened from' })
+
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {

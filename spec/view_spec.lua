@@ -201,6 +201,13 @@ describe('where a list got to', function()
     assert.equals(1, paging.page)
     assert.same({}, paging.cursors)
     assert.is_false(paging.has_next)
+    assert.same({}, paging.numbers)
+  end)
+
+  it('keeps the numbers a page drew, in the order it drew them', function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    view.paged(buf, 1, {}, true, { 41418, 36597, 41416 })
+    assert.same({ 41418, 36597, 41416 }, view.paging(buf).numbers)
   end)
 
   it('is not a buffer variable, so nothing serialises the hole at page one', function()
