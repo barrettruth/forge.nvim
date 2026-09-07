@@ -41,8 +41,8 @@ Optional, one mapping each:
 ==============================================================================
 3. COMMANDS                                                   *forge-commands*
 
-:Issue [{target}]                                                     *:Issue*
-:PR [{target}]                                                           *:PR*
+:Issue [++curwin] [{target}]                                          *:Issue*
+:PR [++curwin] [{target}]                                                *:PR*
     Open {target}. Without an argument, open the list for the current
     repository. {target} is any of: >
         :PR @
@@ -75,11 +75,18 @@ Optional, one mapping each:
         :PR review-requested:@me
         :Issue label:"good first issue" no:assignee
 <
-    |:command-modifiers| are honoured: >
+    By default, the answer opens in a horizontal split. "++curwin" puts it in
+    the current window instead: >
+        :Issue ++curwin 41310
+        :PR ++curwin @
+<
+    |:command-modifiers| choose another placement: >
         :vertical Issue 41310
         :tab PR 41138
         :botright Issue neovim/neovim
 <
+    A window modifier takes precedence when combined with "++curwin".
+
                                                                    *forge-api*
 The same two entry points in Lua: >lua
     require('forge').issue(target)

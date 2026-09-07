@@ -96,15 +96,20 @@ vim.keymap.set('n', '<Plug>(forge-prev-item)', function()
   require('forge.view').step(-vim.v.count1)
 end, { desc = 'the previous item in the list this one was opened from' })
 
+local function complete(lead)
+  if lead:find('^%+') then
+    return vim.startswith('++curwin', lead) and { '++curwin' } or {}
+  end
+  return require('forge.search').complete(lead)
+end
+
 vim.api.nvim_create_user_command('Issue', function(opts)
   require('forge.issue').open(opts.args, opts)
 end, {
   nargs = '*',
   -- Not `bar`. It would make a `"` start a comment, and github's own advice
   -- for a label of more than one word is to quote it.
-  complete = function(lead)
-    return require('forge.search').complete(lead)
-  end,
+  complete = complete,
   desc = 'open a GitHub issue, or the issue list',
 })
 
@@ -114,9 +119,7 @@ end, {
   nargs = '*',
   -- Not `bar`. It would make a `"` start a comment, and github's own advice
   -- for a label of more than one word is to quote it.
-  complete = function(lead)
-    return require('forge.search').complete(lead)
-  end,
+  complete = complete,
   desc = 'open a GitHub pull request, or the pull request list',
 })
 

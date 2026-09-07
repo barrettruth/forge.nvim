@@ -42,6 +42,72 @@ describe('view.render', function()
   end)
 end)
 
+describe('a top-level command', function()
+  local issue = require('forge.issue')
+  local show
+
+  before_each(function()
+    show = issue.show
+  end)
+
+  after_each(function()
+    issue.show = show
+  end)
+
+  local function opening(target, opts)
+    local seen
+    issue.show = function(t, o)
+      seen = { target = t, open = o }
+    end
+    view.command(target, 'issues', opts)
+    return assert(seen)
+  end
+
+  it('asks for a reusable split by default', function()
+    local seen = opening('27')
+
+    assert.equals(27, seen.target.number)
+    assert.is_true(seen.open.split)
+    assert.is_true(seen.open.reuse)
+  end)
+
+  it('carries an explicit placement without reusing another window', function()
+    local smods = { vertical = true }
+    local seen = opening('27', { mods = 'vertical', smods = smods })
+
+    assert.equals('vertical', seen.open.mods)
+    assert.equals(smods, seen.open.smods)
+    assert.is_true(seen.open.split)
+    assert.is_false(seen.open.reuse)
+  end)
+
+  it('takes ++curwin out of the target and keeps the invoking window', function()
+    local seen = opening('++curwin label:bug is:open')
+
+    assert.equals('label:bug is:open', seen.target.query)
+    assert.is_false(seen.open.split)
+    assert.is_false(seen.open.reuse)
+  end)
+
+  it('lets an explicit placement overrule ++curwin', function()
+    local seen = opening('++curwin 27', {
+      mods = 'vertical',
+      smods = { vertical = true },
+    })
+
+    assert.is_true(seen.open.split)
+    assert.is_false(seen.open.reuse)
+  end)
+
+  it('takes a bare ++curwin to mean the collection', function()
+    local seen = opening('++curwin')
+
+    assert.is_nil(seen.target.number)
+    assert.is_nil(seen.target.query)
+    assert.is_false(seen.open.split)
+  end)
+end)
+
 describe('a rendered buffer', function()
   it('is a scratch buffer nothing can write to or undo', function()
     local buf = view.render(uri('issues', 31), { 'x' }, info('item'))
@@ -153,6 +219,22 @@ describe('a window showing a view', function()
     vim.api.nvim_win_set_buf(win, vim.api.nvim_create_buf(false, true))
     assert.is_false(vim.wo[win].cursorline)
     assert.equals('', vim.wo[win].winbar)
+  end)
+
+  it('focuses a visible answer instead of splitting it again', function()
+    local u = uri('issues', 64)
+    local buf = view.render(u, { 'x' }, info('item'))
+    local answer = vim.api.nvim_get_current_win()
+    vim.cmd.new()
+    local origin = vim.api.nvim_get_current_win()
+    local before = #vim.api.nvim_list_wins()
+
+    view.place({ win = origin, split = true, reuse = true }, u)
+
+    assert.equals(answer, vim.api.nvim_get_current_win())
+    assert.equals(buf, vim.api.nvim_get_current_buf())
+    assert.equals(before, #vim.api.nvim_list_wins())
+    vim.cmd.only()
   end)
 end)
 

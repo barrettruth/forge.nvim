@@ -195,6 +195,7 @@ end
 --- @field mods string? see |:command-modifiers|
 --- @field smods table?
 --- @field split boolean? put the answer beside the view it was asked for in
+--- @field reuse boolean? focus the answer when it is already visible
 --- @field cwd string? the directory the request is made from
 --- @field keep boolean? this is the content you were already reading
 --- @field hidden boolean? draw it into its buffer without giving it a window
@@ -335,17 +336,40 @@ function M.split_for(opts)
   end
 end
 
+--- The window showing `buf` in the tab where a request began.
+--- @param buf integer
+--- @param origin integer?
+--- @return integer?
+local function visible_from(buf, origin)
+  local tab = origin and vim.api.nvim_win_is_valid(origin) and vim.api.nvim_win_get_tabpage(origin)
+    or vim.api.nvim_get_current_tabpage()
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+    if vim.api.nvim_win_get_buf(win) == buf then
+      return win
+    end
+  end
+end
+
 --- Put the editor where a view is about to be drawn.
 ---
 --- The answer belongs in the window the command was given in, not whichever
 --- is current once the forge replies. The split is made after the reply. A
 --- request that fails leaves no window behind.
 --- @param o forge.Open?
-function M.place(o)
+--- @param u forge.Uri? the answer about to be drawn
+function M.place(o, u)
   -- `hidden` is for a view redrawn because something was written to it, while
   -- the window it lives in still shows the buffer that did the writing.
   if not M.newest(o) or (o and o.hidden) then
     return
+  end
+  if o and o.reuse and u then
+    local buf = M.buffer_named(uri.tostring(u))
+    local win = buf and visible_from(buf, o.win) or nil
+    if win then
+      vim.api.nvim_set_current_win(win)
+      return
+    end
   end
   if o and o.win and vim.api.nvim_win_is_valid(o.win) then
     vim.api.nvim_set_current_win(o.win)
@@ -545,7 +569,19 @@ end
 --- @param collection forge.Collection
 --- @param opts vim.api.keyset.create_user_command.command_args?
 function M.command(target, collection, opts)
-  if vim.trim(target or '') == '.' then
+  target = vim.trim(target or '')
+  local curwin = target == '++curwin'
+  if curwin then
+    target = ''
+  else
+    local rest = target:match('^%+%+curwin%s+(.+)$')
+    if rest then
+      target = rest
+      curwin = true
+    end
+  end
+
+  if target == '.' then
     local token, why = ref.at_cursor()
     if not token then
       log.err(why or 'nothing under the cursor')
@@ -563,7 +599,14 @@ function M.command(target, collection, opts)
     log.err(('that names %s; use %s'):format(nouns(t).many, OTHER[collection]))
     return
   end
-  M.open(t, { mods = opts and opts.mods, smods = opts and opts.smods })
+  local smods = opts and opts.smods
+  local positioned = M.wants_window(smods)
+  M.open(t, {
+    mods = opts and opts.mods,
+    smods = smods,
+    split = positioned or not curwin,
+    reuse = not curwin and not positioned,
+  })
 end
 
 --- Leave an item for the list it came from, narrowed as that list was. The
