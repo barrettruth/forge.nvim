@@ -356,7 +356,7 @@ function M.list(spec, t, o)
       total = answer.total and tostring(answer.total) or nil,
     }
 
-    view.place(o)
+    view.place(o, u)
     local buf = view.render(u, lines, info, marks, keys(spec.list_maps, nouns), o)
     if answer.cursor then
       cursors[page + 1] = answer.cursor
@@ -491,7 +491,7 @@ function M.item(spec, t, o)
       end
 
       if not again then
-        view.place(o)
+        view.place(o, u)
       end
       local where = again and vim.tbl_extend('force', o, { keep = true }) or o
       view.stacked(

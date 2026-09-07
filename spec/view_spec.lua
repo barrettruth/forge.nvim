@@ -33,12 +33,23 @@ describe('view.render', function()
     assert.same({ 'the list' }, vim.api.nvim_buf_get_lines(list, 0, -1, false))
   end)
 
-  it('reuses the buffer a view already has', function()
-    local first = view.render(uri('prs', 9), { 'one' }, info('item'))
-    local again = view.render(uri('prs', 9), { 'two' }, info('item'))
+  it('reuses the buffer and window a view already has', function()
+    local u = uri('prs', 9)
+    local first = view.render(u, { 'one' }, info('item'))
+    local answer = vim.api.nvim_get_current_win()
+    local again = view.render(u, { 'two' }, info('item'))
 
     assert.equals(first, again)
     assert.same({ 'two' }, vim.api.nvim_buf_get_lines(again, 0, -1, false))
+
+    vim.cmd.new()
+    local origin = vim.api.nvim_get_current_win()
+    local before = #vim.api.nvim_list_wins()
+    view.place({ win = origin, split = true, reuse = true }, u)
+
+    assert.equals(answer, vim.api.nvim_get_current_win())
+    assert.equals(before, #vim.api.nvim_list_wins())
+    vim.cmd.only()
   end)
 end)
 

@@ -60,24 +60,41 @@ describe('a query on the command line', function()
 
   local function given(cmdline)
     local issue = require('forge.issue')
-    local real, got = issue.open, nil
-    issue.open = function(target)
-      got = target
+    local real, got = issue.show, nil
+    issue.show = function(target, open)
+      got = { target = target, open = open }
     end
     vim.cmd(cmdline)
-    issue.open = real
-    return got
+    issue.show = real
+    return assert(got)
   end
 
   it('keeps a quoted value, which github asks for on any label of two words', function()
     assert.equals(
       'label:"good first issue" is:open',
-      given([[Issue label:"good first issue" is:open]])
+      given([[Issue label:"good first issue" is:open]]).target.query
     )
   end)
 
   it("keeps the rest of what github's syntax spells with punctuation", function()
-    assert.equals('-label:lsp author:@me', given([[Issue -label:lsp author:@me]]))
-    assert.equals('label:a,b in:title', given([[Issue label:a,b in:title]]))
+    assert.equals('-label:lsp author:@me', given([[Issue -label:lsp author:@me]]).target.query)
+    assert.equals('label:a,b in:title', given([[Issue label:a,b in:title]]).target.query)
+  end)
+
+  it('opens a reusable split unless a modifier places it', function()
+    local bare = given('Issue 27').open
+    assert.is_true(bare.split)
+    assert.is_true(bare.reuse)
+
+    for _, cmd in ipairs({
+      'botright Issue 27',
+      'horizontal Issue 27',
+      'tab Issue 27',
+      'vertical Issue 27',
+    }) do
+      local placed = given(cmd).open
+      assert.is_true(placed.split)
+      assert.is_false(placed.reuse)
+    end
   end)
 end)
