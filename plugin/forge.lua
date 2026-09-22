@@ -3,6 +3,10 @@ if vim.g.loaded_forge then
 end
 vim.g.loaded_forge = true
 
+pcall(function()
+  require('forge.migration').warn_if_github_source()
+end)
+
 vim.keymap.set(
   'n',
   '<Plug>(forge-help)',

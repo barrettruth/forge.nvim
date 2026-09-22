@@ -13,9 +13,10 @@ CONTENTS                                                      *forge-contents*
   6. Buffers ............................................. |forge-buffers|
   7. Mappings ........................................... |forge-mappings|
   8. Search ............................................... |forge-search|
-  9. GitLab ............................................... |forge-gitlab|
+ 9. GitLab ............................................... |forge-gitlab|
  10. Limitations ..................................... |forge-limitations|
  11. Health ............................................... |forge-health|
+ 12. Migration ......................................... |forge-migration|
 
 ==============================================================================
 1. INTRODUCTION                             *forge* *forge.nvim* *forge-intro*
@@ -37,6 +38,16 @@ Optional, one mapping each:
 - ci.nvim, for "dc": https://forge.barrettruth.com/barrettruth/ci.nvim
 - diffs.nvim, for "dd": https://forge.barrettruth.com/barrettruth/diffs.nvim
 - vim-fugitive, for "dl": https://github.com/tpope/vim-fugitive
+
+==============================================================================
+MIGRATION                                                    *forge-migration*
+
+forge.nvim will be removed from GitHub on October 31, 2026. Update your plugin
+source to Forgejo: >lua
+    vim.pack.add({
+      'https://forge.barrettruth.com/barrettruth/forge.nvim',
+    })
+<
 
 ==============================================================================
 3. COMMANDS                                                   *forge-commands*
