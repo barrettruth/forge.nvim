@@ -2,7 +2,7 @@
 
 GitHub and GitLab issues, pull requests and merge requests in Neovim.
 
-![forge.nvim](assets/forge.webp)
+![forge.nvim](https://forge.barrettruth.com/attachments/9233bb62-86ee-4396-8505-a28b2147836c)
 
 ## Requirements
 
