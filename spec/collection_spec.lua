@@ -136,7 +136,10 @@ describe('an issue github answered with', function()
 
   it('is filed under the name github spelled, not the one asked for', function()
     answering(response(), function()
-      issue.show({ project = 'Neovim/Neovim', collection = 'issues', number = 41310 }, {})
+      issue.show(
+        { host = 'github.com', project = 'Neovim/Neovim', collection = 'issues', number = 41310 },
+        {}
+      )
     end)
     assert.equals(
       'forge://github.com/neovim/neovim/issues/41310',
