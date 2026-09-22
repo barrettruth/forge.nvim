@@ -2,10 +2,6 @@
 
 GitHub and GitLab issues, pull requests and merge requests in Neovim.
 
-> [!NOTE]
-> Active development is hosted on
-> [Forgejo](https://forge.barrettruth.com/barrettruth/forge.nvim).
-
 ![forge.nvim](assets/forge.webp)
 
 ## Requirements
