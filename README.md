@@ -2,7 +2,11 @@
 
 GitHub and GitLab issues, pull requests and merge requests in Neovim.
 
-<img width="1728" height="1016" alt="Image" src="https://github.com/user-attachments/assets/beb94673-c70b-4044-822a-d6762bba8862" />
+> [!NOTE]
+> Active development is hosted on
+> [Forgejo](https://forge.barrettruth.com/barrettruth/forge.nvim).
+
+![forge.nvim](assets/forge.webp)
 
 ## Requirements
 
@@ -15,7 +19,7 @@ GitHub and GitLab issues, pull requests and merge requests in Neovim.
 ## Installation
 
 ```lua
-vim.pack.add({ 'https://github.com/barrettruth/forge.nvim' })
+vim.pack.add({ 'https://forge.barrettruth.com/barrettruth/forge.nvim' })
 ```
 
 ## Usage

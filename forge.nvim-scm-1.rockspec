@@ -3,12 +3,12 @@ package = 'forge.nvim'
 version = 'scm-1'
 
 source = {
-  url = 'git+https://github.com/barrettruth/forge.nvim.git',
+  url = 'git+https://forge.barrettruth.com/barrettruth/forge.nvim.git',
 }
 
 description = {
   summary = 'GitHub issues and pull requests in Neovim',
-  homepage = 'https://github.com/barrettruth/forge.nvim',
+  homepage = 'https://forge.barrettruth.com/barrettruth/forge.nvim',
   license = 'GPL-3.0',
 }
 

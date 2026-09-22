@@ -1,7 +1,7 @@
 # Contributing
 
 Development, issues, and pull requests happen on
-[GitHub](https://github.com/barrettruth/forge.nvim).
+[Forgejo](https://forge.barrettruth.com/barrettruth/forge.nvim).
 
 ## Scope
 
