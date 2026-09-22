@@ -9,7 +9,7 @@ body:
       options:
         - label:
             I have searched [existing
-            issues](https://github.com/barrettruth/forge.nvim/issues)
+            issues](https://forge.barrettruth.com/barrettruth/forge.nvim/issues)
           required: true
         - label: I have updated to the latest version
           required: true
@@ -67,7 +67,7 @@ body:
       render: lua
       value: |
         vim.pack.add({
-          'https://github.com/barrettruth/forge.nvim',
+          'https://forge.barrettruth.com/barrettruth/forge.nvim.git',
         })
     validations:
       required: true
