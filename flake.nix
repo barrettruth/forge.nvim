@@ -44,14 +44,12 @@
             pkgs.vimdoc-language-server
             nvim
           ];
-          shell = pkgs.mkShell {
+        in
+        {
+          default = pkgs.mkShell {
             packages = devTools;
             VIMRUNTIME = "${nvim}/share/nvim/runtime";
           };
-        in
-        {
-          default = shell;
-          ci = shell;
         }
       );
     };
